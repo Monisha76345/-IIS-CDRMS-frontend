@@ -79,6 +79,8 @@ import {
 } from '@/src/cdrms/theme';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go } from '@/src/cdrms/types';
+import { useAuth } from '@/src/auth/AuthContext';
+import { ApiError } from '@/src/api/client';
 
 const SPLASH_HOLD_MS = 3200;
 const OTP_LENGTH = 6;
@@ -319,9 +321,34 @@ export function SplashScreen({ go }: { go: Go }) {
 }
 
 export function LoginScreen({ go }: { go: Go }) {
-  const [empId, setEmpId] = useState('ENG-4821');
-  const [mobile, setMobile] = useState('98765 43210');
+  const { login } = useAuth();
+  const [loginId, setLoginId] = useState('CDRMS00001');
+  const [password, setPassword] = useState('Okay@123');
   const [remember, setRemember] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function onSecureLogin() {
+    setError('');
+    if (!loginId.trim() || !password.trim()) {
+      setError('Enter Login ID / email and password');
+      return;
+    }
+    setLoading(true);
+    try {
+      await login(loginId, password);
+      go('otp');
+    } catch (e) {
+      const msg =
+        e instanceof ApiError
+          ? e.message
+          : 'Unable to reach API. Set EXPO_PUBLIC_API_URL to your machine IP.';
+      setError(msg);
+      Alert.alert('Login failed', msg);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <ScreenShell>
@@ -354,7 +381,7 @@ export function LoginScreen({ go }: { go: Go }) {
                     Welcome back,{'\n'}Engineer
                   </Text>
                   <Text className="mt-2 text-sm text-white/85">
-                    Sign in to continue your field verification tasks.
+                    Sign in with your CDRMS Login ID to continue field tasks.
                   </Text>
                 </VStack>
 
@@ -378,19 +405,23 @@ export function LoginScreen({ go }: { go: Go }) {
               <AppCard>
                 <VStack space="md">
                   <Field
-                    label={TERMS.fields.employeeId}
+                    label="Login ID / Email"
                     icon={User}
-                    value={empId}
-                    onChangeText={setEmpId}
-                    autoCapitalize="characters"
+                    value={loginId}
+                    onChangeText={setLoginId}
+                    autoCapitalize="none"
                   />
                   <Field
-                    label={TERMS.fields.mobileNumber}
-                    icon={Phone}
-                    value={mobile}
-                    onChangeText={setMobile}
-                    keyboardType="phone-pad"
+                    label="Password"
+                    icon={Lock}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
                   />
+
+                  {error ? (
+                    <Text className="text-sm text-red-600">{error}</Text>
+                  ) : null}
 
                   <Checkbox
                     value="remember"
@@ -406,8 +437,8 @@ export function LoginScreen({ go }: { go: Go }) {
                     </CheckboxLabel>
                   </Checkbox>
 
-                  <AppBtn onPress={() => go('otp')} icon={Lock}>
-                    Secure Login
+                  <AppBtn onPress={onSecureLogin} icon={Lock} disabled={loading}>
+                    {loading ? 'Signing in…' : 'Secure Login'}
                   </AppBtn>
 
                   <HStack className="items-center gap-3">
@@ -430,7 +461,7 @@ export function LoginScreen({ go }: { go: Go }) {
 
               <HStack className="mt-4 items-center justify-between">
                 <Pressable>
-                  <Text className="text-sm text-primary font-semibold">Forgot Employee ID?</Text>
+                  <Text className="text-sm text-primary font-semibold">Forgot Login ID?</Text>
                 </Pressable>
                 <Pressable>
                   <Text className="text-sm text-muted-foreground font-medium">Contact Admin</Text>

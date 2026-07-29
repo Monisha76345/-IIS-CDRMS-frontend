@@ -1,5 +1,6 @@
 import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
 import { RootNavigator } from '@/src/navigation/RootNavigator';
+import { AuthProvider } from '@/src/auth/AuthContext';
 import '@/global.css';
 import { useRef } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -36,7 +37,9 @@ export default function App() {
       >
         <GestureHandlerRootView style={{ flex: 1 }}>
           <GluestackUIProvider mode="light">
-            <RootNavigator />
+            <AuthProvider>
+              <RootNavigator />
+            </AuthProvider>
           </GluestackUIProvider>
         </GestureHandlerRootView>
       </SafeAreaListener>

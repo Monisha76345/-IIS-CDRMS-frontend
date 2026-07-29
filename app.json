@@ -21,7 +21,8 @@
           "cameraPermission": "Allow CDRMS to take photos and videos of the survey site."
         }
       ],
-      "expo-video"
+      "expo-video",
+      "expo-secure-store"
     ],
     "ios": {
       "supportsTablet": true,
