@@ -21,22 +21,29 @@ export type ValidationItem = {
 
 const CARDINALS = ['N', 'S', 'E', 'W'] as const;
 const MIN_SITE_PHOTOS = 3;
+const MIN_BACKEND_SITE_PHOTOS = 5; // selfie + 4 site photos for Nest submit
 
 export function validateDraft(draft: ProjectDraft): ValidationItem[] {
   const dirsFilled = CARDINALS.filter((k) => draft.directions[k].trim().length > 0).length;
   const surroundsFilled = CARDINALS.filter((k) => draft.surroundingPhotos[k]).length;
-  const projectOk = Boolean(
-    draft.projectName.trim() && draft.surveyNo.trim() && draft.village.trim()
-  );
+  const isBackend = Boolean(draft.backendApplicationId);
+  const minPhotos = isBackend ? MIN_BACKEND_SITE_PHOTOS : MIN_SITE_PHOTOS;
+  const projectOk = isBackend
+    ? Boolean(draft.siteNo.trim() || draft.surveyNo.trim())
+    : Boolean(draft.projectName.trim() && draft.surveyNo.trim() && draft.village.trim());
 
   return [
     {
       key: 'project',
       label: TERMS.validation.projectDetails,
       ok: projectOk,
-      detail: projectOk
-        ? `${draft.projectName.trim()} · Survey ${draft.surveyNo.trim()}`
-        : 'Work name, survey no. and village required',
+      detail: isBackend
+        ? projectOk
+          ? `${draft.applicationNumber || draft.projectName} · Site ${draft.siteNo || draft.surveyNo}`
+          : 'Assigned site details missing'
+        : projectOk
+          ? `${draft.projectName.trim()} · Survey ${draft.surveyNo.trim()}`
+          : 'Work name, survey no. and village required',
       fixScreen: 'project',
     },
     {
@@ -53,7 +60,9 @@ export function validateDraft(draft: ProjectDraft): ValidationItem[] {
       label: TERMS.validation.checkBandi,
       ok: draft.bandiVerified,
       detail: draft.bandiVerified
-        ? 'On-site Bandi verification confirmed'
+        ? draft.compassReading
+          ? `Verified · compass ${draft.compassReading}`
+          : 'On-site Bandi verification confirmed'
         : 'Confirm physical site verification (Check Bandi)',
       fixScreen: 'bandi',
     },
@@ -73,9 +82,13 @@ export function validateDraft(draft: ProjectDraft): ValidationItem[] {
     },
     {
       key: 'photos',
-      label: `${TERMS.validation.sitePhotos} (min ${MIN_SITE_PHOTOS})`,
-      ok: draft.photos.length >= MIN_SITE_PHOTOS,
-      detail: `${draft.photos.length}/${MIN_SITE_PHOTOS} photographs`,
+      label: isBackend
+        ? 'Selfie + 4 site photos (5)'
+        : `${TERMS.validation.sitePhotos} (min ${MIN_SITE_PHOTOS})`,
+      ok: draft.photos.length >= minPhotos,
+      detail: isBackend
+        ? `${draft.photos.length}/5 (1st=selfie, next 4=site)`
+        : `${draft.photos.length}/${MIN_SITE_PHOTOS} photographs`,
       fixScreen: 'photos',
     },
     {

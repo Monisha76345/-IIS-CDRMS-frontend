@@ -1,4 +1,6 @@
 /** Real site photos used on Applications cards (Unsplash). */
+import { createEmptyDraft } from '@/src/cdrms/project/types';
+
 export const SITE_IMAGES = {
   road: 'https://images.unsplash.com/photo-1477959858617-67f85b6b1ca5?auto=format&fit=crop&w=400&q=80',
   curve: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?auto=format&fit=crop&w=400&q=80',
@@ -297,12 +299,14 @@ export function draftFromApplicationRecord(app: ApplicationRecord) {
   // Leave West empty so field officer can add a fresh capture if needed.
 
   return {
+    ...createEmptyDraft(),
     id: `RESUB-${app.id}`,
     createdAt: now,
     updatedAt: now,
     status: 'draft' as const,
     applicationId: app.id,
     submittedAt: null,
+    backendApplicationId: null,
     projectName: app.project,
     khatedarName: app.khatedarName,
     surveyNo: app.surveyNo,

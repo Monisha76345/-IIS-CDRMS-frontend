@@ -260,6 +260,10 @@ export function ReviewScreen({ go }: { go: Go }) {
         return;
       }
       go('success');
+    } catch (e) {
+      const msg =
+        e instanceof Error ? e.message : 'Submit failed. Check network and try again.';
+      Alert.alert('Submit failed', msg);
     } finally {
       setSubmitting(false);
     }

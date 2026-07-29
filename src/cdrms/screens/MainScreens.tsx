@@ -32,7 +32,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, TextInput, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import { Image, TextInput, Alert, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Box } from '@/components/ui/box';
@@ -55,6 +55,31 @@ import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { COLORS } from '@/src/cdrms/theme';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go, Screen } from '@/src/cdrms/types';
+import { useAuth } from '@/src/auth/AuthContext';
+import { ApiError } from '@/src/api/client';
+import { fetchEngineerTasks, type MobileApplication } from '@/src/api/applications';
+
+function mapTaskStatus(status: MobileApplication['status']) {
+  if (status === 'submitted') return 'Submitted';
+  if (status === 'verified') return 'Verified';
+  if (status === 'returned') return 'Returned';
+  if (status === 'rejected') return 'Rejected';
+  if (status === 'in_progress') return 'In progress';
+  return 'Assigned';
+}
+
+function mapTaskCard(app: MobileApplication) {
+  return {
+    id: app.id,
+    project: `${app.applicationNumber} · Site ${app.siteNo}`,
+    status: mapTaskStatus(app.status),
+    date: app.zoneCode,
+    village: [app.addressArea, app.addressBlock].filter(Boolean).join(', ') || '—',
+    image: SITE_IMAGES.default,
+    live: true as const,
+    apiTask: true as const,
+  };
+}
 
 const NOTIF_CARD_WIDTH = 280;
 const NOTIF_GAP = 12;
@@ -236,23 +261,48 @@ function NotificationsCarousel({ onSeeAll }: { onSeeAll: () => void }) {
 
 export function Dashboard({ go }: { go: Go }) {
   const insets = useSafeAreaInsets();
-  const { startNewProject, openApplication } = useProject();
+  const { openBackendTask } = useProject();
+  const { accessToken } = useAuth();
+  const [tasks, setTasks] = useState<MobileApplication[]>([]);
+  const [openingId, setOpeningId] = useState<string | null>(null);
 
-  const openNewProject = () => {
-    startNewProject();
-    go('project');
+  useEffect(() => {
+    if (!accessToken) return;
+    fetchEngineerTasks(accessToken)
+      .then(setTasks)
+      .catch(() => setTasks([]));
+  }, [accessToken]);
+
+  const openAssignedTask = async (id: string) => {
+    setOpeningId(id);
+    try {
+      await openBackendTask(id);
+      go('project');
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : 'Unable to open task';
+      Alert.alert('Task', msg);
+    } finally {
+      setOpeningId(null);
+    }
   };
 
-  const openAppDetails = (id: string) => {
-    openApplication(id);
-    go('details');
-  };
+  const taskCards = tasks
+    .filter((t) => t.status === 'assigned' || t.status === 'in_progress' || t.status === 'returned')
+    .slice(0, 5)
+    .map(mapTaskCard);
+  const recentCards = taskCards;
+  const pending = tasks.filter(
+    (t) => t.status === 'assigned' || t.status === 'in_progress' || t.status === 'returned',
+  ).length;
+  const submitted = tasks.filter((t) => t.status === 'submitted').length;
+  const verified = tasks.filter((t) => t.status === 'verified').length;
+  const returned = tasks.filter((t) => t.status === 'returned').length;
 
   const stats = [
-    { label: 'Draft', value: 3, bg: '#EFF6FF', fg: '#2563EB', icon: FileText },
-    { label: 'Submitted', value: 12, bg: '#DBEAFE', fg: '#2563EB', icon: ClipboardCheck },
-    { label: 'Verified', value: 28, bg: '#D1FAE5', fg: '#059669', icon: CheckCircle2 },
-    { label: 'Returned', value: 2, bg: '#FFEDD5', fg: '#EA580C', icon: AlertTriangle },
+    { label: 'Pending', value: pending, bg: '#EFF6FF', fg: '#2563EB', icon: FileText },
+    { label: 'Submitted', value: submitted, bg: '#DBEAFE', fg: '#2563EB', icon: ClipboardCheck },
+    { label: 'Verified', value: verified, bg: '#D1FAE5', fg: '#059669', icon: CheckCircle2 },
+    { label: 'Returned', value: returned, bg: '#FFEDD5', fg: '#EA580C', icon: AlertTriangle },
   ];
 
   const actions: Array<{
@@ -265,13 +315,14 @@ export function Dashboard({ go }: { go: Go }) {
     iconBg: string;
     iconColor: string;
     watermarkColor: string;
+    onPress?: () => void;
   }> = [
     {
-      icon: Plus,
-      watermark: FolderOpen,
-      label: TERMS.dashboard.createApplication,
-      desc: TERMS.dashboard.createApplicationDesc,
-      to: 'project',
+      icon: ClipboardCheck,
+      watermark: ClipboardCheck,
+      label: 'My assigned tasks',
+      desc: pending > 0 ? `${pending} awaiting field capture` : 'No open tasks yet',
+      to: 'history',
       primary: true,
       iconBg: 'rgba(255,255,255,0.22)',
       iconColor: '#FFFFFF',
@@ -280,12 +331,16 @@ export function Dashboard({ go }: { go: Go }) {
     {
       icon: Edit3,
       watermark: FileText,
-      label: TERMS.dashboard.continueDraft,
-      desc: '3 pending drafts',
+      label: 'Continue open task',
+      desc: taskCards[0] ? taskCards[0].project : 'Open a task from My Tasks',
       to: 'project',
       iconBg: '#EFF6FF',
       iconColor: '#2563EB',
       watermarkColor: 'rgba(99,102,241,0.12)',
+      onPress: () => {
+        if (taskCards[0]) void openAssignedTask(taskCards[0].id);
+        else go('history');
+      },
     },
     {
       icon: ClipboardCheck,
@@ -491,12 +546,12 @@ export function Dashboard({ go }: { go: Go }) {
                     Today&apos;s Applications
                   </Text>
                   <HStack className="items-end gap-1.5 mt-1">
-                    <Text className="text-[34px] font-extrabold text-white leading-none">4</Text>
+                    <Text className="text-[34px] font-extrabold text-white leading-none">{pending}</Text>
                     <Text
                       className="text-[13px] font-medium mb-1.5"
                       style={{ color: 'rgba(219,234,254,0.9)' }}
                     >
-                      in progress
+                      open tasks
                     </Text>
                   </HStack>
 
@@ -516,7 +571,7 @@ export function Dashboard({ go }: { go: Go }) {
                 </VStack>
 
                 <Pressable
-                  onPress={openNewProject}
+                  onPress={() => go('history')}
                   className="flex-row items-center gap-1 active:opacity-90"
                   style={{
                     height: 40,
@@ -530,9 +585,9 @@ export function Dashboard({ go }: { go: Go }) {
                     elevation: 3,
                   }}
                 >
-                  <Plus size={15} color="#1D4ED8" strokeWidth={2.6} />
+                  <ClipboardCheck size={15} color="#1D4ED8" strokeWidth={2.6} />
                   <Text className="text-[13px] font-bold" style={{ color: '#1D4ED8' }}>
-                    New
+                    Tasks
                   </Text>
                 </Pressable>
               </HStack>
@@ -620,7 +675,10 @@ export function Dashboard({ go }: { go: Go }) {
                 return (
                   <Pressable
                     key={a.label}
-                    onPress={openNewProject}
+                    onPress={() => {
+                      if (a.onPress) a.onPress();
+                      else go(a.to);
+                    }}
                     className="overflow-hidden active:opacity-90"
                     style={{
                       width: '47.5%',
@@ -679,7 +737,10 @@ export function Dashboard({ go }: { go: Go }) {
               return (
                 <Pressable
                   key={a.label}
-                  onPress={() => go(a.to)}
+                  onPress={() => {
+                    if (a.onPress) a.onPress();
+                    else go(a.to);
+                  }}
                   className="overflow-hidden active:opacity-90"
                   style={{
                     width: '47.5%',
@@ -759,12 +820,27 @@ export function Dashboard({ go }: { go: Go }) {
           </HStack>
 
           <VStack space="sm">
-            {SAMPLE_APPS.slice(0, 3).map((a) => {
+            {recentCards.length === 0 ? (
+              <Box className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8">
+                <Text className="text-center text-sm text-slate-500">
+                  No assigned tasks yet. When a Zonal Commissioner creates an application for you,
+                  it will appear here.
+                </Text>
+              </Box>
+            ) : (
+              recentCards.map((a) => {
               const pct = progressFor(a.status);
               return (
                 <Pressable
                   key={a.id}
-                  onPress={() => openAppDetails(a.id)}
+                  onPress={() => {
+                    if (a.apiTask) {
+                      void openAssignedTask(a.id);
+                      return;
+                    }
+                    go('history');
+                  }}
+                  disabled={openingId === a.id}
                   className="active:opacity-90"
                   style={{
                     backgroundColor: '#FFFFFF',
@@ -826,12 +902,13 @@ export function Dashboard({ go }: { go: Go }) {
                   </HStack>
                 </Pressable>
               );
-            })}
+            })
+            )}
           </VStack>
         </Box>
       </ScrollView>
 
-      <BottomNav active="home" onNav={go} onPlus={openNewProject} />
+      <BottomNav active="home" onNav={go} onPlus={() => go('history')} />
     </ScreenShell>
   );
 }
@@ -1049,10 +1126,33 @@ function ApplicationListCard({
 }
 
 export function HistoryScreen({ go }: { go: Go }) {
-  const { applications, draft, openApplication, statusOverrides } = useProject();
+  const { applications, draft, openApplication, statusOverrides, openBackendTask } = useProject();
+  const { accessToken } = useAuth();
   const [tab, setTab] = useState('All');
+  const [apiTasks, setApiTasks] = useState<MobileApplication[]>([]);
+  const [openingId, setOpeningId] = useState<string | null>(null);
 
-  const openDetails = (id: string, status: string, live: boolean) => {
+  useEffect(() => {
+    if (!accessToken) return;
+    fetchEngineerTasks(accessToken)
+      .then(setApiTasks)
+      .catch(() => setApiTasks([]));
+  }, [accessToken]);
+
+  const openDetails = async (id: string, status: string, live: boolean, apiTask?: boolean) => {
+    if (apiTask) {
+      setOpeningId(id);
+      try {
+        await openBackendTask(id);
+        go('project');
+      } catch (e) {
+        const msg = e instanceof ApiError ? e.message : 'Unable to open task';
+        Alert.alert('Task', msg);
+      } finally {
+        setOpeningId(null);
+      }
+      return;
+    }
     if (status === 'Draft' && live) {
       go('project');
       return;
@@ -1062,6 +1162,8 @@ export function HistoryScreen({ go }: { go: Go }) {
   };
 
   const liveApps = useMemo(() => {
+    const apiRows = apiTasks.map(mapTaskCard);
+
     const submitted = applications.map((a) => ({
       id: a.applicationId,
       project: a.projectName,
@@ -1074,6 +1176,7 @@ export function HistoryScreen({ go }: { go: Go }) {
       village: a.village,
       image: imageForProject(a.projectName, a.coverImage),
       live: true as const,
+      apiTask: false as const,
     }));
 
     const draftPhoto =
@@ -1100,12 +1203,17 @@ export function HistoryScreen({ go }: { go: Go }) {
               village: draft.village.trim() || '—',
               image: imageForProject(draft.projectName, draftPhoto),
               live: true as const,
+              apiTask: false as const,
             },
           ]
         : [];
 
-    const submittedIds = new Set(submitted.map((s) => s.id));
+    // Prefer live engineer assignments from Nest; keep samples only when offline/empty.
+    if (apiRows.length > 0 || Boolean(accessToken)) {
+      return [...apiRows, ...draftRow, ...submitted];
+    }
 
+    const submittedIds = new Set(submitted.map((s) => s.id));
     const sample = SAMPLE_APPS.map((a) => {
       const status = statusOverrides[a.id] || a.status;
       return {
@@ -1116,11 +1224,12 @@ export function HistoryScreen({ go }: { go: Go }) {
         village: a.village,
         image: a.image,
         live: false as const,
+        apiTask: false as const,
       };
     }).filter((a) => !(a.status === 'Submitted' && submittedIds.has(a.id)));
 
     return [...draftRow, ...submitted, ...sample];
-  }, [applications, draft, statusOverrides]);
+  }, [apiTasks, applications, draft, statusOverrides, accessToken]);
 
   const filtered = tab === 'All' ? liveApps : liveApps.filter((a) => a.status === tab);
 
@@ -1229,7 +1338,7 @@ export function HistoryScreen({ go }: { go: Go }) {
               village={a.village}
               date={a.date}
               image={a.image}
-              onPress={() => openDetails(a.id, a.status, a.live)}
+              onPress={() => openDetails(a.id, a.status, a.live, a.apiTask)}
             />
           ))}
         </VStack>
@@ -1240,10 +1349,19 @@ export function HistoryScreen({ go }: { go: Go }) {
 }
 
 export function ProfileScreen({ go }: { go: Go }) {
+  const { user, logout } = useAuth();
+  const name =
+    user?.name?.trim() ||
+    user?.loginId ||
+    user?.email ||
+    'Site Engineer';
+  const loginId = user?.loginId || user?.email || '—';
+  const role = user?.roleName || user?.userType || 'engineer';
+
   const infoRows = [
-    { icon: Phone, label: 'Phone', val: '+91 98765 43210' },
-    { icon: MapPinned, label: 'Assigned Area', val: 'Bengaluru Rural · Karnataka' },
-    { icon: Building2, label: 'Office', val: 'PWD Regional Office, Bengaluru' },
+    { icon: Phone, label: 'Account', val: loginId },
+    { icon: MapPinned, label: 'Role', val: String(role).replace(/_/g, ' ') },
+    { icon: Building2, label: 'Portal', val: 'CDRMS Field Engineer' },
   ] as const;
 
   const menuRows = [
@@ -1298,15 +1416,12 @@ export function ProfileScreen({ go }: { go: Go }) {
                 />
               </Box>
               <Text className="mt-4 font-extrabold text-xl text-white">
-                Er. Ravi Shankar
+                {name}
               </Text>
-              <Text className="text-sm text-white/85">Assistant Engineer · CDRMS</Text>
+              <Text className="text-sm text-white/85">Field Engineer · CDRMS</Text>
               <HStack className="mt-3 items-center gap-2">
                 <Box className="bg-white/15 px-2.5 py-1 rounded-full">
-                  <Text className="text-[11px] text-white">ID · ENG-4821</Text>
-                </Box>
-                <Box className="bg-white/15 px-2.5 py-1 rounded-full">
-                  <Text className="text-[11px] text-white">Zone · KA-BLR-R-02</Text>
+                  <Text className="text-[11px] text-white">ID · {loginId}</Text>
                 </Box>
               </HStack>
             </VStack>
@@ -1357,7 +1472,10 @@ export function ProfileScreen({ go }: { go: Go }) {
           </AppCard>
 
           <Pressable
-            onPress={() => go('login')}
+            onPress={async () => {
+              await logout();
+              go('login');
+            }}
             className="w-full h-14 rounded-2xl bg-destructive/10 flex-row items-center justify-center gap-2 active:opacity-90"
           >
             <LogOut size={20} color={COLORS.destructive} />

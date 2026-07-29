@@ -322,7 +322,8 @@ export function SplashScreen({ go }: { go: Go }) {
 
 export function LoginScreen({ go }: { go: Go }) {
   const { login } = useAuth();
-  const [loginId, setLoginId] = useState('CDRMS00001');
+  // Same engineer credentials used on web
+  const [loginId, setLoginId] = useState('shiva@gmail.com');
   const [password, setPassword] = useState('Okay@123');
   const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);

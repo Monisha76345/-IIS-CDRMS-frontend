@@ -229,8 +229,9 @@ export function ProjectScreen({ go }: { go: Go }) {
   const { refresh, loading } = useDeviceLocation();
   const autoStarted = useRef(false);
   const isResubmit = Boolean(draft.resubmitOfId);
+  const isBackendTask = Boolean(draft.backendApplicationId);
   // Keep loader up until GPS + auto-filled fields are written — not just while GPS fetches.
-  const willAutoFill = !isResubmit && !draft.surveyNo.trim();
+  const willAutoFill = !isResubmit && !isBackendTask && !draft.surveyNo.trim();
   const [filling, setFilling] = useState(willAutoFill);
   const showLoader = filling || loading;
 
@@ -239,8 +240,8 @@ export function ProjectScreen({ go }: { go: Go }) {
     try {
       const result = await refresh({ silent });
       if (!result) return;
-      setGps(result.gps, result.address);
-      if (!(draft.projectName ?? '').trim()) {
+      setGps(result.gps, isBackendTask ? undefined : result.address);
+      if (!isBackendTask && !(draft.projectName ?? '').trim()) {
         updateField(
           'projectName',
           `Survey · ${result.address.village || 'Site'} · ${new Date().toLocaleDateString()}`
@@ -255,8 +256,14 @@ export function ProjectScreen({ go }: { go: Go }) {
   useEffect(() => {
     if (autoStarted.current) return;
     autoStarted.current = true;
-    // Don't overwrite returned-app data with a fresh GPS fill.
-    if (draft.resubmitOfId || draft.surveyNo.trim()) {
+    // Don't overwrite returned/backend ZC data; still grab GPS for backend tasks.
+    if (draft.resubmitOfId || draft.backendApplicationId || draft.surveyNo.trim()) {
+      if (draft.backendApplicationId && !draft.gps) {
+        const t = setTimeout(() => {
+          void applyLocation(true);
+        }, 500);
+        return () => clearTimeout(t);
+      }
       setFilling(false);
       return;
     }
@@ -270,16 +277,26 @@ export function ProjectScreen({ go }: { go: Go }) {
 
   return (
     <SurveyScaffold
-      title={isResubmit ? TERMS.workflow.fixResubmit : TERMS.workflow.newApplication}
-      subtitle={
-        isResubmit
-          ? TERMS.workflow.fixResubmitSubtitle
-          : TERMS.workflow.newApplicationSubtitle
+      title={
+        isBackendTask
+          ? draft.applicationNumber || 'Assigned task'
+          : isResubmit
+            ? TERMS.workflow.formResubmit
+            : TERMS.workflow.newApplication
       }
-      onBack={() => go(isResubmit ? 'history' : 'dashboard')}
+      subtitle={
+        isBackendTask
+          ? `ZC ${draft.createdByZcName || '-'} · Zone ${draft.zoneCode || '-'} · Site ${draft.siteNo}`
+          : isResubmit
+            ? TERMS.workflow.formResubmitSubtitle
+            : TERMS.workflow.newApplicationSubtitle
+      }
+      onBack={() => go(isResubmit || isBackendTask ? 'history' : 'dashboard')}
       step={1}
       badge={
-        isResubmit
+        isBackendTask
+          ? 'ZC task'
+          : isResubmit
           ? 'Resubmit'
           : showLoader
             ? 'Locating…'

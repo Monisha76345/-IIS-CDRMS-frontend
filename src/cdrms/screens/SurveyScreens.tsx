@@ -84,6 +84,7 @@ export function BandiScreen({ go }: { go: Go }) {
     setBandiRemarks,
     setDirection,
     setApproachNotes,
+    setCompassReading,
     updateField,
     saveDraft,
   } = useProject();
@@ -559,7 +560,12 @@ export function BandiScreen({ go }: { go: Go }) {
           <Checkbox
             value="verified"
             isChecked={draft.bandiVerified}
-            onChange={(checked) => setBandiVerified(checked)}
+            onChange={(checked) => {
+              setBandiVerified(checked);
+              if (checked && compass.available) {
+                setCompassReading(`${Math.round(compass.heading)}° ${cardinalFromHeading(compass.heading)}`);
+              }
+            }}
             className="flex-1 items-start gap-3"
           >
             <CheckboxIndicator

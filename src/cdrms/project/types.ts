@@ -27,6 +27,23 @@ export type ProjectDraft = {
   status: ApplicationStatus;
   applicationId: string | null;
   submittedAt: number | null;
+  /** Backend applications.id — when set, submit goes to Nest API */
+  backendApplicationId: string | null;
+  applicationNumber: string | null;
+  siteNo: string;
+  addressArea: string;
+  addressBlock: string;
+  addressPincode: string;
+  zoneCode: string;
+  createdByZcName: string;
+  siteDetails: string;
+  compassReading: string;
+  occupancy: 'Empty' | 'Occupied';
+  occupancyReason: string;
+  dimNorth: string;
+  dimSouth: string;
+  dimEast: string;
+  dimWest: string;
   projectName: string;
   khatedarName: string;
   surveyNo: string;
@@ -120,6 +137,22 @@ export function createEmptyDraft(): ProjectDraft {
     status: 'draft',
     applicationId: null,
     submittedAt: null,
+    backendApplicationId: null,
+    applicationNumber: null,
+    siteNo: '',
+    addressArea: '',
+    addressBlock: '',
+    addressPincode: '',
+    zoneCode: '',
+    createdByZcName: '',
+    siteDetails: '',
+    compassReading: '',
+    occupancy: 'Empty',
+    occupancyReason: '',
+    dimNorth: '40',
+    dimSouth: '40',
+    dimEast: '30',
+    dimWest: '30',
     projectName: '',
     khatedarName: '',
     surveyNo: '',
@@ -133,7 +166,7 @@ export function createEmptyDraft(): ProjectDraft {
     state: 'Karnataka',
     gps: null,
     bandiVerified: false,
-  bandiRemarks: '',
+    bandiRemarks: '',
     directions: { N: '', S: '', E: '', W: '' },
     approachRoadWidth: '',
     approachRoadName: '',
