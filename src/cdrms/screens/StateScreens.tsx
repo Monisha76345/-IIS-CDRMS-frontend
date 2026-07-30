@@ -232,7 +232,7 @@ export function ReviewScreen({ go }: { go: Go }) {
   const summary = useMemo(() => validationSummary(items), [items]);
 
   const dirsFilled = (['N', 'S', 'E', 'W'] as const).filter((k) =>
-    draft.directions[k].trim()
+    draft.directions[k].trim() || draft.surroundingPhotos[k]
   ).length;
   const coords = draft.gps
     ? formatCoords(draft.gps.latitude, draft.gps.longitude).short

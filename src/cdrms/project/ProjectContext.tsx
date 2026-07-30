@@ -85,7 +85,7 @@ const ProjectContext = createContext<ProjectContextValue | null>(null);
 
 function toSubmitted(draft: ProjectDraft, applicationId: string): SubmittedApplication {
   const directionsFilled = (['N', 'S', 'E', 'W'] as const).filter((k) =>
-    draft.directions[k].trim(),
+    draft.directions[k].trim() || draft.surroundingPhotos[k],
   ).length;
 
   const coverImage =

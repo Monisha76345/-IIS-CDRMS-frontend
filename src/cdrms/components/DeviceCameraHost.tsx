@@ -66,7 +66,6 @@ function isAndroidEmulator() {
 
 function liveRecordAllowed() {
   if (isSimulatorVideoBlocked()) return false;
-  if (isAndroidEmulator()) return false;
   return true;
 }
 

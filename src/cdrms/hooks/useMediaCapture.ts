@@ -95,15 +95,11 @@ export async function capturePhoto(options?: {
   facing?: 'front' | 'back';
   title?: string;
 }): Promise<MediaAsset | null> {
-  if (isAndroidVirtual()) {
-    return pickPhotoFromLibrary();
-  }
-
   if (Platform.OS === 'ios' && __DEV__) {
     explainMacCameraOnce();
   }
 
-  // Prefer in-app CameraView so Simulator can use the Mac webcam via Continuity / I/O → Camera.
+  // Prefer in-app CameraView so both real devices and Emulators/Simulators can use the camera.
   return openDeviceCamera({
     mode: 'photo',
     facing: options?.facing ?? 'back',

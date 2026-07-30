@@ -24,7 +24,9 @@ const MIN_SITE_PHOTOS = 3;
 const MIN_BACKEND_SITE_PHOTOS = 5; // selfie + 4 site photos for Nest submit
 
 export function validateDraft(draft: ProjectDraft): ValidationItem[] {
-  const dirsFilled = CARDINALS.filter((k) => draft.directions[k].trim().length > 0).length;
+  const dirsFilled = CARDINALS.filter(
+    (k) => draft.directions[k].trim().length > 0 || Boolean(draft.surroundingPhotos[k])
+  ).length;
   const surroundsFilled = CARDINALS.filter((k) => draft.surroundingPhotos[k]).length;
   const isBackend = Boolean(draft.backendApplicationId);
   const minPhotos = isBackend ? MIN_BACKEND_SITE_PHOTOS : MIN_SITE_PHOTOS;

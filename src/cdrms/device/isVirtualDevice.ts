@@ -27,7 +27,6 @@ export function isAndroidVirtual(): boolean {
  * Does NOT import expo-device (native module may be unlinked → crash).
  */
 export function isLiveVideoBlocked(): boolean {
-  if (isAndroidEmulator()) return true;
   if (isSimulatorVideoBlocked()) return true;
   // iOS + Metro/dev: assume Simulator for video (record is unsupported there).
   // Real-device production builds still get live record via ImagePicker/CameraView

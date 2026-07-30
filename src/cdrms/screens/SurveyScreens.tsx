@@ -85,6 +85,7 @@ export function BandiScreen({ go }: { go: Go }) {
     setBandiVerified,
     setBandiRemarks,
     setDirection,
+    setSurroundingPhoto,
     setApproachNotes,
     setCompassReading,
     updateField,
@@ -407,11 +408,12 @@ export function BandiScreen({ go }: { go: Go }) {
           const meta = DIRECTION_META[k];
           const TypeIcon = DIR_ICONS[k];
           const val = draft.directions[k];
+          const photo = draft.surroundingPhotos[k];
           return (
             <Pressable
               key={k}
               onPress={() => openEdit(k)}
-              className="active:opacity-90"
+              className="active:opacity-90 overflow-hidden"
               style={{
                 width: '48%',
                 backgroundColor: '#FFFFFF',
@@ -424,40 +426,71 @@ export function BandiScreen({ go }: { go: Go }) {
                 elevation: 3,
               }}
             >
-              <HStack className="items-start justify-between">
-                <VStack className="flex-1 min-w-0 pr-2">
-                  <Box
-                    className="items-center justify-center rounded-full"
-                    style={{ width: 36, height: 36, backgroundColor: meta.color }}
-                  >
-                    <Text className="font-black text-white text-[13px]">{k}</Text>
+              {photo ? (
+                <VStack space="xs">
+                  <HStack className="items-center justify-between mb-1.5">
+                    <Box
+                      className="items-center justify-center rounded-full"
+                      style={{ width: 28, height: 28, backgroundColor: meta.color }}
+                    >
+                      <Text className="font-black text-white text-[11px]">{k}</Text>
+                    </Box>
+                    <Box
+                      className="h-6 w-6 rounded-full items-center justify-center"
+                      style={{ backgroundColor: '#10B981' }}
+                    >
+                      <Check size={12} color="#fff" strokeWidth={3} />
+                    </Box>
+                  </HStack>
+                  <Box className="relative" style={{ height: 80, borderRadius: 12, overflow: 'hidden' }}>
+                    <Image source={{ uri: photo.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    <Box
+                      className="absolute bottom-1 left-1 px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
+                    >
+                      <Text className="text-[9px] font-bold text-white">{meta.label} Photo</Text>
+                    </Box>
                   </Box>
-                  <Text
-                    className="mt-2.5 text-[11px] uppercase font-extrabold tracking-wider"
-                    style={{ color: meta.color }}
-                  >
-                    {meta.label}
-                  </Text>
-                  <Text className="text-[13px] font-bold mt-1" style={{ color: val ? '#0F172A' : '#94A3B8' }}>
-                    {val || 'Tap to write note'}
-                  </Text>
                 </VStack>
+              ) : (
+                <HStack className="items-start justify-between">
+                  <VStack className="flex-1 min-w-0 pr-2">
+                    <Box
+                      className="items-center justify-center rounded-full"
+                      style={{ width: 36, height: 36, backgroundColor: meta.color }}
+                    >
+                      <Text className="font-black text-white text-[13px]">{k}</Text>
+                    </Box>
+                    <Text
+                      className="mt-2.5 text-[11px] uppercase font-extrabold tracking-wider"
+                      style={{ color: meta.color }}
+                    >
+                      {meta.label}
+                    </Text>
+                    <Text
+                      className="text-[12px] font-bold mt-1"
+                      style={{ color: val ? '#0F172A' : '#2563EB' }}
+                    >
+                      {val || 'Tap to upload photo'}
+                    </Text>
+                  </VStack>
 
-                <VStack className="items-center justify-between" style={{ minHeight: 88 }}>
-                  <Box
-                    className="items-center justify-center rounded-full"
-                    style={{ width: 30, height: 30, backgroundColor: '#EFF6FF' }}
-                  >
-                    <Edit3 size={13} color="#2563EB" strokeWidth={2.2} />
-                  </Box>
-                  <Box
-                    className="items-center justify-center rounded-full"
-                    style={{ width: 34, height: 34, backgroundColor: meta.soft }}
-                  >
-                    <TypeIcon size={16} color={meta.typeColor} strokeWidth={2.2} />
-                  </Box>
-                </VStack>
-              </HStack>
+                  <VStack className="items-center justify-between" style={{ minHeight: 88 }}>
+                    <Box
+                      className="items-center justify-center rounded-full"
+                      style={{ width: 30, height: 30, backgroundColor: '#EFF6FF' }}
+                    >
+                      <Camera size={14} color="#2563EB" strokeWidth={2.2} />
+                    </Box>
+                    <Box
+                      className="items-center justify-center rounded-full"
+                      style={{ width: 34, height: 34, backgroundColor: meta.soft }}
+                    >
+                      <TypeIcon size={16} color={meta.typeColor} strokeWidth={2.2} />
+                    </Box>
+                  </VStack>
+                </HStack>
+              )}
             </Pressable>
           );
         })}
@@ -593,17 +626,63 @@ export function BandiScreen({ go }: { go: Go }) {
       <AppSheet
         open={editing != null}
         onClose={() => setEditing(null)}
-        title={editing ? `Edit ${DIRECTION_META[editing].label}` : 'Edit'}
+        title={editing ? `${DIRECTION_META[editing].label} Boundary Photo & Note` : 'Boundary'}
       >
-        <Textarea className="min-h-[120px] mb-4">
-          <TextareaInput
-            value={draftNote}
-            onChangeText={setDraftNote}
-            placeholder={editing ? DIRECTION_META[editing].placeholder : ''}
-            multiline
-          />
-        </Textarea>
-        <AppBtn onPress={saveEdit}>Save note</AppBtn>
+        <VStack space="md" className="pb-2">
+          <Text className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">
+            Option 1: Upload Photo ({editing ? DIRECTION_META[editing].label : ''})
+          </Text>
+          <HStack space="md">
+            <Pressable
+              onPress={async () => {
+                if (!editing) return;
+                const k = editing;
+                setEditing(null);
+                await new Promise((r) => setTimeout(r, 350));
+                const asset = await capturePhoto({ title: `Take ${DIRECTION_META[k].label} photo` });
+                if (asset) setSurroundingPhoto(k, asset);
+              }}
+              className="flex-1 h-24 rounded-2xl overflow-hidden active:opacity-90"
+            >
+              <LinearGradient
+                colors={['#2563EB', '#3B82F6']}
+                style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 }}
+              >
+                <Camera size={24} color="#fff" />
+                <Text className="font-extrabold text-xs text-white">Take Photo</Text>
+              </LinearGradient>
+            </Pressable>
+
+            <Pressable
+              onPress={async () => {
+                if (!editing) return;
+                const k = editing;
+                setEditing(null);
+                await new Promise((r) => setTimeout(r, 350));
+                const asset = await pickPhoto();
+                if (asset) setSurroundingPhoto(k, asset);
+              }}
+              className="flex-1 h-24 rounded-2xl items-center justify-center gap-2 active:opacity-90"
+              style={{ backgroundColor: '#EFF6FF', borderWidth: 1.5, borderColor: '#BFDBFE' }}
+            >
+              <ImageIcon size={24} color="#2563EB" />
+              <Text className="font-extrabold text-xs text-foreground">From Gallery</Text>
+            </Pressable>
+          </HStack>
+
+          <Text className="text-xs font-extrabold text-slate-500 uppercase tracking-wider mt-2">
+            Option 2: Write Text Note
+          </Text>
+          <Textarea className="min-h-[90px] rounded-2xl border-0" style={{ backgroundColor: '#F3F4F6' }}>
+            <TextareaInput
+              value={draftNote}
+              onChangeText={setDraftNote}
+              placeholder={editing ? DIRECTION_META[editing].placeholder : 'Describe boundary...'}
+              multiline
+            />
+          </Textarea>
+          <AppBtn onPress={saveEdit}>Save Note</AppBtn>
+        </VStack>
       </AppSheet>
 
       <AppSheet open={approachOpen} onClose={() => setApproachOpen(false)} title={TERMS.sections.approachDetails}>
@@ -1232,7 +1311,7 @@ export function VideoScreen({ go }: { go: Go }) {
                 ? 'Opening…'
                 : videoPickOnly
                   ? 'Pick Video'
-                  : 'Record New'}
+                  : 'Record Video'}
             </Text>
             <ChevronRight size={18} color="rgba(255,255,255,0.9)" strokeWidth={2.4} />
           </LinearGradient>
