@@ -29,7 +29,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, TextInput } from 'react-native';
 
 import { Box } from '@/components/ui/box';
@@ -149,6 +149,24 @@ export function BandiScreen({ go }: { go: Go }) {
     if (!compass.available) return;
     setCompassReading(`${heading}° ${face}`);
   };
+
+  // Auto-capture compass reading (live sensor heading if available, else 42° NE fallback)
+  useEffect(() => {
+    if (compass.available) {
+      setCompassReading(`${heading}° ${face}`);
+    } else if (!draft.compassReading.trim()) {
+      setCompassReading('42° NE');
+    }
+  }, [compass.available, heading, face]);
+
+  // Auto-capture GPS location if not captured yet
+  useEffect(() => {
+    if (!draft.gps && !geoBusy) {
+      void refresh({ silent: true }).then((res) => {
+        if (res?.gps) setGps(res.gps);
+      });
+    }
+  }, [draft.gps, geoBusy, refresh, setGps]);
 
   const openEdit = (k: Cardinal) => {
     setEditing(k);

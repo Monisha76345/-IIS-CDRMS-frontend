@@ -222,6 +222,31 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
 
   const takePhoto = async () => {
     if (busy) return;
+    if (isAndroidEmulator()) {
+      setBusy(true);
+      try {
+        const result = await ImagePicker.launchCameraAsync({
+          cameraType:
+            facing === 'front'
+              ? ImagePicker.CameraType.front
+              : ImagePicker.CameraType.back,
+          quality: 0.75,
+          allowsEditing: false,
+        });
+        if (result.canceled || !result.assets?.[0]?.uri) return;
+        const a = result.assets[0];
+        closeDeviceCamera(
+          toAsset(a.uri, 'image', { width: a.width, height: a.height })
+        );
+        return;
+      } catch {
+        await resolveFromLibrary();
+        return;
+      } finally {
+        setBusy(false);
+      }
+    }
+
     if (!cameraRef.current) {
       await resolveFromLibrary();
       return;
@@ -230,7 +255,6 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
     try {
       const picture = await cameraRef.current.takePictureAsync({
         quality: 0.75,
-        skipProcessing: true,
         shutterSound: false,
       });
       if (!picture?.uri) {

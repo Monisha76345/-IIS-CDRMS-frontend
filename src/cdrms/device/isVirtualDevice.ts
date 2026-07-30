@@ -28,12 +28,8 @@ export function isAndroidVirtual(): boolean {
  */
 export function isLiveVideoBlocked(): boolean {
   if (isSimulatorVideoBlocked()) return true;
-  // iOS + Metro/dev: assume Simulator for video (record is unsupported there).
-  // Real-device production builds still get live record via ImagePicker/CameraView
-  // when this returns false — flip by clearing the module flag after a successful record
-  // is not needed; physical devices typically aren't __DEV__ long-term, but if testing
-  // a real phone with Metro, video will open Gallery unless you wire a real-device build.
   if (Platform.OS === 'ios' && __DEV__) return true;
+  if (isAndroidEmulator()) return true;
   return false;
 }
 

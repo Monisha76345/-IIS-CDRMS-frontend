@@ -37,6 +37,7 @@ import {
   type StatusCountItem,
 } from '@/src/cdrms/components/StatusCountGrid';
 import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
+import { StaticMapPreview } from '@/src/cdrms/components/StaticMapPreview';
 import { resolveBoundaryDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { getSelectedOfficeAppId, setSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
 import { COLORS } from '@/src/cdrms/theme';
@@ -372,6 +373,32 @@ export function CaoDetailScreen({ go }: { go: Go }) {
               <DetailRow label="GPS" value={app.latitude && app.longitude ? `${app.latitude}, ${app.longitude}` : '—'} />
               <DetailRow label="Engineer comments" value={app.engineerComments || '—'} />
             </Box>
+
+            {app.latitude && app.longitude ? (
+              <Box
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: '#E5E7EB',
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  marginBottom: 12,
+                  overflow: 'hidden',
+                }}
+              >
+                <Text className="text-[14px] font-extrabold mb-2" style={{ color: '#0F172A' }}>
+                  Site Map Location
+                </Text>
+                <StaticMapPreview
+                  latitude={Number(app.latitude)}
+                  longitude={Number(app.longitude)}
+                  badgeText={`Sy No ${app.siteNo || ''} · ${app.addressArea || ''}`}
+                  height={180}
+                  rounded={12}
+                />
+              </Box>
+            ) : null}
 
             <Box
               style={{

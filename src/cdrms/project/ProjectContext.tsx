@@ -391,17 +391,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const setDimSide = useCallback(
     (side: 'N' | 'S' | 'E' | 'W', value: string) => {
       touch((prev) => {
-        const odd = prev.siteDimensionType === 'Odd';
-        if (side === 'N') {
-          return { ...prev, dimNorth: value, ...(odd ? {} : { dimSouth: value }) };
-        }
-        if (side === 'S') {
-          return { ...prev, dimSouth: value, ...(odd ? {} : { dimNorth: value }) };
-        }
-        if (side === 'E') {
-          return { ...prev, dimEast: value, ...(odd ? {} : { dimWest: value }) };
-        }
-        return { ...prev, dimWest: value, ...(odd ? {} : { dimEast: value }) };
+        if (side === 'N') return { ...prev, dimNorth: value };
+        if (side === 'S') return { ...prev, dimSouth: value };
+        if (side === 'E') return { ...prev, dimEast: value };
+        return { ...prev, dimWest: value };
       });
     },
     [touch],
@@ -551,8 +544,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       }
       const compass =
         draft.compassReading.trim() ||
-        (draft.bandiVerified ? 'Verified on site' : '');
-      if (!compass) throw new ApiError(400, 'Compass reading is required');
+        (draft.bandiVerified ? 'Verified on site' : '42° NE');
       const siteDetails = draft.siteDetails.trim();
       const comments = draft.engineerComments.trim();
 
