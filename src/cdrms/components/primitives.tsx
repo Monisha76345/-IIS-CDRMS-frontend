@@ -5,6 +5,7 @@ import {
   Check,
   FileText,
   Home,
+  LogOut,
   Plus,
   User,
   type LucideIcon,
@@ -28,6 +29,7 @@ import { KeyboardAvoidingView } from '@/components/ui/keyboard-avoiding-view';
 import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
+import { useAuth } from '@/src/auth/AuthContext';
 import { COLORS, GRADIENT_HEADER, GRADIENT_PRIMARY } from '@/src/cdrms/theme';
 import type { Go, NavTab, Screen } from '@/src/cdrms/types';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
@@ -84,14 +86,69 @@ export function AppHeader({
   right,
   gradient = true,
   subtitle,
+  go,
+  showLogout = true,
 }: {
   title: string;
   onBack?: () => void;
   right?: ReactNode;
   gradient?: boolean;
   subtitle?: string;
+  go?: Go;
+  showLogout?: boolean;
 }) {
   const insets = useSafeAreaInsets();
+  const { logout, isAuthenticated } = useAuth();
+  const canLogout = Boolean(showLogout && isAuthenticated && go);
+
+  const onLogout = async () => {
+    await logout();
+    go?.('login');
+  };
+
+  const logoutBtn = canLogout ? (
+    <Pressable
+      onPress={() => void onLogout()}
+      accessibilityRole="button"
+      accessibilityLabel="Logout"
+      className="flex-row items-center gap-1.5 active:opacity-85"
+      style={
+        gradient
+          ? {
+              height: 36,
+              paddingHorizontal: 12,
+              borderRadius: 999,
+              backgroundColor: 'rgba(255,255,255,0.18)',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.35)',
+            }
+          : {
+              height: 36,
+              paddingHorizontal: 12,
+              borderRadius: 999,
+              backgroundColor: '#FEF2F2',
+              borderWidth: 1,
+              borderColor: '#FECACA',
+            }
+      }
+    >
+      <LogOut size={14} color={gradient ? COLORS.white : COLORS.destructive} />
+      <Text
+        className="text-[12px] font-bold"
+        style={{ color: gradient ? '#FFFFFF' : COLORS.destructive }}
+      >
+        Logout
+      </Text>
+    </Pressable>
+  ) : null;
+
+  const rightSlot =
+    right || logoutBtn ? (
+      <HStack className="items-center gap-2">
+        {right}
+        {logoutBtn}
+      </HStack>
+    ) : null;
 
   if (!gradient) {
     return (
@@ -118,7 +175,7 @@ export function AppHeader({
               ) : null}
             </VStack>
           </HStack>
-          {right}
+          {rightSlot}
         </HStack>
       </Box>
     );
@@ -146,7 +203,7 @@ export function AppHeader({
               ) : null}
             </VStack>
           </HStack>
-          {right}
+          {rightSlot}
         </HStack>
       </Box>
     </GradientHeader>
@@ -261,6 +318,7 @@ export function Field({
   label,
   icon: Icon,
   showCheck = true,
+  endAdornment,
   style,
   value,
   defaultValue,
@@ -269,6 +327,7 @@ export function Field({
   label: string;
   icon?: LucideIcon;
   showCheck?: boolean;
+  endAdornment?: ReactNode;
 } & TextInputProps) {
   // No setState on focus — any re-render during focus can dismiss the keyboard
   // on Expo Go when parents restyle. Keep this tree static while typing.
@@ -344,7 +403,9 @@ export function Field({
             style,
           ]}
         />
-        {showCheck && hasValue ? (
+        {endAdornment ? (
+          endAdornment
+        ) : showCheck && hasValue ? (
           <View
             pointerEvents="none"
             style={{
@@ -403,10 +464,16 @@ export function BottomNav({
   active,
   onNav,
   onPlus,
+  homeTarget = 'dashboard',
+  appsTarget = 'history',
+  hidePlus = false,
 }: {
   active: NavTab;
   onNav: Go;
   onPlus?: () => void;
+  homeTarget?: Screen;
+  appsTarget?: Screen;
+  hidePlus?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -433,8 +500,8 @@ export function BottomNav({
     target: Screen;
     badge?: number;
   }> = [
-    { k: 'home', label: 'Home', icon: Home, target: 'dashboard' },
-    { k: 'apps', label: 'Apps', icon: FileText, target: 'history' },
+    { k: 'home', label: 'Home', icon: Home, target: homeTarget },
+    { k: 'apps', label: 'Apps', icon: FileText, target: appsTarget },
   ];
   const rightItems: Array<{
     k: NavTab;
@@ -443,8 +510,8 @@ export function BottomNav({
     target: Screen;
     badge?: number;
   }> = [
-    { k: 'notif', label: 'Alerts', icon: Bell, target: 'notifications', badge: 3 },
-    { k: 'profile', label: 'Profile', icon: User, target: 'profile' },
+    { k: 'notif', label: 'Alerts', icon: Bell, target: 'notifications' },
+    { k: 'profile', label: 'Profile', target: 'profile', icon: User },
   ];
 
   const renderTab = (it: (typeof leftItems)[number]) => {
@@ -534,6 +601,7 @@ export function BottomNav({
       </Box>
 
       {/* Center + nestled in the U */}
+      {hidePlus ? null : (
       <Pressable
         onPress={handlePlus}
         accessibilityRole="button"
@@ -568,6 +636,7 @@ export function BottomNav({
           <Plus size={24} color={COLORS.primary} strokeWidth={2.4} />
         </Box>
       </Pressable>
+      )}
     </Box>
   );
 }

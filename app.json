@@ -17,8 +17,18 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow CDRMS to access photos for site documentation.",
-          "cameraPermission": "Allow CDRMS to take photos and videos of the survey site."
+          "photosPermission": "Allow CDRMS to access photos and videos for site documentation.",
+          "cameraPermission": "Allow CDRMS to take photos and videos of the survey site.",
+          "microphonePermission": "Allow CDRMS to record audio with site walk-through videos."
+        }
+      ],
+      "expo-document-picker",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow CDRMS to take selfies, site photos, and inspection videos.",
+          "microphonePermission": "Allow CDRMS to record audio with site walk-through videos.",
+          "recordAudioAndroid": true
         }
       ],
       "expo-video",

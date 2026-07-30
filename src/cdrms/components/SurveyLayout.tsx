@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import {
   ArrowLeft,
   Compass,
+  LogOut,
   type LucideIcon,
 } from 'lucide-react-native';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
@@ -22,9 +23,11 @@ import { Pressable } from '@/components/ui/pressable';
 import { ScrollView } from '@/components/ui/scroll-view';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
+import { useAuth } from '@/src/auth/AuthContext';
 import { ScreenShell } from '@/src/cdrms/components/primitives';
 import { SURVEY_STEPS } from '@/src/cdrms/terminology';
 import { COLORS, GRADIENT_HEADER } from '@/src/cdrms/theme';
+import type { Go } from '@/src/cdrms/types';
 
 const STEPS = SURVEY_STEPS;
 
@@ -139,6 +142,7 @@ export function SurveyHero({
   showSteps = true,
   total = 5,
   watermark,
+  go,
 }: {
   title: string;
   subtitle?: string;
@@ -148,8 +152,10 @@ export function SurveyHero({
   showSteps?: boolean;
   total?: number;
   watermark?: 'compass';
+  go?: Go;
 }) {
   const insets = useSafeAreaInsets();
+  const { logout } = useAuth();
   const stepLine =
     step != null
       ? `Step ${step} of ${total} · ${STEPS[step - 1]?.title ?? 'Survey'}`
@@ -282,6 +288,26 @@ export function SurveyHero({
               <Text className="text-[10px] font-semibold text-white">{badgeText}</Text>
             </Box>
           ) : null}
+          {go ? (
+            <Pressable
+              onPress={async () => {
+                await logout();
+                go('login');
+              }}
+              className="flex-row items-center gap-1 active:opacity-85"
+              style={{
+                height: 32,
+                paddingHorizontal: 10,
+                borderRadius: 999,
+                backgroundColor: 'rgba(255,255,255,0.18)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.35)',
+              }}
+            >
+              <LogOut size={13} color="#FFFFFF" />
+              <Text className="text-[10px] font-bold text-white">Logout</Text>
+            </Pressable>
+          ) : null}
         </HStack>
       </LinearGradient>
 
@@ -313,14 +339,17 @@ function CompactSurveyHeader({
   step,
   total = 5,
   badge,
+  go,
 }: {
   title: string;
   onBack: () => void;
   step?: number;
   total?: number;
   badge?: string;
+  go?: Go;
 }) {
   const insets = useSafeAreaInsets();
+  const { logout } = useAuth();
   const badgeText = badge?.includes('Auto-saved') ? 'Auto-saved' : badge;
 
   return (
@@ -402,6 +431,27 @@ function CompactSurveyHeader({
               <Text className="text-[10px] font-semibold text-white">{badgeText}</Text>
             </Box>
           ) : null}
+          {go ? (
+            <Pressable
+              onPress={async () => {
+                await logout();
+                go('login');
+              }}
+              className="active:opacity-85"
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 999,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(255,255,255,0.18)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.35)',
+              }}
+            >
+              <LogOut size={14} color="#FFFFFF" />
+            </Pressable>
+          ) : null}
         </HStack>
       </LinearGradient>
     </Box>
@@ -443,6 +493,7 @@ export function SurveyScaffold({
   watermark,
   children,
   footer,
+  go,
 }: {
   title: string;
   subtitle: string;
@@ -453,6 +504,7 @@ export function SurveyScaffold({
   watermark?: 'compass';
   children: ReactNode;
   footer?: ReactNode;
+  go?: Go;
 }) {
   const insets = useSafeAreaInsets();
   const [compact, setCompact] = useState(false);
@@ -514,7 +566,7 @@ export function SurveyScaffold({
             opacity: compact ? 1 : 0,
           }}
         >
-          <CompactSurveyHeader title={title} onBack={onBack} step={step} badge={badge} />
+          <CompactSurveyHeader title={title} onBack={onBack} step={step} badge={badge} go={go} />
         </Box>
 
         <ScrollView
@@ -541,6 +593,7 @@ export function SurveyScaffold({
                 badge={badge ?? 'Auto-saved'}
                 showSteps={showSteps}
                 watermark={watermark}
+                go={go}
               />
 
               <Box style={{ gap: 14, paddingTop: 14, backgroundColor: '#F3F4F6' }}>

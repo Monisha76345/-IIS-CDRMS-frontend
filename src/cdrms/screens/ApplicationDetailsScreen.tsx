@@ -25,7 +25,7 @@ import {
   ScreenShell,
   StatusChip,
 } from '@/src/cdrms/components/primitives';
-import { findSampleApp, imageForProject, SITE_IMAGES } from '@/src/cdrms/data';
+import { findSampleApp } from '@/src/cdrms/data';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { COLORS } from '@/src/cdrms/theme';
 import { TERMS } from '@/src/cdrms/terminology';
@@ -37,7 +37,7 @@ type DetailView = {
   status: string;
   date: string;
   village: string;
-  image: string;
+  image: string | null;
   khatedarName: string;
   surveyNo: string;
   plotNo: string;
@@ -143,7 +143,7 @@ export function ApplicationDetailsScreen({ go }: { go: Go }) {
       (a) => a.applicationId === selectedApplicationId || a.id === selectedApplicationId
     );
     if (submitted) {
-      const cover = imageForProject(submitted.projectName, submitted.coverImage);
+      const cover = submitted.coverImage?.trim() || null;
       return {
         id: submitted.applicationId,
         project: submitted.projectName,
@@ -174,7 +174,7 @@ export function ApplicationDetailsScreen({ go }: { go: Go }) {
         nearbyBuildings: '—',
         nearbyRoads: '—',
         landmarks: '—',
-        gallery: submitted.coverImage ? [submitted.coverImage] : [cover],
+        gallery: cover ? [cover] : [],
       };
     }
 
@@ -182,7 +182,10 @@ export function ApplicationDetailsScreen({ go }: { go: Go }) {
       const cover =
         draft.photos[0]?.uri ||
         draft.surroundingPhotos.N?.uri ||
-        imageForProject(draft.projectName);
+        draft.surroundingPhotos.S?.uri ||
+        draft.surroundingPhotos.E?.uri ||
+        draft.surroundingPhotos.W?.uri ||
+        null;
       const gallery = [
         ...draft.photos.map((p) => p.uri),
         ...Object.values(draft.surroundingPhotos)
@@ -221,7 +224,7 @@ export function ApplicationDetailsScreen({ go }: { go: Go }) {
         nearbyBuildings: draft.nearbyBuildings.trim() || '—',
         nearbyRoads: draft.nearbyRoads.trim() || '—',
         landmarks: draft.landmarks.trim() || '—',
-        gallery: gallery.length ? gallery : [cover || SITE_IMAGES.default],
+        gallery,
         liveDraft: draft.status === 'draft',
       };
     }
@@ -237,7 +240,7 @@ export function ApplicationDetailsScreen({ go }: { go: Go }) {
   if (!detail) {
     return (
       <ScreenShell className="bg-[#F3F4F6]">
-        <AppHeader title="Application" subtitle="Not found" onBack={back} />
+        <AppHeader title="Application" subtitle="Not found" onBack={back} go={go} />
         <VStack className="flex-1 items-center justify-center px-8">
           <Text className="font-bold text-foreground">Application not found</Text>
           <Box className="mt-4 w-full">
@@ -250,15 +253,26 @@ export function ApplicationDetailsScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-[#F3F4F6]">
-      <AppHeader title="Project details" subtitle={detail.id} onBack={back} />
+      <AppHeader title="Project details" subtitle={detail.id} onBack={back} go={go} />
 
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
-        <Box className="mx-4 mt-4 overflow-hidden" style={{ borderRadius: 24, height: 200 }}>
-          <Image source={{ uri: detail.image }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+        <Box
+          className="mx-4 mt-4 overflow-hidden items-center justify-center"
+          style={{ borderRadius: 24, height: 200, backgroundColor: '#E2E8F0' }}
+        >
+          {detail.image ? (
+            <Image
+              source={{ uri: detail.image }}
+              style={{ width: '100%', height: '100%' }}
+              resizeMode="cover"
+            />
+          ) : (
+            <Camera size={36} color="#94A3B8" strokeWidth={2} />
+          )}
           <LinearGradient
             colors={['transparent', 'rgba(15,23,42,0.75)']}
             style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16 }}
@@ -423,15 +437,29 @@ export function ApplicationDetailsScreen({ go }: { go: Go }) {
             </HStack>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <HStack style={{ gap: 8 }}>
-                {detail.gallery.map((uri, i) => (
+                {detail.gallery.length === 0 ? (
                   <Box
-                    key={`${uri}-${i}`}
-                    className="overflow-hidden"
-                    style={{ width: 88, height: 88, borderRadius: 14 }}
+                    className="items-center justify-center"
+                    style={{
+                      width: 88,
+                      height: 88,
+                      borderRadius: 14,
+                      backgroundColor: '#E2E8F0',
+                    }}
                   >
-                    <Image source={{ uri }} style={{ width: 88, height: 88 }} resizeMode="cover" />
+                    <Camera size={22} color="#94A3B8" />
                   </Box>
-                ))}
+                ) : (
+                  detail.gallery.map((uri, i) => (
+                    <Box
+                      key={`${uri}-${i}`}
+                      className="overflow-hidden"
+                      style={{ width: 88, height: 88, borderRadius: 14 }}
+                    >
+                      <Image source={{ uri }} style={{ width: 88, height: 88 }} resizeMode="cover" />
+                    </Box>
+                  ))
+                )}
               </HStack>
             </ScrollView>
           </SectionCard>

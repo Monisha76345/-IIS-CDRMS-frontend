@@ -52,10 +52,12 @@ import {
 import { cardinalFromHeading, useCompass } from '@/src/cdrms/hooks/useCompass';
 import {
   capturePhoto,
+  captureSelfie,
   captureVideo,
+  chooseVideoFile,
   pickPhoto,
-  pickVideo,
 } from '@/src/cdrms/hooks/useMediaCapture';
+import { isLiveVideoBlocked } from '@/src/cdrms/device/isVirtualDevice';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import {
   DIRECTION_META,
@@ -224,6 +226,7 @@ export function BandiScreen({ go }: { go: Go }) {
           </Pressable>
         </HStack>
       }
+          go={go}
     >
       <SurveyCard>
         <WorkspaceHeader
@@ -678,6 +681,7 @@ export function SurroundingsScreen({ go }: { go: Go }) {
           {TERMS.workflow.continueToPhotos}
         </AppBtn>
       }
+          go={go}
     >
       <SurveyCard>
         <WorkspaceHeader
@@ -831,7 +835,13 @@ export function PhotosScreen({ go }: { go: Go }) {
     // Close the sheet first — iOS cannot present the picker over another Modal.
     setSheet(false);
     await new Promise((r) => setTimeout(r, 350));
-    const asset = mode === 'camera' ? await capturePhoto() : await pickPhoto();
+    // First photo is the engineer selfie.
+    const asset =
+      mode === 'camera'
+        ? draft.photos.length === 0
+          ? await captureSelfie()
+          : await capturePhoto({ facing: 'back', title: 'Take site photo' })
+        : await pickPhoto();
     if (asset) addPhoto(asset);
   };
 
@@ -851,6 +861,7 @@ export function PhotosScreen({ go }: { go: Go }) {
           {TERMS.workflow.continueToVideo}
         </AppBtn>
       }
+          go={go}
     >
       <SurveyCard>
         <WorkspaceHeader
@@ -952,7 +963,9 @@ export function PhotosScreen({ go }: { go: Go }) {
               style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 }}
             >
               <Camera size={28} color="#fff" />
-              <Text className="font-extrabold text-sm text-white">Take Photo</Text>
+              <Text className="font-extrabold text-sm text-white">
+                {draft.photos.length === 0 ? 'Take Selfie' : 'Take Photo'}
+              </Text>
             </LinearGradient>
           </Pressable>
           <Pressable
@@ -965,7 +978,9 @@ export function PhotosScreen({ go }: { go: Go }) {
           </Pressable>
         </HStack>
         <Text className="mt-4 text-[11px] text-muted-foreground text-center">
-          Photos stay on this device until you submit the application.
+          {draft.photos.length === 0
+            ? 'Selfie uses front camera. On Simulator: I/O → Camera → MacBook camera first.'
+            : 'Photos stay on this device until you submit the application.'}
         </Text>
       </AppSheet>
     </SurveyScaffold>
@@ -982,15 +997,29 @@ function formatDuration(ms?: number | null) {
 
 export function VideoScreen({ go }: { go: Go }) {
   const { draft, setVideo, saveDraft } = useProject();
+  const [busy, setBusy] = useState<'record' | 'choose' | null>(null);
+  const videoPickOnly = isLiveVideoBlocked();
 
   const record = async () => {
-    const asset = await captureVideo();
-    if (asset) setVideo(asset);
+    if (busy) return;
+    setBusy('record');
+    try {
+      const asset = await captureVideo();
+      if (asset) setVideo(asset);
+    } finally {
+      setBusy(null);
+    }
   };
 
   const choose = async () => {
-    const asset = await pickVideo();
-    if (asset) setVideo(asset);
+    if (busy) return;
+    setBusy('choose');
+    try {
+      const asset = await chooseVideoFile();
+      if (asset) setVideo(asset);
+    } finally {
+      setBusy(null);
+    }
   };
 
   const recordedLabel = draft.video
@@ -1072,6 +1101,7 @@ export function VideoScreen({ go }: { go: Go }) {
           </HStack>
         </VStack>
       }
+          go={go}
     >
       <SurveyCard>
         <WorkspaceHeader
@@ -1163,6 +1193,7 @@ export function VideoScreen({ go }: { go: Go }) {
       <HStack className="mx-4" space="md">
         <Pressable
           onPress={record}
+          disabled={busy !== null}
           className="flex-1 h-[68px] rounded-2xl overflow-hidden active:opacity-90"
           style={{
             shadowColor: '#2563EB',
@@ -1170,6 +1201,7 @@ export function VideoScreen({ go }: { go: Go }) {
             shadowOpacity: 0.28,
             shadowRadius: 14,
             elevation: 5,
+            opacity: busy === 'choose' ? 0.55 : 1,
           }}
         >
           <LinearGradient
@@ -1195,13 +1227,20 @@ export function VideoScreen({ go }: { go: Go }) {
             >
               <Camera size={18} color="#fff" strokeWidth={2.3} />
             </Box>
-            <Text className="flex-1 font-extrabold text-white text-[13px]">Record New</Text>
+            <Text className="flex-1 font-extrabold text-white text-[13px]">
+              {busy === 'record'
+                ? 'Opening…'
+                : videoPickOnly
+                  ? 'Pick Video'
+                  : 'Record New'}
+            </Text>
             <ChevronRight size={18} color="rgba(255,255,255,0.9)" strokeWidth={2.4} />
           </LinearGradient>
         </Pressable>
 
         <Pressable
           onPress={choose}
+          disabled={busy !== null}
           className="flex-1 h-[68px] rounded-2xl flex-row items-center px-3.5 gap-2.5 active:opacity-90"
           style={{
             backgroundColor: '#FFFFFF',
@@ -1225,7 +1264,9 @@ export function VideoScreen({ go }: { go: Go }) {
           >
             <Film size={18} color={COLORS.primary} strokeWidth={2.3} />
           </Box>
-          <Text className="flex-1 font-extrabold text-foreground text-[13px]">Choose File</Text>
+          <Text className="flex-1 font-extrabold text-foreground text-[13px]">
+            {busy === 'choose' ? 'Opening…' : 'Choose File'}
+          </Text>
           <ChevronRight size={18} color={COLORS.primary} strokeWidth={2.4} />
         </Pressable>
       </HStack>

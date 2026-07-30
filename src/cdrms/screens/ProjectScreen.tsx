@@ -339,6 +339,7 @@ export function ProjectScreen({ go }: { go: Go }) {
           </Box>
         </HStack>
       }
+          go={go}
     >
       {draft.caoRemarks ? (
         <Box

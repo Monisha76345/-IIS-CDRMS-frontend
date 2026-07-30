@@ -126,6 +126,7 @@ export function ValidateScreen({ go }: { go: Go }) {
           {summary.allOk ? 'Continue to Review' : 'Fix issues to continue'}
         </AppBtn>
       }
+          go={go}
     >
       <SurveyCard>
         <LinearGradient
@@ -394,6 +395,7 @@ export function ReviewScreen({ go }: { go: Go }) {
           </HStack>
         </VStack>
       }
+          go={go}
     >
       {/* Project summary — matches design card */}
       <Box
@@ -797,6 +799,7 @@ export function ReturnedScreen({ go }: { go: Go }) {
         title="Returned Application"
         subtitle={returnedId}
         onBack={() => go('history')}
+        go={go}
       />
       <ScrollView
         className="flex-1"
@@ -915,7 +918,7 @@ export function ReturnedScreen({ go }: { go: Go }) {
 export function ErrorScreen({ go }: { go: Go }) {
   return (
     <ScreenShell>
-      <AppHeader title="Connection Error" onBack={() => go('dashboard')} />
+      <AppHeader title="Connection Error" onBack={() => go('dashboard')} go={go} />
       <VStack className="flex-1">
         <VStack className="flex-1 items-center justify-center px-8">
           <Box className="h-28 w-28 rounded-full bg-destructive/10 items-center justify-center">

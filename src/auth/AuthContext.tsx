@@ -10,6 +10,7 @@ import {
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import { apiRequest, ApiError } from '@/src/api/client';
+import { isMobileAllowedRole } from '@/src/auth/roles';
 
 const TOKEN_KEY = 'cdrms_access_token';
 const USER_KEY = 'cdrms_auth_user';
@@ -92,11 +93,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!res.accessToken) {
         throw new ApiError(500, 'Login succeeded but no access token returned');
       }
-      const role = `${res.user?.userType || ''} ${res.user?.role || ''}`.toLowerCase();
-      if (role && !role.includes('engineer') && !role.includes('super_admin')) {
+      if (res.user && !isMobileAllowedRole(res.user)) {
         throw new ApiError(
           403,
-          'This mobile app is for site engineers. Use the web portal for other roles.',
+          'This mobile app supports Engineers, Zonal Commissioners, and CAO. Use the web portal for other roles.',
         );
       }
       await saveItem(TOKEN_KEY, res.accessToken);

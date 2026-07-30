@@ -48,12 +48,102 @@ export type MobileApplication = {
   caoRemarks?: string | null;
 };
 
+export type ApplicationAs = 'engineer' | 'zc' | 'cao';
+
+export type MyZoneEngineer = {
+  userId: string;
+  name: string;
+  postName?: string | null;
+};
+
+export type MyZoneMeta = {
+  zoneId: number;
+  zoneCode: string;
+  zoneName: string;
+  engineers: MyZoneEngineer[];
+};
+
+export type CaoCounts = {
+  pending: number;
+  verified: number;
+  returned: number;
+  rejected: number;
+  total: number;
+};
+
+export type CreateApplicationInput = {
+  siteNo: string;
+  addressArea: string;
+  addressBlock: string;
+  addressPincode: string;
+  siteDimensionType: 'Regular' | 'Odd';
+  siteDimensionComment?: string;
+  scheduleNorth?: string;
+  scheduleSouth?: string;
+  scheduleWest?: string;
+  scheduleEast?: string;
+  assignedEngineerUserId: string;
+};
+
 export function fetchEngineerTasks(token: string) {
   return apiRequest<MobileApplication[]>('/applications?as=engineer', { token });
 }
 
+export function fetchZcApplications(token: string) {
+  return apiRequest<MobileApplication[]>('/applications?as=zc', { token });
+}
+
+export function fetchCaoApplications(token: string) {
+  return apiRequest<MobileApplication[]>('/applications?as=cao', { token });
+}
+
+export function fetchApplicationsAs(token: string, as: ApplicationAs) {
+  return apiRequest<MobileApplication[]>(`/applications?as=${as}`, { token });
+}
+
+export function fetchMyZoneMeta(token: string) {
+  return apiRequest<MyZoneMeta>('/applications/meta/my-zone', { token });
+}
+
+export function fetchCaoCounts(token: string) {
+  return apiRequest<CaoCounts>('/applications/meta/cao-counts', { token });
+}
+
+export function createApplication(token: string, body: CreateApplicationInput) {
+  return apiRequest<MobileApplication>('/applications', {
+    method: 'POST',
+    token,
+    body,
+  });
+}
+
+export function caoDecideApplication(
+  token: string,
+  id: string,
+  kind: 'verify' | 'return' | 'reject',
+  remarks?: string,
+) {
+  return apiRequest<MobileApplication>(`/applications/${id}/${kind}`, {
+    method: 'POST',
+    token,
+    body: remarks ? { remarks } : {},
+  });
+}
+
 export function fetchApplication(token: string, id: string) {
   return apiRequest<MobileApplication>(`/applications/${id}`, { token });
+}
+
+export function countZcBuckets(apps: MobileApplication[]) {
+  return {
+    assigned: apps.filter((a) => a.status === 'assigned').length,
+    in_progress: apps.filter((a) => a.status === 'in_progress').length,
+    submitted: apps.filter((a) => a.status === 'submitted').length,
+    verified: apps.filter((a) => a.status === 'verified').length,
+    returned: apps.filter((a) => a.status === 'returned').length,
+    rejected: apps.filter((a) => a.status === 'rejected').length,
+    total: apps.length,
+  };
 }
 
 export function startApplicationTask(token: string, id: string) {

@@ -50,12 +50,12 @@ import {
   ScreenShell,
   StatusChip,
 } from '@/src/cdrms/components/primitives';
-import { SAMPLE_APPS, NOTIFS, SITE_IMAGES, imageForProject } from '@/src/cdrms/data';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { COLORS } from '@/src/cdrms/theme';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go, Screen } from '@/src/cdrms/types';
 import { useAuth } from '@/src/auth/AuthContext';
+import { displayName, homeScreenForRole, resolveAppRole } from '@/src/auth/roles';
 import { ApiError } from '@/src/api/client';
 import { fetchEngineerTasks, type MobileApplication } from '@/src/api/applications';
 
@@ -68,6 +68,17 @@ function mapTaskStatus(status: MobileApplication['status']) {
   return 'Assigned';
 }
 
+function taskCoverImage(app: MobileApplication): string | null {
+  if (app.selfieUrl?.trim()) return app.selfieUrl.trim();
+  const firstPhoto = app.photoUrls?.find((u) => typeof u === 'string' && u.trim());
+  if (firstPhoto) return firstPhoto.trim();
+  const schedule = app.schedulePhotoUrls
+    ? Object.values(app.schedulePhotoUrls).find((u) => typeof u === 'string' && u.trim())
+    : null;
+  if (schedule) return schedule.trim();
+  return null;
+}
+
 function mapTaskCard(app: MobileApplication) {
   return {
     id: app.id,
@@ -75,7 +86,7 @@ function mapTaskCard(app: MobileApplication) {
     status: mapTaskStatus(app.status),
     date: app.zoneCode,
     village: [app.addressArea, app.addressBlock].filter(Boolean).join(', ') || '—',
-    image: SITE_IMAGES.default,
+    image: taskCoverImage(app),
     live: true as const,
     apiTask: true as const,
   };
@@ -83,6 +94,78 @@ function mapTaskCard(app: MobileApplication) {
 
 const NOTIF_CARD_WIDTH = 280;
 const NOTIF_GAP = 12;
+
+type DynNotif = {
+  id: string;
+  title: string;
+  body: string;
+  time: string;
+  type: 'success' | 'warning' | 'info';
+  unread: boolean;
+};
+
+function buildTaskNotifications(tasks: MobileApplication[]): DynNotif[] {
+  return tasks.map((t) => {
+    if (t.status === 'returned') {
+      return {
+        id: t.id,
+        title: 'Returned by CAO',
+        body: `${t.applicationNumber} · Site ${t.siteNo} needs corrections`,
+        time: t.zoneCode,
+        type: 'warning' as const,
+        unread: true,
+      };
+    }
+    if (t.status === 'verified') {
+      return {
+        id: t.id,
+        title: 'Verified by CAO',
+        body: `${t.applicationNumber} was approved`,
+        time: t.zoneCode,
+        type: 'success' as const,
+        unread: false,
+      };
+    }
+    if (t.status === 'rejected') {
+      return {
+        id: t.id,
+        title: 'Rejected by CAO',
+        body: `${t.applicationNumber} was rejected`,
+        time: t.zoneCode,
+        type: 'warning' as const,
+        unread: true,
+      };
+    }
+    if (t.status === 'submitted') {
+      return {
+        id: t.id,
+        title: 'Pending CAO review',
+        body: `${t.applicationNumber} submitted successfully`,
+        time: t.zoneCode,
+        type: 'info' as const,
+        unread: false,
+      };
+    }
+    if (t.status === 'in_progress') {
+      return {
+        id: t.id,
+        title: 'In progress',
+        body: `Continue field capture for ${t.applicationNumber}`,
+        time: t.zoneCode,
+        type: 'info' as const,
+        unread: true,
+      };
+    }
+    return {
+      id: t.id,
+      title: 'New assigned task',
+      body: `${t.applicationNumber} · Site ${t.siteNo} from ZC`,
+      time: t.zoneCode,
+      type: 'info' as const,
+      unread: t.status === 'assigned',
+    };
+  });
+}
 
 const NOTIF_STYLE = {
   success: {
@@ -99,30 +182,49 @@ const NOTIF_STYLE = {
   },
 } as const;
 
-function NotificationsCarousel({ onSeeAll }: { onSeeAll: () => void }) {
+function NotificationsCarousel({
+  items,
+  onSeeAll,
+}: {
+  items: DynNotif[];
+  onSeeAll: () => void;
+}) {
   const scrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const step = NOTIF_CARD_WIDTH + NOTIF_GAP;
-  const unread = NOTIFS.filter((n) => n.unread).length;
+  const unread = items.filter((n) => n.unread).length;
 
   useEffect(() => {
-    if (paused || NOTIFS.length < 2) return;
+    if (paused || items.length < 2) return;
     const timer = setInterval(() => {
       setIndex((prev) => {
-        const next = (prev + 1) % NOTIFS.length;
+        const next = (prev + 1) % items.length;
         scrollRef.current?.scrollTo({ x: next * step, animated: true });
         return next;
       });
     }, 3200);
     return () => clearInterval(timer);
-  }, [paused, step]);
+  }, [paused, step, items.length]);
 
   const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const x = e.nativeEvent.contentOffset.x;
     const next = Math.round(x / step);
-    setIndex(Math.max(0, Math.min(NOTIFS.length - 1, next)));
+    setIndex(Math.max(0, Math.min(items.length - 1, next)));
   };
+
+  if (items.length === 0) {
+    return (
+      <Box className="mt-6 px-4">
+        <Text className="text-[16px] font-bold" style={{ color: '#0F172A' }}>
+          Notifications
+        </Text>
+        <Text className="text-[12px] mt-1" style={{ color: '#94A3B8' }}>
+          No task updates yet
+        </Text>
+      </Box>
+    );
+  }
 
   return (
     <Box className="mt-6">
@@ -167,7 +269,7 @@ function NotificationsCarousel({ onSeeAll }: { onSeeAll: () => void }) {
         }}
         onScrollEndDrag={onScrollEnd}
       >
-        {NOTIFS.map((n) => {
+        {items.map((n) => {
           const style = NOTIF_STYLE[n.type];
           const Icon = style.icon;
           return (
@@ -243,7 +345,7 @@ function NotificationsCarousel({ onSeeAll }: { onSeeAll: () => void }) {
       </ScrollView>
 
       <HStack className="items-center justify-center gap-1.5 mt-3">
-        {NOTIFS.map((n, i) => (
+        {items.map((n, i) => (
           <Box
             key={n.id}
             style={{
@@ -262,9 +364,16 @@ function NotificationsCarousel({ onSeeAll }: { onSeeAll: () => void }) {
 export function Dashboard({ go }: { go: Go }) {
   const insets = useSafeAreaInsets();
   const { openBackendTask } = useProject();
-  const { accessToken } = useAuth();
+  const { accessToken, user, logout } = useAuth();
   const [tasks, setTasks] = useState<MobileApplication[]>([]);
   const [openingId, setOpeningId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const roleHome = homeScreenForRole(user);
+    if (roleHome !== 'dashboard') {
+      go(roleHome);
+    }
+  }, [user, go]);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -423,12 +532,11 @@ export function Dashboard({ go }: { go: Go }) {
               <HStack className="items-center gap-3 flex-1 min-w-0">
                 <Pressable
                   onPress={() => go('profile')}
-                  className="active:opacity-85"
+                  className="active:opacity-85 items-center justify-center"
                   style={{
                     width: 52,
                     height: 52,
                     borderRadius: 26,
-                    padding: 2,
                     backgroundColor: 'rgba(255,255,255,0.95)',
                     shadowColor: '#0F172A',
                     shadowOffset: { width: 0, height: 4 },
@@ -437,26 +545,25 @@ export function Dashboard({ go }: { go: Go }) {
                     elevation: 4,
                   }}
                 >
-                  <Image
-                    source={require('../../../assets/officer-avatar.png')}
-                    style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 24,
-                      backgroundColor: '#E2E8F0',
-                    }}
-                    resizeMode="cover"
-                  />
+                  <Text className="font-extrabold text-[16px]" style={{ color: '#1D4ED8' }}>
+                    {displayName(user)
+                      .split(/\s+/)
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((p) => p[0]?.toUpperCase() || '')
+                      .join('') || 'U'}
+                  </Text>
                 </Pressable>
                 <VStack className="flex-1 min-w-0">
                   <Text className="text-[12px]" style={{ color: 'rgba(255,255,255,0.85)' }}>
                     Welcome back,
                   </Text>
                   <Text className="font-bold text-[17px] text-white" numberOfLines={1}>
-                    Er. Ravi Shankar 👋
+                    {displayName(user)}
                   </Text>
                 </VStack>
               </HStack>
+              <HStack className="items-center gap-2">
               <Pressable
                 onPress={() => go('notifications')}
                 className="relative items-center justify-center active:opacity-80"
@@ -470,6 +577,7 @@ export function Dashboard({ go }: { go: Go }) {
                 }}
               >
                 <Bell size={18} color={COLORS.white} />
+                {returned > 0 ? (
                 <Box
                   className="absolute rounded-full"
                   style={{
@@ -482,20 +590,47 @@ export function Dashboard({ go }: { go: Go }) {
                     borderColor: '#2563EB',
                   }}
                 />
+                ) : null}
               </Pressable>
+              <Pressable
+                onPress={async () => {
+                  await logout();
+                  go('login');
+                }}
+                className="flex-row items-center gap-1 active:opacity-85"
+                style={{
+                  height: 36,
+                  paddingHorizontal: 10,
+                  borderRadius: 999,
+                  backgroundColor: 'rgba(255,255,255,0.18)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.35)',
+                }}
+              >
+                <LogOut size={14} color={COLORS.white} />
+                <Text className="text-[11px] font-bold text-white">Logout</Text>
+              </Pressable>
+              </HStack>
             </HStack>
 
             <HStack className="mt-4 items-center flex-wrap" style={{ gap: 6 }}>
               <Clock size={13} color="rgba(255,255,255,0.85)" />
               <Text className="text-[11px]" style={{ color: 'rgba(255,255,255,0.88)' }}>
-                Friday, 24 July 2026
+                {new Date().toLocaleDateString(undefined, {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                })}
               </Text>
               <Text className="text-[11px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
                 ·
               </Text>
               <MapPin size={13} color="rgba(255,255,255,0.85)" />
               <Text className="text-[11px] flex-1" style={{ color: 'rgba(255,255,255,0.88)' }} numberOfLines={1}>
-                Devanahalli, KA-BLR-R-02
+                {tasks[0]
+                  ? `Zone ${tasks[0].zoneCode}${tasks[0].addressArea ? ` · ${tasks[0].addressArea}` : ''}`
+                  : 'Assigned zone tasks'}
               </Text>
             </HStack>
 
@@ -800,7 +935,10 @@ export function Dashboard({ go }: { go: Go }) {
           </Box>
         </Box>
 
-        <NotificationsCarousel onSeeAll={() => go('notifications')} />
+        <NotificationsCarousel
+          items={buildTaskNotifications(tasks)}
+          onSeeAll={() => go('notifications')}
+        />
 
         {/* Recent Activity */}
         <Box className="px-4 mt-6">
@@ -914,11 +1052,25 @@ export function Dashboard({ go }: { go: Go }) {
 }
 
 export function NotificationsScreen({ go }: { go: Go }) {
+  const { accessToken, user } = useAuth();
+  const home = homeScreenForRole(user);
+  const [items, setItems] = useState<DynNotif[]>([]);
+
+  useEffect(() => {
+    if (!accessToken) return;
+    fetchEngineerTasks(accessToken)
+      .then((tasks) => setItems(buildTaskNotifications(tasks)))
+      .catch(() => setItems([]));
+  }, [accessToken]);
+
+  const unread = items.filter((n) => n.unread).length;
+
   return (
     <ScreenShell>
       <AppHeader
         title="Notifications"
-        subtitle="2 unread"
+        subtitle={unread ? `${unread} unread` : 'All caught up'}
+        go={go}
         right={
           <Pressable className="h-10 w-10 rounded-full bg-white/15 items-center justify-center">
             <Filter size={16} color={COLORS.white} />
@@ -940,7 +1092,12 @@ export function NotificationsScreen({ go }: { go: Go }) {
           </HStack>
 
           <VStack className="mt-4" space="sm">
-            {NOTIFS.map((n) => {
+            {items.length === 0 ? (
+              <Text className="text-[13px] mt-6 text-center" style={{ color: '#64748B' }}>
+                No task notifications yet.
+              </Text>
+            ) : (
+              items.map((n) => {
               const colorClass =
                 n.type === 'success'
                   ? 'bg-success/10'
@@ -989,11 +1146,19 @@ export function NotificationsScreen({ go }: { go: Go }) {
                   </HStack>
                 </AppCard>
               );
-            })}
+            })
+            )}
           </VStack>
         </Box>
       </ScrollView>
-      <BottomNav active="notif" onNav={go} />
+      <BottomNav
+        active="notif"
+        onNav={go}
+        homeTarget={home}
+        appsTarget={home === 'dashboard' ? 'history' : home}
+        hidePlus={home !== 'dashboard' && home !== 'zc_home'}
+        onPlus={home === 'zc_home' ? () => go('zc_create') : undefined}
+      />
     </ScreenShell>
   );
 }
@@ -1016,12 +1181,13 @@ const APP_FILTERS: Array<{ key: string; label: string; icon: LucideIcon }> = [
   { key: 'Rejected', label: 'Rejected', icon: XCircle },
 ];
 
-function ApplicationThumb({ uri }: { uri: string }) {
+function ApplicationThumb({ uri }: { uri: string | null }) {
   const [failed, setFailed] = useState(false);
+  const showImage = Boolean(uri) && !failed;
 
   return (
     <Box
-      className="overflow-hidden"
+      className="overflow-hidden items-center justify-center"
       style={{
         width: 72,
         height: 72,
@@ -1029,12 +1195,16 @@ function ApplicationThumb({ uri }: { uri: string }) {
         backgroundColor: '#E2E8F0',
       }}
     >
-      <Image
-        source={{ uri: failed ? SITE_IMAGES.default : uri }}
-        style={{ width: 72, height: 72 }}
-        resizeMode="cover"
-        onError={() => setFailed(true)}
-      />
+      {showImage ? (
+        <Image
+          source={{ uri: uri! }}
+          style={{ width: 72, height: 72 }}
+          resizeMode="cover"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <FileText size={22} color="#94A3B8" strokeWidth={2.1} />
+      )}
     </Box>
   );
 }
@@ -1053,7 +1223,7 @@ function ApplicationListCard({
   status: string;
   village: string;
   date: string;
-  image: string;
+  image: string | null;
   onPress: () => void;
 }) {
   const accent = APP_STATUS_ACCENT[status] || COLORS.primary;
@@ -1174,7 +1344,7 @@ export function HistoryScreen({ go }: { go: Go }) {
         year: 'numeric',
       }),
       village: a.village,
-      image: imageForProject(a.projectName, a.coverImage),
+      image: a.coverImage?.trim() || null,
       live: true as const,
       apiTask: false as const,
     }));
@@ -1201,34 +1371,15 @@ export function HistoryScreen({ go }: { go: Go }) {
                 year: 'numeric',
               }),
               village: draft.village.trim() || '—',
-              image: imageForProject(draft.projectName, draftPhoto),
+              image: draftPhoto,
               live: true as const,
               apiTask: false as const,
             },
           ]
         : [];
 
-    // Prefer live engineer assignments from Nest; keep samples only when offline/empty.
-    if (apiRows.length > 0 || Boolean(accessToken)) {
-      return [...apiRows, ...draftRow, ...submitted];
-    }
-
-    const submittedIds = new Set(submitted.map((s) => s.id));
-    const sample = SAMPLE_APPS.map((a) => {
-      const status = statusOverrides[a.id] || a.status;
-      return {
-        id: a.id,
-        project: a.project,
-        status: status as string,
-        date: a.date,
-        village: a.village,
-        image: a.image,
-        live: false as const,
-        apiTask: false as const,
-      };
-    }).filter((a) => !(a.status === 'Submitted' && submittedIds.has(a.id)));
-
-    return [...draftRow, ...submitted, ...sample];
+    // Live engineer assignments + local draft only (no hardcoded sample apps).
+    return [...apiRows, ...draftRow, ...submitted];
   }, [apiTasks, applications, draft, statusOverrides, accessToken]);
 
   const filtered = tab === 'All' ? liveApps : liveApps.filter((a) => a.status === tab);
@@ -1238,6 +1389,7 @@ export function HistoryScreen({ go }: { go: Go }) {
       <AppHeader
         title="Applications"
         subtitle="All your CDRMS reports"
+        go={go}
         right={
           <Pressable className="h-10 w-10 rounded-full bg-white/15 border border-white/25 items-center justify-center">
             <Search size={16} color={COLORS.white} />
@@ -1350,18 +1502,26 @@ export function HistoryScreen({ go }: { go: Go }) {
 
 export function ProfileScreen({ go }: { go: Go }) {
   const { user, logout } = useAuth();
+  const appRole = resolveAppRole(user);
+  const home = homeScreenForRole(user);
   const name =
     user?.name?.trim() ||
     user?.loginId ||
     user?.email ||
-    'Site Engineer';
+    'Officer';
   const loginId = user?.loginId || user?.email || '—';
   const role = user?.roleName || user?.userType || 'engineer';
+  const portalLabel =
+    appRole === 'zc'
+      ? 'CDRMS Zonal Commissioner'
+      : appRole === 'cao' || appRole === 'super_admin'
+        ? 'CDRMS CAO'
+        : 'CDRMS Field Engineer';
 
   const infoRows = [
     { icon: Phone, label: 'Account', val: loginId },
     { icon: MapPinned, label: 'Role', val: String(role).replace(/_/g, ' ') },
-    { icon: Building2, label: 'Portal', val: 'CDRMS Field Engineer' },
+    { icon: Building2, label: 'Portal', val: portalLabel },
   ] as const;
 
   const menuRows = [
@@ -1379,23 +1539,43 @@ export function ProfileScreen({ go }: { go: Go }) {
       >
         <GradientHeader rounded>
           <Box className="px-5 pb-10">
-            <HStack className="items-center gap-2 pt-2">
+            <HStack className="items-center justify-between gap-2 pt-2">
+              <HStack className="items-center gap-2 flex-1 min-w-0">
+                <Pressable
+                  onPress={() => go(home)}
+                  className="h-10 w-10 rounded-full items-center justify-center"
+                >
+                  <ArrowLeft size={20} color={COLORS.white} />
+                </Pressable>
+                <Text className="text-lg font-bold text-white">Profile</Text>
+              </HStack>
               <Pressable
-                onPress={() => go('dashboard')}
-                className="h-10 w-10 rounded-full items-center justify-center"
+                onPress={async () => {
+                  await logout();
+                  go('login');
+                }}
+                className="flex-row items-center gap-1.5 active:opacity-85"
+                style={{
+                  height: 36,
+                  paddingHorizontal: 12,
+                  borderRadius: 999,
+                  backgroundColor: 'rgba(255,255,255,0.18)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.35)',
+                }}
               >
-                <ArrowLeft size={20} color={COLORS.white} />
+                <LogOut size={14} color={COLORS.white} />
+                <Text className="text-[12px] font-bold text-white">Logout</Text>
               </Pressable>
-              <Text className="text-lg font-bold text-white">Profile</Text>
             </HStack>
 
             <VStack className="mt-6 items-center">
               <Box
+                className="items-center justify-center"
                 style={{
                   width: 104,
                   height: 104,
                   borderRadius: 28,
-                  padding: 3,
                   backgroundColor: 'rgba(255,255,255,0.95)',
                   shadowColor: '#0F172A',
                   shadowOffset: { width: 0, height: 8 },
@@ -1404,21 +1584,19 @@ export function ProfileScreen({ go }: { go: Go }) {
                   elevation: 6,
                 }}
               >
-                <Image
-                  source={require('../../../assets/officer-avatar.png')}
-                  style={{
-                    width: 98,
-                    height: 98,
-                    borderRadius: 25,
-                    backgroundColor: '#E2E8F0',
-                  }}
-                  resizeMode="cover"
-                />
+                <Text className="font-extrabold text-[34px]" style={{ color: '#1D4ED8' }}>
+                  {name
+                    .split(/\s+/)
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((p) => p[0]?.toUpperCase() || '')
+                    .join('') || 'U'}
+                </Text>
               </Box>
               <Text className="mt-4 font-extrabold text-xl text-white">
                 {name}
               </Text>
-              <Text className="text-sm text-white/85">Field Engineer · CDRMS</Text>
+              <Text className="text-sm text-white/85">{portalLabel}</Text>
               <HStack className="mt-3 items-center gap-2">
                 <Box className="bg-white/15 px-2.5 py-1 rounded-full">
                   <Text className="text-[11px] text-white">ID · {loginId}</Text>
@@ -1483,11 +1661,18 @@ export function ProfileScreen({ go }: { go: Go }) {
           </Pressable>
 
           <Text className="text-center text-[11px] text-muted-foreground pt-2">
-            CDRMS Engineer · v 4.2.1 (build 20260724)
+            {portalLabel} · mobile
           </Text>
         </VStack>
       </ScrollView>
-      <BottomNav active="profile" onNav={go} />
+      <BottomNav
+        active="profile"
+        onNav={go}
+        homeTarget={home}
+        appsTarget={home}
+        hidePlus={appRole === 'cao' || appRole === 'super_admin'}
+        onPlus={appRole === 'zc' ? () => go('zc_create') : undefined}
+      />
     </ScreenShell>
   );
 }

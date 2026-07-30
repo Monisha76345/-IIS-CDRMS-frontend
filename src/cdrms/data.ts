@@ -249,15 +249,9 @@ export const NOTIFS = [
   },
 ];
 
-export function imageForProject(project: string, fallback?: string | null) {
-  if (fallback) return fallback;
-  const p = project.toLowerCase();
-  if (p.includes('culvert') || p.includes('bridge')) return SITE_IMAGES.bridge;
-  if (p.includes('drain')) return SITE_IMAGES.drain;
-  if (p.includes('junction')) return SITE_IMAGES.junction;
-  if (p.includes('approach') || p.includes('hoskote')) return SITE_IMAGES.curve;
-  if (p.includes('road') || p.includes('widening')) return SITE_IMAGES.road;
-  return SITE_IMAGES.default;
+export function imageForProject(_project: string, fallback?: string | null): string | null {
+  if (fallback?.trim()) return fallback.trim();
+  return null;
 }
 
 export function findSampleApp(id: string) {

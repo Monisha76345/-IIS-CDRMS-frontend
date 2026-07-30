@@ -32,6 +32,15 @@ import {
   SuccessScreen,
   ValidateScreen,
 } from '@/src/cdrms/screens/StateScreens';
+import {
+  CaoDetailScreen,
+  CaoHomeScreen,
+} from '@/src/cdrms/screens/CaoScreens';
+import {
+  ZcCreateScreen,
+  ZcDetailScreen,
+  ZcHomeScreen,
+} from '@/src/cdrms/screens/ZcScreens';
 import type { Go, Screen } from '@/src/cdrms/types';
 
 export function CdrmsApp() {
@@ -55,6 +64,16 @@ export function CdrmsApp() {
         return <GeoScreen go={go} />;
       case 'dashboard':
         return <Dashboard go={go} />;
+      case 'zc_home':
+        return <ZcHomeScreen go={go} />;
+      case 'zc_create':
+        return <ZcCreateScreen go={go} />;
+      case 'zc_detail':
+        return <ZcDetailScreen go={go} />;
+      case 'cao_home':
+        return <CaoHomeScreen go={go} />;
+      case 'cao_detail':
+        return <CaoDetailScreen go={go} />;
       case 'project':
         return <ProjectScreen go={go} />;
       case 'bandi':

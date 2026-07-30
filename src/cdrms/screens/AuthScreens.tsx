@@ -4,7 +4,8 @@ import {
   ArrowRight,
   Check,
   Compass,
-  Fingerprint,
+  Eye,
+  EyeOff,
   Lock,
   MapPin,
   MapPinned,
@@ -81,6 +82,7 @@ import { TERMS } from '@/src/cdrms/terminology';
 import type { Go } from '@/src/cdrms/types';
 import { useAuth } from '@/src/auth/AuthContext';
 import { ApiError } from '@/src/api/client';
+import { homeScreenForRole } from '@/src/auth/roles';
 
 const SPLASH_HOLD_MS = 3200;
 const OTP_LENGTH = 6;
@@ -322,10 +324,10 @@ export function SplashScreen({ go }: { go: Go }) {
 
 export function LoginScreen({ go }: { go: Go }) {
   const { login } = useAuth();
-  // Same engineer credentials used on web
-  const [loginId, setLoginId] = useState('shiva@gmail.com');
-  const [password, setPassword] = useState('Okay@123');
-  const [remember, setRemember] = useState(true);
+  const [loginId, setLoginId] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -338,7 +340,7 @@ export function LoginScreen({ go }: { go: Go }) {
     setLoading(true);
     try {
       await login(loginId, password);
-      go('otp');
+      go('permission');
     } catch (e) {
       const msg =
         e instanceof ApiError
@@ -379,10 +381,10 @@ export function LoginScreen({ go }: { go: Go }) {
 
                 <VStack className="mt-8" space="xs">
                   <Text className="text-3xl font-extrabold leading-tight text-white">
-                    Welcome back,{'\n'}Engineer
+                    Welcome back
                   </Text>
                   <Text className="mt-2 text-sm text-white/85">
-                    Sign in with your CDRMS Login ID to continue field tasks.
+                    Sign in with your CDRMS Login ID to continue.
                   </Text>
                 </VStack>
 
@@ -392,7 +394,7 @@ export function LoginScreen({ go }: { go: Go }) {
                   </Box>
                   <VStack>
                     <Text className="text-xs font-semibold text-white">
-                      Field Zone · Karnataka
+                      CDRMS Mobile
                     </Text>
                     <Text className="text-xs text-white/80">
                       Secure Government Access · TLS 1.3
@@ -411,13 +413,42 @@ export function LoginScreen({ go }: { go: Go }) {
                     value={loginId}
                     onChangeText={setLoginId}
                     autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="off"
+                    textContentType="none"
+                    importantForAutofill="no"
+                    placeholder="Enter login ID or email"
+                    showCheck={false}
                   />
                   <Field
                     label="Password"
                     icon={Lock}
                     value={password}
                     onChangeText={setPassword}
-                    secureTextEntry
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="off"
+                    textContentType="oneTimeCode"
+                    importantForAutofill="no"
+                    passwordRules=""
+                    placeholder="Enter password"
+                    showCheck={false}
+                    endAdornment={
+                      <Pressable
+                        onPress={() => setShowPassword((v) => !v)}
+                        hitSlop={10}
+                        accessibilityRole="button"
+                        accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                        className="h-9 w-9 items-center justify-center rounded-full active:opacity-70"
+                      >
+                        {showPassword ? (
+                          <EyeOff size={18} color="#64748B" />
+                        ) : (
+                          <Eye size={18} color="#64748B" />
+                        )}
+                      </Pressable>
+                    }
                   />
 
                   {error ? (
@@ -441,22 +472,6 @@ export function LoginScreen({ go }: { go: Go }) {
                   <AppBtn onPress={onSecureLogin} icon={Lock} disabled={loading}>
                     {loading ? 'Signing in…' : 'Secure Login'}
                   </AppBtn>
-
-                  <HStack className="items-center gap-3">
-                    <Box className="flex-1 h-px bg-border" />
-                    <Text className="text-[11px] text-muted-foreground uppercase font-semibold">
-                      or
-                    </Text>
-                    <Box className="flex-1 h-px bg-border" />
-                  </HStack>
-
-                  <Pressable className="w-full h-14 rounded-2xl border border-dashed border-primary/40 flex-row items-center justify-center gap-2 active:opacity-90">
-                    <Fingerprint size={20} color={COLORS.primary} />
-                    <Text className="font-semibold text-primary">Biometric Login</Text>
-                    <Box className="bg-primary/10 px-1.5 py-0.5 rounded">
-                      <Text className="text-[10px] font-bold text-primary">SOON</Text>
-                    </Box>
-                  </Pressable>
                 </VStack>
               </AppCard>
 
@@ -768,6 +783,7 @@ export function OtpScreen({ go }: { go: Go }) {
               title="Verify OTP"
               subtitle="Enter the 6-digit code"
               onBack={() => go('login')}
+              showLogout={false}
             />
 
             <Box className="flex-1 -mt-6 px-5 pb-8">
@@ -1366,6 +1382,7 @@ export function PermissionScreen({ go }: { go: Go }) {
 }
 
 export function GeoScreen({ go }: { go: Go }) {
+  const { user } = useAuth();
   const [outside, setOutside] = useState(false);
   const [scanning, setScanning] = useState(true);
 
@@ -1448,6 +1465,7 @@ export function GeoScreen({ go }: { go: Go }) {
           title={TERMS.permissions.geoValidation}
           subtitle={scanning ? 'Scanning jurisdiction…' : TERMS.permissions.geoValidationSubtitle}
           onBack={() => go('login')}
+          showLogout={false}
         />
 
         <Box className="flex-1 -mt-6 px-5 pb-10">
@@ -1723,11 +1741,11 @@ export function GeoScreen({ go }: { go: Go }) {
               <VStack space="sm">
                 <Animated.View entering={ZoomIn.delay(scanning ? 900 : 0).springify().damping(14)}>
                   <AppBtn
-                    onPress={() => go('dashboard')}
+                    onPress={() => go(homeScreenForRole(user))}
                     icon={ArrowRight}
                     disabled={scanning}
                   >
-                    {scanning ? 'Validating location…' : 'Continue to Dashboard'}
+                    {scanning ? 'Validating location…' : 'Continue'}
                   </AppBtn>
                 </Animated.View>
                 <Pressable

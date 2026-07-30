@@ -1,6 +1,7 @@
 import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
 import { RootNavigator } from '@/src/navigation/RootNavigator';
 import { AuthProvider } from '@/src/auth/AuthContext';
+import { DeviceCameraHost } from '@/src/cdrms/components/DeviceCameraHost';
 import '@/global.css';
 import { useRef } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -39,6 +40,7 @@ export default function App() {
           <GluestackUIProvider mode="light">
             <AuthProvider>
               <RootNavigator />
+              <DeviceCameraHost />
             </AuthProvider>
           </GluestackUIProvider>
         </GestureHandlerRootView>
