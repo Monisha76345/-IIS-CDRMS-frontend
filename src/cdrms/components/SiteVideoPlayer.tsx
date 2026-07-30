@@ -8,13 +8,15 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { GestureResponderEvent, LayoutChangeEvent } from 'react-native';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
+import { useAuth } from '@/src/auth/AuthContext';
+import { mediaSource } from '@/src/cdrms/media/displayUri';
 import { COLORS, GRADIENT_PRIMARY } from '@/src/cdrms/theme';
 
 type Props = {
@@ -32,14 +34,25 @@ function formatClock(seconds: number) {
 
 /** Custom walk-through player with mock-matched controls. */
 export function SiteVideoPlayer({ uri, durationLabel }: Props) {
+  const { accessToken } = useAuth();
   const viewRef = useRef<VideoView>(null);
   const [trackWidth, setTrackWidth] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [broken, setBroken] = useState(false);
 
   const safeUri = typeof uri === 'string' ? uri.trim() : '';
+  const source = useMemo(
+    () => mediaSource(safeUri, accessToken),
+    [safeUri, accessToken]
+  );
+  const playerSource = useMemo(() => {
+    if (!source?.uri) return null;
+    return source.headers
+      ? { uri: source.uri, headers: source.headers }
+      : source.uri;
+  }, [source]);
 
-  const player = useVideoPlayer(uri, (p) => {
+  const player = useVideoPlayer(playerSource, (p) => {
     p.loop = false;
     p.muted = false;
     p.timeUpdateEventInterval = 0.25;
@@ -57,18 +70,18 @@ export function SiteVideoPlayer({ uri, durationLabel }: Props) {
   });
 
   useEffect(() => {
-    if (!safeUri) {
+    if (!playerSource) {
       setBroken(true);
       return;
     }
     setBroken(false);
     try {
-      player.replace(safeUri);
+      player.replace(playerSource);
       setCurrentTime(0);
     } catch {
       setBroken(true);
     }
-  }, [safeUri, player]);
+  }, [playerSource, player]);
 
   const duration =
     player.duration > 0

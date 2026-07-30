@@ -15,6 +15,49 @@ function remoteAsset(
   return { id, uri, type, createdAt: now };
 }
 
+const EMPTY_DIMS = { N: '', S: '', E: '', W: '' } as const;
+
+function sameAsZcSiteDimension(
+  dims: { N: string; S: string; E: string; W: string },
+  siteDimension: string | null | undefined,
+): boolean {
+  const zc = siteDimensionToFormDims(siteDimension);
+  if (!zc) return false;
+  return (
+    dims.N === zc.north &&
+    dims.S === zc.south &&
+    dims.E === zc.east &&
+    dims.W === zc.west
+  );
+}
+
+/**
+ * Engineer N/S/E/W only.
+ * Never seed from ZC siteDimension, legacy dim*, or accidental copies of ZC values.
+ */
+function engineerDimsFromApp(app: MobileApplication): {
+  N: string;
+  S: string;
+  E: string;
+  W: string;
+} {
+  const eng = app.engineerDimensions;
+  if (!eng || !(eng.N || eng.S || eng.E || eng.W)) {
+    return { ...EMPTY_DIMS };
+  }
+  const dims = {
+    N: String(eng.N || '').trim(),
+    S: String(eng.S || '').trim(),
+    E: String(eng.E || '').trim(),
+    W: String(eng.W || '').trim(),
+  };
+  // Old mobile builds used to copy ZC siteDimension into engineerDimensions — ignore those.
+  if (sameAsZcSiteDimension(dims, app.siteDimension)) {
+    return { ...EMPTY_DIMS };
+  }
+  return dims;
+}
+
 /** Seed a survey draft from a ZC-assigned backend application (incl. saved draft media). */
 export function draftFromBackendApplication(app: MobileApplication): ProjectDraft {
   const now = Date.now();
@@ -22,7 +65,6 @@ export function draftFromBackendApplication(app: MobileApplication): ProjectDraf
   const address = [app.addressArea, app.addressBlock, app.addressPincode]
     .filter(Boolean)
     .join(', ');
-  const fromSite = siteDimensionToFormDims(app.siteDimension);
 
   const photos: MediaAsset[] = [];
   if (app.selfieUrl) {
@@ -64,15 +106,21 @@ export function draftFromBackendApplication(app: MobileApplication): ProjectDraf
     occupancy: app.occupancy === 'Occupied' ? 'Occupied' : 'Empty',
     occupancyReason: app.occupancyReason || '',
     engineerComments: app.engineerComments || '',
-    dimNorth: app.dimNorth ? String(app.dimNorth) : fromSite?.north || '',
-    dimSouth: app.dimSouth ? String(app.dimSouth) : fromSite?.south || '',
-    dimEast: app.dimEast ? String(app.dimEast) : fromSite?.east || '',
-    dimWest: app.dimWest ? String(app.dimWest) : fromSite?.west || '',
+    ...((() => {
+      const d = engineerDimsFromApp(app);
+      return {
+        dimNorth: d.N,
+        dimSouth: d.S,
+        dimEast: d.E,
+        dimWest: d.W,
+      };
+    })()),
     projectName: app.applicationNumber,
     khatedarName: app.createdByZcName || '',
     surveyNo: app.siteNo,
     plotNo: app.siteNo,
-    dimensionArea: app.siteDimension || '',
+    // Do NOT copy ZC siteDimension into dimensionArea — that used to prefill Step 3.
+    dimensionArea: '',
     village: app.addressArea || '',
     taluk: app.addressBlock || '',
     district: address,
@@ -88,10 +136,22 @@ export function draftFromBackendApplication(app: MobileApplication): ProjectDraf
           }
         : null,
     directions: {
+      N: app.engineerScheduleNotes?.N || '',
+      S: app.engineerScheduleNotes?.S || '',
+      E: app.engineerScheduleNotes?.E || '',
+      W: app.engineerScheduleNotes?.W || '',
+    },
+    zcDirections: {
       N: app.scheduleNorth || '',
       S: app.scheduleSouth || '',
       E: app.scheduleEast || '',
       W: app.scheduleWest || '',
+    },
+    roadFlags: {
+      N: Boolean(app.scheduleRoadFlags?.N),
+      S: Boolean(app.scheduleRoadFlags?.S),
+      E: Boolean(app.scheduleRoadFlags?.E),
+      W: Boolean(app.scheduleRoadFlags?.W),
     },
     surroundingPhotos,
     photos,

@@ -71,7 +71,7 @@ export function StaticMapPreview({
           borderColor: 'rgba(15, 118, 110, 0.35)',
         }}
       >
-        <MapPin size={22} color="#0F766E" strokeWidth={2.4} />
+        <MapPin size={22} color="#2563EB" strokeWidth={2.4} />
       </Box>
       {latitude != null && longitude != null ? (
         <Text className="text-[10px] font-semibold mt-2" style={{ color: '#64748B' }}>

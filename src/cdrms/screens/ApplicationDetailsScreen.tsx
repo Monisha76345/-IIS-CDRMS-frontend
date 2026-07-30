@@ -343,7 +343,7 @@ export function ApplicationDetailsScreen({ go }: { go: Go }) {
             </Box>
           </SectionCard>
 
-          <SectionCard title={TERMS.sections.administrativeArea} icon={MapPin} accent="#0F766E">
+          <SectionCard title={TERMS.sections.administrativeArea} icon={MapPin} accent="#2563EB">
             <Box className="flex-row flex-wrap" style={{ gap: 14 }}>
               <InfoRow label={TERMS.fields.village} value={detail.village} />
               <InfoRow label={TERMS.fields.taluk} value={detail.taluk} />

@@ -17,7 +17,7 @@ import {
   X,
 } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Modal, Platform, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Modal, Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Box } from '@/components/ui/box';
@@ -34,6 +34,10 @@ import {
   type CameraCaptureRequest,
   type CameraFacing,
 } from '@/src/cdrms/camera/cameraCaptureGate';
+import {
+  ensureCameraPermission,
+  ensureMicrophonePermission,
+} from '@/src/cdrms/mediaPermission';
 import type { MediaAsset } from '@/src/cdrms/project/types';
 
 function isSimulatorRecordError(message: string) {
@@ -112,8 +116,12 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
 
   useEffect(() => {
     void (async () => {
-      if (!cameraPermission?.granted) await requestCameraPermission();
+      if (!cameraPermission?.granted) {
+        await ensureCameraPermission(true);
+        await requestCameraPermission();
+      }
       if (request.mode === 'video' && !micPermission?.granted) {
+        await ensureMicrophonePermission(true);
         await requestMicPermission();
       }
     })();
@@ -305,14 +313,8 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
     }
 
     if (!micPermission?.granted) {
-      const next = await requestMicPermission();
-      if (!next.granted) {
-        Alert.alert(
-          'Microphone needed',
-          'Allow microphone access so CDRMS can record video with audio.'
-        );
-        return;
-      }
+      const micOk = await ensureMicrophonePermission(false);
+      if (!micOk) return;
     }
 
     setBusy(true);
@@ -506,16 +508,37 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
             </Text>
             {!cameraPermission?.granted ? (
               <Pressable
-                onPress={() => void requestCameraPermission()}
+                onPress={() =>
+                  void (async () => {
+                    const ok = await ensureCameraPermission(true);
+                    if (!ok || permissionDenied) {
+                      Alert.alert(
+                        'Enable Camera',
+                        'Open Settings → CDRMS → turn on Camera (and Microphone for video).',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Open Settings',
+                            onPress: () => void Linking.openSettings(),
+                          },
+                        ]
+                      );
+                      return;
+                    }
+                    await requestCameraPermission();
+                  })()
+                }
                 className="mt-6 h-12 px-6 rounded-2xl items-center justify-center"
                 style={{ backgroundColor: '#2563EB' }}
               >
-                <Text className="text-white font-extrabold">Allow camera</Text>
+                <Text className="text-white font-extrabold">
+                  {permissionDenied ? 'Open Settings' : 'Allow camera'}
+                </Text>
               </Pressable>
             ) : null}
             {permissionDenied ? (
               <Text className="text-white/50 text-xs mt-3 text-center">
-                Enable Camera in Settings → CDRMS.
+                Enable Camera (and Microphone for video) in Settings → CDRMS.
               </Text>
             ) : null}
           </Box>

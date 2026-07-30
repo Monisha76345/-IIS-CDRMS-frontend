@@ -1,172 +1,311 @@
-import { Check, Edit3 } from 'lucide-react-native';
+import { Camera, Check, MapPinned, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { TextInput } from 'react-native';
+import { Alert, TextInput } from 'react-native';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import { useAuth } from '@/src/auth/AuthContext';
-import { saveEngineerDraft } from '@/src/api/applications';
-import { SurveyCard } from '@/src/cdrms/components/SurveyLayout';
+import { ImagePreviewModal } from '@/src/cdrms/components/ImagePreviewModal';
+import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
+import { SurveyCard, WorkspaceHeader } from '@/src/cdrms/components/SurveyLayout';
+import { capturePhoto, pickPhoto } from '@/src/cdrms/hooks/useMediaCapture';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
 import { DIRECTION_META, type Cardinal } from '@/src/cdrms/project/types';
+import { COLORS, FONTS, SPACE } from '@/src/cdrms/theme';
 
 const CARDINALS: Cardinal[] = ['N', 'S', 'E', 'W'];
 
-/** Schedules (site around) — Step 3 Dimensions only. */
-export function SchedulesEditorCard() {
-  const { accessToken } = useAuth();
-  const { draft, setDirection } = useProject();
-  const [schedulesEditing, setSchedulesEditing] = useState(false);
-  const [scheduleDraft, setScheduleDraft] = useState({ N: '', S: '', E: '', W: '' });
-  const [saving, setSaving] = useState(false);
+/**
+ * Engineer schedules — same Step 1 card alignment: black text, white shadow tiles.
+ */
+export function SchedulesEditorCard({
+  title = 'Schedules (site around)',
+  subtitle = '4 sides · Road · note · photo',
+}: {
+  title?: string;
+  subtitle?: string;
+}) {
+  const { draft, setDirection, setRoadFlag, setSurroundingPhoto, clearSurroundingPhoto } =
+    useProject();
+  const [clearing, setClearing] = useState<Cardinal | null>(null);
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState('Photo preview');
 
-  const beginScheduleEdit = () => {
-    setScheduleDraft({
-      N: draft.directions.N,
-      S: draft.directions.S,
-      E: draft.directions.E,
-      W: draft.directions.W,
-    });
-    setSchedulesEditing(true);
+  const pickForSide = (k: Cardinal) => {
+    Alert.alert(`Upload ${DIRECTION_META[k].label} image`, 'Choose source', [
+      {
+        text: 'Camera',
+        onPress: () => {
+          void capturePhoto({ title: `Take ${DIRECTION_META[k].label} photo` }).then((asset) => {
+            if (asset) void setSurroundingPhoto(k, asset);
+          });
+        },
+      },
+      {
+        text: 'Gallery',
+        onPress: () => {
+          void pickPhoto().then((asset) => {
+            if (asset) void setSurroundingPhoto(k, asset);
+          });
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
-  const saveScheduleEdit = async () => {
-    const next = {
-      N: scheduleDraft.N.trim(),
-      S: scheduleDraft.S.trim(),
-      E: scheduleDraft.E.trim(),
-      W: scheduleDraft.W.trim(),
-    };
-    ;(['N', 'S', 'E', 'W'] as const).forEach((k) => {
-      setDirection(k, next[k]);
-    });
-    if (draft.backendApplicationId && accessToken) {
-      setSaving(true);
-      try {
-        await saveEngineerDraft(accessToken, draft.backendApplicationId, {
-          scheduleNorth: next.N,
-          scheduleSouth: next.S,
-          scheduleWest: next.W,
-          scheduleEast: next.E,
-        });
-        setSchedulesEditing(false);
-      } catch (err) {
-        alertDraftError(err, 'Could not save schedules');
-      } finally {
-        setSaving(false);
-      }
-      return;
-    }
-    setSchedulesEditing(false);
+  const removePhoto = (k: Cardinal) => {
+    Alert.alert(`Remove ${DIRECTION_META[k].label} photo?`, 'This clears the uploaded image.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            setClearing(k);
+            try {
+              await clearSurroundingPhoto(k);
+            } catch (err) {
+              alertDraftError(err);
+            } finally {
+              setClearing(null);
+            }
+          })();
+        },
+      },
+    ]);
   };
 
   return (
     <SurveyCard>
-      <VStack className="px-[18px] py-4" space="sm">
-        <HStack className="items-center justify-between">
-          <VStack className="min-w-0 flex-1 pr-2">
-            <Text className="text-[15px] font-extrabold" style={{ color: '#0F172A' }}>
-              Schedules (site around)
-            </Text>
-            <Text className="mt-0.5 text-[11px]" style={{ color: '#94A3B8' }}>
-              Prefills from ZC — tap Edit to update
-            </Text>
-          </VStack>
-          <Pressable
-            onPress={() =>
-              void (schedulesEditing ? saveScheduleEdit() : beginScheduleEdit())
-            }
-            disabled={saving}
-            className="active:opacity-80"
-            style={{
-              height: 34,
-              paddingHorizontal: 12,
-              borderRadius: 10,
-              borderWidth: 1,
-              borderColor: '#BFDBFE',
-              backgroundColor: schedulesEditing ? '#2563EB' : '#EFF6FF',
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              opacity: saving ? 0.6 : 1,
-            }}
-          >
-            {schedulesEditing ? (
-              <Check size={14} color="#FFFFFF" strokeWidth={2.5} />
-            ) : (
-              <Edit3 size={14} color="#2563EB" strokeWidth={2.5} />
-            )}
-            <Text
+      <WorkspaceHeader
+        icon={MapPinned}
+        title={title}
+        subtitle={subtitle}
+        stepLabel="STEP 02"
+        iconBg={COLORS.primary}
+      />
+
+      <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
+        {CARDINALS.map((k) => {
+          const isRoad = Boolean(draft.roadFlags?.[k]);
+          const note = draft.directions[k] || '';
+          const photo = draft.surroundingPhotos[k];
+          const isClearing = clearing === k;
+
+          return (
+            <HStack
+              key={`eng-sched-${k}`}
+              className="items-center"
               style={{
-                fontSize: 12,
-                fontWeight: '800',
-                color: schedulesEditing ? '#FFFFFF' : '#2563EB',
+                borderRadius: 12,
+                backgroundColor: COLORS.white,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                gap: SPACE[2],
+                minHeight: 52,
+                opacity: isClearing ? 0.55 : 1,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.06,
+                shadowRadius: 6,
+                elevation: 2,
               }}
             >
-              {saving ? 'Saving…' : schedulesEditing ? 'Done' : 'Edit'}
-            </Text>
-          </Pressable>
-        </HStack>
-
-        {CARDINALS.map((k) => {
-          const meta = DIRECTION_META[k];
-          const value = schedulesEditing ? scheduleDraft[k] : draft.directions[k];
-          return (
-            <VStack key={`dim-sched-${k}`} space="xs">
-              <Text
-                className="text-[10px] font-extrabold uppercase tracking-wider"
-                style={{ color: meta.color }}
-              >
-                Schedule {k} · {meta.label}
-              </Text>
-              {schedulesEditing ? (
-                <TextInput
-                  value={value}
-                  onChangeText={(t) => setScheduleDraft((d) => ({ ...d, [k]: t }))}
-                  placeholder={`What is on the ${meta.label.toLowerCase()} side?`}
-                  placeholderTextColor="#94A3B8"
+              <Box style={{ width: 44, justifyContent: 'center' }}>
+                <Text
+                  numberOfLines={1}
                   style={{
-                    borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: '#BFDBFE',
-                    backgroundColor: '#FFFFFF',
-                    paddingHorizontal: 12,
-                    paddingVertical: 10,
+                    fontFamily: FONTS.bold,
                     fontSize: 13,
-                    fontWeight: '700',
-                    color: '#0F172A',
-                  }}
-                />
-              ) : (
-                <Box
-                  style={{
-                    borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: '#E5E7EB',
-                    backgroundColor: '#F8FAFC',
-                    paddingHorizontal: 12,
-                    paddingVertical: 10,
+                    color: COLORS.ink,
+                    textAlign: 'left',
                   }}
                 >
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      fontWeight: '700',
-                      color: value ? '#0F172A' : '#94A3B8',
-                    }}
-                  >
-                    {value || '—'}
-                  </Text>
+                  {k}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: FONTS.medium,
+                    fontSize: 10,
+                    color: COLORS.ink,
+                    marginTop: 1,
+                  }}
+                >
+                  by
+                </Text>
+              </Box>
+
+              <Pressable
+                onPress={() => setRoadFlag(k, !isRoad)}
+                className="active:opacity-80"
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  height: 36,
+                  paddingHorizontal: 10,
+                  borderRadius: 10,
+                  backgroundColor: COLORS.white,
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 6,
+                  elevation: 2,
+                }}
+              >
+                <Box
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: 4,
+                    borderWidth: 1.5,
+                    borderColor: isRoad ? COLORS.primary : COLORS.ink,
+                    backgroundColor: isRoad ? COLORS.primary : COLORS.white,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {isRoad ? <Check size={10} color="#FFFFFF" strokeWidth={3} /> : null}
                 </Box>
-              )}
-            </VStack>
+                <Text
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 11,
+                    color: COLORS.ink,
+                  }}
+                >
+                  Road
+                </Text>
+              </Pressable>
+
+              <TextInput
+                value={note}
+                onChangeText={(t) => setDirection(k, t)}
+                placeholder="Note…"
+                placeholderTextColor="#94A3B8"
+                style={{
+                  flexGrow: 1,
+                  flexShrink: 1,
+                  flexBasis: 72,
+                  maxWidth: 96,
+                  minWidth: 64,
+                  height: 32,
+                  borderRadius: 10,
+                  backgroundColor: COLORS.white,
+                  paddingHorizontal: 8,
+                  fontFamily: FONTS.semibold,
+                  fontSize: 12,
+                  color: COLORS.ink,
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.06,
+                  shadowRadius: 4,
+                  elevation: 1,
+                }}
+              />
+
+              <Box style={{ position: 'relative', marginLeft: 'auto' }}>
+                <Pressable
+                  onPress={() => {
+                    if (photo) {
+                      setPreviewTitle(`${DIRECTION_META[k].label} photo`);
+                      setPreviewUri(photo.uri);
+                      return;
+                    }
+                    pickForSide(k);
+                  }}
+                  onLongPress={() => {
+                    if (photo) pickForSide(k);
+                  }}
+                  disabled={isClearing}
+                  className="active:opacity-85 overflow-hidden"
+                  style={{
+                    width: 72,
+                    height: 52,
+                    borderRadius: 10,
+                    backgroundColor: COLORS.white,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    shadowColor: '#0F172A',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.08,
+                    shadowRadius: 6,
+                    elevation: 2,
+                  }}
+                  accessibilityLabel={
+                    photo
+                      ? `Preview ${DIRECTION_META[k].label} photo`
+                      : `Upload ${DIRECTION_META[k].label} photo`
+                  }
+                >
+                  {photo ? (
+                    <Box className="w-full h-full relative">
+                      <ApiMediaImage
+                        uri={photo.uri}
+                        style={{ width: '100%', height: '100%' }}
+                        resizeMode="cover"
+                      />
+                      <Box
+                        className="absolute"
+                        style={{
+                          right: 2,
+                          bottom: 2,
+                          width: 14,
+                          height: 14,
+                          borderRadius: 7,
+                          backgroundColor: COLORS.success,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Check size={9} color="#fff" strokeWidth={3} />
+                      </Box>
+                    </Box>
+                  ) : (
+                    <Camera size={22} color={COLORS.ink} />
+                  )}
+                </Pressable>
+                {photo ? (
+                  <Pressable
+                    onPress={() => removePhoto(k)}
+                    disabled={isClearing}
+                    hitSlop={8}
+                    className="active:opacity-85"
+                    style={{
+                      position: 'absolute',
+                      top: -7,
+                      right: -7,
+                      width: 22,
+                      height: 22,
+                      borderRadius: 11,
+                      backgroundColor: '#DC2626',
+                      borderWidth: 1.5,
+                      borderColor: '#FFFFFF',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 2,
+                    }}
+                    accessibilityLabel={`Remove ${DIRECTION_META[k].label} photo`}
+                  >
+                    <X size={12} color="#FFFFFF" strokeWidth={3} />
+                  </Pressable>
+                ) : null}
+              </Box>
+            </HStack>
           );
         })}
       </VStack>
+
+      <ImagePreviewModal
+        uri={previewUri}
+        title={previewTitle}
+        onClose={() => setPreviewUri(null)}
+      />
     </SurveyCard>
   );
 }

@@ -29,7 +29,7 @@ type AuthContextValue = {
   user: AuthUser | null;
   accessToken: string | null;
   isAuthenticated: boolean;
-  login: (loginIdOrEmail: string, password: string) => Promise<void>;
+  login: (loginIdOrEmail: string, password: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
 };
 
@@ -99,10 +99,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           'This mobile app supports Engineers, Zonal Commissioners, and CAO. Use the web portal for other roles.',
         );
       }
+      const nextUser = res.user ?? {};
       await saveItem(TOKEN_KEY, res.accessToken);
-      await saveItem(USER_KEY, JSON.stringify(res.user ?? {}));
+      await saveItem(USER_KEY, JSON.stringify(nextUser));
       setAccessToken(res.accessToken);
-      setUser(res.user ?? {});
+      setUser(nextUser);
+      return nextUser;
     } catch (error) {
       if (error instanceof ApiError) throw error;
       throw new ApiError(0, 'Unable to reach CDRMS API. Check EXPO_PUBLIC_API_URL.');

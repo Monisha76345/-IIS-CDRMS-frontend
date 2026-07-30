@@ -1,9 +1,11 @@
-import type { LucideIcon } from 'lucide-react-native';
+import { ChevronRight, type LucideIcon } from 'lucide-react-native';
+
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
+import { COLORS, FONTS } from '@/src/cdrms/theme';
 
 export type StatusCountItem = {
   key: string;
@@ -38,48 +40,57 @@ export function StatusCountGrid({
               onPress={() => onSelect(item.key)}
               className="active:opacity-90"
               style={{
-                borderRadius: 16,
-                paddingVertical: 14,
-                paddingHorizontal: 12,
-                backgroundColor: active ? item.tint : '#FFFFFF',
-                borderWidth: 1.5,
-                borderColor: active ? item.tint : '#E5E7EB',
-                minHeight: 92,
-                justifyContent: 'space-between',
+                borderRadius: 12,
+                paddingVertical: 10,
+                paddingHorizontal: 10,
+                backgroundColor: active ? item.tint : COLORS.white,
+                borderWidth: 1,
+                borderColor: active ? item.tint : COLORS.border,
+                minHeight: 62,
+                justifyContent: 'center',
                 shadowColor: '#0F172A',
                 shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: active ? 0.12 : 0.04,
-                shadowRadius: 8,
-                elevation: active ? 3 : 1,
+                shadowOpacity: active ? 0.12 : 0.06,
+                shadowRadius: 6,
+                elevation: active ? 3 : 2,
               }}
             >
-              <HStack className="items-center justify-between">
+              <HStack className="items-center" style={{ gap: 8 }}>
                 <Box
                   style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 18,
+                    width: 28,
+                    height: 28,
+                    borderRadius: 8,
                     alignItems: 'center',
                     justifyContent: 'center',
                     backgroundColor: active ? 'rgba(255,255,255,0.22)' : item.soft,
                   }}
                 >
-                  <Icon size={18} color={active ? '#FFFFFF' : item.tint} strokeWidth={2.3} />
+                  <Icon size={14} color={active ? '#FFFFFF' : item.tint} strokeWidth={2.3} />
                 </Box>
-                <Text
-                  className="text-[22px] font-extrabold tabular-nums"
-                  style={{ color: active ? '#FFFFFF' : '#0F172A' }}
-                >
-                  {item.count}
-                </Text>
+                <VStack className="flex-1 min-w-0" style={{ gap: 1 }}>
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 18,
+                      lineHeight: 22,
+                      color: active ? '#FFFFFF' : COLORS.ink,
+                    }}
+                  >
+                    {item.count}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      fontFamily: FONTS.semibold,
+                      fontSize: 11,
+                      color: active ? 'rgba(255,255,255,0.95)' : COLORS.ink,
+                    }}
+                  >
+                    {item.label}
+                  </Text>
+                </VStack>
               </HStack>
-              <Text
-                className="text-[12px] font-semibold mt-3"
-                numberOfLines={1}
-                style={{ color: active ? 'rgba(255,255,255,0.92)' : '#64748B' }}
-              >
-                {item.label}
-              </Text>
             </Pressable>
           </Box>
         );
@@ -87,6 +98,18 @@ export function StatusCountGrid({
     </HStack>
   );
 }
+
+const STATUS_ACCENT: Record<string, { bg: string; fg: string; bar: string }> = {
+  'Pending CAO': { bg: '#EFF6FF', fg: '#1D4ED8', bar: '#2563EB' },
+  Submitted: { bg: '#EFF6FF', fg: '#1D4ED8', bar: '#2563EB' },
+  Verified: { bg: '#D1FAE5', fg: '#047857', bar: '#059669' },
+  Approved: { bg: '#D1FAE5', fg: '#047857', bar: '#059669' },
+  Returned: { bg: '#FFEDD5', fg: '#C2410C', bar: '#F97316' },
+  Rejected: { bg: '#FEE2E2', fg: '#DC2626', bar: '#EF4444' },
+  Draft: { bg: '#EFF6FF', fg: '#1D4ED8', bar: '#2563EB' },
+  Assigned: { bg: '#EFF6FF', fg: '#2563EB', bar: '#2563EB' },
+  'In progress': { bg: '#F1F5F9', fg: '#334155', bar: '#64748B' },
+};
 
 export function OfficeAppRow({
   title,
@@ -101,45 +124,91 @@ export function OfficeAppRow({
   status: string;
   onPress: () => void;
 }) {
+  const tone = STATUS_ACCENT[status] || {
+    bg: '#F1F5F9',
+    fg: COLORS.ink,
+    bar: COLORS.primary,
+  };
+
   return (
     <Pressable
       onPress={onPress}
       className="active:opacity-90"
       style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: 16,
+        backgroundColor: COLORS.white,
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#E5E7EB',
-        padding: 14,
-        marginBottom: 10,
+        borderColor: COLORS.border,
+        marginBottom: 8,
+        overflow: 'hidden',
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 6,
+        elevation: 2,
       }}
     >
-      <HStack className="items-start justify-between gap-3">
-        <VStack className="flex-1 min-w-0">
-          <Text className="text-[14px] font-bold" style={{ color: '#0F172A' }} numberOfLines={1}>
-            {title}
-          </Text>
-          <Text className="text-[12px] mt-1" style={{ color: '#64748B' }} numberOfLines={2}>
+      <HStack className="items-center">
+        <Box style={{ width: 3.5, backgroundColor: tone.bar, alignSelf: 'stretch' }} />
+        <VStack className="flex-1 min-w-0" style={{ paddingVertical: 10, paddingHorizontal: 11, gap: 3 }}>
+          <HStack className="items-center justify-between" style={{ gap: 8 }}>
+            <Text
+              style={{
+                flex: 1,
+                fontFamily: FONTS.bold,
+                fontSize: 14,
+                lineHeight: 18,
+                color: COLORS.ink,
+              }}
+              numberOfLines={1}
+            >
+              {title}
+            </Text>
+            <Box
+              style={{
+                borderRadius: 999,
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+                backgroundColor: tone.bg,
+              }}
+            >
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: tone.fg }}>
+                {status}
+              </Text>
+            </Box>
+          </HStack>
+
+          <Text
+            style={{ fontFamily: FONTS.semibold, fontSize: 12, color: COLORS.ink }}
+            numberOfLines={1}
+          >
             {subtitle}
           </Text>
+
           {meta ? (
-            <Text className="text-[11px] mt-1.5 font-medium" style={{ color: '#94A3B8' }}>
-              {meta}
-            </Text>
-          ) : null}
+            <HStack className="items-center justify-between" style={{ gap: 8, marginTop: 1 }}>
+              <Text
+                style={{ flex: 1, fontFamily: FONTS.medium, fontSize: 11, color: COLORS.ink }}
+                numberOfLines={1}
+              >
+                {meta}
+              </Text>
+              <HStack className="items-center" style={{ gap: 2 }}>
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.primary }}>
+                  Open
+                </Text>
+                <ChevronRight size={14} color={COLORS.primary} strokeWidth={2.6} />
+              </HStack>
+            </HStack>
+          ) : (
+            <HStack className="items-center justify-end" style={{ gap: 2 }}>
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.primary }}>
+                Open
+              </Text>
+              <ChevronRight size={14} color={COLORS.primary} strokeWidth={2.6} />
+            </HStack>
+          )}
         </VStack>
-        <Box
-          style={{
-            borderRadius: 999,
-            paddingHorizontal: 10,
-            paddingVertical: 4,
-            backgroundColor: '#F1F5F9',
-          }}
-        >
-          <Text className="text-[10px] font-bold" style={{ color: '#334155' }}>
-            {status}
-          </Text>
-        </Box>
       </HStack>
     </Pressable>
   );
@@ -148,15 +217,24 @@ export function OfficeAppRow({
 export function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <HStack
-      className="items-start justify-between gap-3 py-3"
-      style={{ borderBottomWidth: 1, borderBottomColor: '#F1F5F9' }}
+      className="items-start justify-between gap-3"
+      style={{
+        paddingVertical: 9,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+      }}
     >
-      <Text className="text-[12px] flex-1" style={{ color: '#64748B' }}>
+      <Text style={{ flex: 1, fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}>
         {label}
       </Text>
       <Text
-        className="text-[13px] font-semibold flex-[1.4] text-right"
-        style={{ color: '#0F172A' }}
+        style={{
+          flex: 1.4,
+          fontFamily: FONTS.semibold,
+          fontSize: 13,
+          color: COLORS.ink,
+          textAlign: 'right',
+        }}
       >
         {value || '—'}
       </Text>

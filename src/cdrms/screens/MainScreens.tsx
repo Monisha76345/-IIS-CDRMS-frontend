@@ -4,14 +4,12 @@ import {
   ArrowLeft,
   Bell,
   Building2,
-  CalendarDays,
   CheckCircle2,
   ChevronRight,
   ClipboardCheck,
   Clock,
   Edit3,
   FileText,
-  Files,
   Filter,
   FolderOpen,
   HelpCircle,
@@ -22,7 +20,6 @@ import {
   MapPinned,
   MoreVertical,
   Phone,
-  Plus,
   Search,
   Send,
   Settings,
@@ -31,9 +28,8 @@ import {
   XCircle,
   type LucideIcon,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, TextInput, Alert, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { useEffect, useMemo, useState } from 'react';
+import { TextInput, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -41,6 +37,7 @@ import { Pressable } from '@/components/ui/pressable';
 import { ScrollView } from '@/components/ui/scroll-view';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
+import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
 import {
   AppCard,
   AppHeader,
@@ -51,7 +48,7 @@ import {
   StatusChip,
 } from '@/src/cdrms/components/primitives';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
-import { COLORS } from '@/src/cdrms/theme';
+import { COLORS, FONTS } from '@/src/cdrms/theme';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go, Screen } from '@/src/cdrms/types';
 import { useAuth } from '@/src/auth/AuthContext';
@@ -82,7 +79,8 @@ function taskCoverImage(app: MobileApplication): string | null {
 function mapTaskCard(app: MobileApplication) {
   return {
     id: app.id,
-    project: `${app.applicationNumber} · Site ${app.siteNo}`,
+    project: app.applicationNumber || `Site ${app.siteNo}`,
+    siteNo: app.siteNo ? `Site ${app.siteNo}` : '',
     status: mapTaskStatus(app.status),
     date: app.zoneCode,
     village: [app.addressArea, app.addressBlock].filter(Boolean).join(', ') || '—',
@@ -91,9 +89,6 @@ function mapTaskCard(app: MobileApplication) {
     apiTask: true as const,
   };
 }
-
-const NOTIF_CARD_WIDTH = 280;
-const NOTIF_GAP = 12;
 
 type DynNotif = {
   id: string;
@@ -167,200 +162,6 @@ function buildTaskNotifications(tasks: MobileApplication[]): DynNotif[] {
   });
 }
 
-const NOTIF_STYLE = {
-  success: {
-    colors: ['#059669', '#34D399'] as const,
-    icon: CheckCircle2,
-  },
-  warning: {
-    colors: ['#EA580C', '#FBBF24'] as const,
-    icon: AlertTriangle,
-  },
-  info: {
-    colors: ['#2563EB', '#3B82F6'] as const,
-    icon: Bell,
-  },
-} as const;
-
-function NotificationsCarousel({
-  items,
-  onSeeAll,
-}: {
-  items: DynNotif[];
-  onSeeAll: () => void;
-}) {
-  const scrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
-  const [index, setIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const step = NOTIF_CARD_WIDTH + NOTIF_GAP;
-  const unread = items.filter((n) => n.unread).length;
-
-  useEffect(() => {
-    if (paused || items.length < 2) return;
-    const timer = setInterval(() => {
-      setIndex((prev) => {
-        const next = (prev + 1) % items.length;
-        scrollRef.current?.scrollTo({ x: next * step, animated: true });
-        return next;
-      });
-    }, 3200);
-    return () => clearInterval(timer);
-  }, [paused, step, items.length]);
-
-  const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const x = e.nativeEvent.contentOffset.x;
-    const next = Math.round(x / step);
-    setIndex(Math.max(0, Math.min(items.length - 1, next)));
-  };
-
-  if (items.length === 0) {
-    return (
-      <Box className="mt-6 px-4">
-        <Text className="text-[16px] font-bold" style={{ color: '#0F172A' }}>
-          Notifications
-        </Text>
-        <Text className="text-[12px] mt-1" style={{ color: '#94A3B8' }}>
-          No task updates yet
-        </Text>
-      </Box>
-    );
-  }
-
-  return (
-    <Box className="mt-6">
-      <HStack className="items-center justify-between px-4 mb-3">
-        <VStack className="flex-1 min-w-0">
-          <Text className="text-[16px] font-bold" style={{ color: '#0F172A' }}>
-            Notifications
-          </Text>
-          <Text className="text-[12px] mt-0.5" style={{ color: '#94A3B8' }}>
-            {unread} unread · swipe for more
-          </Text>
-        </VStack>
-        <Pressable
-          onPress={onSeeAll}
-          className="flex-row items-center active:opacity-70"
-        >
-          <Text className="text-[12px] font-semibold" style={{ color: COLORS.primary }}>
-            See all
-          </Text>
-          <ChevronRight size={13} color={COLORS.primary} />
-        </Pressable>
-      </HStack>
-
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        decelerationRate="fast"
-        snapToInterval={step}
-        snapToAlignment="start"
-        disableIntervalMomentum
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          gap: NOTIF_GAP,
-          paddingRight: 28,
-        }}
-        scrollEventThrottle={16}
-        onScrollBeginDrag={() => setPaused(true)}
-        onMomentumScrollEnd={(e) => {
-          onScrollEnd(e);
-          setPaused(false);
-        }}
-        onScrollEndDrag={onScrollEnd}
-      >
-        {items.map((n) => {
-          const style = NOTIF_STYLE[n.type];
-          const Icon = style.icon;
-          return (
-            <Pressable
-              key={n.id}
-              onPress={onSeeAll}
-              className="active:opacity-90"
-              style={{
-                width: NOTIF_CARD_WIDTH,
-                flexDirection: 'row',
-                alignItems: 'flex-start',
-                gap: 12,
-                paddingVertical: 14,
-                paddingHorizontal: 14,
-                backgroundColor: '#FFFFFF',
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: '#E5E7EB',
-                opacity: n.unread ? 1 : 0.78,
-                shadowColor: '#0F172A',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.05,
-                shadowRadius: 10,
-                elevation: 2,
-              }}
-            >
-              <LinearGradient
-                colors={[...style.colors]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 12,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Icon size={18} color="#FFFFFF" strokeWidth={2.3} />
-              </LinearGradient>
-
-              <Box className="flex-1 min-w-0">
-                <HStack className="items-center justify-between gap-2">
-                  <Text
-                    className="font-bold text-[13px] flex-1"
-                    style={{ color: '#0F172A' }}
-                    numberOfLines={1}
-                  >
-                    {n.title}
-                  </Text>
-                  <Text className="text-[11px] font-medium shrink-0" style={{ color: '#94A3B8' }}>
-                    {n.time}
-                  </Text>
-                </HStack>
-                <Text
-                  className="text-[11px] mt-1 leading-4"
-                  style={{ color: '#64748B' }}
-                  numberOfLines={2}
-                >
-                  {n.body}
-                </Text>
-              </Box>
-
-              {n.unread ? (
-                <Box
-                  className="rounded-full mt-1.5"
-                  style={{ width: 8, height: 8, backgroundColor: COLORS.primary }}
-                />
-              ) : null}
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-
-      <HStack className="items-center justify-center gap-1.5 mt-3">
-        {items.map((n, i) => (
-          <Box
-            key={n.id}
-            style={{
-              width: i === index ? 14 : 6,
-              height: 6,
-              borderRadius: 999,
-              backgroundColor: i === index ? COLORS.primary : '#D1D5DB',
-            }}
-          />
-        ))}
-      </HStack>
-    </Box>
-  );
-}
-
 export function Dashboard({ go }: { go: Go }) {
   const insets = useSafeAreaInsets();
   const { openBackendTask } = useProject();
@@ -415,8 +216,8 @@ export function Dashboard({ go }: { go: Go }) {
   ];
 
   const actions: Array<{
-    icon: typeof Plus;
-    watermark: typeof Plus;
+    icon: typeof ClipboardCheck;
+    watermark: typeof ClipboardCheck;
     label: string;
     desc: string;
     to: Screen;
@@ -435,7 +236,7 @@ export function Dashboard({ go }: { go: Go }) {
       primary: true,
       iconBg: 'rgba(255,255,255,0.22)',
       iconColor: '#FFFFFF',
-      watermarkColor: 'rgba(255,255,255,0.18)',
+      watermarkColor: 'rgba(255,255,255,0.22)',
     },
     {
       icon: Edit3,
@@ -445,31 +246,11 @@ export function Dashboard({ go }: { go: Go }) {
       to: 'project',
       iconBg: '#EFF6FF',
       iconColor: '#2563EB',
-      watermarkColor: 'rgba(99,102,241,0.12)',
+      watermarkColor: 'rgba(37,99,235,0.14)',
       onPress: () => {
         if (taskCards[0]) void openAssignedTask(taskCards[0].id);
         else go('history');
       },
-    },
-    {
-      icon: ClipboardCheck,
-      watermark: ClipboardCheck,
-      label: TERMS.dashboard.startSurvey,
-      desc: TERMS.dashboard.startSurveyDesc,
-      to: 'bandi',
-      iconBg: '#D1FAE5',
-      iconColor: '#059669',
-      watermarkColor: 'rgba(16,185,129,0.12)',
-    },
-    {
-      icon: FileText,
-      watermark: Files,
-      label: TERMS.dashboard.viewHistory,
-      desc: TERMS.dashboard.viewHistoryDesc,
-      to: 'history',
-      iconBg: '#DBEAFE',
-      iconColor: '#2563EB',
-      watermarkColor: 'rgba(37,99,235,0.12)',
     },
   ];
 
@@ -485,7 +266,7 @@ export function Dashboard({ go }: { go: Go }) {
     <ScreenShell className="bg-[#F3F4F6]">
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: 130 }}
+        contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
         <LinearGradient
@@ -494,9 +275,9 @@ export function Dashboard({ go }: { go: Go }) {
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{
-            paddingBottom: 56,
-            borderBottomLeftRadius: 36,
-            borderBottomRightRadius: 36,
+            paddingBottom: 40,
+            borderBottomLeftRadius: 28,
+            borderBottomRightRadius: 28,
             overflow: 'hidden',
           }}
         >
@@ -545,7 +326,7 @@ export function Dashboard({ go }: { go: Go }) {
                     elevation: 4,
                   }}
                 >
-                  <Text className="font-extrabold text-[16px]" style={{ color: '#1D4ED8' }}>
+                  <Text className="font-extrabold text-[16px]" style={{ color: '#2563EB' }}>
                     {displayName(user)
                       .split(/\s+/)
                       .filter(Boolean)
@@ -564,34 +345,6 @@ export function Dashboard({ go }: { go: Go }) {
                 </VStack>
               </HStack>
               <HStack className="items-center gap-2">
-              <Pressable
-                onPress={() => go('notifications')}
-                className="relative items-center justify-center active:opacity-80"
-                style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: 14,
-                  backgroundColor: 'rgba(255,255,255,0.15)',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255,255,255,0.25)',
-                }}
-              >
-                <Bell size={18} color={COLORS.white} />
-                {returned > 0 ? (
-                <Box
-                  className="absolute rounded-full"
-                  style={{
-                    top: 8,
-                    right: 9,
-                    width: 8,
-                    height: 8,
-                    backgroundColor: '#FBBF24',
-                    borderWidth: 1.5,
-                    borderColor: '#2563EB',
-                  }}
-                />
-                ) : null}
-              </Pressable>
               <Pressable
                 onPress={async () => {
                   await logout();
@@ -634,99 +387,72 @@ export function Dashboard({ go }: { go: Go }) {
               </Text>
             </HStack>
 
+            <Pressable
+              onPress={() => go('history')}
+              className="active:opacity-95"
+            >
             <LinearGradient
               colors={['#1E40AF', '#2563EB', '#3B82F6']}
               locations={[0, 0.45, 1]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{
-                marginTop: 16,
-                borderRadius: 24,
-                paddingVertical: 16,
-                paddingHorizontal: 16,
+                marginTop: 14,
+                borderRadius: 16,
+                paddingVertical: 12,
+                paddingHorizontal: 14,
                 overflow: 'hidden',
                 borderWidth: 1,
                 borderColor: 'rgba(255,255,255,0.28)',
               }}
             >
-              {/* Diagonal line texture */}
-              <Box
-                pointerEvents="none"
-                style={{
-                  position: 'absolute',
-                  right: -20,
-                  top: -40,
-                  bottom: -40,
-                  width: '70%',
-                  opacity: 0.22,
-                  transform: [{ rotate: '28deg' }],
-                }}
-              >
-                {Array.from({ length: 18 }).map((_, i) => (
-                  <Box
-                    key={i}
+              <HStack className="items-center justify-between" style={{ gap: 12 }}>
+                <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
+                  <Text
                     style={{
-                      height: 1.5,
-                      marginBottom: 10,
-                      backgroundColor: 'rgba(255,255,255,0.55)',
-                      borderRadius: 999,
+                      fontFamily: FONTS.medium,
+                      fontSize: 11,
+                      color: 'rgba(219,234,254,0.95)',
                     }}
-                  />
-                ))}
-              </Box>
-
-              <HStack className="items-center justify-between" style={{ zIndex: 2 }}>
-                <VStack className="flex-1 min-w-0">
-                  <Text className="text-[11px] font-medium" style={{ color: 'rgba(219,234,254,0.95)' }}>
+                  >
                     Today&apos;s Applications
                   </Text>
-                  <HStack className="items-end gap-1.5 mt-1">
-                    <Text className="text-[34px] font-extrabold text-white leading-none">{pending}</Text>
+                  <HStack className="items-baseline" style={{ gap: 6 }}>
                     <Text
-                      className="text-[13px] font-medium mb-1.5"
-                      style={{ color: 'rgba(219,234,254,0.9)' }}
+                      style={{
+                        fontFamily: FONTS.bold,
+                        fontSize: 22,
+                        lineHeight: 26,
+                        color: COLORS.white,
+                      }}
+                    >
+                      {pending}
+                    </Text>
+                    <Text
+                      style={{
+                        fontFamily: FONTS.medium,
+                        fontSize: 13,
+                        color: 'rgba(219,234,254,0.92)',
+                      }}
                     >
                       open tasks
                     </Text>
                   </HStack>
-
-                  {/* Wave sparkline */}
-                  <Box className="mt-2" style={{ width: 120, height: 22 }}>
-                    <Svg width="120" height="22" viewBox="0 0 120 22">
-                      <Path
-                        d="M0 14 C12 14, 14 6, 24 6 C34 6, 36 16, 48 16 C60 16, 62 4, 74 4 C86 4, 88 15, 100 15 C108 15, 112 10, 120 10"
-                        stroke="rgba(255,255,255,0.9)"
-                        strokeWidth="2"
-                        fill="none"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
-                  </Box>
                 </VStack>
-
-                <Pressable
-                  onPress={() => go('history')}
-                  className="flex-row items-center gap-1 active:opacity-90"
+                <Box
+                  className="items-center justify-center"
                   style={{
-                    height: 40,
-                    paddingHorizontal: 16,
-                    borderRadius: 999,
-                    backgroundColor: '#FFFFFF',
-                    shadowColor: '#1E3A8A',
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.2,
-                    shadowRadius: 8,
-                    elevation: 3,
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    backgroundColor: 'rgba(255,255,255,0.2)',
                   }}
                 >
-                  <ClipboardCheck size={15} color="#1D4ED8" strokeWidth={2.6} />
-                  <Text className="text-[13px] font-bold" style={{ color: '#1D4ED8' }}>
-                    Tasks
-                  </Text>
-                </Pressable>
+                  <ChevronRight size={16} color="#FFFFFF" strokeWidth={2.6} />
+                </Box>
               </HStack>
             </LinearGradient>
+            </Pressable>
           </Box>
         </LinearGradient>
 
@@ -775,17 +501,9 @@ export function Dashboard({ go }: { go: Go }) {
 
         {/* Quick Actions */}
         <Box className="px-4 mt-5">
-          <HStack className="items-center justify-between mb-3">
-            <Text className="text-[16px] font-bold" style={{ color: '#0F172A' }}>
-              Quick Actions
-            </Text>
-            <Pressable className="flex-row items-center gap-1 active:opacity-70">
-              <Settings size={12} color={COLORS.primary} />
-              <Text className="text-[12px] font-semibold" style={{ color: COLORS.primary }}>
-                Customize
-              </Text>
-            </Pressable>
-          </HStack>
+          <Text className="text-[16px] font-bold mb-3" style={{ color: '#0F172A' }}>
+            Quick Actions
+          </Text>
 
           <Box className="flex-row flex-wrap" style={{ gap: 12 }}>
             {actions.map((a) => {
@@ -796,13 +514,13 @@ export function Dashboard({ go }: { go: Go }) {
                   pointerEvents="none"
                   style={{
                     position: 'absolute',
-                    right: -18,
-                    top: 8,
+                    right: 8,
+                    top: 10,
                     opacity: 1,
-                    transform: [{ rotate: '18deg' }],
+                    transform: [{ rotate: '12deg' }],
                   }}
                 >
-                  <Watermark size={110} color={a.watermarkColor} strokeWidth={1.2} />
+                  <Watermark size={42} color={a.watermarkColor} strokeWidth={1.4} />
                 </Box>
               );
 
@@ -818,7 +536,7 @@ export function Dashboard({ go }: { go: Go }) {
                     style={{
                       width: '47.5%',
                       borderRadius: 24,
-                      shadowColor: '#1D4ED8',
+                      shadowColor: '#2563EB',
                       shadowOffset: { width: 0, height: 8 },
                       shadowOpacity: 0.28,
                       shadowRadius: 14,
@@ -826,7 +544,7 @@ export function Dashboard({ go }: { go: Go }) {
                     }}
                   >
                     <LinearGradient
-                      colors={['#1D4ED8', '#3B82F6']}
+                      colors={['#2563EB', '#3B82F6']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
                       style={{ padding: 16, minHeight: 138, overflow: 'hidden' }}
@@ -935,11 +653,6 @@ export function Dashboard({ go }: { go: Go }) {
           </Box>
         </Box>
 
-        <NotificationsCarousel
-          items={buildTaskNotifications(tasks)}
-          onSeeAll={() => go('notifications')}
-        />
-
         {/* Recent Activity */}
         <Box className="px-4 mt-6">
           <HStack className="items-center justify-between mb-3">
@@ -1002,14 +715,27 @@ export function Dashboard({ go }: { go: Go }) {
                       <HStack className="items-start justify-between gap-2">
                         <VStack className="flex-1 min-w-0">
                           <Text
-                            className="font-bold text-[13px]"
-                            style={{ color: '#0F172A' }}
+                            style={{
+                              fontFamily: FONTS.bold,
+                              fontSize: 13,
+                              color: COLORS.ink,
+                            }}
                             numberOfLines={1}
                           >
                             {a.project}
                           </Text>
-                          <Text className="text-[11px] mt-0.5" style={{ color: '#94A3B8' }}>
-                            {a.id} · {a.date}
+                          <Text
+                            style={{
+                              fontFamily: FONTS.medium,
+                              fontSize: 11,
+                              color: COLORS.ink,
+                              marginTop: 2,
+                            }}
+                            numberOfLines={1}
+                          >
+                            {[a.siteNo, a.village !== '—' ? a.village : null, a.date]
+                              .filter(Boolean)
+                              .join(' · ')}
                           </Text>
                         </VStack>
                         <HStack className="items-center gap-1.5">
@@ -1046,7 +772,7 @@ export function Dashboard({ go }: { go: Go }) {
         </Box>
       </ScrollView>
 
-      <BottomNav active="home" onNav={go} onPlus={() => go('history')} />
+      <BottomNav active="home" onNav={go} hidePlus hideAlerts />
     </ScreenShell>
   );
 }
@@ -1156,7 +882,8 @@ export function NotificationsScreen({ go }: { go: Go }) {
         onNav={go}
         homeTarget={home}
         appsTarget={home === 'dashboard' ? 'history' : home}
-        hidePlus={home !== 'dashboard' && home !== 'zc_home'}
+        hidePlus={home !== 'zc_home'}
+        hideAlerts={home !== 'zc_home'}
         onPlus={home === 'zc_home' ? () => go('zc_create') : undefined}
       />
     </ScreenShell>
@@ -1169,7 +896,9 @@ const APP_STATUS_ACCENT: Record<string, string> = {
   Approved: '#10B981',
   Returned: '#F97316',
   Rejected: '#EF4444',
-  Draft: '#3B82F6',
+  Draft: '#2563EB',
+  'In progress': '#64748B',
+  Assigned: '#2563EB',
 };
 
 const APP_FILTERS: Array<{ key: string; label: string; icon: LucideIcon }> = [
@@ -1189,37 +918,42 @@ function ApplicationThumb({ uri }: { uri: string | null }) {
     <Box
       className="overflow-hidden items-center justify-center"
       style={{
-        width: 72,
-        height: 72,
-        borderRadius: 16,
-        backgroundColor: '#E2E8F0',
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: '#EFF6FF',
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 4,
+        elevation: 1,
       }}
     >
       {showImage ? (
-        <Image
-          source={{ uri: uri! }}
-          style={{ width: 72, height: 72 }}
+        <ApiMediaImage
+          uri={uri}
+          style={{ width: 44, height: 44 }}
           resizeMode="cover"
           onError={() => setFailed(true)}
         />
       ) : (
-        <FileText size={22} color="#94A3B8" strokeWidth={2.1} />
+        <FileText size={18} color={COLORS.primary} strokeWidth={2.2} />
       )}
     </Box>
   );
 }
 
 function ApplicationListCard({
-  id,
   project,
+  siteNo,
   status,
   village,
   date,
   image,
   onPress,
 }: {
-  id: string;
   project: string;
+  siteNo?: string;
   status: string;
   village: string;
   date: string;
@@ -1227,68 +961,80 @@ function ApplicationListCard({
   onPress: () => void;
 }) {
   const accent = APP_STATUS_ACCENT[status] || COLORS.primary;
+  const meta = [siteNo, village !== '—' ? village : null].filter(Boolean).join(' · ');
 
   return (
     <Pressable onPress={onPress} className="active:opacity-92">
       <Box
         style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: 22,
+          backgroundColor: COLORS.white,
+          borderRadius: 16,
           overflow: 'hidden',
+          borderWidth: 1,
+          borderColor: COLORS.border,
           shadowColor: '#0F172A',
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.07,
-          shadowRadius: 16,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.08,
+          shadowRadius: 12,
           elevation: 3,
         }}
       >
         <HStack>
           <Box style={{ width: 4, backgroundColor: accent, alignSelf: 'stretch' }} />
-          <VStack className="flex-1" style={{ padding: 14 }}>
-            <HStack className="items-center justify-between mb-3">
-              <Text className="text-[11px] font-semibold" style={{ color: '#94A3B8' }}>
-                {id}
-              </Text>
-              <StatusChip status={status} />
-            </HStack>
-
-            <HStack className="items-start gap-3">
-              <ApplicationThumb uri={image} />
-              <VStack className="flex-1 min-w-0">
+          <HStack
+            className="flex-1 items-center"
+            style={{ paddingVertical: 14, paddingHorizontal: 14, gap: 12 }}
+          >
+            <ApplicationThumb uri={image} />
+            <VStack className="flex-1 min-w-0" style={{ gap: 4 }}>
+              <HStack className="items-start justify-between" style={{ gap: 8 }}>
                 <Text
-                  className="text-[15px] font-extrabold leading-5"
-                  style={{ color: '#0F172A' }}
-                  numberOfLines={2}
+                  style={{
+                    flex: 1,
+                    fontFamily: FONTS.bold,
+                    fontSize: 15,
+                    lineHeight: 20,
+                    color: COLORS.ink,
+                  }}
+                  numberOfLines={1}
                 >
                   {project}
                 </Text>
+                <StatusChip status={status} />
+              </HStack>
 
-                <HStack className="items-center mt-2.5 flex-wrap" style={{ gap: 12 }}>
-                  <HStack className="items-center gap-1">
-                    <MapPin size={13} color="#94A3B8" strokeWidth={2.3} />
-                    <Text className="text-[12px] font-medium" style={{ color: '#64748B' }}>
-                      {village}
-                    </Text>
-                  </HStack>
-                  <HStack className="items-center gap-1">
-                    <CalendarDays size={13} color="#94A3B8" strokeWidth={2.3} />
-                    <Text className="text-[12px] font-medium" style={{ color: '#64748B' }}>
-                      {date}
-                    </Text>
-                  </HStack>
-                </HStack>
+              {meta ? (
+                <Text
+                  style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}
+                  numberOfLines={1}
+                >
+                  {meta}
+                </Text>
+              ) : null}
 
-                <HStack className="justify-end mt-3">
-                  <HStack className="items-center gap-0.5">
-                    <Text className="text-[13px] font-bold" style={{ color: COLORS.primary }}>
-                      Open
-                    </Text>
-                    <ChevronRight size={14} color={COLORS.primary} strokeWidth={2.6} />
-                  </HStack>
+              <HStack className="items-center justify-between" style={{ marginTop: 2 }}>
+                <HStack className="items-center flex-1 min-w-0" style={{ gap: 10 }}>
+                  {date ? (
+                    <HStack className="items-center" style={{ gap: 4 }}>
+                      <MapPinned size={12} color={COLORS.primary} strokeWidth={2.3} />
+                      <Text
+                        style={{ fontFamily: FONTS.semibold, fontSize: 11, color: COLORS.ink }}
+                        numberOfLines={1}
+                      >
+                        {date}
+                      </Text>
+                    </HStack>
+                  ) : null}
                 </HStack>
-              </VStack>
-            </HStack>
-          </VStack>
+                <HStack className="items-center" style={{ gap: 2 }}>
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.primary }}>
+                    Open
+                  </Text>
+                  <ChevronRight size={14} color={COLORS.primary} strokeWidth={2.6} />
+                </HStack>
+              </HStack>
+            </VStack>
+          </HStack>
         </HStack>
       </Box>
     </Pressable>
@@ -1345,6 +1091,7 @@ export function HistoryScreen({ go }: { go: Go }) {
               {
                 id: draft.id,
                 project: draft.projectName.trim() || draft.applicationNumber || 'Untitled draft',
+                siteNo: draft.siteNo ? `Site ${draft.siteNo}` : '',
                 status: 'Draft' as string,
                 date: draft.siteNo || '—',
                 village: draft.village.trim() || '—',
@@ -1363,6 +1110,7 @@ export function HistoryScreen({ go }: { go: Go }) {
     const submitted = applications.map((a) => ({
       id: a.applicationId,
       project: a.projectName,
+      siteNo: '',
       status: 'Submitted' as string,
       date: new Date(a.submittedAt).toLocaleDateString(undefined, {
         day: '2-digit',
@@ -1390,6 +1138,7 @@ export function HistoryScreen({ go }: { go: Go }) {
             {
               id: draft.id,
               project: draft.projectName.trim() || 'Untitled draft',
+              siteNo: draft.siteNo ? `Site ${draft.siteNo}` : '',
               status: 'Draft' as string,
               date: new Date(draft.updatedAt).toLocaleDateString(undefined, {
                 day: '2-digit',
@@ -1410,63 +1159,80 @@ export function HistoryScreen({ go }: { go: Go }) {
   const filtered = tab === 'All' ? liveApps : liveApps.filter((a) => a.status === tab);
 
   return (
-    <ScreenShell className="bg-[#F3F4F6]">
+    <ScreenShell className="bg-[#F8FAFC]">
       <AppHeader
         title="Applications"
-        subtitle="All your CDRMS reports"
+        subtitle={`${filtered.length} task${filtered.length === 1 ? '' : 's'} · assigned & submitted`}
         go={go}
-        right={
-          <Pressable className="h-10 w-10 rounded-full bg-white/15 border border-white/25 items-center justify-center">
-            <Search size={16} color={COLORS.white} />
-          </Pressable>
-        }
       />
 
-      <Box style={{ backgroundColor: '#F3F4F6' }}>
+      <Box style={{ backgroundColor: '#F8FAFC' }}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           className="grow-0"
           contentContainerStyle={{
             paddingHorizontal: 16,
-            paddingTop: 14,
-            paddingBottom: 10,
+            paddingTop: 12,
+            paddingBottom: 8,
             gap: 8,
           }}
         >
           {APP_FILTERS.map((f) => {
             const Icon = f.icon;
             const on = tab === f.key;
+            const count =
+              f.key === 'All'
+                ? liveApps.length
+                : liveApps.filter((a) => a.status === f.key).length;
             return (
               <Pressable
                 key={f.key}
                 onPress={() => setTab(f.key)}
                 className="flex-row items-center gap-1.5 active:opacity-85"
                 style={{
-                  height: 38,
-                  paddingHorizontal: 14,
-                  borderRadius: 999,
-                  backgroundColor: on ? COLORS.primary : '#FFFFFF',
-                  borderWidth: on ? 0 : 1,
-                  borderColor: '#E2E8F0',
-                  shadowColor: on ? COLORS.primary : '#0F172A',
-                  shadowOffset: { width: 0, height: on ? 6 : 2 },
-                  shadowOpacity: on ? 0.28 : 0.04,
-                  shadowRadius: on ? 10 : 4,
-                  elevation: on ? 4 : 1,
+                  height: 36,
+                  paddingHorizontal: 12,
+                  borderRadius: 12,
+                  backgroundColor: COLORS.white,
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: on ? 0.12 : 0.06,
+                  shadowRadius: 6,
+                  elevation: on ? 3 : 1,
+                  borderWidth: on ? 1.5 : 0,
+                  borderColor: on ? COLORS.primary : 'transparent',
                 }}
               >
                 <Icon
-                  size={14}
-                  color={on ? '#FFFFFF' : '#64748B'}
+                  size={13}
+                  color={COLORS.ink}
                   strokeWidth={on ? 2.4 : 2.1}
                 />
                 <Text
-                  className="text-[12px] font-bold"
-                  style={{ color: on ? '#FFFFFF' : '#64748B' }}
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 12,
+                    color: COLORS.ink,
+                  }}
                 >
                   {f.label}
                 </Text>
+                <Box
+                  style={{
+                    minWidth: 18,
+                    height: 18,
+                    paddingHorizontal: 4,
+                    borderRadius: 9,
+                    backgroundColor: on ? '#EFF6FF' : '#F1F5F9',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: COLORS.ink }}>
+                    {count}
+                  </Text>
+                </Box>
               </Pressable>
             );
           })}
@@ -1475,32 +1241,58 @@ export function HistoryScreen({ go }: { go: Go }) {
 
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: 120, paddingTop: 4 }}
+        contentContainerStyle={{ paddingBottom: 100, paddingTop: 8 }}
         showsVerticalScrollIndicator={false}
       >
-        <VStack className="px-4" space="md">
+        <VStack className="px-4" style={{ gap: 12 }}>
           {filtered.length === 0 ? (
             <Box
               className="items-center py-14 px-6"
               style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: 24,
+                backgroundColor: COLORS.white,
+                borderRadius: 16,
                 shadowColor: '#0F172A',
-                shadowOpacity: 0.05,
+                shadowOpacity: 0.08,
                 shadowRadius: 12,
                 shadowOffset: { width: 0, height: 4 },
+                elevation: 2,
               }}
             >
               <Box
-                className="h-16 w-16 rounded-full items-center justify-center"
-                style={{ backgroundColor: '#EFF6FF' }}
+                className="items-center justify-center"
+                style={{
+                  height: 56,
+                  width: 56,
+                  borderRadius: 16,
+                  backgroundColor: COLORS.white,
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 6,
+                  elevation: 2,
+                }}
               >
-                <FileText size={28} color={COLORS.primary} />
+                <FileText size={24} color={COLORS.ink} />
               </Box>
-              <Text className="mt-4 font-extrabold text-foreground text-[16px]">
+              <Text
+                style={{
+                  marginTop: 16,
+                  fontFamily: FONTS.bold,
+                  fontSize: 16,
+                  color: COLORS.ink,
+                }}
+              >
                 No applications
               </Text>
-              <Text className="text-xs text-muted-foreground mt-1 text-center">
+              <Text
+                style={{
+                  marginTop: 6,
+                  fontFamily: FONTS.medium,
+                  fontSize: 12,
+                  color: COLORS.ink,
+                  textAlign: 'center',
+                }}
+              >
                 Nothing in this category yet.
               </Text>
             </Box>
@@ -1509,8 +1301,8 @@ export function HistoryScreen({ go }: { go: Go }) {
           {filtered.map((a) => (
             <ApplicationListCard
               key={`${a.id}-${a.status}`}
-              id={a.id}
               project={a.project}
+              siteNo={'siteNo' in a ? a.siteNo : ''}
               status={a.status}
               village={a.village}
               date={a.date}
@@ -1520,7 +1312,7 @@ export function HistoryScreen({ go }: { go: Go }) {
           ))}
         </VStack>
       </ScrollView>
-      <BottomNav active="apps" onNav={go} />
+      <BottomNav active="apps" onNav={go} hidePlus hideAlerts />
     </ScreenShell>
   );
 }
@@ -1609,7 +1401,7 @@ export function ProfileScreen({ go }: { go: Go }) {
                   elevation: 6,
                 }}
               >
-                <Text className="font-extrabold text-[34px]" style={{ color: '#1D4ED8' }}>
+                <Text className="font-extrabold text-[34px]" style={{ color: '#2563EB' }}>
                   {name
                     .split(/\s+/)
                     .filter(Boolean)
@@ -1695,7 +1487,8 @@ export function ProfileScreen({ go }: { go: Go }) {
         onNav={go}
         homeTarget={home}
         appsTarget={home}
-        hidePlus={appRole === 'cao' || appRole === 'super_admin'}
+        hidePlus={appRole !== 'zc'}
+        hideAlerts={appRole !== 'zc'}
         onPlus={appRole === 'zc' ? () => go('zc_create') : undefined}
       />
     </ScreenShell>

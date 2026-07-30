@@ -93,10 +93,64 @@ export async function uploadMobileMedia(params: {
       typeof (data as { message: unknown }).message === 'string'
         ? (data as { message: string }).message
         : `Upload failed (${res.status})`;
+    // If storage is down but we already uploaded this ref earlier, reuse that URL.
+    if (res.status >= 500) {
+      try {
+        const existing = await fetch(
+          `${API_BASE_URL}/object-store/by-ref?refId=${encodeURIComponent(`${applicationId}:${refKey}`)}`,
+          {
+            headers: {
+              Accept: 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+        if (existing.ok) {
+          const body = (await existing.json()) as { image_url?: string };
+          if (body.image_url) return body.image_url;
+        }
+      } catch {
+        /* fall through */
+      }
+    }
     throw new ApiError(res.status, msg);
   }
 
   const url = String((data as UploadResult)?.image_url || '');
   if (!url) throw new ApiError(500, 'Upload returned no URL');
   return url;
+}
+
+/** Same as web `deleteObjectStoreFile` — clear by URL and/or refId. */
+export async function deleteMobileMedia(params: {
+  token: string;
+  url?: string;
+  refId?: string;
+}): Promise<void> {
+  const { token, url, refId } = params;
+  const headers = {
+    Accept: 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+
+  if (url && !url.startsWith('data:') && /^https?:\/\//i.test(url)) {
+    const qs = new URLSearchParams({ url });
+    const res = await fetch(`${API_BASE_URL}/object-store/by-url?${qs.toString()}`, {
+      method: 'DELETE',
+      headers,
+    });
+    if (res.ok) return;
+  }
+
+  if (refId) {
+    const qs = new URLSearchParams({ refId });
+    const res = await fetch(`${API_BASE_URL}/object-store/by-ref?${qs.toString()}`, {
+      method: 'DELETE',
+      headers,
+    });
+    if (!res.ok && res.status !== 404) {
+      const text = await res.text().catch(() => '');
+      throw new ApiError(res.status, text || `Delete failed (${res.status})`);
+    }
+  }
 }

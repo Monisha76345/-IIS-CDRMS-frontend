@@ -1,8 +1,9 @@
 import * as Location from 'expo-location';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 
 import { KARNATAKA } from '@/src/cdrms/location';
+import { ensureForegroundLocationPermission } from '@/src/cdrms/locationPermission';
 import type { GpsFix } from '@/src/cdrms/project/types';
 
 export type GeoAddress = {
@@ -10,6 +11,15 @@ export type GeoAddress = {
   taluk: string;
   district: string;
   state: string;
+  street?: string;
+  name?: string;
+  layoutName?: string;
+  area?: string;
+  block?: string;
+  postalCode?: string;
+  country?: string;
+  /** Place line for UI (no lat/lng). */
+  displayName: string;
 };
 
 export type LocationResult = {
@@ -22,6 +32,12 @@ export type RefreshOptions = {
   silent?: boolean;
 };
 
+export type LiveLocationOptions = {
+  distanceInterval?: number;
+  timeInterval?: number;
+  silent?: boolean;
+};
+
 function pickAddress(parts: Location.LocationGeocodedAddress[]): GeoAddress {
   const a = parts[0];
   if (!a) {
@@ -30,16 +46,41 @@ function pickAddress(parts: Location.LocationGeocodedAddress[]): GeoAddress {
       taluk: KARNATAKA.site.taluk,
       district: KARNATAKA.site.district,
       state: KARNATAKA.state,
+      area: KARNATAKA.site.village,
+      block: KARNATAKA.site.taluk,
+      displayName: `${KARNATAKA.site.village}, ${KARNATAKA.site.district}`,
     };
   }
 
+  const village = a.city || a.district || a.name || a.subregion || KARNATAKA.site.village;
+  const taluk = a.subregion || a.district || a.city || KARNATAKA.site.taluk;
+  const district = a.district || a.subregion || a.region || KARNATAKA.site.district;
+  const state = a.region?.toLowerCase().includes('karnataka')
+    ? 'Karnataka'
+    : a.region || KARNATAKA.state;
+  const street = a.street
+    ? a.streetNumber
+      ? `${a.streetNumber} ${a.street}`
+      : a.street
+    : undefined;
+  const displayName = [a.name, street, village, district, state, a.postalCode]
+    .filter(Boolean)
+    .filter((v, i, arr) => arr.indexOf(v) === i)
+    .join(', ');
+
   return {
-    village: a.district || a.subregion || a.city || a.name || KARNATAKA.site.village,
-    taluk: a.subregion || a.city || a.district || KARNATAKA.site.taluk,
-    district: a.region || a.subregion || KARNATAKA.site.district,
-    state: a.region?.toLowerCase().includes('karnataka')
-      ? 'Karnataka'
-      : a.region || KARNATAKA.state,
+    village,
+    taluk,
+    district,
+    state,
+    street,
+    name: a.name || undefined,
+    layoutName: a.name || a.district || undefined,
+    area: village,
+    block: taluk,
+    postalCode: a.postalCode || undefined,
+    country: a.country || undefined,
+    displayName: displayName || `${village}, ${district}`,
   };
 }
 
@@ -53,10 +94,41 @@ async function reverseGeocode(latitude: number, longitude: number): Promise<GeoA
       taluk: KARNATAKA.site.taluk,
       district: KARNATAKA.site.district,
       state: KARNATAKA.state,
+      area: KARNATAKA.site.village,
+      block: KARNATAKA.site.taluk,
+      displayName: `${KARNATAKA.site.village}, ${KARNATAKA.site.district}`,
     };
   }
 }
 
+/** Ask iOS/Android for location permission + turn Location on (Android). */
+export async function requestLocationPermission(silent = false): Promise<boolean> {
+  return ensureForegroundLocationPermission(silent);
+}
+
+async function readPosition(): Promise<Location.LocationObject> {
+  const accuracy =
+    Platform.OS === 'android'
+      ? Location.Accuracy.BestForNavigation
+      : Location.Accuracy.High;
+  try {
+    return await Location.getCurrentPositionAsync({
+      accuracy,
+      mayShowUserSettingsDialog: true,
+    });
+  } catch {
+    // High / Best can fail indoors — retry with balanced.
+    return await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+      mayShowUserSettingsDialog: true,
+    });
+  }
+}
+
+/**
+ * One-shot live location (permission → GPS → place name).
+ * Matches the simple expo-location flow for iOS + Android.
+ */
 export function useDeviceLocation() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,29 +143,13 @@ export function useDeviceLocation() {
           // Browser geolocation via expo-location still works when permitted.
         }
 
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
+        const ok = await requestLocationPermission(Boolean(opts?.silent));
+        if (!ok) {
           setError('Location permission denied');
-          if (!opts?.silent) {
-            Alert.alert(
-              'Location needed',
-              'Allow location access so we can auto-fill village, taluk, and site coordinates.'
-            );
-          }
           return null;
         }
 
-        let position: Location.LocationObject;
-        try {
-          position = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.High,
-          });
-        } catch {
-          // High accuracy can fail indoors / simulator — retry with balanced.
-          position = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-        }
+        const position = await readPosition();
 
         const gps: GpsFix = {
           latitude: position.coords.latitude,
@@ -116,8 +172,127 @@ export function useDeviceLocation() {
         setLoading(false);
       }
     },
-    []
+    [],
   );
 
   return { refresh, loading, error };
+}
+
+/**
+ * Continuous live location watch (after login + Step 2).
+ */
+export function useLiveLocation(opts?: LiveLocationOptions) {
+  const [gps, setGps] = useState<GpsFix | null>(null);
+  const [address, setAddress] = useState<GeoAddress | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const subRef = useRef<Location.LocationSubscription | null>(null);
+  const lastGeocodeAt = useRef(0);
+  const lastGeocodeKey = useRef('');
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const applyFix = useCallback(async (position: Location.LocationObject) => {
+    const { latitude, longitude } = position.coords;
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      setError('Waiting for GPS coordinates…');
+      return;
+    }
+
+    const next: GpsFix = {
+      latitude,
+      longitude,
+      accuracy: position.coords.accuracy,
+      altitude: position.coords.altitude,
+      timestamp: position.timestamp,
+    };
+    setGps(next);
+    setError(null);
+
+    const key = `${latitude.toFixed(4)},${longitude.toFixed(4)}`;
+    const now = Date.now();
+    if (key !== lastGeocodeKey.current || now - lastGeocodeAt.current > 12_000) {
+      lastGeocodeKey.current = key;
+      lastGeocodeAt.current = now;
+      const addr = await reverseGeocode(latitude, longitude);
+      setAddress(addr);
+    }
+  }, []);
+
+  const restart = useCallback(
+    async (silent = true) => {
+      setLoading(true);
+      setError(null);
+      try {
+        subRef.current?.remove();
+        subRef.current = null;
+        if (retryTimer.current) {
+          clearTimeout(retryTimer.current);
+          retryTimer.current = null;
+        }
+
+        const ok = await requestLocationPermission(silent);
+        if (!ok) {
+          setError('Location permission denied');
+          setGps(null);
+          setAddress(null);
+          return null;
+        }
+
+        try {
+          const position = await readPosition();
+          await applyFix(position);
+        } catch (e) {
+          const message = e instanceof Error ? e.message : 'Could not read GPS';
+          setError(message);
+          setGps(null);
+          setAddress(null);
+          retryTimer.current = setTimeout(() => {
+            void restart(true);
+          }, 4000);
+        }
+
+        if (Platform.OS !== 'web') {
+          subRef.current = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.High,
+              distanceInterval: opts?.distanceInterval ?? 5,
+              timeInterval: opts?.timeInterval ?? 2000,
+              mayShowUserSettingsDialog: true,
+            },
+            (pos) => {
+              void applyFix(pos);
+            },
+          );
+        }
+
+        return null;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : 'Could not read GPS';
+        setError(message);
+        if (!silent) Alert.alert('GPS error', message);
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [applyFix, opts?.distanceInterval, opts?.timeInterval],
+  );
+
+  useEffect(() => {
+    void restart(opts?.silent ?? true);
+    return () => {
+      subRef.current?.remove();
+      subRef.current = null;
+      if (retryTimer.current) clearTimeout(retryTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- start once on mount
+  }, []);
+
+  return {
+    gps,
+    address,
+    loading,
+    error,
+    refresh: restart,
+  };
 }

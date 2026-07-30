@@ -1,6 +1,7 @@
 import {
   CheckCircle2,
   ClipboardList,
+  RefreshCw,
   RotateCcw,
   Search,
   XCircle,
@@ -37,10 +38,9 @@ import {
   type StatusCountItem,
 } from '@/src/cdrms/components/StatusCountGrid';
 import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
-import { StaticMapPreview } from '@/src/cdrms/components/StaticMapPreview';
 import { resolveBoundaryDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { getSelectedOfficeAppId, setSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
-import { COLORS } from '@/src/cdrms/theme';
+import { COLORS, FONTS } from '@/src/cdrms/theme';
 import type { Go } from '@/src/cdrms/types';
 
 type CaoTab = 'pending' | 'verified' | 'returned' | 'rejected' | 'all';
@@ -148,22 +148,35 @@ export function CaoHomeScreen({ go }: { go: Go }) {
     );
   }, [apps, tab, q]);
 
+  const sectionLabel = countItems.find((i) => i.key === tab)?.label || 'All';
+
   return (
-    <ScreenShell className="bg-[#F3F4F6]">
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+    <ScreenShell className="bg-[#F8FAFC]">
+      <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         <AppHeader
           title="CAO Tasks"
-          subtitle={`Welcome, ${displayName(user)} · verify engineer submissions`}
+          subtitle={`Welcome, ${displayName(user)} · verify submissions`}
           go={go}
         />
 
         <Box className="px-4 mt-4">
-          <Text className="text-[16px] font-bold mb-1" style={{ color: '#0F172A' }}>
-            Task overview
-          </Text>
-          <Text className="text-[12px] mb-3" style={{ color: '#94A3B8' }}>
-            Tap a card to filter · {counts.total} total in scope
-          </Text>
+          <HStack className="items-baseline justify-between" style={{ marginBottom: 12, gap: 8 }}>
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 16, color: COLORS.ink }}>
+              Task overview
+            </Text>
+            <Text
+              style={{
+                flexShrink: 1,
+                fontFamily: FONTS.medium,
+                fontSize: 12,
+                color: COLORS.ink,
+                textAlign: 'right',
+              }}
+              numberOfLines={1}
+            >
+              Tap a card to filter · {counts.total} total
+            </Text>
+          </HStack>
 
           <StatusCountGrid
             items={countItems}
@@ -175,45 +188,102 @@ export function CaoHomeScreen({ go }: { go: Go }) {
           <Box
             className="mt-4 flex-row items-center"
             style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: 14,
+              backgroundColor: COLORS.white,
+              borderRadius: 12,
               borderWidth: 1,
-              borderColor: '#E5E7EB',
+              borderColor: COLORS.border,
               paddingHorizontal: 12,
               height: 44,
+              shadowColor: '#0F172A',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.06,
+              shadowRadius: 6,
+              elevation: 2,
             }}
           >
-            <Search size={16} color="#94A3B8" />
+            <Search size={16} color={COLORS.primary} />
             <TextInput
               value={q}
               onChangeText={setQ}
               placeholder="Search application, site, engineer…"
               placeholderTextColor="#94A3B8"
-              style={{ flex: 1, marginLeft: 8, fontSize: 13, color: '#0F172A' }}
+              style={{
+                flex: 1,
+                marginLeft: 8,
+                fontFamily: FONTS.medium,
+                fontSize: 13,
+                color: COLORS.ink,
+              }}
             />
           </Box>
 
-          <HStack className="items-center justify-between mt-5 mb-2">
-            <Text className="text-[15px] font-bold" style={{ color: '#0F172A' }}>
-              {countItems.find((i) => i.key === tab)?.label || 'All'}
+          <HStack className="items-center justify-between" style={{ marginTop: 20, marginBottom: 10 }}>
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 15, color: COLORS.ink }}>
+              {sectionLabel}
+              {!loading ? ` · ${filtered.length}` : ''}
             </Text>
-            <Pressable onPress={() => void reload()} className="active:opacity-70">
-              <Text className="text-[12px] font-semibold" style={{ color: COLORS.primary }}>
-                Refresh
-              </Text>
+            <Pressable
+              onPress={() => void reload()}
+              accessibilityLabel="Refresh"
+              className="active:opacity-70"
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 10,
+                backgroundColor: COLORS.white,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <RefreshCw size={15} color={COLORS.primary} strokeWidth={2.4} />
             </Pressable>
           </HStack>
 
           {loading ? (
             <ActivityIndicator style={{ marginTop: 24 }} color={COLORS.primary} />
           ) : error ? (
-            <Text className="text-[13px] mt-4" style={{ color: '#DC2626' }}>
-              {error}
-            </Text>
+            <Box
+              style={{
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: '#FECACA',
+                backgroundColor: '#FEF2F2',
+                padding: 14,
+              }}
+            >
+              <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: '#DC2626' }}>
+                {error}
+              </Text>
+            </Box>
           ) : filtered.length === 0 ? (
-            <Text className="text-[13px] mt-4" style={{ color: '#64748B' }}>
-              No tasks in this bucket yet.
-            </Text>
+            <Box
+              style={{
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                backgroundColor: COLORS.white,
+                paddingVertical: 28,
+                paddingHorizontal: 16,
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}>
+                No tasks here
+              </Text>
+              <Text
+                style={{
+                  fontFamily: FONTS.medium,
+                  fontSize: 12,
+                  color: COLORS.ink,
+                  marginTop: 6,
+                  textAlign: 'center',
+                }}
+              >
+                Nothing in this bucket yet.
+              </Text>
+            </Box>
           ) : (
             filtered.map((app) => (
               <OfficeAppRow
@@ -238,6 +308,7 @@ export function CaoHomeScreen({ go }: { go: Go }) {
         homeTarget="cao_home"
         appsTarget="cao_home"
         hidePlus
+        hideAlerts
       />
     </ScreenShell>
   );
@@ -295,27 +366,38 @@ export function CaoDetailScreen({ go }: { go: Go }) {
   };
 
   return (
-    <ScreenShell className="bg-[#F3F4F6]">
+    <ScreenShell className="bg-[#F8FAFC]">
       <AppHeader title="Task review" onBack={() => go('cao_home')} gradient={false} go={go} />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         {loading ? (
           <ActivityIndicator color={COLORS.primary} />
         ) : error || !app ? (
-          <Text style={{ color: '#DC2626' }}>{error || 'Not found'}</Text>
+          <Box
+            style={{
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: '#FECACA',
+              backgroundColor: '#FEF2F2',
+              padding: 14,
+            }}
+          >
+            <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: '#DC2626' }}>
+              {error || 'Not found'}
+            </Text>
+          </Box>
         ) : (
-          <VStack>
+          <VStack style={{ gap: 10 }}>
             {isSuperAdmin ? (
               <Box
                 style={{
                   backgroundColor: '#FFFBEB',
                   borderColor: '#FDE68A',
                   borderWidth: 1,
-                  borderRadius: 14,
-                  padding: 12,
-                  marginBottom: 12,
+                  borderRadius: 12,
+                  padding: 10,
                 }}
               >
-                <Text className="text-[12px] font-bold" style={{ color: '#92400E' }}>
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: '#92400E' }}>
                   Super Admin view — approval actions disabled
                 </Text>
               </Box>
@@ -323,101 +405,159 @@ export function CaoDetailScreen({ go }: { go: Go }) {
 
             <Box
               style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: 16,
+                backgroundColor: COLORS.white,
+                borderRadius: 14,
                 borderWidth: 1,
-                borderColor: '#E5E7EB',
-                padding: 14,
-                marginBottom: 12,
+                borderColor: COLORS.border,
+                overflow: 'hidden',
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.07,
+                shadowRadius: 8,
+                elevation: 2,
               }}
             >
-              <HStack className="gap-2 mb-2">
-                <Box style={{ backgroundColor: '#EFF6FF', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
-                  <Text className="text-[11px] font-bold" style={{ color: '#2563EB' }}>
-                    Zone {app.zoneCode}
+              <HStack>
+                <Box
+                  style={{
+                    width: 4,
+                    backgroundColor:
+                      app.status === 'verified'
+                        ? '#059669'
+                        : app.status === 'returned'
+                          ? '#F97316'
+                          : app.status === 'rejected'
+                            ? '#EF4444'
+                            : '#2563EB',
+                    alignSelf: 'stretch',
+                  }}
+                />
+                <VStack className="flex-1" style={{ padding: 12, gap: 6 }}>
+                  <HStack className="items-center" style={{ gap: 6, flexWrap: 'wrap' }}>
+                    <Box
+                      style={{
+                        backgroundColor: '#EFF6FF',
+                        borderRadius: 8,
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderWidth: 1,
+                        borderColor: COLORS.border,
+                      }}
+                    >
+                      <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: COLORS.primary }}>
+                        Zone {app.zoneCode}
+                      </Text>
+                    </Box>
+                    <Box
+                      style={{
+                        backgroundColor: COLORS.white,
+                        borderRadius: 8,
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderWidth: 1,
+                        borderColor: COLORS.border,
+                      }}
+                    >
+                      <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: COLORS.ink }}>
+                        Site {app.siteNo}
+                      </Text>
+                    </Box>
+                    <Box
+                      style={{
+                        marginLeft: 'auto',
+                        borderRadius: 999,
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        backgroundColor: '#EFF6FF',
+                      }}
+                    >
+                      <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: COLORS.primary }}>
+                        {applicationStatusLabel(app.status)}
+                      </Text>
+                    </Box>
+                  </HStack>
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 17, color: COLORS.ink }}>
+                    {app.applicationNumber}
                   </Text>
-                </Box>
-                <Box style={{ backgroundColor: '#F1F5F9', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
-                  <Text className="text-[11px] font-bold" style={{ color: '#334155' }}>
-                    Site {app.siteNo}
+                  <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}>
+                    Engineer: {app.assignedEngineerName || '—'}
                   </Text>
-                </Box>
+                </VStack>
               </HStack>
-              <Text className="text-[18px] font-bold" style={{ color: '#0F172A' }}>
-                {app.applicationNumber}
-              </Text>
-              <Text className="text-[12px] mt-1" style={{ color: '#64748B' }}>
-                Engineer: {app.assignedEngineerName || '—'}
-              </Text>
-              <Text className="text-[12px] mt-1 font-semibold" style={{ color: '#2563EB' }}>
-                {applicationStatusLabel(app.status)}
-              </Text>
             </Box>
 
             <Box
               style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: 16,
+                backgroundColor: COLORS.white,
+                borderRadius: 14,
                 borderWidth: 1,
-                borderColor: '#E5E7EB',
-                paddingHorizontal: 14,
-                paddingVertical: 4,
-                marginBottom: 12,
+                borderColor: COLORS.border,
+                paddingHorizontal: 12,
+                paddingTop: 4,
+                paddingBottom: 2,
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.06,
+                shadowRadius: 6,
+                elevation: 2,
               }}
             >
+              <Text
+                style={{
+                  fontFamily: FONTS.bold,
+                  fontSize: 13,
+                  color: COLORS.ink,
+                  paddingTop: 8,
+                  paddingBottom: 2,
+                }}
+              >
+                Site particulars
+              </Text>
               <DetailRow label="Address" value={addressLine(app)} />
               <DetailRow label="Occupancy" value={app.occupancy || '—'} />
               <DetailRow label="Site area" value={app.totalSiteArea || '—'} />
               <DetailRow label="Site type" value={app.siteDimensionType || '—'} />
               <DetailRow label="Site dimension" value={app.siteDimension || '—'} />
-              <DetailRow label="GPS" value={app.latitude && app.longitude ? `${app.latitude}, ${app.longitude}` : '—'} />
+              <DetailRow
+                label="GPS"
+                value={
+                  app.latitude && app.longitude ? `${app.latitude}, ${app.longitude}` : '—'
+                }
+              />
               <DetailRow label="Engineer comments" value={app.engineerComments || '—'} />
             </Box>
 
-            {app.latitude && app.longitude ? (
-              <Box
-                style={{
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: 16,
-                  borderWidth: 1,
-                  borderColor: '#E5E7EB',
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  marginBottom: 12,
-                  overflow: 'hidden',
-                }}
-              >
-                <Text className="text-[14px] font-extrabold mb-2" style={{ color: '#0F172A' }}>
-                  Site Map Location
-                </Text>
-                <StaticMapPreview
-                  latitude={Number(app.latitude)}
-                  longitude={Number(app.longitude)}
-                  badgeText={`Sy No ${app.siteNo || ''} · ${app.addressArea || ''}`}
-                  height={180}
-                  rounded={12}
-                />
-              </Box>
-            ) : null}
-
             <Box
               style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: 16,
+                backgroundColor: COLORS.white,
+                borderRadius: 14,
                 borderWidth: 1,
-                borderColor: '#E5E7EB',
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-                marginBottom: 12,
+                borderColor: COLORS.border,
+                paddingHorizontal: 12,
+                paddingTop: 4,
+                paddingBottom: 2,
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.06,
+                shadowRadius: 6,
+                elevation: 2,
               }}
             >
-              <Text className="text-[14px] font-extrabold mb-1" style={{ color: '#0F172A' }}>
-                Schedules (site around)
+              <Text
+                style={{
+                  fontFamily: FONTS.bold,
+                  fontSize: 13,
+                  color: COLORS.ink,
+                  paddingTop: 8,
+                  paddingBottom: 2,
+                }}
+              >
+                Schedules (around)
               </Text>
-              <DetailRow label="Schedule N" value={app.scheduleNorth || '—'} />
-              <DetailRow label="Schedule S" value={app.scheduleSouth || '—'} />
-              <DetailRow label="Schedule W" value={app.scheduleWest || '—'} />
-              <DetailRow label="Schedule E" value={app.scheduleEast || '—'} />
+              <DetailRow label="North" value={app.scheduleNorth || '—'} />
+              <DetailRow label="South" value={app.scheduleSouth || '—'} />
+              <DetailRow label="West" value={app.scheduleWest || '—'} />
+              <DetailRow label="East" value={app.scheduleEast || '—'} />
             </Box>
 
             {(() => {
@@ -440,38 +580,60 @@ export function CaoDetailScreen({ go }: { go: Go }) {
               );
             })()}
 
-            <Text className="text-[13px] font-bold mb-2" style={{ color: '#0F172A' }}>
-              CAO remarks
-            </Text>
-            <TextInput
-              value={remarks}
-              onChangeText={setRemarks}
-              editable={canReview}
-              multiline
-              placeholder="Enter remarks (required for return/reject)"
-              placeholderTextColor="#94A3B8"
+            <Box
               style={{
-                minHeight: 96,
+                backgroundColor: COLORS.white,
                 borderRadius: 14,
                 borderWidth: 1,
-                borderColor: '#E5E7EB',
-                backgroundColor: '#FFFFFF',
+                borderColor: COLORS.border,
                 padding: 12,
-                textAlignVertical: 'top',
-                fontSize: 13,
-                color: '#0F172A',
-                marginBottom: 14,
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.06,
+                shadowRadius: 6,
+                elevation: 2,
               }}
-            />
+            >
+              <Text
+                style={{
+                  fontFamily: FONTS.bold,
+                  fontSize: 13,
+                  color: COLORS.ink,
+                  marginBottom: 8,
+                }}
+              >
+                CAO remarks
+              </Text>
+              <TextInput
+                value={remarks}
+                onChangeText={setRemarks}
+                editable={canReview}
+                multiline
+                placeholder="Enter remarks (required for return/reject)"
+                placeholderTextColor="#94A3B8"
+                style={{
+                  minHeight: 80,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  backgroundColor: '#FAFBFC',
+                  padding: 10,
+                  textAlignVertical: 'top',
+                  fontFamily: FONTS.medium,
+                  fontSize: 13,
+                  color: COLORS.ink,
+                }}
+              />
+            </Box>
 
             {canReview ? (
-              <VStack className="gap-2">
+              <VStack style={{ gap: 8 }}>
                 <Pressable
                   onPress={() => void act('verify')}
                   disabled={!!busy}
                   style={{
-                    height: 48,
-                    borderRadius: 14,
+                    height: 44,
+                    borderRadius: 12,
                     backgroundColor: '#059669',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -481,15 +643,17 @@ export function CaoDetailScreen({ go }: { go: Go }) {
                   {busy === 'verify' ? (
                     <ActivityIndicator color="#FFF" />
                   ) : (
-                    <Text className="font-bold text-white">Verify & approve</Text>
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#FFFFFF' }}>
+                      Verify & approve
+                    </Text>
                   )}
                 </Pressable>
                 <Pressable
                   onPress={() => void act('return')}
                   disabled={!!busy}
                   style={{
-                    height: 48,
-                    borderRadius: 14,
+                    height: 44,
+                    borderRadius: 12,
                     backgroundColor: '#D97706',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -499,15 +663,17 @@ export function CaoDetailScreen({ go }: { go: Go }) {
                   {busy === 'return' ? (
                     <ActivityIndicator color="#FFF" />
                   ) : (
-                    <Text className="font-bold text-white">Return to engineer</Text>
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#FFFFFF' }}>
+                      Return to engineer
+                    </Text>
                   )}
                 </Pressable>
                 <Pressable
                   onPress={() => void act('reject')}
                   disabled={!!busy}
                   style={{
-                    height: 48,
-                    borderRadius: 14,
+                    height: 44,
+                    borderRadius: 12,
                     backgroundColor: '#DC2626',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -517,7 +683,9 @@ export function CaoDetailScreen({ go }: { go: Go }) {
                   {busy === 'reject' ? (
                     <ActivityIndicator color="#FFF" />
                   ) : (
-                    <Text className="font-bold text-white">Reject</Text>
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#FFFFFF' }}>
+                      Reject
+                    </Text>
                   )}
                 </Pressable>
               </VStack>

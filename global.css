@@ -1,63 +1,63 @@
 @import "tailwindcss";
 @import 'uniwind';
 
-/* CDRMS design tokens — converted from oklch web theme to RGB for Uniwind */
+/* CDRMS — blue institutional tokens (RGB for Uniwind) */
 @layer theme {
   :root {
     @variant light {
-      --primary: 79 70 229;
+      --primary: 37 99 235;
       --primary-foreground: 255 255 255;
-      --primary-glow: 129 140 248;
-      --primary-deep: 55 48 163;
+      --primary-glow: 59 130 246;
+      --primary-deep: 30 58 138;
       --card: 255 255 255;
-      --card-foreground: 30 33 48;
-      --secondary: 238 240 248;
-      --secondary-foreground: 37 41 74;
-      --background: 248 249 252;
+      --card-foreground: 15 23 42;
+      --secondary: 239 246 255;
+      --secondary-foreground: 15 23 42;
+      --background: 248 250 252;
       --popover: 255 255 255;
-      --popover-foreground: 30 33 48;
-      --muted: 240 242 247;
-      --muted-foreground: 107 114 137;
-      --destructive: 220 74 61;
+      --popover-foreground: 15 23 42;
+      --muted: 241 245 249;
+      --muted-foreground: 100 116 139;
+      --destructive: 220 38 38;
       --destructive-foreground: 255 255 255;
-      --success: 34 160 107;
+      --success: 22 163 74;
       --success-foreground: 255 255 255;
-      --warning: 232 168 56;
-      --warning-foreground: 61 48 20;
-      --foreground: 30 33 48;
-      --border: 226 229 240;
-      --input: 232 235 245;
-      --ring: 79 70 229;
-      --accent: 232 236 250;
-      --accent-foreground: 45 50 90;
+      --warning: 217 119 6;
+      --warning-foreground: 255 255 255;
+      --foreground: 15 23 42;
+      --border: 226 232 240;
+      --input: 241 245 249;
+      --ring: 37 99 235;
+      --accent: 219 234 254;
+      --accent-foreground: 30 58 138;
     }
 
     @variant dark {
-      --primary: 199 210 254;
-      --primary-foreground: 30 33 48;
-      --primary-glow: 129 140 248;
-      --primary-deep: 55 48 163;
-      --card: 35 39 68;
+      --primary: 96 165 250;
+      --primary-foreground: 15 23 42;
+      --primary-glow: 59 130 246;
+      --primary-deep: 30 58 138;
+      --card: 15 23 42;
       --card-foreground: 248 250 252;
-      --secondary: 48 52 78;
+      --secondary: 30 41 59;
       --secondary-foreground: 248 250 252;
-      --background: 18 20 42;
-      --popover: 35 39 68;
+      --background: 2 6 23;
+      --popover: 15 23 42;
       --popover-foreground: 248 250 252;
-      --muted: 48 52 78;
-      --muted-foreground: 161 168 190;
+      --muted: 30 41 59;
+      --muted-foreground: 148 163 184;
       --destructive: 248 113 113;
       --destructive-foreground: 248 250 252;
-      --success: 52 211 153;
-      --success-foreground: 18 20 42;
+      --success: 74 222 128;
+      --success-foreground: 2 6 23;
       --warning: 251 191 36;
-      --warning-foreground: 30 33 48;
+      --warning-foreground: 2 6 23;
       --foreground: 248 250 252;
       --border: 255 255 255;
       --input: 255 255 255;
-      --accent: 48 52 78;
+      --accent: 30 41 59;
       --accent-foreground: 248 250 252;
-      --ring: 129 140 248;
+      --ring: 96 165 250;
     }
   }
 }
@@ -92,6 +92,8 @@
   --radius-md: 1rem;
   --radius-lg: 1.25rem;
   --radius-xl: 1.5rem;
-  --radius-2xl: 1.75rem;
-  --radius-3xl: 2rem;
+  --radius-2xl: 1.25rem;
+  --radius-3xl: 1.25rem;
+  --font-sans: 'IBMPlexSans_400Regular';
+  --font-heading: 'SourceSerif4_700Bold';
 }

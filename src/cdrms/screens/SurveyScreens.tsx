@@ -1,6 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  ArrowRight,
   Building2,
   Camera,
   Check,
@@ -18,8 +17,6 @@ import {
   Plus,
   Route,
   Ruler,
-  Save,
-  Send,
   ShieldCheck,
   Sprout,
   Trash2,
@@ -30,7 +27,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, TextInput } from 'react-native';
+import { ActivityIndicator, TextInput } from 'react-native';
 
 import { Box } from '@/components/ui/box';
 import { Checkbox, CheckboxIcon, CheckboxIndicator, CheckboxLabel } from '@/components/ui/checkbox';
@@ -41,8 +38,11 @@ import { Progress, ProgressFilledTrack } from '@/components/ui/progress';
 import { Text } from '@/components/ui/text';
 import { Textarea, TextareaInput } from '@/components/ui/textarea';
 import { VStack } from '@/components/ui/vstack';
-import { GpsSiteCard } from '@/src/cdrms/components/GpsSiteCard';
-import { EngineerStickyHeader } from '@/src/cdrms/components/EngineerStickyHeader';
+import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
+import { ImagePreviewModal } from '@/src/cdrms/components/ImagePreviewModal';
+import { LiveCompassDial } from '@/src/cdrms/components/LiveCompassDial';
+import { LiveGpsPanel } from '@/src/cdrms/components/LiveGpsPanel';
+import { SchedulesEditorCard } from '@/src/cdrms/components/SchedulesEditorCard';
 import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
 import { AppBtn, AppSheet, Field } from '@/src/cdrms/components/primitives';
 import {
@@ -50,9 +50,10 @@ import {
   SurveyCard,
   SurveyScaffold,
   WorkspaceHeader,
+  FooterContinueBtn,
 } from '@/src/cdrms/components/SurveyLayout';
-import { cardinalFromHeading, useCompass } from '@/src/cdrms/hooks/useCompass';
-import { useDeviceLocation } from '@/src/cdrms/hooks/useDeviceLocation';
+import { parseCompassReading } from '@/src/cdrms/hooks/useCompass';
+import { useLiveLocation } from '@/src/cdrms/hooks/useDeviceLocation';
 import {
   capturePhoto,
   captureSelfie,
@@ -68,7 +69,7 @@ import {
   formatCoords,
   type Cardinal,
 } from '@/src/cdrms/project/types';
-import { COLORS } from '@/src/cdrms/theme';
+import { COLORS, FONTS, SPACE, TYPE } from '@/src/cdrms/theme';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go } from '@/src/cdrms/types';
 
@@ -91,17 +92,20 @@ export function BandiScreen({ go }: { go: Go }) {
     setDirection,
     setSurroundingPhoto,
     setApproachNotes,
-    setCompassReading,
     updateField,
     setGps,
-    saveDraft,
     persistBackendStep,
     reloadBackendDraft,
   } = useProject();
   const isBackendTask = Boolean(draft.backendApplicationId);
   const nextAfterBandi = isBackendTask ? 'dimensions' : 'surroundings';
-  const compass = useCompass(true);
-  const { refresh, loading: geoBusy } = useDeviceLocation();
+  const {
+    gps: liveGps,
+    address: liveAddress,
+    loading: geoBusy,
+    error: geoError,
+    refresh: refreshLiveGps,
+  } = useLiveLocation({ silent: true, timeInterval: 1500, distanceInterval: 2 });
   const [stepSaving, setStepSaving] = useState(false);
   const schedulePhotosReady = (['N', 'S', 'E', 'W'] as const).every(
     (k) => Boolean(draft.surroundingPhotos[k]),
@@ -109,8 +113,7 @@ export function BandiScreen({ go }: { go: Go }) {
   const occupancyOk =
     draft.occupancy === 'Empty' ||
     (draft.occupancy === 'Occupied' && draft.occupancyReason.trim().length > 0);
-  const compassOk =
-    Boolean(draft.compassReading.trim()) || compass.available;
+  const compassOk = Boolean(draft.compassReading.trim());
   const canContinueBandi = isBackendTask
     ? schedulePhotosReady && Boolean(draft.gps) && compassOk && occupancyOk
     : draft.bandiVerified;
@@ -119,20 +122,19 @@ export function BandiScreen({ go }: { go: Go }) {
   const [approachOpen, setApproachOpen] = useState(false);
   const [schedulesEditing, setSchedulesEditing] = useState(false);
   const [scheduleDraft, setScheduleDraft] = useState({ N: '', S: '', E: '', W: '' });
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState('Photo preview');
 
-  const latDisplay = draft.gps ? String(draft.gps.latitude) : '';
-  const lngDisplay = draft.gps ? String(draft.gps.longitude) : '';
-
-  const coords = draft.gps
-    ? formatCoords(draft.gps.latitude, draft.gps.longitude)
+  const mapGps = liveGps || draft.gps;
+  const coords = mapGps
+    ? formatCoords(mapGps.latitude, mapGps.longitude)
     : null;
+  const isLiveFix = Boolean(liveGps);
 
   const adminArea =
     [draft.taluk, draft.district, draft.state].filter(Boolean).join(' · ') || '—';
 
-  const heading = Math.round(compass.heading);
-  const face = cardinalFromHeading(compass.heading);
-  const needleRotation = compass.available ? -heading : 0;
+  const compassFace = parseCompassReading(draft.compassReading)?.face ?? null;
 
   const approachSummary =
     [draft.approachRoadWidth, draft.approachRoadName].filter(Boolean).join(' · ') ||
@@ -140,33 +142,14 @@ export function BandiScreen({ go }: { go: Go }) {
     'Tap to add approach / access notes';
 
   const recaptureGps = async () => {
-    const result = await refresh({ silent: false });
-    if (!result) return;
-    setGps(result.gps);
+    await refreshLiveGps(false);
   };
 
-  const syncCompassFromSensor = () => {
-    if (!compass.available) return;
-    setCompassReading(`${heading}° ${face}`);
-  };
-
-  // Auto-capture compass reading (live sensor heading if available, else 42° NE fallback)
+  // Keep draft GPS in sync with continuous live device location
   useEffect(() => {
-    if (compass.available) {
-      setCompassReading(`${heading}° ${face}`);
-    } else if (!draft.compassReading.trim()) {
-      setCompassReading('42° NE');
-    }
-  }, [compass.available, heading, face]);
-
-  // Auto-capture GPS location if not captured yet
-  useEffect(() => {
-    if (!draft.gps && !geoBusy) {
-      void refresh({ silent: true }).then((res) => {
-        if (res?.gps) setGps(res.gps);
-      });
-    }
-  }, [draft.gps, geoBusy, refresh, setGps]);
+    if (!liveGps) return;
+    setGps(liveGps);
+  }, [liveGps, setGps]);
 
   const openEdit = (k: Cardinal) => {
     setEditing(k);
@@ -217,7 +200,7 @@ export function BandiScreen({ go }: { go: Go }) {
       val: coords ? `${coords.lat}, ${coords.lng}` : 'Capture on Site Particulars',
       ok: Boolean(draft.gps),
       icon: MapPin,
-      iconColor: '#0F766E',
+      iconColor: '#2563EB',
       iconBg: '#CCFBF1',
     },
     {
@@ -230,11 +213,11 @@ export function BandiScreen({ go }: { go: Go }) {
     },
   ];
 
-  const badge = compass.available
-    ? `Live ${heading}°`
+  const badge = compassFace
+    ? `Facing ${compassFace}`
     : draft.gps
       ? 'KA GPS Active'
-      : 'Compass…';
+      : 'Pick direction';
 
   return (
     <SurveyScaffold
@@ -263,385 +246,161 @@ export function BandiScreen({ go }: { go: Go }) {
       badge={badge}
       watermark="compass"
       footer={
-        <HStack space="md" className="items-center">
-          <Pressable
-            onPress={() => {
-              void (async () => {
+        <FooterContinueBtn
+          disabled={!canContinueBandi || stepSaving}
+          loading={stepSaving}
+          label={
+            isBackendTask
+              ? !draft.gps
+                ? 'Capture GPS first'
+                : !compassOk
+                  ? 'Pick facing direction'
+                  : !occupancyOk
+                    ? 'Complete occupancy'
+                    : !schedulePhotosReady
+                      ? 'Add all 4 schedule photos'
+                      : 'Continue'
+              : TERMS.workflow.continueToSurroundings
+          }
+          onPress={() => {
+            void (async () => {
+              if (isBackendTask && !schedulePhotosReady) return;
+              if (isBackendTask) {
+                if (!draft.bandiVerified) setBandiVerified(true);
+                setStepSaving(true);
                 try {
-                  await saveDraft();
-                  go('draft');
+                  await persistBackendStep('compass');
                 } catch (err) {
                   alertDraftError(err);
-                }
-              })();
-            }}
-            disabled={stepSaving}
-            className="h-14 w-14 rounded-2xl items-center justify-center active:opacity-85"
-            style={{
-              backgroundColor: '#FFFFFF',
-              borderWidth: 1.5,
-              borderColor: '#DBEAFE',
-              shadowColor: '#2563EB',
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.12,
-              shadowRadius: 12,
-              elevation: 3,
-              opacity: stepSaving ? 0.5 : 1,
-            }}
-          >
-            <Save size={20} color={COLORS.primary} strokeWidth={2.2} />
-          </Pressable>
-          <Pressable
-            disabled={!canContinueBandi || stepSaving}
-            onPress={() => {
-              void (async () => {
-                if (isBackendTask && !schedulePhotosReady) return;
-                if (isBackendTask) {
-                  if (!draft.compassReading.trim()) syncCompassFromSensor();
-                  if (!draft.bandiVerified) setBandiVerified(true);
-                  setStepSaving(true);
-                  try {
-                    await persistBackendStep('compass');
-                  } catch (err) {
-                    alertDraftError(err);
-                    setStepSaving(false);
-                    return;
-                  }
                   setStepSaving(false);
+                  return;
                 }
-                go(nextAfterBandi);
-              })();
-            }}
-            className={`flex-1 h-14 rounded-2xl overflow-hidden ${
-              canContinueBandi && !stepSaving ? 'active:opacity-90' : 'opacity-45'
-            }`}
-            style={{
-              shadowColor: '#1D4ED8',
-              shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: canContinueBandi ? 0.35 : 0.1,
-              shadowRadius: 16,
-              elevation: 6,
-            }}
-          >
-            <LinearGradient
-              colors={['#2563EB', '#3B82F6', '#3B82F6']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{
-                flex: 1,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 10,
-                paddingHorizontal: 16,
-              }}
-            >
-              <Text className="text-[15px] font-extrabold text-white tracking-wide">
-                {isBackendTask
-                  ? stepSaving
-                    ? 'Saving…'
-                    : !draft.gps
-                      ? 'Capture GPS first'
-                      : !compassOk
-                        ? 'Capture compass reading'
-                        : !occupancyOk
-                          ? 'Complete occupancy'
-                          : !schedulePhotosReady
-                            ? 'Add all 4 schedule photos'
-                            : 'Continue to Dimensions'
-                  : TERMS.workflow.continueToSurroundings}
-              </Text>
-              <ArrowRight size={18} color="#fff" strokeWidth={2.5} />
-            </LinearGradient>
-          </Pressable>
-        </HStack>
+                setStepSaving(false);
+              }
+              go(nextAfterBandi);
+            })();
+          }}
+        />
       }
           go={go}
     >
-      {isBackendTask ? <EngineerStickyHeader /> : null}
-
       <SurveyCard>
         <WorkspaceHeader
           icon={Compass}
-          title={isBackendTask ? 'Live compass *' : TERMS.sections.boundaryCompass}
+          title={isBackendTask ? 'Facing direction *' : TERMS.sections.boundaryCompass}
           subtitle={
-            compass.available
-              ? `Facing ${face} · magnetic heading`
-              : 'Hold device flat outdoors for best reading'
+            compassFace
+              ? `Selected ${draft.compassReading}`
+              : 'Tap the direction you are facing'
           }
           stepLabel="STEP 02"
+          iconBg={COLORS.primary}
         />
 
-        <VStack className="px-4 pb-5 items-center">
-          <Box className="relative items-center justify-center my-2" style={{ width: 200, height: 200 }}>
-            <Box
-              className="absolute inset-0 rounded-full"
-              style={{
-                borderWidth: 10,
-                borderColor: '#EFF6FF',
-                backgroundColor: '#FAFBFF',
-              }}
-            />
-            {Array.from({ length: 60 }).map((_, i) => {
-              const deg = i * 6;
-              const rad = ((deg - 90) * Math.PI) / 180;
-              const major = i % 5 === 0;
-              const r = 88;
-              const x = 100 + r * Math.cos(rad);
-              const y = 100 + r * Math.sin(rad);
-              return (
-                <Box
-                  key={i}
-                  pointerEvents="none"
-                  style={{
-                    position: 'absolute',
-                    left: x - (major ? 1 : 0.5),
-                    top: y - (major ? 5 : 3),
-                    width: major ? 2 : 1,
-                    height: major ? 10 : 6,
-                    backgroundColor: major ? '#3B82F6' : '#BFDBFE',
-                    borderRadius: 999,
-                    transform: [{ rotate: `${deg}deg` }],
-                  }}
-                />
-              );
-            })}
-
-            <Box
-              className="absolute rounded-full"
-              style={{
-                top: 24,
-                right: 24,
-                bottom: 24,
-                left: 24,
-                borderWidth: 1.5,
-                borderColor: '#BFDBFE',
-              }}
-            />
-
-            <Text className="absolute font-black text-[14px]" style={{ top: 12, color: '#2563EB' }}>
-              N
-            </Text>
-            <Text className="absolute font-bold text-[12px]" style={{ bottom: 12, color: '#64748B' }}>
-              S
-            </Text>
-            <Text className="absolute font-bold text-[12px]" style={{ left: 14, color: '#64748B' }}>
-              W
-            </Text>
-            <Text className="absolute font-bold text-[12px]" style={{ right: 14, color: '#64748B' }}>
-              E
-            </Text>
-
-            <Box
-              style={{
-                height: 68,
-                width: 68,
-                borderRadius: 34,
-                alignItems: 'center',
-                justifyContent: 'center',
-                transform: [{ rotate: `${needleRotation}deg` }],
-                zIndex: 2,
-              }}
-            >
-              <LinearGradient
-                colors={['#2563EB', '#3B82F6']}
-                style={{
-                  height: 68,
-                  width: 68,
-                  borderRadius: 34,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  shadowColor: '#2563EB',
-                  shadowOpacity: 0.35,
-                  shadowRadius: 14,
-                  shadowOffset: { width: 0, height: 8 },
-                  elevation: 6,
-                }}
-              >
-                <Navigation size={30} color="#fff" strokeWidth={2.2} style={{ transform: [{ rotate: '45deg' }] }} />
-              </LinearGradient>
-            </Box>
-          </Box>
-
-          <Box
-            className="px-4 py-2 rounded-full mt-1"
-            style={{ backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#DBEAFE' }}
-          >
-            <Text className="text-[12px] font-bold" style={{ color: '#1D4ED8' }}>
-              Bearing{' '}
-              <Text style={{ color: '#1E3A8A' }}>{compass.available ? `${heading}°` : '—'}</Text>
-              {' · '}
-              {compass.available ? `facing ${face}` : 'waiting for sensor'}
-            </Text>
-          </Box>
-
-          {isBackendTask && compass.available ? (
-            <Pressable
-              onPress={syncCompassFromSensor}
-              className="mt-3 active:opacity-80"
-              style={{
-                height: 36,
-                paddingHorizontal: 14,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: '#BFDBFE',
-                backgroundColor: '#EFF6FF',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={{ fontSize: 12, fontWeight: '800', color: '#2563EB' }}>
-                Save live reading
-                {draft.compassReading.trim() ? ` · ${draft.compassReading}` : ''}
-              </Text>
-            </Pressable>
-          ) : null}
+        <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], alignItems: 'center' }}>
+          <LiveCompassDial />
         </VStack>
       </SurveyCard>
 
       {isBackendTask ? (
         <SurveyCard>
           <WorkspaceHeader
-            icon={Compass}
-            title="Compass, GPS & occupancy"
-            subtitle="Required before dimensions"
+            icon={MapPin}
+            title="Live GPS & occupancy"
+            subtitle={
+              isLiveFix
+                ? 'Live GPS locked · occupancy required'
+                : 'Device location required'
+            }
             stepLabel="STEP 02"
+            iconBg={COLORS.primary}
           />
-          <VStack space="md" className="px-[14px] pb-5">
-            <Field
-              label="Compass *"
-              value={draft.compassReading}
-              onChangeText={(t) => setCompassReading(t)}
-              placeholder="e.g. 42° NE"
-              endAdornment={
-                compass.available ? (
-                  <Pressable onPress={syncCompassFromSensor} className="active:opacity-80 px-1">
-                    <Text className="text-[11px] font-extrabold" style={{ color: '#2563EB' }}>
-                      Use live
-                    </Text>
-                  </Pressable>
-                ) : null
-              }
-            />
-
-            <Text className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-              Occupancy *
-            </Text>
-            <HStack space="sm">
-              {(['Empty', 'Occupied'] as const).map((opt) => {
-                const on = draft.occupancy === opt;
-                return (
-                  <Pressable
-                    key={opt}
-                    onPress={() => updateField('occupancy', opt)}
-                    className="flex-1 active:opacity-90"
-                    style={{
-                      borderRadius: 14,
-                      borderWidth: 1.5,
-                      borderColor: on ? '#2563EB' : '#E2E8F0',
-                      backgroundColor: on ? '#EFF6FF' : '#FFFFFF',
-                      paddingVertical: 12,
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Text
+          <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
+            <HStack className="items-center" style={{ gap: SPACE[4], flexWrap: 'wrap' }}>
+              <Text style={{ ...TYPE.label, color: COLORS.ink }}>Occupancy *</Text>
+              <HStack style={{ gap: SPACE[4], alignItems: 'center' }}>
+                {(['Empty', 'Occupied'] as const).map((opt) => {
+                  const on = draft.occupancy === opt;
+                  return (
+                    <Pressable
+                      key={opt}
+                      onPress={() => updateField('occupancy', opt)}
+                      className="active:opacity-80"
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: on }}
                       style={{
-                        fontSize: 13,
-                        fontWeight: '800',
-                        color: on ? '#1D4ED8' : '#64748B',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 8,
+                        paddingVertical: 2,
                       }}
                     >
-                      {opt}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+                      <Box
+                        style={{
+                          width: 18,
+                          height: 18,
+                          borderRadius: 9,
+                          borderWidth: 2,
+                          borderColor: on ? COLORS.primary : COLORS.ink,
+                          backgroundColor: COLORS.white,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {on ? (
+                          <Box
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: 4,
+                              backgroundColor: COLORS.primary,
+                            }}
+                          />
+                        ) : null}
+                      </Box>
+                      <Text
+                        style={{
+                          fontFamily: FONTS.semibold,
+                          fontSize: 13,
+                          color: COLORS.ink,
+                        }}
+                      >
+                        {opt}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </HStack>
             </HStack>
             {draft.occupancy === 'Occupied' ? (
               <Field
+                compact
                 label="Occupied reason *"
                 value={draft.occupancyReason}
                 onChangeText={(t) => updateField('occupancyReason', t)}
                 placeholder="Why is the site occupied?"
-                multiline
-                numberOfLines={2}
-                style={{ minHeight: 64, textAlignVertical: 'top' }}
               />
             ) : null}
 
-            <HStack space="sm">
-              <Box className="flex-1">
-                <Field
-                  label="Latitude (auto)"
-                  value={latDisplay}
-                  editable={false}
-                  placeholder="Capture GPS"
-                />
-              </Box>
-              <Box className="flex-1">
-                <Field
-                  label="Longitude (auto)"
-                  value={lngDisplay}
-                  editable={false}
-                  placeholder="Capture GPS"
-                />
-              </Box>
-            </HStack>
-
-            <Pressable
-              onPress={() => void recaptureGps()}
-              disabled={geoBusy}
-              className="active:opacity-90"
-              style={{
-                height: 44,
-                borderRadius: 12,
-                borderWidth: 1.5,
-                borderColor: '#BFDBFE',
-                backgroundColor: '#EFF6FF',
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                opacity: geoBusy ? 0.6 : 1,
-              }}
-            >
-              {geoBusy ? (
-                <ActivityIndicator size="small" color="#2563EB" />
-              ) : (
-                <MapPin size={16} color="#2563EB" strokeWidth={2.4} />
-              )}
-              <Text style={{ fontSize: 13, fontWeight: '800', color: '#1D4ED8' }}>
-                {geoBusy ? 'Capturing…' : 'Recapture GPS'}
-              </Text>
-            </Pressable>
-
-            <Text className="text-[10px] font-extrabold uppercase tracking-wider text-[#1d4ed8]">
-              Site map
-            </Text>
-            <GpsSiteCard
-              height={220}
-              variant="padded"
-              gps={draft.gps}
-              villageLabel={draft.village || draft.addressArea || undefined}
+            <LiveGpsPanel
+              gps={mapGps}
+              address={liveAddress}
+              loading={geoBusy}
+              error={geoError}
+              onRefresh={() => void recaptureGps()}
               syNo={draft.siteNo || draft.surveyNo || undefined}
               layoutName={draft.addressBlock || draft.zoneCode || undefined}
-              refreshing={geoBusy}
-              onRefresh={() => void recaptureGps()}
-              liveMap
-              allowMapGestures={false}
+              title="Live location"
             />
-            <Text className="text-[11px] text-slate-500">
-              Map pin shows Sy No, village and layout at the captured GPS.
-            </Text>
           </VStack>
         </SurveyCard>
       ) : (
         <SurveyCard>
-          <VStack className="px-[18px] py-5" space="sm">
+          <VStack className="px-4 py-5" space="sm">
             <SectionTitle
               title={TERMS.sections.siteMatchDetails}
               subtitle="Matched from site particulars and live GPS"
-              accent="#0F766E"
+              accent="#2563EB"
             />
             {rows.map((r, i) => {
               const Icon = r.icon;
@@ -696,7 +455,7 @@ export function BandiScreen({ go }: { go: Go }) {
 
       {!isBackendTask ? (
         <SurveyCard>
-          <VStack className="px-[18px] py-4" space="sm">
+          <VStack className="px-4 py-4" space="sm">
             <HStack className="items-center justify-between">
               <VStack className="flex-1 min-w-0 pr-2">
                 <Text className="text-[15px] font-extrabold" style={{ color: '#0F172A' }}>
@@ -796,238 +555,247 @@ export function BandiScreen({ go }: { go: Go }) {
         </SurveyCard>
       ) : null}
 
-      <Box className="mx-4 mb-1">
-        <Text className="text-[15px] font-extrabold" style={{ color: '#0F172A' }}>
-          Schedule photos *
-        </Text>
-        <Text className="text-[11px] mt-0.5" style={{ color: '#94A3B8' }}>
-          All four sides (N / S / E / W) are mandatory
-          {isBackendTask ? ` · ${(['N', 'S', 'E', 'W'] as const).filter((k) => draft.surroundingPhotos[k]).length}/4` : ''}
-        </Text>
-      </Box>
-      <Box className="mx-4 flex-row flex-wrap justify-between" style={{ gap: 12 }}>
-        {CARDINALS.map((k) => {
-          const meta = DIRECTION_META[k];
-          const TypeIcon = DIR_ICONS[k];
-          const val = draft.directions[k];
-          const photo = draft.surroundingPhotos[k];
-          return (
-            <Pressable
-              key={k}
-              onPress={() => openEdit(k)}
-              className="active:opacity-90 overflow-hidden"
-              style={{
-                width: '48%',
-                backgroundColor: '#FFFFFF',
-                borderRadius: 22,
-                padding: 14,
-                shadowColor: '#1E3A8A',
-                shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: 0.08,
-                shadowRadius: 14,
-                elevation: 3,
-              }}
-            >
-              {photo ? (
-                <VStack space="xs">
-                  <HStack className="items-center justify-between mb-1.5">
-                    <Box
-                      className="items-center justify-center rounded-full"
-                      style={{ width: 28, height: 28, backgroundColor: meta.color }}
-                    >
-                      <Text className="font-black text-white text-[11px]">{k}</Text>
-                    </Box>
-                    <Box
-                      className="h-6 w-6 rounded-full items-center justify-center"
-                      style={{ backgroundColor: '#10B981' }}
-                    >
-                      <Check size={12} color="#fff" strokeWidth={3} />
-                    </Box>
-                  </HStack>
-                  <Box className="relative" style={{ height: 80, borderRadius: 12, overflow: 'hidden' }}>
-                    <Image source={{ uri: photo.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                    <Box
-                      className="absolute bottom-1 left-1 px-2 py-0.5 rounded-full"
-                      style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
-                    >
-                      <Text className="text-[9px] font-bold text-white">{meta.label} Photo</Text>
-                    </Box>
-                  </Box>
-                </VStack>
-              ) : (
-                <HStack className="items-start justify-between">
-                  <VStack className="flex-1 min-w-0 pr-2">
-                    <Box
-                      className="items-center justify-center rounded-full"
-                      style={{ width: 36, height: 36, backgroundColor: meta.color }}
-                    >
-                      <Text className="font-black text-white text-[13px]">{k}</Text>
-                    </Box>
-                    <Text
-                      className="mt-2.5 text-[11px] uppercase font-extrabold tracking-wider"
-                      style={{ color: meta.color }}
-                    >
-                      {meta.label}
-                    </Text>
-                    <Text
-                      className="text-[12px] font-bold mt-1"
-                      style={{ color: val ? '#0F172A' : '#2563EB' }}
-                    >
-                      {val || 'Tap to upload photo'}
-                    </Text>
-                  </VStack>
-
-                  <VStack className="items-center justify-between" style={{ minHeight: 88 }}>
-                    <Box
-                      className="items-center justify-center rounded-full"
-                      style={{ width: 30, height: 30, backgroundColor: '#EFF6FF' }}
-                    >
-                      <Camera size={14} color="#2563EB" strokeWidth={2.2} />
-                    </Box>
-                    <Box
-                      className="items-center justify-center rounded-full"
-                      style={{ width: 34, height: 34, backgroundColor: meta.soft }}
-                    >
-                      <TypeIcon size={16} color={meta.typeColor} strokeWidth={2.2} />
-                    </Box>
-                  </VStack>
-                </HStack>
-              )}
-            </Pressable>
-          );
-        })}
-      </Box>
-
-      {!isBackendTask ? (
-      <>
-      <Pressable
-        onPress={() => setApproachOpen(true)}
-        className="mx-4 active:opacity-90"
-        style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: 20,
-          paddingVertical: 14,
-          paddingHorizontal: 14,
-          shadowColor: '#1E3A8A',
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.06,
-          shadowRadius: 12,
-          elevation: 2,
-        }}
-      >
-        <HStack className="items-center gap-3">
-          <Box
-            style={{
-              width: 4,
-              alignSelf: 'stretch',
-              borderRadius: 999,
-              backgroundColor: '#2563EB',
-            }}
-          />
-          <Box
-            className="items-center justify-center rounded-full"
-            style={{ width: 32, height: 32, backgroundColor: '#EFF6FF' }}
-          >
-            <Info size={16} color="#2563EB" strokeWidth={2.4} />
-          </Box>
-          <VStack className="flex-1 min-w-0">
-            <Text className="text-[14px] font-bold" style={{ color: '#0F172A' }}>
-              {TERMS.sections.approachDetails}
+      {isBackendTask ? (
+        <SchedulesEditorCard
+          title="Schedules (site around)"
+          subtitle="4 sides · Road checkbox · engineer note · upload image"
+        />
+      ) : (
+        <>
+          <Box className="mx-4 mb-1">
+            <Text className="text-[15px] font-extrabold" style={{ color: '#0F172A' }}>
+              Schedule photos *
             </Text>
-            <Text className="text-[11px] mt-0.5" style={{ color: '#94A3B8' }} numberOfLines={1}>
-              {approachSummary}
+            <Text className="text-[11px] mt-0.5" style={{ color: '#94A3B8' }}>
+              All four sides (N / S / E / W) are mandatory
             </Text>
-          </VStack>
-          <ChevronRight size={18} color="#94A3B8" />
-        </HStack>
-      </Pressable>
-
-      <SurveyCard>
-        <VStack className="px-[18px] py-5" space="xs">
-          <SectionTitle
-            title={TERMS.workflow.checkBandi}
-            subtitle={TERMS.workflow.checkBandiRemarksSubtitle}
-            accent="#2563EB"
-          />
-          <Textarea
-            className="min-h-[110px] rounded-[16px] border-0 mt-1"
-            style={{ backgroundColor: '#F3F4F6' }}
-          >
-            <TextareaInput
-              value={draft.bandiRemarks}
-              onChangeText={setBandiRemarks}
-              placeholder={TERMS.workflow.checkBandiPlaceholder}
-              multiline
-              style={{
-                fontSize: 14,
-                fontWeight: '600',
-                color: '#1E293B',
-                minHeight: 96,
-              }}
-            />
-          </Textarea>
-        </VStack>
-      </SurveyCard>
-
-      <Box
-        className="mx-4"
-        style={{
-          borderRadius: 22,
-          backgroundColor: '#ECFDF5',
-          borderWidth: 1.5,
-          borderColor: '#A7F3D0',
-          paddingHorizontal: 14,
-          paddingVertical: 14,
-          shadowColor: '#059669',
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.08,
-          shadowRadius: 12,
-          elevation: 2,
-        }}
-      >
-        <HStack className="items-center gap-3">
-          <Box
-            className="items-center justify-center"
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: 14,
-              backgroundColor: '#D1FAE5',
-            }}
-          >
-            <ShieldCheck size={20} color="#059669" strokeWidth={2.3} />
           </Box>
-          <Checkbox
-            value="verified"
-            isChecked={draft.bandiVerified}
-            onChange={(checked) => {
-              setBandiVerified(checked);
-              if (checked && compass.available) {
-                setCompassReading(`${Math.round(compass.heading)}° ${cardinalFromHeading(compass.heading)}`);
-              }
+          <Box className="mx-4 flex-row flex-wrap justify-between" style={{ gap: 12 }}>
+            {CARDINALS.map((k) => {
+              const meta = DIRECTION_META[k];
+              const TypeIcon = DIR_ICONS[k];
+              const val = draft.directions[k];
+              const photo = draft.surroundingPhotos[k];
+              return (
+                <Pressable
+                  key={k}
+                  onPress={() => {
+                    if (photo) {
+                      setPreviewTitle(`${meta.label} photo`);
+                      setPreviewUri(photo.uri);
+                      return;
+                    }
+                    openEdit(k);
+                  }}
+                  onLongPress={() => openEdit(k)}
+                  className="active:opacity-90 overflow-hidden"
+                  style={{
+                    width: '48%',
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: 22,
+                    padding: 14,
+                    shadowColor: '#1E3A8A',
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.08,
+                    shadowRadius: 14,
+                    elevation: 3,
+                  }}
+                >
+                  {photo ? (
+                    <VStack space="xs">
+                      <HStack className="items-center justify-between mb-1.5">
+                        <Box
+                          className="items-center justify-center rounded-full"
+                          style={{ width: 28, height: 28, backgroundColor: meta.color }}
+                        >
+                          <Text className="font-black text-white text-[11px]">{k}</Text>
+                        </Box>
+                        <Box
+                          className="h-6 w-6 rounded-full items-center justify-center"
+                          style={{ backgroundColor: '#10B981' }}
+                        >
+                          <Check size={12} color="#fff" strokeWidth={3} />
+                        </Box>
+                      </HStack>
+                      <Box className="relative" style={{ height: 80, borderRadius: 12, overflow: 'hidden' }}>
+                        <ApiMediaImage uri={photo.uri} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                        <Box
+                          className="absolute bottom-1 left-1 px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
+                        >
+                          <Text className="text-[9px] font-bold text-white">{meta.label} Photo</Text>
+                        </Box>
+                      </Box>
+                    </VStack>
+                  ) : (
+                    <HStack className="items-start justify-between">
+                      <VStack className="flex-1 min-w-0 pr-2">
+                        <Box
+                          className="items-center justify-center rounded-full"
+                          style={{ width: 36, height: 36, backgroundColor: meta.color }}
+                        >
+                          <Text className="font-black text-white text-[13px]">{k}</Text>
+                        </Box>
+                        <Text
+                          className="mt-2.5 text-[11px] uppercase font-extrabold tracking-wider"
+                          style={{ color: meta.color }}
+                        >
+                          {meta.label}
+                        </Text>
+                        <Text
+                          className="text-[12px] font-bold mt-1"
+                          style={{ color: val ? '#0F172A' : '#2563EB' }}
+                        >
+                          {val || 'Tap to upload photo'}
+                        </Text>
+                      </VStack>
+
+                      <VStack className="items-center justify-between" style={{ minHeight: 88 }}>
+                        <Box
+                          className="items-center justify-center rounded-full"
+                          style={{ width: 30, height: 30, backgroundColor: '#EFF6FF' }}
+                        >
+                          <Camera size={14} color="#2563EB" strokeWidth={2.2} />
+                        </Box>
+                        <Box
+                          className="items-center justify-center rounded-full"
+                          style={{ width: 34, height: 34, backgroundColor: meta.soft }}
+                        >
+                          <TypeIcon size={16} color={meta.typeColor} strokeWidth={2.2} />
+                        </Box>
+                      </VStack>
+                    </HStack>
+                  )}
+                </Pressable>
+              );
+            })}
+          </Box>
+
+          <Pressable
+            onPress={() => setApproachOpen(true)}
+            className="mx-4 active:opacity-90"
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 20,
+              paddingVertical: 14,
+              paddingHorizontal: 14,
+              shadowColor: '#1E3A8A',
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.06,
+              shadowRadius: 12,
+              elevation: 2,
             }}
-            className="flex-1 items-start gap-3"
           >
-            <CheckboxIndicator
-              className="mt-0.5"
-              style={{
-                borderRadius: 8,
-                width: 22,
-                height: 22,
-                borderColor: draft.bandiVerified ? '#2563EB' : '#93C5FD',
-                backgroundColor: draft.bandiVerified ? '#2563EB' : '#FFFFFF',
-              }}
-            >
-              <CheckboxIcon as={CheckIcon} />
-            </CheckboxIndicator>
-            <CheckboxLabel className="text-[13px] font-semibold flex-1 leading-5 text-foreground">
-              {TERMS.workflow.physicalVerification}
-            </CheckboxLabel>
-          </Checkbox>
-        </HStack>
-      </Box>
-      </>
-      ) : null}
+            <HStack className="items-center gap-3">
+              <Box
+                style={{
+                  width: 4,
+                  alignSelf: 'stretch',
+                  borderRadius: 999,
+                  backgroundColor: '#2563EB',
+                }}
+              />
+              <Box
+                className="items-center justify-center rounded-full"
+                style={{ width: 32, height: 32, backgroundColor: '#EFF6FF' }}
+              >
+                <Info size={16} color="#2563EB" strokeWidth={2.4} />
+              </Box>
+              <VStack className="flex-1 min-w-0">
+                <Text className="text-[14px] font-bold" style={{ color: '#0F172A' }}>
+                  {TERMS.sections.approachDetails}
+                </Text>
+                <Text className="text-[11px] mt-0.5" style={{ color: '#94A3B8' }} numberOfLines={1}>
+                  {approachSummary}
+                </Text>
+              </VStack>
+              <ChevronRight size={18} color="#94A3B8" />
+            </HStack>
+          </Pressable>
+
+          <SurveyCard>
+            <VStack className="px-4 py-5" space="xs">
+              <SectionTitle
+                title={TERMS.workflow.checkBandi}
+                subtitle={TERMS.workflow.checkBandiRemarksSubtitle}
+                accent="#2563EB"
+              />
+              <Textarea
+                className="min-h-[110px] rounded-[16px] border-0 mt-1"
+                style={{ backgroundColor: '#F3F4F6' }}
+              >
+                <TextareaInput
+                  value={draft.bandiRemarks}
+                  onChangeText={setBandiRemarks}
+                  placeholder={TERMS.workflow.checkBandiPlaceholder}
+                  multiline
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: '#1E293B',
+                    minHeight: 96,
+                  }}
+                />
+              </Textarea>
+            </VStack>
+          </SurveyCard>
+
+          <Box
+            className="mx-4"
+            style={{
+              borderRadius: 22,
+              backgroundColor: '#ECFDF5',
+              borderWidth: 1.5,
+              borderColor: '#A7F3D0',
+              paddingHorizontal: 14,
+              paddingVertical: 14,
+              shadowColor: '#059669',
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.08,
+              shadowRadius: 12,
+              elevation: 2,
+            }}
+          >
+            <HStack className="items-center gap-3">
+              <Box
+                className="items-center justify-center"
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 14,
+                  backgroundColor: '#D1FAE5',
+                }}
+              >
+                <ShieldCheck size={20} color="#059669" strokeWidth={2.3} />
+              </Box>
+              <Checkbox
+                value="verified"
+                isChecked={draft.bandiVerified}
+                onChange={(checked) => {
+                  setBandiVerified(checked);
+                }}
+                className="flex-1 items-start gap-3"
+              >
+                <CheckboxIndicator
+                  className="mt-0.5"
+                  style={{
+                    borderRadius: 8,
+                    width: 22,
+                    height: 22,
+                    borderColor: draft.bandiVerified ? '#2563EB' : '#93C5FD',
+                    backgroundColor: draft.bandiVerified ? '#2563EB' : '#FFFFFF',
+                  }}
+                >
+                  <CheckboxIcon as={CheckIcon} />
+                </CheckboxIndicator>
+                <CheckboxLabel className="text-[13px] font-semibold flex-1 leading-5 text-foreground">
+                  {TERMS.workflow.physicalVerification}
+                </CheckboxLabel>
+              </Checkbox>
+            </HStack>
+          </Box>
+        </>
+      )}
 
       <AppSheet
         open={editing != null}
@@ -1046,7 +814,7 @@ export function BandiScreen({ go }: { go: Go }) {
                 setEditing(null);
                 await new Promise((r) => setTimeout(r, 350));
                 const asset = await capturePhoto({ title: `Take ${DIRECTION_META[k].label} photo` });
-                if (asset) setSurroundingPhoto(k, asset);
+                if (asset) void setSurroundingPhoto(k, asset);
               }}
               className="flex-1 h-24 rounded-2xl overflow-hidden active:opacity-90"
             >
@@ -1066,7 +834,7 @@ export function BandiScreen({ go }: { go: Go }) {
                 setEditing(null);
                 await new Promise((r) => setTimeout(r, 350));
                 const asset = await pickPhoto();
-                if (asset) setSurroundingPhoto(k, asset);
+                if (asset) void setSurroundingPhoto(k, asset);
               }}
               className="flex-1 h-24 rounded-2xl items-center justify-center gap-2 active:opacity-90"
               style={{ backgroundColor: '#EFF6FF', borderWidth: 1.5, borderColor: '#BFDBFE' }}
@@ -1131,6 +899,12 @@ export function BandiScreen({ go }: { go: Go }) {
           <AppBtn onPress={() => setApproachOpen(false)}>Done</AppBtn>
         </VStack>
       </AppSheet>
+
+      <ImagePreviewModal
+        uri={previewUri}
+        title={previewTitle}
+        onClose={() => setPreviewUri(null)}
+      />
     </SurveyScaffold>
   );
 }
@@ -1143,6 +917,8 @@ export function DirectionsScreen({ go }: { go: Go }) {
 export function SurroundingsScreen({ go }: { go: Go }) {
   const { draft, setSurroundingPhoto, updateField } = useProject();
   const [picking, setPicking] = useState<Cardinal | null>(null);
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState('Photo preview');
 
   const doneCount = CARDINALS.filter((k) => draft.surroundingPhotos[k]).length;
 
@@ -1151,7 +927,7 @@ export function SurroundingsScreen({ go }: { go: Go }) {
     setPicking(null);
     await new Promise((r) => setTimeout(r, 350));
     const asset = mode === 'camera' ? await capturePhoto() : await pickPhoto();
-    if (asset) setSurroundingPhoto(k, asset);
+    if (asset) void setSurroundingPhoto(k, asset);
   };
 
   return (
@@ -1162,9 +938,10 @@ export function SurroundingsScreen({ go }: { go: Go }) {
       step={3}
       badge={`${doneCount} of 4 done`}
       footer={
-        <AppBtn onPress={() => go('photos')} icon={ArrowRight}>
-          {TERMS.workflow.continueToPhotos}
-        </AppBtn>
+        <FooterContinueBtn
+          label="Continue"
+          onPress={() => go('photos')}
+        />
       }
           go={go}
     >
@@ -1176,7 +953,7 @@ export function SurroundingsScreen({ go }: { go: Go }) {
           stepLabel="STEP 03"
           iconBg="#2563EB"
         />
-        <Box className="px-[18px] pb-5 flex-row flex-wrap justify-between" style={{ gap: 12 }}>
+        <Box className="px-4 pb-5 flex-row flex-wrap justify-between" style={{ gap: 12 }}>
           {CARDINALS.map((k) => {
             const label = DIRECTION_META[k].label;
             const photo = draft.surroundingPhotos[k];
@@ -1184,7 +961,20 @@ export function SurroundingsScreen({ go }: { go: Go }) {
               <Box key={k} className="rounded-3xl overflow-hidden" style={{ width: '48%', aspectRatio: 4 / 3 }}>
                 {photo ? (
                   <Box className="flex-1 relative">
-                    <Image source={{ uri: photo.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    <Pressable
+                      onPress={() => {
+                        setPreviewTitle(`${label} photo`);
+                        setPreviewUri(photo.uri);
+                      }}
+                      className="w-full h-full"
+                      accessibilityLabel={`Preview ${label} photo`}
+                    >
+                      <ApiMediaImage
+                        uri={photo.uri}
+                        style={{ width: '100%', height: '100%' }}
+                        resizeMode="cover"
+                      />
+                    </Pressable>
                     <Box
                       className="absolute top-2 left-2 px-2.5 py-1 rounded-full"
                       style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
@@ -1192,7 +982,7 @@ export function SurroundingsScreen({ go }: { go: Go }) {
                       <Text className="text-[10px] font-bold text-white">{label}</Text>
                     </Box>
                     <Pressable
-                      onPress={() => setSurroundingPhoto(k, null)}
+                      onPress={() => void setSurroundingPhoto(k, null)}
                       className="absolute top-2 right-2 h-7 w-7 rounded-full items-center justify-center"
                       style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
                     >
@@ -1234,7 +1024,7 @@ export function SurroundingsScreen({ go }: { go: Go }) {
       </SurveyCard>
 
       <SurveyCard>
-        <VStack space="md" className="px-[18px] py-5">
+        <VStack space="md" className="px-4 py-5">
           <SectionTitle
             title={TERMS.sections.nearbyContext}
             subtitle="Record adjacent structures and reference points"
@@ -1308,6 +1098,12 @@ export function SurroundingsScreen({ go }: { go: Go }) {
           </Pressable>
         </HStack>
       </AppSheet>
+
+      <ImagePreviewModal
+        uri={previewUri}
+        title={previewTitle}
+        onClose={() => setPreviewUri(null)}
+      />
     </SurveyScaffold>
   );
 }
@@ -1317,6 +1113,8 @@ export function PhotosScreen({ go }: { go: Go }) {
     useProject();
   const [sheet, setSheet] = useState(false);
   const [stepSaving, setStepSaving] = useState(false);
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState('Photo preview');
   const isBackendTask = Boolean(draft.backendApplicationId);
   const maxPhotos = isBackendTask ? 5 : 10;
   const backScreen = isBackendTask ? 'dimensions' : 'surroundings';
@@ -1332,7 +1130,7 @@ export function PhotosScreen({ go }: { go: Go }) {
           ? await captureSelfie()
           : await capturePhoto({ facing: 'back', title: 'Take site photo' })
         : await pickPhoto();
-    if (asset) addPhoto(asset);
+    if (asset) await addPhoto(asset);
   };
 
   return (
@@ -1359,7 +1157,14 @@ export function PhotosScreen({ go }: { go: Go }) {
       total={isBackendTask ? 4 : 5}
       badge={`${draft.photos.length} of ${maxPhotos}`}
       footer={
-        <AppBtn
+        <FooterContinueBtn
+          loading={stepSaving}
+          disabled={
+            stepSaving ||
+            draft.photos.length < 1 ||
+            (isBackendTask && !draft.engineerComments.trim())
+          }
+          label="Continue"
           onPress={() => {
             void (async () => {
               if (isBackendTask) {
@@ -1376,33 +1181,25 @@ export function PhotosScreen({ go }: { go: Go }) {
               go('video');
             })();
           }}
-          icon={ArrowRight}
-          disabled={
-            stepSaving ||
-            draft.photos.length < 1 ||
-            (isBackendTask && !draft.engineerComments.trim())
-          }
-        >
-          {stepSaving ? 'Saving…' : TERMS.workflow.continueToVideo}
-        </AppBtn>
+        />
       }
           go={go}
     >
-      {isBackendTask ? <EngineerStickyHeader /> : null}
-
       <SurveyCard>
         <WorkspaceHeader
           icon={ImageIcon}
           title={TERMS.sections.sitePhotoGallery}
           subtitle="Captured on device"
           stepLabel="STEP 04"
-          iconBg="#2563EB"
+          iconBg={COLORS.primary}
         />
-        <Box className="px-[18px] pb-5">
-          <HStack className="items-center justify-between mb-4">
-            <VStack>
-              <Text className="text-sm font-extrabold text-foreground">Uploaded assets</Text>
-              <Text className="text-xs text-muted-foreground">
+        <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
+          <HStack className="items-center justify-between">
+            <VStack style={{ gap: 2 }}>
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}>
+                Uploaded assets
+              </Text>
+              <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}>
                 {draft.photos.length === 0
                   ? 'Add selfie first'
                   : `${draft.photos.length} photo${draft.photos.length === 1 ? '' : 's'} ready`}
@@ -1413,12 +1210,12 @@ export function PhotosScreen({ go }: { go: Go }) {
               disabled={draft.photos.length >= maxPhotos}
               className="h-11 px-4 rounded-2xl flex-row items-center gap-1.5"
               style={{
-                backgroundColor: '#2563EB',
+                backgroundColor: COLORS.primary,
                 opacity: draft.photos.length >= maxPhotos ? 0.5 : 1,
-                shadowColor: '#2563EB',
-                shadowOpacity: 0.35,
-                shadowRadius: 10,
-                shadowOffset: { width: 0, height: 6 },
+                shadowColor: '#0F172A',
+                shadowOpacity: 0.12,
+                shadowRadius: 8,
+                shadowOffset: { width: 0, height: 3 },
               }}
             >
               <Plus size={16} color="#fff" strokeWidth={2.5} />
@@ -1428,12 +1225,40 @@ export function PhotosScreen({ go }: { go: Go }) {
 
           <Box className="flex-row flex-wrap" style={{ gap: 10 }}>
             {draft.photos.map((p, i) => (
-              <Box key={p.id} className="rounded-2xl overflow-hidden" style={{ width: '31%', aspectRatio: 1 }}>
-                <Image source={{ uri: p.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+              <Box
+                key={p.id}
+                className="rounded-2xl overflow-hidden"
+                style={{
+                  width: '31%',
+                  aspectRatio: 1,
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 8,
+                  elevation: 2,
+                }}
+              >
                 <Pressable
-                  onPress={() => removePhoto(p.id)}
+                  onPress={() => {
+                    setPreviewTitle(
+                      i === 0 ? 'Engineer selfie' : `Photo ${String(i + 1).padStart(2, '0')}`
+                    );
+                    setPreviewUri(p.uri);
+                  }}
+                  className="w-full h-full"
+                  accessibilityLabel={`Preview photo ${i + 1}`}
+                >
+                  <ApiMediaImage
+                    uri={p.uri}
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode="cover"
+                  />
+                </Pressable>
+                <Pressable
+                  onPress={() => void removePhoto(p.id)}
                   className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full items-center justify-center"
                   style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+                  accessibilityLabel={`Remove photo ${i + 1}`}
                 >
                   <X size={12} color="#fff" />
                 </Pressable>
@@ -1441,7 +1266,9 @@ export function PhotosScreen({ go }: { go: Go }) {
                   className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded"
                   style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
                 >
-                  <Text className="text-[9px] text-white font-bold">IMG_{String(i + 1).padStart(2, '0')}</Text>
+                  <Text className="text-[9px] text-white font-bold">
+                    IMG_{String(i + 1).padStart(2, '0')}
+                  </Text>
                 </Box>
               </Box>
             ))}
@@ -1452,24 +1279,34 @@ export function PhotosScreen({ go }: { go: Go }) {
                 style={{
                   width: '31%',
                   aspectRatio: 1,
-                  borderWidth: 2,
-                  borderColor: '#93C5FD',
-                  borderStyle: 'dashed',
-                  backgroundColor: '#EFF6FF',
+                  backgroundColor: COLORS.white,
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 8,
+                  elevation: 2,
                 }}
               >
-                <Plus size={28} color="#2563EB" />
+                <Plus size={28} color={COLORS.ink} />
               </Pressable>
             ) : null}
           </Box>
-        </Box>
+        </VStack>
       </SurveyCard>
+
+      <ImagePreviewModal
+        uri={previewUri}
+        title={previewTitle}
+        onClose={() => setPreviewUri(null)}
+      />
 
       {isBackendTask ? (
         <SurveyCard>
-          <VStack className="px-[18px] py-4" space="sm">
-            <Text className="text-[15px] font-extrabold text-foreground">Engineer comments *</Text>
-            <Text className="text-[11px] text-muted-foreground">
+          <VStack style={{ paddingHorizontal: SPACE[4], paddingVertical: SPACE[4], gap: SPACE[2] }}>
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 15, color: COLORS.ink }}>
+              Engineer comments *
+            </Text>
+            <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}>
               Required — same as web Step 4 before submit
             </Text>
             <Textarea>
@@ -1485,16 +1322,32 @@ export function PhotosScreen({ go }: { go: Go }) {
 
       {draft.photos.length > 0 ? (
         <SurveyCard>
-          <HStack className="items-center gap-3 px-[18px] py-5">
+          <HStack
+            className="items-center"
+            style={{
+              paddingHorizontal: SPACE[4],
+              paddingVertical: SPACE[4],
+              gap: SPACE[3],
+            }}
+          >
             <Box
               className="h-12 w-12 rounded-2xl items-center justify-center"
-              style={{ backgroundColor: '#059669' }}
+              style={{
+                backgroundColor: COLORS.white,
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 3 },
+                shadowOpacity: 0.08,
+                shadowRadius: 8,
+                elevation: 2,
+              }}
             >
-              <Upload size={22} color="#fff" />
+              <Upload size={22} color={COLORS.ink} />
             </Box>
-            <VStack className="flex-1">
-              <Text className="text-sm font-extrabold text-foreground">Ready on device</Text>
-              <Text className="text-[11px] text-muted-foreground mt-1 font-medium">
+            <VStack className="flex-1" style={{ gap: 2 }}>
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}>
+                Ready on device
+              </Text>
+              <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}>
                 {draft.photos.length} photo{draft.photos.length === 1 ? '' : 's'} stored locally
               </Text>
             </VStack>
@@ -1511,7 +1364,11 @@ export function PhotosScreen({ go }: { go: Go }) {
             >
               <Camera size={28} color="#fff" />
               <Text className="font-extrabold text-sm text-white">
-                {draft.photos.length === 0 ? 'Take Selfie' : 'Take Photo'}
+                {__DEV__
+                  ? 'Use sample'
+                  : draft.photos.length === 0
+                    ? 'Take Selfie'
+                    : 'Take Photo'}
               </Text>
             </LinearGradient>
           </Pressable>
@@ -1525,9 +1382,11 @@ export function PhotosScreen({ go }: { go: Go }) {
           </Pressable>
         </HStack>
         <Text className="mt-4 text-[11px] text-muted-foreground text-center">
-          {draft.photos.length === 0
-            ? 'Selfie is required (front camera). Extra site photos are optional.'
-            : 'Selfie done. Extra site photos are optional — continue when ready.'}
+          {__DEV__
+            ? 'Dev mode: camera uses a sample image so you can upload and continue.'
+            : draft.photos.length === 0
+              ? 'Selfie is required (front camera). Extra site photos are optional.'
+              : 'Selfie done. Extra site photos are optional — continue when ready.'}
         </Text>
       </AppSheet>
     </SurveyScaffold>
@@ -1543,7 +1402,7 @@ function formatDuration(ms?: number | null) {
 }
 
 export function VideoScreen({ go }: { go: Go }) {
-  const { draft, setVideo, saveDraft, persistBackendStep, reloadBackendDraft } = useProject();
+  const { draft, setVideo, persistBackendStep, reloadBackendDraft } = useProject();
   const [busy, setBusy] = useState<'record' | 'choose' | null>(null);
   const [stepSaving, setStepSaving] = useState(false);
   const videoPickOnly = isLiveVideoBlocked();
@@ -1554,7 +1413,7 @@ export function VideoScreen({ go }: { go: Go }) {
     setBusy('record');
     try {
       const asset = await captureVideo();
-      if (asset) setVideo(asset);
+      if (asset) await setVideo(asset);
     } finally {
       setBusy(null);
     }
@@ -1565,7 +1424,7 @@ export function VideoScreen({ go }: { go: Go }) {
     setBusy('choose');
     try {
       const asset = await chooseVideoFile();
-      if (asset) setVideo(asset);
+      if (asset) await setVideo(asset);
     } finally {
       setBusy(null);
     }
@@ -1606,83 +1465,27 @@ export function VideoScreen({ go }: { go: Go }) {
       badge="Final step"
       footer={
         <VStack space="sm">
-          <HStack space="md" className="items-center">
-            <Pressable
-              onPress={() => {
-                void (async () => {
+          <FooterContinueBtn
+            loading={stepSaving}
+            disabled={stepSaving || (isBackendTask && !draft.video)}
+            label={TERMS.workflow.validateApplication}
+            onPress={() => {
+              void (async () => {
+                if (isBackendTask) {
+                  setStepSaving(true);
                   try {
-                    await saveDraft();
-                    go('draft');
+                    await persistBackendStep('media');
                   } catch (err) {
                     alertDraftError(err);
-                  }
-                })();
-              }}
-              disabled={stepSaving}
-              className="h-14 w-14 rounded-2xl items-center justify-center active:opacity-85"
-              style={{
-                backgroundColor: '#FFFFFF',
-                borderWidth: 1.5,
-                borderColor: '#DBEAFE',
-                shadowColor: '#2563EB',
-                shadowOffset: { width: 0, height: 6 },
-                shadowOpacity: 0.12,
-                shadowRadius: 12,
-                elevation: 3,
-                opacity: stepSaving ? 0.5 : 1,
-              }}
-            >
-              <Save size={20} color={COLORS.primary} strokeWidth={2.2} />
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                void (async () => {
-                  if (isBackendTask) {
-                    setStepSaving(true);
-                    try {
-                      await persistBackendStep('media');
-                    } catch (err) {
-                      alertDraftError(err);
-                      setStepSaving(false);
-                      return;
-                    }
                     setStepSaving(false);
+                    return;
                   }
-                  go('validate');
-                })();
-              }}
-              disabled={stepSaving || (isBackendTask && !draft.video)}
-              className="flex-1 h-14 rounded-2xl overflow-hidden active:opacity-90"
-              style={{
-                shadowColor: '#1D4ED8',
-                shadowOffset: { width: 0, height: 10 },
-                shadowOpacity: 0.35,
-                shadowRadius: 16,
-                elevation: 6,
-                opacity: stepSaving || (isBackendTask && !draft.video) ? 0.45 : 1,
-              }}
-            >
-              <LinearGradient
-                colors={['#2563EB', '#3B82F6', '#3B82F6']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={{
-                  flex: 1,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  paddingHorizontal: 18,
-                  gap: 10,
-                }}
-              >
-                <Send size={17} color="#fff" strokeWidth={2.4} />
-                <Text className="flex-1 text-[15px] font-extrabold text-white tracking-wide text-center">
-                  {TERMS.workflow.validateApplication}
-                </Text>
-                <ArrowRight size={18} color="#fff" strokeWidth={2.5} />
-              </LinearGradient>
-            </Pressable>
-          </HStack>
+                  setStepSaving(false);
+                }
+                go('validate');
+              })();
+            }}
+          />
           <HStack className="items-center justify-center gap-1.5 pt-0.5">
             <Lock size={11} color="#94A3B8" strokeWidth={2.2} />
             <Text className="text-[10px] font-medium" style={{ color: '#94A3B8' }}>
@@ -1693,27 +1496,25 @@ export function VideoScreen({ go }: { go: Go }) {
       }
           go={go}
     >
-      {isBackendTask ? <EngineerStickyHeader /> : null}
-
       <SurveyCard>
         <WorkspaceHeader
           icon={Camera}
           title={TERMS.sections.walkthroughVideo}
           subtitle="HD recording · on device"
           stepLabel={isBackendTask ? 'STEP 04' : 'STEP 05'}
-          iconBg="#2563EB"
+          iconBg={COLORS.primary}
         />
-        <Box className="px-[18px] pb-5">
+        <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
           <Box
             className="rounded-3xl overflow-hidden"
             style={{
               aspectRatio: 16 / 9,
               backgroundColor: '#0F172A',
-              shadowColor: '#1E3A8A',
-              shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.18,
-              shadowRadius: 14,
-              elevation: 4,
+              shadowColor: '#0F172A',
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.12,
+              shadowRadius: 12,
+              elevation: 3,
             }}
           >
             {draft.video ? (
@@ -1750,36 +1551,54 @@ export function VideoScreen({ go }: { go: Go }) {
           </Box>
 
           {draft.video ? (
-            <HStack className="mt-4 items-center gap-3">
+            <HStack className="items-center" style={{ gap: SPACE[3] }}>
               <Box
                 className="items-center justify-center"
                 style={{
                   width: 40,
                   height: 40,
                   borderRadius: 12,
-                  backgroundColor: '#EFF6FF',
+                  backgroundColor: COLORS.white,
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 6,
+                  elevation: 2,
                 }}
               >
-                <MapPin size={18} color={COLORS.primary} strokeWidth={2.3} />
+                <MapPin size={18} color={COLORS.ink} strokeWidth={2.3} />
               </Box>
-              <VStack className="flex-1 min-w-0">
-                <Text className="text-sm font-extrabold text-foreground" numberOfLines={1}>
+              <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
+                <Text
+                  style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}
+                  numberOfLines={1}
+                >
                   Site Walk-through
                 </Text>
-                <Text className="text-[11px] text-muted-foreground mt-0.5" numberOfLines={1}>
+                <Text
+                  style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}
+                  numberOfLines={1}
+                >
                   Recorded {recordedLabel}
                 </Text>
               </VStack>
               <Pressable
-                onPress={() => setVideo(null)}
+                onPress={() => void setVideo(null)}
                 className="h-10 w-10 rounded-full items-center justify-center active:opacity-80"
-                style={{ backgroundColor: '#FEE2E2' }}
+                style={{
+                  backgroundColor: COLORS.white,
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 6,
+                  elevation: 2,
+                }}
               >
-                <Trash2 size={16} color="#DC2626" strokeWidth={2.2} />
+                <Trash2 size={16} color={COLORS.destructive} strokeWidth={2.2} />
               </Pressable>
             </HStack>
           ) : null}
-        </Box>
+        </VStack>
       </SurveyCard>
 
       <HStack className="mx-4" space="md">
@@ -1822,9 +1641,11 @@ export function VideoScreen({ go }: { go: Go }) {
             <Text className="flex-1 font-extrabold text-white text-[13px]">
               {busy === 'record'
                 ? 'Opening…'
-                : videoPickOnly
-                  ? 'Pick Video'
-                  : 'Record Video'}
+                : __DEV__
+                  ? 'Use sample video'
+                  : videoPickOnly
+                    ? 'Pick Video'
+                    : 'Record Video'}
             </Text>
             <ChevronRight size={18} color="rgba(255,255,255,0.9)" strokeWidth={2.4} />
           </LinearGradient>
@@ -1889,18 +1710,27 @@ export function VideoScreen({ go }: { go: Go }) {
               <Check size={22} color="#fff" strokeWidth={3} />
             </Box>
             <VStack className="flex-1 min-w-0">
-              <Text className="text-sm font-extrabold text-foreground">Video ready</Text>
-              <Text className="text-[11px] mt-0.5 font-medium" style={{ color: '#64748B' }}>
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}>
+                Video ready
+              </Text>
+              <Text
+                style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink, marginTop: 2 }}
+              >
                 Max size 50 MB · stored on this device
               </Text>
             </VStack>
             <Box
               className="px-2.5 py-1 rounded-full"
-              style={{ backgroundColor: '#D1FAE5', borderWidth: 1, borderColor: '#6EE7B7' }}
+              style={{
+                backgroundColor: COLORS.white,
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.08,
+                shadowRadius: 6,
+                elevation: 2,
+              }}
             >
-              <Text className="text-[10px] font-extrabold" style={{ color: '#047857' }}>
-                Valid
-              </Text>
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: COLORS.ink }}>Valid</Text>
             </Box>
           </HStack>
         </Box>

@@ -38,6 +38,14 @@ export function homeScreenForRole(user: RoleUser | null | undefined): Screen {
   return 'dashboard';
 }
 
+/**
+ * Geo validation / live location gate is engineer-only.
+ * ZC and CAO skip permission + geo and go straight to their home.
+ */
+export function needsGeoValidation(user: RoleUser | null | undefined): boolean {
+  return resolveAppRole(user) === 'engineer';
+}
+
 export function displayName(user: RoleUser | null | undefined): string {
   if (!user?.name?.trim()) return 'Officer';
   return user.name.trim();

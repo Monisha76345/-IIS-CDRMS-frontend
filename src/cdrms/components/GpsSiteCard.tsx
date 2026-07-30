@@ -28,7 +28,7 @@ import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { KarnatakaMap } from '@/src/cdrms/components/KarnatakaMap';
 import { StaticMapPreview } from '@/src/cdrms/components/StaticMapPreview';
-import { KARNATAKA, SITE_REGION } from '@/src/cdrms/location';
+import { KARNATAKA } from '@/src/cdrms/location';
 import { formatCoords, type GpsFix } from '@/src/cdrms/project/types';
 
 type Props = {
@@ -46,11 +46,13 @@ type Props = {
   liveMap?: boolean;
   /** Pan / pinch on the inline (minimized) map. Default true. */
   allowMapGestures?: boolean;
+  /** Hide footer lat/lng line (place name only). */
+  hideCoords?: boolean;
 };
 
 const MAP_RADIUS = 20;
-const MIN_DELTA = 0.008;
-const MAX_DELTA = 0.12;
+const MIN_DELTA = 0.0015;
+const MAX_DELTA = 0.35;
 
 function formatTime(ts?: number) {
   if (!ts) return 'Tap refresh';
@@ -59,7 +61,7 @@ function formatTime(ts?: number) {
 
 /** Map block for survey screens — padded rounded map matches the mock. */
 export function GpsSiteCard({
-  height = 210,
+  height = 320,
   variant = 'padded',
   gps,
   villageLabel,
@@ -69,6 +71,7 @@ export function GpsSiteCard({
   onRefresh,
   liveMap = true,
   allowMapGestures = true,
+  hideCoords = false,
 }: Props) {
   const padded = variant === 'padded' || variant === 'inset';
   const lat = gps?.latitude ?? KARNATAKA.site.latitude;
@@ -77,18 +80,18 @@ export function GpsSiteCard({
   const accuracy =
     gps?.accuracy != null ? `±${Math.round(gps.accuracy)}m` : gps ? 'GPS' : 'Waiting';
   const place = villageLabel || KARNATAKA.site.village;
-  const showSiteCallout = Boolean(syNo || villageLabel || layoutName);
+  const showSiteCallout = Boolean(syNo || layoutName);
 
-  const [delta, setDelta] = useState<number>(SITE_REGION.latitudeDelta);
+  const [delta, setDelta] = useState<number>(0.008);
   const [expanded, setExpanded] = useState(false);
   const [recenterKey, setRecenterKey] = useState(0);
 
-  const zoomIn = () => setDelta((d) => Math.max(MIN_DELTA, d * 0.65));
-  const zoomOut = () => setDelta((d) => Math.min(MAX_DELTA, d * 1.45));
+  const zoomIn = () => setDelta((d) => Math.max(MIN_DELTA, d * 0.45));
+  const zoomOut = () => setDelta((d) => Math.min(MAX_DELTA, d * 2.2));
 
   const recenter = () => {
     Keyboard.dismiss();
-    setDelta(SITE_REGION.latitudeDelta);
+    setDelta(0.008);
     setRecenterKey((k) => k + 1);
   };
 
@@ -167,7 +170,8 @@ export function GpsSiteCard({
               style={{ backgroundColor: gps ? '#34D399' : '#FBBF24' }}
             />
             <Text className="text-[10px] font-bold text-white" numberOfLines={1}>
-              {place} · Karnataka · {accuracy}
+              {gps ? 'LIVE · ' : ''}
+              {place} · {accuracy}
             </Text>
           </Box>
 
@@ -190,9 +194,9 @@ export function GpsSiteCard({
               className="h-9 w-9 items-center justify-center active:opacity-70"
             >
               {refreshing ? (
-                <ActivityIndicator size="small" color="#0F766E" />
+                <ActivityIndicator size="small" color="#2563EB" />
               ) : (
-                <RefreshCw size={14} color="#0F766E" strokeWidth={2.3} />
+                <RefreshCw size={14} color="#2563EB" strokeWidth={2.3} />
               )}
             </Pressable>
             {liveMap ? (
@@ -203,7 +207,7 @@ export function GpsSiteCard({
                   className="h-9 w-9 items-center justify-center active:opacity-70"
                   accessibilityLabel="Recenter map on site"
                 >
-                  <LocateFixed size={14} color="#0F766E" strokeWidth={2.4} />
+                  <LocateFixed size={14} color="#2563EB" strokeWidth={2.4} />
                 </Pressable>
                 <Box style={{ height: 1, backgroundColor: '#E2E8F0' }} />
                 <Pressable
@@ -225,7 +229,7 @@ export function GpsSiteCard({
                   className="h-9 w-9 items-center justify-center active:opacity-70"
                   accessibilityLabel="Open map full screen"
                 >
-                  <Maximize2 size={14} color="#0F766E" strokeWidth={2.4} />
+                  <Maximize2 size={14} color="#2563EB" strokeWidth={2.4} />
                 </Pressable>
               </>
             ) : null}
@@ -280,13 +284,13 @@ export function GpsSiteCard({
 
       <Box className="mt-3.5 flex-row items-center justify-between px-0.5">
         <Box className="flex-row items-center gap-1.5 flex-1 min-w-0">
-          <MapPin size={13} color="#0F766E" strokeWidth={2.4} />
+          <MapPin size={13} color="#2563EB" strokeWidth={2.4} />
           <Text
             className="text-[11px] font-semibold"
             style={{ color: '#64748B' }}
             numberOfLines={1}
           >
-            {coords.lat} · {coords.lng}
+            {hideCoords ? place : `${coords.lat} · ${coords.lng}`}
           </Text>
         </Box>
         <Box className="flex-row items-center gap-1.5 ml-2">
@@ -324,26 +328,43 @@ export function GpsSiteCard({
                   badgeText={`${place} · Karnataka`}
                 />
 
-                <Pressable
-                  onPress={recenter}
-                  accessibilityLabel="Recenter map on site"
+                <Box
                   style={{
                     position: 'absolute',
                     top: 12,
                     left: 14,
                     zIndex: 30,
-                    height: 42,
-                    width: 42,
                     borderRadius: 14,
+                    overflow: 'hidden',
                     backgroundColor: 'rgba(255,255,255,0.96)',
                     borderWidth: 1,
                     borderColor: '#E2E8F0',
-                    alignItems: 'center',
-                    justifyContent: 'center',
                   }}
                 >
-                  <LocateFixed size={18} color="#0F766E" strokeWidth={2.4} />
-                </Pressable>
+                  <Pressable
+                    onPress={recenter}
+                    accessibilityLabel="Recenter map on site"
+                    className="h-11 w-11 items-center justify-center active:opacity-70"
+                  >
+                    <LocateFixed size={18} color="#2563EB" strokeWidth={2.4} />
+                  </Pressable>
+                  <Box style={{ height: 1, backgroundColor: '#E2E8F0' }} />
+                  <Pressable
+                    onPress={zoomIn}
+                    accessibilityLabel="Zoom in"
+                    className="h-11 w-11 items-center justify-center active:opacity-70"
+                  >
+                    <Plus size={18} color="#334155" strokeWidth={2.4} />
+                  </Pressable>
+                  <Box style={{ height: 1, backgroundColor: '#E2E8F0' }} />
+                  <Pressable
+                    onPress={zoomOut}
+                    accessibilityLabel="Zoom out"
+                    className="h-11 w-11 items-center justify-center active:opacity-70"
+                  >
+                    <Minus size={18} color="#334155" strokeWidth={2.4} />
+                  </Pressable>
+                </Box>
 
                 <Pressable
                   onPress={closeFullscreen}

@@ -2,15 +2,19 @@ import { LinearGradient } from 'expo-linear-gradient';
 import {
   AlertTriangle,
   ArrowRight,
+  Camera,
   Check,
-  Compass,
   Eye,
   EyeOff,
+  LocateFixed,
   Lock,
   MapPin,
   MapPinned,
+  Mic,
+  Minus,
   Navigation,
   Phone,
+  Plus,
   RefreshCw,
   ShieldCheck,
   User,
@@ -69,11 +73,23 @@ import {
   StatusChip,
 } from '@/src/cdrms/components/primitives';
 import { KarnatakaMap } from '@/src/cdrms/components/KarnatakaMap';
-import { KARNATAKA } from '@/src/cdrms/location';
+import {
+  GEO_FENCE_RADIUS_FT,
+  KARNATAKA,
+  distanceFeet,
+} from '@/src/cdrms/location';
+import {
+  useDeviceLocation,
+  type LocationResult,
+} from '@/src/cdrms/hooks/useDeviceLocation';
 import {
   ensureForegroundLocationPermission,
   hasForegroundLocationPermission,
 } from '@/src/cdrms/locationPermission';
+import {
+  ensureCameraPermission,
+  ensureMicrophonePermission,
+} from '@/src/cdrms/mediaPermission';
 import {
   COLORS,
   GRADIENT_HEADER,
@@ -82,7 +98,7 @@ import { TERMS } from '@/src/cdrms/terminology';
 import type { Go } from '@/src/cdrms/types';
 import { useAuth } from '@/src/auth/AuthContext';
 import { ApiError } from '@/src/api/client';
-import { homeScreenForRole } from '@/src/auth/roles';
+import { homeScreenForRole, needsGeoValidation } from '@/src/auth/roles';
 
 const SPLASH_HOLD_MS = 3200;
 const OTP_LENGTH = 6;
@@ -339,8 +355,13 @@ export function LoginScreen({ go }: { go: Go }) {
     }
     setLoading(true);
     try {
-      await login(loginId, password);
-      go('permission');
+      const loggedIn = await login(loginId, password);
+      // Geo validation is engineer-only — ZC / CAO go straight home.
+      if (needsGeoValidation(loggedIn)) {
+        go('permission');
+      } else {
+        go(homeScreenForRole(loggedIn));
+      }
     } catch (e) {
       const msg =
         e instanceof ApiError
@@ -601,6 +622,7 @@ function OtpDigitBox({
 }
 
 export function OtpScreen({ go }: { go: Go }) {
+  const { user } = useAuth();
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [focused, setFocused] = useState(0);
   const [seconds, setSeconds] = useState(OTP_TTL_SEC);
@@ -720,7 +742,13 @@ export function OtpScreen({ go }: { go: Go }) {
     setVerifying(true);
     setSuccess(true);
     Keyboard.dismiss();
-    setTimeout(() => go('permission'), 1250);
+    setTimeout(() => {
+      if (needsGeoValidation(user)) {
+        go('permission');
+      } else {
+        go(homeScreenForRole(user));
+      }
+    }, 1250);
   };
 
   const resend = () => {
@@ -978,6 +1006,7 @@ export function OtpScreen({ go }: { go: Go }) {
 
 export function PermissionScreen({ go }: { go: Go }) {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const [busy, setBusy] = useState(false);
   const [alreadyGranted, setAlreadyGranted] = useState(false);
 
@@ -996,18 +1025,25 @@ export function PermissionScreen({ go }: { go: Go }) {
       soft: '#EFF6FF',
     },
     {
+      icon: Camera,
+      title: TERMS.permissions.cameraTitle,
+      desc: TERMS.permissions.cameraDesc,
+      accent: '#3B82F6',
+      soft: '#DBEAFE',
+    },
+    {
+      icon: Mic,
+      title: TERMS.permissions.microphoneTitle,
+      desc: TERMS.permissions.microphoneDesc,
+      accent: '#2563EB',
+      soft: '#EFF6FF',
+    },
+    {
       icon: MapPinned,
       title: TERMS.permissions.foregroundTitle,
       desc: TERMS.permissions.foregroundDesc,
       accent: '#3B82F6',
       soft: '#DBEAFE',
-    },
-    {
-      icon: Compass,
-      title: TERMS.permissions.backgroundTitle,
-      desc: 'Auto check-in when you reach the survey site',
-      accent: '#3B82F6',
-      soft: '#EFF6FF',
     },
   ] as const;
 
@@ -1042,6 +1078,13 @@ export function PermissionScreen({ go }: { go: Go }) {
   }, [btnPulse, iconFloat, orbDrift, ringA, ringB]);
 
   useEffect(() => {
+    // ZC / CAO never need geo validation — send them home if they land here.
+    if (!needsGeoValidation(user)) {
+      go(homeScreenForRole(user));
+    }
+  }, [user, go]);
+
+  useEffect(() => {
     let alive = true;
     (async () => {
       const allowed = await hasForegroundLocationPermission();
@@ -1054,29 +1097,21 @@ export function PermissionScreen({ go }: { go: Go }) {
 
   const enableGps = useCallback(async () => {
     if (busy) return;
+    if (!needsGeoValidation(user)) {
+      go(homeScreenForRole(user));
+      return;
+    }
     setBusy(true);
     try {
-      if (alreadyGranted) {
-        go('geo');
-        return;
-      }
+      // Ask camera + mic early so selfie / video work on Media step.
+      await ensureCameraPermission(true);
+      await ensureMicrophonePermission(true);
+
       const granted = await ensureForegroundLocationPermission();
       if (!granted) {
-        Alert.alert(
-          'Location needed',
-          `Allow location access in Settings so ${TERMS.app.shortName} can verify field surveys.`,
-          [
-            { text: 'Not now', style: 'cancel', onPress: () => go('error') },
-            {
-              text: 'Open Settings',
-              onPress: () => {
-                void Linking.openSettings().catch(() => undefined);
-              },
-            },
-          ]
-        );
         return;
       }
+      setAlreadyGranted(true);
       go('geo');
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Could not enable GPS';
@@ -1084,7 +1119,7 @@ export function PermissionScreen({ go }: { go: Go }) {
     } finally {
       setBusy(false);
     }
-  }, [alreadyGranted, busy, go]);
+  }, [busy, go, user]);
 
   const iconWrapStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: interpolate(iconFloat.value, [0, 1], [0, -8]) }],
@@ -1348,7 +1383,7 @@ export function PermissionScreen({ go }: { go: Go }) {
               style={[
                 {
                   borderRadius: 18,
-                  shadowColor: '#1D4ED8',
+                  shadowColor: '#2563EB',
                   shadowOffset: { width: 0, height: 12 },
                   shadowRadius: 18,
                   elevation: 6,
@@ -1381,47 +1416,97 @@ export function PermissionScreen({ go }: { go: Go }) {
   );
 }
 
+const GEO_MAP_MIN_DELTA = 0.0015;
+const GEO_MAP_MAX_DELTA = 0.35;
+/** Allowed distance from assigned site pin (feet). Soft check — Continue still works. */
+const FENCE_RADIUS_FT = GEO_FENCE_RADIUS_FT;
+const GEO_MAP_HEIGHT = 380;
+
 export function GeoScreen({ go }: { go: Go }) {
   const { user } = useAuth();
-  const [outside, setOutside] = useState(false);
+  const { refresh, loading: geoBusy } = useDeviceLocation();
+
+  const [outsideSimulated, setOutsideSimulated] = useState(false);
   const [scanning, setScanning] = useState(true);
+  const [locationResult, setLocationResult] = useState<LocationResult | null>(null);
+  const [mapDelta, setMapDelta] = useState(0.008);
+  const [mapRecenterKey, setMapRecenterKey] = useState(0);
+  const [mapGesturing, setMapGesturing] = useState(false);
+  /** 10 ft fence is measured from the locked live GPS — not a far demo pin. */
+  const [fenceAnchor, setFenceAnchor] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!needsGeoValidation(user)) {
+      go(homeScreenForRole(user));
+    }
+  }, [user, go]);
 
   const radar = useSharedValue(0);
   const radar2 = useSharedValue(0);
-  const distance = useSharedValue(0.42 / 2.5);
-  const distanceTrackW = useSharedValue(0);
   const cardLift = useSharedValue(0);
   const verifyBadge = useSharedValue(0);
+
+  const performFetchLocation = useCallback(async () => {
+    setScanning(true);
+    try {
+      const res = await refresh({ silent: true });
+      if (res) {
+        setLocationResult(res);
+        setFenceAnchor({
+          latitude: res.gps.latitude,
+          longitude: res.gps.longitude,
+        });
+      }
+    } catch {
+      // ignore
+    } finally {
+      setScanning(false);
+      verifyBadge.value = withSpring(1, { damping: 12, stiffness: 170 });
+    }
+  }, [refresh, verifyBadge]);
 
   useEffect(() => {
     radar.value = withRepeat(
       withTiming(1, { duration: 2400, easing: Easing.out(Easing.cubic) }),
       -1,
-      false
+      false,
     );
     radar2.value = withDelay(
       900,
-      withRepeat(withTiming(1, { duration: 2400, easing: Easing.out(Easing.cubic) }), -1, false)
+      withRepeat(withTiming(1, { duration: 2400, easing: Easing.out(Easing.cubic) }), -1, false),
     );
     cardLift.value = withRepeat(
       withTiming(1, { duration: 3200, easing: Easing.inOut(Easing.sin) }),
       -1,
-      true
+      true,
     );
 
-    const done = setTimeout(() => {
-      setScanning(false);
-      verifyBadge.value = withSpring(1, { damping: 12, stiffness: 170 });
-    }, 1400);
+    void performFetchLocation();
+  }, [radar, radar2, cardLift, performFetchLocation]);
 
-    return () => clearTimeout(done);
-  }, [radar, radar2, cardLift, verifyBadge]);
+  const currentLat =
+    locationResult?.gps.latitude ?? fenceAnchor?.latitude ?? KARNATAKA.site.latitude;
+  const currentLng =
+    locationResult?.gps.longitude ?? fenceAnchor?.longitude ?? KARNATAKA.site.longitude;
+  const currentAccuracy = locationResult?.gps.accuracy;
+
+  const anchorLat = fenceAnchor?.latitude ?? currentLat;
+  const anchorLng = fenceAnchor?.longitude ?? currentLng;
+
+  const realDistFt =
+    locationResult?.gps && fenceAnchor
+      ? distanceFeet(currentLat, currentLng, anchorLat, anchorLng)
+      : 0;
+
+  const outside =
+    outsideSimulated || (locationResult?.gps && fenceAnchor ? realDistFt > FENCE_RADIUS_FT : false);
 
   useEffect(() => {
-    const target = outside ? 4.82 / 2.5 : 0.42 / 2.5;
-    distance.value = withSpring(Math.min(target, 1.05), { damping: 16, stiffness: 120 });
     verifyBadge.value = withSpring(outside ? 0 : 1, { damping: 12, stiffness: 170 });
-  }, [outside, distance, verifyBadge]);
+  }, [outside, verifyBadge]);
 
   const radarStyle = useAnimatedStyle(() => ({
     opacity: interpolate(radar.value, [0, 0.2, 1], [0.45, 0.25, 0]),
@@ -1437,21 +1522,17 @@ export function GeoScreen({ go }: { go: Go }) {
     transform: [{ translateY: interpolate(cardLift.value, [0, 1], [0, -3]) }],
   }));
 
-  const distanceBarStyle = useAnimatedStyle(() => ({
-    width: Math.min(distance.value, 1) * distanceTrackW.value,
-    backgroundColor: interpolateColor(
-      distance.value,
-      [0.2, 0.7, 1],
-      [COLORS.success, COLORS.warning, COLORS.destructive]
-    ),
-  }));
-
   const badgeStyle = useAnimatedStyle(() => ({
     opacity: interpolate(verifyBadge.value, [0, 1], [0.35, 1]),
     transform: [{ scale: interpolate(verifyBadge.value, [0, 1], [0.86, 1]) }],
   }));
 
-  const distanceLabel = outside ? '4.82 km' : '0.42 km';
+  const villageName =
+    locationResult?.address.village ||
+    locationResult?.address.taluk ||
+    KARNATAKA.site.village;
+  const stateName = locationResult?.address.state || KARNATAKA.state;
+  const isBusy = scanning || geoBusy;
 
   return (
     <ScreenShell>
@@ -1460,41 +1541,45 @@ export function GeoScreen({ go }: { go: Go }) {
         contentContainerStyle={{ flexGrow: 1 }}
         bounces={false}
         showsVerticalScrollIndicator={false}
+        scrollEnabled={!mapGesturing}
+        keyboardShouldPersistTaps="handled"
       >
         <AppHeader
           title={TERMS.permissions.geoValidation}
-          subtitle={scanning ? 'Scanning jurisdiction…' : TERMS.permissions.geoValidationSubtitle}
+          subtitle={isBusy ? 'Scanning jurisdiction…' : TERMS.permissions.geoValidationSubtitle}
           onBack={() => go('login')}
           showLogout={false}
         />
 
-        <Box className="flex-1 -mt-6 px-5 pb-10">
+        <Box className="flex-1 -mt-6 pb-10">
           <Animated.View
             entering={FadeInUp.duration(560).springify().damping(14).stiffness(130)}
           >
             <Animated.View style={mapCardStyle}>
-              <AppCard className="p-0 overflow-hidden">
-                <Box className="p-3">
-                  <Box
-                    className="relative overflow-hidden"
-                    style={{
-                      borderRadius: 20,
-                      borderWidth: 1,
-                      borderColor: 'rgba(226,229,240,0.95)',
-                    }}
-                  >
+              <AppCard className="p-0 overflow-hidden mx-0 rounded-none border-0">
+                <Box
+                  className="relative overflow-hidden"
+                  style={{
+                    width: '100%',
+                    borderBottomWidth: 1,
+                    borderBottomColor: 'rgba(226,229,240,0.95)',
+                  }}
+                  onTouchStart={() => setMapGesturing(true)}
+                  onTouchEnd={() => setMapGesturing(false)}
+                  onTouchCancel={() => setMapGesturing(false)}
+                >
                     <KarnatakaMap
-                      height={236}
-                      rounded={20}
+                      height={GEO_MAP_HEIGHT}
+                      rounded={0}
                       mode="site"
                       showBadge={false}
-                      interactive={false}
-                      latitude={KARNATAKA.site.latitude}
-                      longitude={KARNATAKA.site.longitude}
-                      latitudeDelta={0.032}
+                      interactive
+                      latitude={currentLat}
+                      longitude={currentLng}
+                      latitudeDelta={mapDelta}
+                      recenterKey={mapRecenterKey}
                     />
 
-                    {/* Soft radar overlay near pin area */}
                     <Box
                       pointerEvents="none"
                       style={{
@@ -1547,12 +1632,13 @@ export function GeoScreen({ go }: { go: Go }) {
                     </Box>
 
                     <Box
-                      className="absolute top-2.5 left-2.5 right-2.5 flex-row items-start justify-between"
+                      className="absolute top-3 left-3 right-3 flex-row items-start justify-between"
                       style={{ zIndex: 5 }}
-                      pointerEvents="none"
+                      pointerEvents="box-none"
                     >
                       <Animated.View
                         entering={FadeInRight.delay(220).duration(420)}
+                        pointerEvents="none"
                         style={{
                           paddingHorizontal: 10,
                           paddingVertical: 7,
@@ -1561,29 +1647,84 @@ export function GeoScreen({ go }: { go: Go }) {
                           flexDirection: 'row',
                           alignItems: 'center',
                           gap: 7,
-                          maxWidth: '86%',
+                          maxWidth: '62%',
                         }}
                       >
                         <Box
                           className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: outside ? COLORS.destructive : scanning ? COLORS.warning : '#34D399' }}
+                          style={{
+                            backgroundColor: outside
+                              ? COLORS.destructive
+                              : isBusy
+                                ? COLORS.warning
+                                : '#34D399',
+                          }}
                         />
                         <Text className="text-[10px] font-bold text-white" numberOfLines={1}>
                           {outside
-                            ? `${KARNATAKA.state} · Outside fence`
-                            : scanning
-                              ? `${KARNATAKA.state} · Acquiring GPS…`
-                              : `${KARNATAKA.state} · GPS Locked ±3m`}
+                            ? `${stateName} · Outside fence`
+                            : isBusy
+                              ? `${stateName} · Acquiring GPS…`
+                              : `${stateName} · GPS Locked ${
+                                  currentAccuracy
+                                    ? `±${Math.round(currentAccuracy)}m`
+                                    : '±3m'
+                                }`}
                         </Text>
                       </Animated.View>
+
+                      <Box
+                        style={{
+                          borderRadius: 14,
+                          overflow: 'hidden',
+                          backgroundColor: 'rgba(255,255,255,0.96)',
+                          borderWidth: 1,
+                          borderColor: '#E2E8F0',
+                          shadowColor: '#000',
+                          shadowOpacity: 0.12,
+                          shadowRadius: 8,
+                          shadowOffset: { width: 0, height: 3 },
+                        }}
+                      >
+                        <Pressable
+                          onPress={() => {
+                            setMapDelta(0.008);
+                            setMapRecenterKey((k) => k + 1);
+                          }}
+                          className="h-10 w-10 items-center justify-center active:opacity-70"
+                          accessibilityLabel="Recenter map"
+                        >
+                          <LocateFixed size={15} color="#2563EB" strokeWidth={2.4} />
+                        </Pressable>
+                        <Box style={{ height: 1, backgroundColor: '#E2E8F0' }} />
+                        <Pressable
+                          onPress={() =>
+                            setMapDelta((d) => Math.max(GEO_MAP_MIN_DELTA, d * 0.45))
+                          }
+                          className="h-10 w-10 items-center justify-center active:opacity-70"
+                          accessibilityLabel="Zoom in"
+                        >
+                          <Plus size={16} color="#334155" strokeWidth={2.4} />
+                        </Pressable>
+                        <Box style={{ height: 1, backgroundColor: '#E2E8F0' }} />
+                        <Pressable
+                          onPress={() =>
+                            setMapDelta((d) => Math.min(GEO_MAP_MAX_DELTA, d * 2.2))
+                          }
+                          className="h-10 w-10 items-center justify-center active:opacity-70"
+                          accessibilityLabel="Zoom out"
+                        >
+                          <Minus size={16} color="#334155" strokeWidth={2.4} />
+                        </Pressable>
+                      </Box>
                     </Box>
 
                     <Animated.View
                       entering={FadeInUp.delay(280).duration(420)}
                       style={{
                         position: 'absolute',
-                        left: 10,
-                        bottom: 10,
+                        left: 12,
+                        bottom: 12,
                         zIndex: 5,
                         paddingHorizontal: 10,
                         paddingVertical: 7,
@@ -1599,15 +1740,15 @@ export function GeoScreen({ go }: { go: Go }) {
                     >
                       <MapPin size={12} color={COLORS.primary} />
                       <Text className="text-[10px] font-bold text-foreground">
-                        {KARNATAKA.site.latitude.toFixed(4)}, {KARNATAKA.site.longitude.toFixed(4)}
+                        {villageName}
                       </Text>
                     </Animated.View>
                   </Box>
-                </Box>
               </AppCard>
             </Animated.View>
           </Animated.View>
 
+          <Box className="px-5">
           <Animated.View
             entering={FadeInUp.delay(120).duration(500).springify().damping(15)}
             style={{ marginTop: 14 }}
@@ -1622,10 +1763,10 @@ export function GeoScreen({ go }: { go: Go }) {
                     </Text>
                   </HStack>
                   <Text className="font-extrabold text-[13px] text-foreground leading-5">
-                    {KARNATAKA.site.coordsDisplay.lat}, {KARNATAKA.site.coordsDisplay.lng}
+                    {villageName}
                   </Text>
                   <Text className="text-xs text-muted-foreground mt-0.5">
-                    {KARNATAKA.site.village}, {KARNATAKA.state}
+                    {locationResult?.address.district || stateName}, {stateName}
                   </Text>
                 </Box>
 
@@ -1641,48 +1782,23 @@ export function GeoScreen({ go }: { go: Go }) {
                   <Text className="font-extrabold text-[13px] text-foreground">
                     {KARNATAKA.site.zone}
                   </Text>
-                  <Text className="text-xs text-muted-foreground mt-0.5">Radius 2.5 km</Text>
+                  <Text className="text-xs text-muted-foreground mt-0.5">
+                    Radius {FENCE_RADIUS_FT} ft
+                  </Text>
                 </Box>
               </HStack>
 
               <Box className="mt-4 pt-4 border-t border-border">
                 <HStack className="items-center justify-between">
-                  <VStack className="flex-1 min-w-0 pr-3">
-                    <Text className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
-                      Distance to Center
-                    </Text>
-                    <HStack className="items-end gap-2 mt-1">
-                      <Text
-                        className="font-extrabold text-xl"
-                        style={{ color: outside ? COLORS.destructive : '#0F172A' }}
-                      >
-                        {distanceLabel}
-                      </Text>
-                      <Text className="text-[11px] text-muted-foreground mb-1">
-                        of 2.5 km fence
-                      </Text>
-                    </HStack>
-                    <Box
-                      className="mt-2.5 overflow-hidden rounded-full"
-                      style={{ height: 7, backgroundColor: '#EFF6FF' }}
-                      onLayout={(e) => {
-                        distanceTrackW.value = e.nativeEvent.layout.width;
-                      }}
-                    >
-                      <Animated.View
-                        style={[
-                          {
-                            height: '100%',
-                            borderRadius: 999,
-                          },
-                          distanceBarStyle,
-                        ]}
-                      />
-                    </Box>
-                  </VStack>
+                  <Text className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
+                    Geo status
+                  </Text>
                   <Animated.View style={badgeStyle}>
-                    {scanning && !outside ? (
-                      <Box className="px-2.5 py-1 rounded-full" style={{ backgroundColor: '#FEF3C7' }}>
+                    {isBusy && !outside ? (
+                      <Box
+                        className="px-2.5 py-1 rounded-full"
+                        style={{ backgroundColor: '#FEF3C7' }}
+                      >
                         <Text className="text-[11px] font-bold" style={{ color: '#B45309' }}>
                           Checking
                         </Text>
@@ -1696,10 +1812,7 @@ export function GeoScreen({ go }: { go: Go }) {
             </AppCard>
           </Animated.View>
 
-          <Animated.View
-            entering={FadeInUp.delay(220).duration(480)}
-            style={{ marginTop: 14 }}
-          >
+          <Animated.View entering={FadeInUp.delay(220).duration(480)} style={{ marginTop: 14 }}>
             {outside ? (
               <Animated.View entering={FadeInDown.duration(360).springify().damping(15)}>
                 <AppCard className="bg-destructive/5 border border-destructive/20">
@@ -1712,7 +1825,8 @@ export function GeoScreen({ go }: { go: Go }) {
                         Outside Assigned Location
                       </Text>
                       <Text className="text-xs text-muted-foreground mt-1 leading-5">
-                        Move inside your assigned geo-fence to continue field work.
+                        You drifted beyond the {FENCE_RADIUS_FT} ft geo-fence. Refresh GPS to
+                        re-lock, or continue anyway.
                       </Text>
                     </VStack>
                   </HStack>
@@ -1720,18 +1834,39 @@ export function GeoScreen({ go }: { go: Go }) {
                     <Box className="flex-1">
                       <AppBtn
                         variant="outline"
-                        onPress={() => setOutside(false)}
+                        onPress={() => {
+                          setOutsideSimulated(false);
+                          void performFetchLocation();
+                        }}
                         icon={RefreshCw}
+                        disabled={isBusy}
                       >
-                        Retry
+                        {isBusy ? 'Checking…' : 'Retry'}
                       </AppBtn>
                     </Box>
                     <Box className="flex-1">
-                      <AppBtn variant="outline" icon={Navigation}>
-                        Refresh GPS
+                      <AppBtn
+                        variant="outline"
+                        icon={Navigation}
+                        onPress={() => {
+                          setOutsideSimulated(false);
+                          void performFetchLocation();
+                        }}
+                        disabled={isBusy}
+                      >
+                        {isBusy ? 'Acquiring GPS…' : 'Refresh GPS'}
                       </AppBtn>
                     </Box>
                   </HStack>
+                  <Box className="mt-3">
+                    <AppBtn
+                      onPress={() => go(homeScreenForRole(user))}
+                      icon={ArrowRight}
+                      disabled={isBusy}
+                    >
+                      {isBusy ? 'Validating location…' : 'Continue anyway'}
+                    </AppBtn>
+                  </Box>
                   <Pressable onPress={() => go('login')} className="mt-2 py-2.5 items-center">
                     <Text className="text-sm text-destructive font-semibold">Logout</Text>
                   </Pressable>
@@ -1739,29 +1874,31 @@ export function GeoScreen({ go }: { go: Go }) {
               </Animated.View>
             ) : (
               <VStack space="sm">
-                <Animated.View entering={ZoomIn.delay(scanning ? 900 : 0).springify().damping(14)}>
+                <Animated.View entering={ZoomIn.delay(isBusy ? 900 : 0).springify().damping(14)}>
                   <AppBtn
                     onPress={() => go(homeScreenForRole(user))}
                     icon={ArrowRight}
-                    disabled={scanning}
+                    disabled={isBusy}
                   >
-                    {scanning ? 'Validating location…' : 'Continue'}
+                    {isBusy ? 'Validating location…' : 'Continue'}
                   </AppBtn>
                 </Animated.View>
                 <Pressable
-                  onPress={() => setOutside(true)}
+                  onPress={() => setOutsideSimulated((prev) => !prev)}
                   className="py-2.5 items-center active:opacity-70"
-                  disabled={scanning}
+                  disabled={isBusy}
                 >
                   <Text className="text-xs text-muted-foreground font-medium">
-                    Simulate: outside geo-fence
+                    {outsideSimulated ? 'Reset: inside geo-fence' : 'Simulate: outside geo-fence'}
                   </Text>
                 </Pressable>
               </VStack>
             )}
           </Animated.View>
+          </Box>
         </Box>
       </ScrollView>
     </ScreenShell>
   );
 }
+

@@ -2,8 +2,11 @@ import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
 import { RootNavigator } from '@/src/navigation/RootNavigator';
 import { AuthProvider } from '@/src/auth/AuthContext';
 import { DeviceCameraHost } from '@/src/cdrms/components/DeviceCameraHost';
+import { useCdrmsFonts } from '@/src/cdrms/fonts';
+import { COLORS } from '@/src/cdrms/theme';
 import '@/global.css';
 import { useRef } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
   SafeAreaListener,
@@ -12,9 +15,25 @@ import {
 import { Uniwind } from 'uniwind';
 
 export default function App() {
+  const [fontsLoaded] = useCdrmsFonts();
   // Keyboard open/close changes bottom inset. Pushing that into Uniwind
   // restyles the tree and remounts TextInputs → keyboard blinks shut on Expo Go.
   const lastInsets = useRef({ top: -1, left: -1, right: -1, bottom: -1 });
+
+  if (!fontsLoaded) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: COLORS.soft,
+        }}
+      >
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaProvider>

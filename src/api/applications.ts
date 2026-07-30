@@ -22,6 +22,10 @@ export type MobileApplication = {
   scheduleSouth?: string | null;
   scheduleWest?: string | null;
   scheduleEast?: string | null;
+  engineerScheduleNotes?: Record<string, string> | null;
+  scheduleRoadFlags?: Record<string, boolean> | null;
+  /** Engineer N/S/E/W — separate from ZC siteDimension. */
+  engineerDimensions?: Record<string, string> | null;
   zoneId?: number;
   zoneCode: string;
   status: MobileApplicationStatus;
@@ -189,14 +193,14 @@ export type EngineerDraftInput = {
   dimSouth?: string;
   dimEast?: string;
   dimWest?: string;
+  /** Preferred engineer dims (separate from ZC siteDimension). */
+  engineerDimensions?: Partial<Record<'N' | 'S' | 'E' | 'W', string>>;
   totalSiteArea?: string;
   selfieUrl?: string;
   photoUrls?: string[];
   schedulePhotoUrls?: Partial<Record<'N' | 'S' | 'E' | 'W', string>>;
-  scheduleNorth?: string;
-  scheduleSouth?: string;
-  scheduleWest?: string;
-  scheduleEast?: string;
+  engineerScheduleNotes?: Partial<Record<'N' | 'S' | 'E' | 'W', string>>;
+  scheduleRoadFlags?: Partial<Record<'N' | 'S' | 'E' | 'W', boolean>>;
   videoUrl?: string;
   engineerComments?: string;
 };

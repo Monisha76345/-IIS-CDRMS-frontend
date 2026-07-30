@@ -10,15 +10,17 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow CDRMS to use your location for survey site verification.",
-          "locationWhenInUsePermission": "Allow CDRMS to capture GPS for auto-filling survey location details."
+          "locationAlwaysAndWhenInUsePermission": "Allow CDRMS to use your live location for geo validation and field survey.",
+          "locationWhenInUsePermission": "Allow CDRMS to use your live location for geo validation and field survey.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
         }
       ],
       [
         "expo-image-picker",
         {
           "photosPermission": "Allow CDRMS to access photos and videos for site documentation.",
-          "cameraPermission": "Allow CDRMS to take photos and videos of the survey site.",
+          "cameraPermission": "Allow CDRMS to take selfies, site photos, and inspection videos.",
           "microphonePermission": "Allow CDRMS to record audio with site walk-through videos."
         }
       ],
@@ -32,15 +34,19 @@
         }
       ],
       "expo-video",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-font"
     ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.cdrms.mobile",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Allow CDRMS to capture GPS for auto-filling survey location details.",
-        "NSCameraUsageDescription": "Allow CDRMS to take photos and videos of the survey site.",
-        "NSPhotoLibraryUsageDescription": "Allow CDRMS to access photos for site documentation.",
+        "NSLocationWhenInUseUsageDescription": "Allow CDRMS to use your live location for geo validation and field survey.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow CDRMS to use your live location for geo validation and field survey.",
+        "NSLocationAlwaysUsageDescription": "Allow CDRMS to use your live location for geo validation and field survey.",
+        "NSCameraUsageDescription": "Allow CDRMS to take selfies, site photos, and inspection videos.",
+        "NSPhotoLibraryUsageDescription": "Allow CDRMS to access photos and videos for site documentation.",
+        "NSPhotoLibraryAddUsageDescription": "Allow CDRMS to save survey photos and videos to your library when needed.",
         "NSMicrophoneUsageDescription": "Allow CDRMS to record audio with site walk-through videos."
       }
     },
@@ -48,7 +54,7 @@
       "package": "com.cdrms.mobile",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#4F46E5",
+        "backgroundColor": "#2563EB",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -57,10 +63,12 @@
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.CAMERA",
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.INTERNET"
       ]
     },
     "web": {

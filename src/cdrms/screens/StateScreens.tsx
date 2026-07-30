@@ -47,10 +47,11 @@ import {
   SurveyScaffold,
   WorkspaceHeader,
 } from '@/src/cdrms/components/SurveyLayout';
+import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { formatCoords } from '@/src/cdrms/project/types';
 import { validateDraft, validationSummary } from '@/src/cdrms/project/validation';
-import { COLORS, GRADIENT_SUBTLE } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GRADIENT_SUBTLE, SPACE } from '@/src/cdrms/theme';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go } from '@/src/cdrms/types';
 
@@ -187,7 +188,7 @@ export function ValidateScreen({ go }: { go: Go }) {
           {items.map((it, i) => (
             <HStack
               key={it.key}
-              className={`items-center gap-3 px-[18px] py-4 ${i > 0 ? 'border-t border-border' : ''}`}
+              className={`items-center gap-3 px-4 py-4 ${i > 0 ? 'border-t border-border' : ''}`}
             >
               <Box
                 className="h-10 w-10 rounded-full items-center justify-center"
@@ -242,6 +243,37 @@ export function ReviewScreen({ go }: { go: Go }) {
   const canSubmit = terms && summary.allOk && !submitting;
   const photoCount = draft.photos.length;
   const videoCount = draft.video ? 1 : 0;
+  const isBackendTask = Boolean(draft.backendApplicationId);
+
+  const titleId =
+    draft.applicationNumber?.trim() ||
+    draft.projectName.trim() ||
+    'Untitled project';
+  const surveyLine = [
+    draft.siteNo.trim() || draft.surveyNo.trim()
+      ? `Site ${draft.siteNo.trim() || draft.surveyNo.trim()}`
+      : null,
+    draft.zoneCode.trim() ? `Zone ${draft.zoneCode.trim()}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  const dimDisplay = (() => {
+    const n = Number(draft.dimNorth);
+    const s = Number(draft.dimSouth);
+    const e = Number(draft.dimEast);
+    const w = Number(draft.dimWest);
+    if ([n, s, e, w].every((v) => Number.isFinite(v) && v > 0)) {
+      return `${((n + s) / 2).toFixed(1)} × ${((e + w) / 2).toFixed(1)}`;
+    }
+    return draft.siteDimensionMaster.trim() || draft.dimensionArea.trim() || '—';
+  })();
+
+  const roadDisplay = (() => {
+    const sides = (['N', 'S', 'E', 'W'] as const).filter((k) => draft.roadFlags?.[k]);
+    if (sides.length) return `Road · ${sides.join(', ')}`;
+    return draft.roadType.trim() || 'No road flagged';
+  })();
 
   const onConfirmSubmit = async () => {
     if (!summary.allOk) {
@@ -273,30 +305,30 @@ export function ReviewScreen({ go }: { go: Go }) {
   const infoTiles = [
     {
       label: 'Village',
-      val: draft.village.trim() || '—',
+      val: draft.village.trim() || draft.addressArea.trim() || '—',
       icon: Home,
       bg: '#EFF6FF',
       fg: '#2563EB',
     },
     {
       label: 'Dimension',
-      val: draft.dimensionArea.trim() || '—',
+      val: dimDisplay,
       icon: Ruler,
-      bg: '#DBEAFE',
-      fg: '#2563EB',
+      bg: '#EEF2FF',
+      fg: '#4F46E5',
     },
     {
       label: 'Location',
       val: coords,
       icon: MapPin,
-      bg: '#D1FAE5',
+      bg: '#ECFDF5',
       fg: '#059669',
     },
     {
-      label: 'Road Type',
-      val: draft.roadType.trim() || '—',
+      label: 'Road',
+      val: roadDisplay,
       icon: Route,
-      bg: '#FFEDD5',
+      bg: '#FFF7ED',
       fg: '#EA580C',
     },
   ];
@@ -307,9 +339,10 @@ export function ReviewScreen({ go }: { go: Go }) {
       label: 'Photos',
       value: String(photoCount),
       icon: Camera,
-      color: '#3B82F6',
+      color: '#2563EB',
       soft: '#EFF6FF',
-      progress: Math.min(photoCount / 3, 1),
+      bar: '#2563EB',
+      progress: Math.min(photoCount / Math.max(isBackendTask ? 1 : 3, 1), 1),
       onPress: () => go('photos'),
     },
     {
@@ -317,18 +350,20 @@ export function ReviewScreen({ go }: { go: Go }) {
       label: 'Video',
       value: String(videoCount),
       icon: Play,
-      color: '#EC4899',
-      soft: '#FCE7F3',
+      color: '#DB2777',
+      soft: '#FDF2F8',
+      bar: '#EC4899',
       progress: videoCount >= 1 ? 1 : 0,
       onPress: () => go('video'),
     },
     {
       key: 'directions',
-      label: 'Directions',
+      label: 'Schedules',
       value: `${dirsFilled}/4`,
       icon: Compass,
-      color: '#14B8A6',
-      soft: '#CCFBF1',
+      color: '#0D9488',
+      soft: '#F0FDFA',
+      bar: '#14B8A6',
       progress: dirsFilled / 4,
       onPress: () => go('bandi'),
     },
@@ -340,7 +375,7 @@ export function ReviewScreen({ go }: { go: Go }) {
       subtitle={TERMS.workflow.reviewSubmitSubtitle}
       onBack={() => go('validate')}
       showSteps={false}
-      badge={summary.allOk ? 'Final review' : 'Incomplete'}
+      badge={summary.allOk ? 'Ready to submit' : 'Incomplete'}
       footer={
         <VStack space="sm" className="items-stretch">
           <Pressable
@@ -348,18 +383,18 @@ export function ReviewScreen({ go }: { go: Go }) {
             onPress={() => setConfirm(true)}
             className="w-full overflow-hidden active:opacity-90"
             style={{
-              height: 56,
-              borderRadius: 999,
-              opacity: canSubmit ? 1 : 0.5,
+              height: 54,
+              borderRadius: 16,
+              opacity: canSubmit ? 1 : 0.48,
               shadowColor: '#1D4ED8',
-              shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: 0.35,
-              shadowRadius: 16,
-              elevation: 6,
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: canSubmit ? 0.28 : 0,
+              shadowRadius: 14,
+              elevation: canSubmit ? 5 : 0,
             }}
           >
             <LinearGradient
-              colors={['#1E40AF', '#2563EB', '#3B82F6']}
+              colors={['#1E3A8A', '#2563EB', '#3B82F6']}
               start={{ x: 0, y: 0.5 }}
               end={{ x: 1, y: 0.5 }}
               style={{
@@ -367,16 +402,32 @@ export function ReviewScreen({ go }: { go: Go }) {
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                paddingHorizontal: 20,
+                paddingHorizontal: 18,
               }}
             >
               <HStack className="items-center gap-2.5">
                 {submitting ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Send size={18} color="#fff" strokeWidth={2.4} />
+                  <Box
+                    className="items-center justify-center rounded-xl"
+                    style={{
+                      width: 34,
+                      height: 34,
+                      backgroundColor: 'rgba(255,255,255,0.18)',
+                    }}
+                  >
+                    <Send size={16} color="#fff" strokeWidth={2.4} />
+                  </Box>
                 )}
-                <Text className="text-[15px] font-extrabold text-white tracking-wide">
+                <Text
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 15,
+                    color: '#FFFFFF',
+                    letterSpacing: 0.2,
+                  }}
+                >
                   {submitting
                     ? 'Submitting…'
                     : isResubmit
@@ -388,151 +439,264 @@ export function ReviewScreen({ go }: { go: Go }) {
             </LinearGradient>
           </Pressable>
           <HStack className="items-center justify-center gap-1.5">
-            <Lock size={12} color="#3B82F6" strokeWidth={2.3} />
-            <Text className="text-[11px] font-semibold" style={{ color: '#3B82F6' }}>
+            <Lock size={11} color="#64748B" strokeWidth={2.3} />
+            <Text
+              style={{
+                fontFamily: FONTS.medium,
+                fontSize: 11,
+                color: '#64748B',
+              }}
+            >
               Your data is secure and encrypted
             </Text>
           </HStack>
         </VStack>
       }
-          go={go}
+      go={go}
     >
-      {/* Project summary — matches design card */}
-      <Box
-        className="mx-4"
-        style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: 28,
-          padding: 18,
-          shadowColor: '#0F172A',
-          shadowOffset: { width: 0, height: 12 },
-          shadowOpacity: 0.08,
-          shadowRadius: 20,
-          elevation: 4,
-        }}
-      >
-        <HStack className="items-start justify-between gap-3">
-          <HStack className="items-start gap-3 flex-1 min-w-0">
-            <Box
-              className="items-center justify-center rounded-2xl"
-              style={{ width: 44, height: 44, backgroundColor: '#EFF6FF' }}
-            >
-              <ClipboardList size={22} color="#2563EB" strokeWidth={2.2} />
-            </Box>
-            <VStack className="flex-1 min-w-0">
-              <Text
-                className="text-[11px] font-extrabold uppercase tracking-[1.4px]"
-                style={{ color: '#3B82F6' }}
+      {/* Project summary */}
+      <SurveyCard>
+        <WorkspaceHeader
+          icon={ClipboardList}
+          title="Project summary"
+          subtitle={
+            draft.createdByZcName.trim()
+              ? `Assigned by ${draft.createdByZcName.trim()}`
+              : 'Final check before CAO review'
+          }
+          stepLabel={draft.status === 'submitted' ? 'SUBMITTED' : 'DRAFT'}
+          iconBg={COLORS.primary}
+        />
+
+        <VStack
+          style={{
+            paddingHorizontal: SPACE[4],
+            paddingBottom: SPACE[4],
+            gap: SPACE[3],
+          }}
+        >
+          <HStack className="items-start" style={{ gap: 12 }}>
+            {draft.photos[0]?.uri ? (
+              <Box
+                className="overflow-hidden"
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 14,
+                  backgroundColor: '#EFF6FF',
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                }}
               >
-                Project summary
-              </Text>
+                <ApiMediaImage
+                  uri={draft.photos[0].uri}
+                  style={{ width: 64, height: 64 }}
+                  resizeMode="cover"
+                />
+              </Box>
+            ) : (
+              <Box
+                className="items-center justify-center"
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 14,
+                  backgroundColor: '#EFF6FF',
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                }}
+              >
+                <Camera size={22} color={COLORS.primary} strokeWidth={2.2} />
+              </Box>
+            )}
+            <VStack className="flex-1 min-w-0" style={{ gap: 4 }}>
               <Text
-                className="text-[19px] font-black leading-6 mt-1"
-                style={{ color: '#0F172A' }}
+                style={{
+                  fontFamily: FONTS.bold,
+                  fontSize: 18,
+                  color: COLORS.ink,
+                  lineHeight: 24,
+                }}
                 numberOfLines={2}
               >
-                {draft.projectName.trim() || 'Untitled project'}
+                {titleId}
               </Text>
-              <Text className="text-[13px] font-medium mt-1" style={{ color: '#94A3B8' }}>
-                Survey {draft.surveyNo.trim() || '—'}
-                {draft.plotNo.trim() ? ` • Plot ${draft.plotNo.trim()}` : ''}
+              <Text
+                style={{
+                  fontFamily: FONTS.medium,
+                  fontSize: 12,
+                  color: COLORS.ink,
+                }}
+                numberOfLines={1}
+              >
+                {surveyLine || 'Field survey ready for submission'}
               </Text>
+              <HStack className="items-center" style={{ gap: 6, marginTop: 2 }}>
+                <Box
+                  style={{
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 999,
+                    backgroundColor:
+                      draft.occupancy === 'Occupied' ? '#FEF3C7' : '#DCFCE7',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 10,
+                      color:
+                        draft.occupancy === 'Occupied' ? '#B45309' : '#15803D',
+                    }}
+                  >
+                    {draft.occupancy || 'Empty'}
+                  </Text>
+                </Box>
+                {draft.compassReading.trim() ? (
+                  <Box
+                    style={{
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                      borderRadius: 999,
+                      backgroundColor: '#EFF6FF',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: FONTS.bold,
+                        fontSize: 10,
+                        color: COLORS.primary,
+                      }}
+                    >
+                      {draft.compassReading.trim()}
+                    </Text>
+                  </Box>
+                ) : null}
+              </HStack>
             </VStack>
           </HStack>
+
           <Box
-            className="px-2.5 py-1 rounded-full"
-            style={{ backgroundColor: '#EFF6FF' }}
+            style={{
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              overflow: 'hidden',
+              backgroundColor: COLORS.white,
+            }}
           >
-            <Text className="text-[11px] font-bold" style={{ color: '#2563EB' }}>
-              {draft.status === 'submitted' ? 'Submitted' : 'Draft'}
-            </Text>
-          </Box>
-        </HStack>
-
-        <Box className="mt-5" style={{ borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
-          <Box className="flex-row" style={{ borderBottomWidth: 1, borderBottomColor: '#F1F5F9' }}>
-            {infoTiles.slice(0, 2).map((item, i) => {
-              const Icon = item.icon;
-              return (
-                <HStack
-                  key={item.label}
-                  className="items-center gap-2.5 flex-1 py-3.5"
-                  style={{
-                    paddingRight: i === 0 ? 10 : 0,
-                    paddingLeft: i === 1 ? 10 : 0,
-                    borderRightWidth: i === 0 ? 1 : 0,
-                    borderRightColor: '#F1F5F9',
-                  }}
-                >
-                  <Box
-                    className="items-center justify-center rounded-xl"
-                    style={{ width: 36, height: 36, backgroundColor: item.bg }}
+            <Box className="flex-row" style={{ borderBottomWidth: 1, borderBottomColor: COLORS.border }}>
+              {infoTiles.slice(0, 2).map((item, i) => {
+                const Icon = item.icon;
+                return (
+                  <HStack
+                    key={item.label}
+                    className="items-center flex-1"
+                    style={{
+                      gap: 10,
+                      paddingVertical: 12,
+                      paddingHorizontal: 12,
+                      borderRightWidth: i === 0 ? 1 : 0,
+                      borderRightColor: COLORS.border,
+                    }}
                   >
-                    <Icon size={16} color={item.fg} strokeWidth={2.3} />
-                  </Box>
-                  <VStack className="flex-1 min-w-0">
-                    <Text
-                      className="text-[10px] uppercase font-bold tracking-wider"
-                      style={{ color: '#94A3B8' }}
+                    <Box
+                      className="items-center justify-center"
+                      style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: 10,
+                        backgroundColor: item.bg,
+                      }}
                     >
-                      {item.label}
-                    </Text>
-                    <Text
-                      className="text-[13px] font-extrabold mt-0.5"
-                      style={{ color: '#0F172A' }}
-                      numberOfLines={1}
-                    >
-                      {item.val}
-                    </Text>
-                  </VStack>
-                </HStack>
-              );
-            })}
-          </Box>
-          <Box className="flex-row">
-            {infoTiles.slice(2, 4).map((item, i) => {
-              const Icon = item.icon;
-              return (
-                <HStack
-                  key={item.label}
-                  className="items-center gap-2.5 flex-1 py-3.5"
-                  style={{
-                    paddingRight: i === 0 ? 10 : 0,
-                    paddingLeft: i === 1 ? 10 : 0,
-                    borderRightWidth: i === 0 ? 1 : 0,
-                    borderRightColor: '#F1F5F9',
-                  }}
-                >
-                  <Box
-                    className="items-center justify-center rounded-xl"
-                    style={{ width: 36, height: 36, backgroundColor: item.bg }}
+                      <Icon size={15} color={item.fg} strokeWidth={2.3} />
+                    </Box>
+                    <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
+                      <Text
+                        style={{
+                          fontFamily: FONTS.bold,
+                          fontSize: 10,
+                          color: COLORS.slate,
+                          letterSpacing: 0.6,
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        {item.label}
+                      </Text>
+                      <Text
+                        style={{
+                          fontFamily: FONTS.bold,
+                          fontSize: 13,
+                          color: COLORS.ink,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {item.val}
+                      </Text>
+                    </VStack>
+                  </HStack>
+                );
+              })}
+            </Box>
+            <Box className="flex-row">
+              {infoTiles.slice(2, 4).map((item, i) => {
+                const Icon = item.icon;
+                return (
+                  <HStack
+                    key={item.label}
+                    className="items-center flex-1"
+                    style={{
+                      gap: 10,
+                      paddingVertical: 12,
+                      paddingHorizontal: 12,
+                      borderRightWidth: i === 0 ? 1 : 0,
+                      borderRightColor: COLORS.border,
+                    }}
                   >
-                    <Icon size={16} color={item.fg} strokeWidth={2.3} />
-                  </Box>
-                  <VStack className="flex-1 min-w-0">
-                    <Text
-                      className="text-[10px] uppercase font-bold tracking-wider"
-                      style={{ color: '#94A3B8' }}
+                    <Box
+                      className="items-center justify-center"
+                      style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: 10,
+                        backgroundColor: item.bg,
+                      }}
                     >
-                      {item.label}
-                    </Text>
-                    <Text
-                      className="text-[13px] font-extrabold mt-0.5"
-                      style={{ color: '#0F172A' }}
-                      numberOfLines={1}
-                    >
-                      {item.val}
-                    </Text>
-                  </VStack>
-                </HStack>
-              );
-            })}
+                      <Icon size={15} color={item.fg} strokeWidth={2.3} />
+                    </Box>
+                    <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
+                      <Text
+                        style={{
+                          fontFamily: FONTS.bold,
+                          fontSize: 10,
+                          color: COLORS.slate,
+                          letterSpacing: 0.6,
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        {item.label}
+                      </Text>
+                      <Text
+                        style={{
+                          fontFamily: FONTS.bold,
+                          fontSize: 13,
+                          color: COLORS.ink,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {item.val}
+                      </Text>
+                    </VStack>
+                  </HStack>
+                );
+              })}
+            </Box>
           </Box>
-        </Box>
-      </Box>
+        </VStack>
+      </SurveyCard>
 
-      {/* Photos / Video / Directions — progress cards */}
-      <HStack className="mx-4" style={{ gap: 12 }}>
+      {/* Capture readiness */}
+      <HStack className="mx-4" style={{ gap: 10 }}>
         {mediaCards.map((m) => {
           const Icon = m.icon;
           const fillPct = Math.min(Math.max(m.progress, 0), 1) * 100;
@@ -542,41 +706,56 @@ export function ReviewScreen({ go }: { go: Go }) {
               onPress={m.onPress}
               className="flex-1 active:opacity-90"
               style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: 20,
-                paddingTop: 14,
-                paddingBottom: 0,
-                paddingHorizontal: 6,
+                backgroundColor: COLORS.white,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: COLORS.border,
                 overflow: 'hidden',
                 shadowColor: '#0F172A',
-                shadowOffset: { width: 0, height: 6 },
+                shadowOffset: { width: 0, height: 3 },
                 shadowOpacity: 0.06,
-                shadowRadius: 12,
+                shadowRadius: 8,
                 elevation: 2,
               }}
             >
-              <VStack className="items-center pb-3">
+              <VStack className="items-center" style={{ paddingTop: 14, paddingBottom: 12, gap: 4 }}>
                 <Box
-                  className="items-center justify-center rounded-full mb-2"
-                  style={{ width: 42, height: 42, backgroundColor: m.soft }}
+                  className="items-center justify-center"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    backgroundColor: m.soft,
+                  }}
                 >
-                  <Icon size={18} color={m.color} strokeWidth={2.2} />
+                  <Icon size={17} color={m.color} strokeWidth={2.3} />
                 </Box>
-                <Text className="text-[24px] font-black leading-7" style={{ color: m.color }}>
+                <Text
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 22,
+                    color: m.color,
+                    lineHeight: 26,
+                  }}
+                >
                   {m.value}
                 </Text>
-                <Text className="text-[12px] font-semibold mt-0.5" style={{ color: '#64748B' }}>
+                <Text
+                  style={{
+                    fontFamily: FONTS.semibold,
+                    fontSize: 11,
+                    color: COLORS.ink,
+                  }}
+                >
                   {m.label}
                 </Text>
               </VStack>
-              <Box style={{ height: 3.5, backgroundColor: '#E5E7EB' }}>
+              <Box style={{ height: 3, backgroundColor: '#E2E8F0' }}>
                 <Box
                   style={{
-                    height: 3.5,
+                    height: 3,
                     width: `${fillPct}%`,
-                    backgroundColor: m.color,
-                    borderTopRightRadius: m.progress < 1 ? 2 : 0,
-                    borderBottomRightRadius: m.progress < 1 ? 2 : 0,
+                    backgroundColor: m.bar,
                   }}
                 />
               </Box>
@@ -591,62 +770,135 @@ export function ReviewScreen({ go }: { go: Go }) {
           className="mx-4 active:opacity-90"
           style={{
             backgroundColor: '#FFFBEB',
-            borderRadius: 16,
+            borderRadius: 14,
             padding: 14,
             borderWidth: 1,
             borderColor: '#FCD34D',
           }}
         >
-          <HStack className="items-center gap-3">
-            <AlertTriangle size={18} color="#B45309" />
-            <VStack className="flex-1 min-w-0">
-              <Text className="text-sm font-bold" style={{ color: '#92400E' }}>
+          <HStack className="items-center" style={{ gap: 12 }}>
+            <Box
+              className="items-center justify-center"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                backgroundColor: '#FEF3C7',
+              }}
+            >
+              <AlertTriangle size={17} color="#B45309" strokeWidth={2.3} />
+            </Box>
+            <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
+              <Text
+                style={{
+                  fontFamily: FONTS.bold,
+                  fontSize: 13,
+                  color: '#92400E',
+                }}
+              >
                 {summary.failed.length} checklist item
                 {summary.failed.length === 1 ? '' : 's'} incomplete
               </Text>
-              <Text className="text-[11px]" style={{ color: '#A16207' }}>
+              <Text
+                style={{
+                  fontFamily: FONTS.medium,
+                  fontSize: 11,
+                  color: '#A16207',
+                }}
+              >
                 Tap to return to Validate and fix
               </Text>
             </VStack>
             <ChevronRight size={18} color="#B45309" />
           </HStack>
         </Pressable>
-      ) : null}
+      ) : (
+        <Box
+          className="mx-4"
+          style={{
+            backgroundColor: '#ECFDF5',
+            borderRadius: 14,
+            padding: 14,
+            borderWidth: 1,
+            borderColor: '#A7F3D0',
+          }}
+        >
+          <HStack className="items-center" style={{ gap: 12 }}>
+            <Box
+              className="items-center justify-center"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                backgroundColor: '#D1FAE5',
+              }}
+            >
+              <CheckCircle2 size={18} color="#059669" strokeWidth={2.3} />
+            </Box>
+            <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
+              <Text
+                style={{
+                  fontFamily: FONTS.bold,
+                  fontSize: 13,
+                  color: '#065F46',
+                }}
+              >
+                Validation complete
+              </Text>
+              <Text
+                style={{
+                  fontFamily: FONTS.medium,
+                  fontSize: 11,
+                  color: '#047857',
+                }}
+              >
+                All required particulars are ready for CAO
+              </Text>
+            </VStack>
+          </HStack>
+        </Box>
+      )}
 
-      {/* Certification — shield + checkbox + text */}
+      {/* Certification */}
       <Pressable
         onPress={() => setTerms((t) => !t)}
         className="mx-4 active:opacity-95"
         style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: 20,
-          paddingVertical: 18,
-          paddingHorizontal: 16,
+          backgroundColor: COLORS.white,
+          borderRadius: 16,
+          paddingVertical: 16,
+          paddingHorizontal: 14,
+          borderWidth: 1.5,
+          borderColor: terms ? '#6EE7B7' : COLORS.border,
           shadowColor: '#0F172A',
-          shadowOffset: { width: 0, height: 6 },
+          shadowOffset: { width: 0, height: 3 },
           shadowOpacity: 0.06,
-          shadowRadius: 12,
+          shadowRadius: 8,
           elevation: 2,
         }}
       >
-        <HStack className="items-center gap-3">
+        <HStack className="items-center" style={{ gap: 12 }}>
           <Box
             className="items-center justify-center"
             style={{
-              width: 48,
-              height: 48,
-              borderRadius: 16,
-              backgroundColor: '#D1FAE5',
+              width: 46,
+              height: 46,
+              borderRadius: 14,
+              backgroundColor: terms ? '#D1FAE5' : '#F0FDF4',
             }}
           >
-            <ShieldCheck size={26} color="#059669" strokeWidth={2.2} />
+            <ShieldCheck
+              size={24}
+              color={terms ? '#059669' : '#34D399'}
+              strokeWidth={2.2}
+            />
           </Box>
           <Box
             className="items-center justify-center"
             style={{
               width: 22,
               height: 22,
-              borderRadius: 5,
+              borderRadius: 6,
               borderWidth: 2,
               borderColor: terms ? '#10B981' : '#CBD5E1',
               backgroundColor: terms ? '#10B981' : '#FFFFFF',
@@ -654,13 +906,18 @@ export function ReviewScreen({ go }: { go: Go }) {
           >
             {terms ? <Check size={13} color="#fff" strokeWidth={3.2} /> : null}
           </Box>
-          <Text className="flex-1 text-[13px] leading-[19px] font-medium" style={{ color: '#334155' }}>
+          <Text
+            className="flex-1"
+            style={{
+              fontFamily: FONTS.medium,
+              fontSize: 13,
+              lineHeight: 19,
+              color: COLORS.ink,
+            }}
+          >
             I certify that all information is accurate and captured on-site. I understand false
             reporting is subject to disciplinary action under{' '}
-            <Text className="font-extrabold" style={{ color: '#059669' }}>
-              CDRMS-2019
-            </Text>
-            .
+            <Text style={{ fontFamily: FONTS.bold, color: '#059669' }}>CDRMS-2019</Text>.
           </Text>
         </HStack>
       </Pressable>
@@ -672,10 +929,8 @@ export function ReviewScreen({ go }: { go: Go }) {
       >
         <Text className="text-sm text-muted-foreground">
           Once submitted, this report for{' '}
-          <Text className="font-bold text-foreground">
-            {draft.projectName.trim() || 'this project'}
-          </Text>{' '}
-          will be marked as submitted for CAO verification. You cannot edit after submission.
+          <Text className="font-bold text-foreground">{titleId}</Text> will be marked as
+          submitted for CAO verification. You cannot edit after submission.
         </Text>
         {submitting ? (
           <HStack className="mt-6 items-center justify-center gap-3 py-4">

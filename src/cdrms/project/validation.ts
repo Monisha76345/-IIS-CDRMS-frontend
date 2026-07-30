@@ -52,7 +52,6 @@ export function validateDraft(draft: ProjectDraft): ValidationItem[] {
   const commentsOk = isBackend
     ? draft.engineerComments.trim().length > 0
     : true;
-  const siteDetailsOk = isBackend ? draft.siteDetails.trim().length > 0 : true;
 
   const items: ValidationItem[] = [
     {
@@ -69,16 +68,6 @@ export function validateDraft(draft: ProjectDraft): ValidationItem[] {
       fixScreen: 'project',
     },
   ];
-
-  if (isBackend) {
-    items.push({
-      key: 'siteDetails',
-      label: 'Site details / observations',
-      ok: siteDetailsOk,
-      detail: siteDetailsOk ? 'Observations recorded' : 'Enter site details (required)',
-      fixScreen: 'project',
-    });
-  }
 
   items.push(
     {

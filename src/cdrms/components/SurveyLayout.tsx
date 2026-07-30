@@ -1,6 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ArrowLeft,
+  ArrowRight,
   Compass,
   LogOut,
   type LucideIcon,
@@ -26,7 +27,7 @@ import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/src/auth/AuthContext';
 import { ScreenShell } from '@/src/cdrms/components/primitives';
 import { ENGINEER_SURVEY_STEPS, SURVEY_STEPS } from '@/src/cdrms/terminology';
-import { COLORS, GRADIENT_HEADER } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GRADIENT_HEADER, GRADIENT_PRIMARY, SPACE, TYPE } from '@/src/cdrms/theme';
 import type { Go } from '@/src/cdrms/types';
 
 function stepsForTotal(total: number) {
@@ -41,11 +42,11 @@ export function StepRail({ step, total = 5 }: { step: number; total?: number }) 
   return (
     <Box
       style={{
-        backgroundColor: '#FFFFFF',
+        backgroundColor: COLORS.white,
         borderBottomWidth: 1,
-        borderBottomColor: '#F1F5F9',
-        paddingHorizontal: 4,
-        paddingTop: 12,
+        borderBottomColor: COLORS.border,
+        paddingHorizontal: SPACE[2],
+        paddingTop: SPACE[3],
       }}
     >
       <HStack className="items-stretch justify-between">
@@ -54,16 +55,21 @@ export function StepRail({ step, total = 5 }: { step: number; total?: number }) 
           const Icon = item.icon;
           return (
             <Box key={item.label} className="flex-1 items-center" style={{ position: 'relative' }}>
-              <VStack className="items-center pb-3" space="xs">
+              <VStack className="items-center" style={{ paddingBottom: SPACE[3], gap: 4 }}>
                 <Icon
                   size={16}
-                  color={active ? COLORS.primary : '#94A3B8'}
+                  color={active ? COLORS.primary : COLORS.slate}
                   strokeWidth={active ? 2.4 : 2}
                 />
                 <Text
-                  className="text-[9px] font-bold text-center"
                   numberOfLines={1}
-                  style={{ color: active ? COLORS.primary : '#94A3B8' }}
+                  style={{
+                    ...TYPE.caption,
+                    fontFamily: FONTS.bold,
+                    fontSize: 11,
+                    textAlign: 'center',
+                    color: active ? COLORS.primary : COLORS.slate,
+                  }}
                 >
                   {item.short}
                 </Text>
@@ -92,19 +98,27 @@ export function StepRail({ step, total = 5 }: { step: number; total?: number }) 
 export function SectionTitle({
   title,
   subtitle,
-  accent = '#2563EB',
+  accent = COLORS.primary,
 }: {
   title: string;
   subtitle?: string;
   accent?: string;
 }) {
   return (
-    <HStack className="items-start gap-2.5 mb-1">
-      <Box className="w-1 self-stretch rounded-full mt-0.5" style={{ backgroundColor: accent }} />
-      <VStack className="flex-1">
-        <Text className="text-[14px] font-extrabold text-foreground tracking-tight">{title}</Text>
+    <HStack className="items-start" style={{ gap: SPACE[3], marginBottom: SPACE[2] }}>
+      <Box
+        style={{
+          width: 3,
+          alignSelf: 'stretch',
+          borderRadius: 999,
+          marginTop: 3,
+          backgroundColor: accent,
+        }}
+      />
+      <VStack className="flex-1" style={{ gap: 4 }}>
+        <Text style={TYPE.title}>{title}</Text>
         {subtitle ? (
-          <Text className="text-[11px] text-muted-foreground mt-0.5 leading-4">{subtitle}</Text>
+          <Text style={{ ...TYPE.caption, lineHeight: 18 }}>{subtitle}</Text>
         ) : null}
       </VStack>
     </HStack>
@@ -120,15 +134,19 @@ export function SurveyCard({
 }) {
   return (
     <Box
-      className={`mx-4 bg-white ${className}`}
+      className={`bg-white ${className}`}
       style={{
-        borderRadius: 28,
+        marginHorizontal: SPACE.gutter,
+        borderRadius: SPACE.radiusLg,
         overflow: 'hidden',
-        shadowColor: '#1E293B',
-        shadowOffset: { width: 0, height: 10 },
+        backgroundColor: COLORS.white,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.1,
-        shadowRadius: 20,
-        elevation: 5,
+        shadowRadius: 14,
+        elevation: 4,
       }}
     >
       {children}
@@ -166,60 +184,30 @@ export function SurveyHero({
       : undefined;
   const underTitle = subtitle || stepLine;
 
-  const badgeText = badge?.includes('Auto-saved') ? 'Auto-saved' : badge;
-
   return (
     <Box>
       <LinearGradient
         colors={[...GRADIENT_HEADER]}
-        locations={[0, 0.45, 1]}
+        locations={[0, 0.55, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
-          paddingTop: insets.top + 6,
-          paddingBottom: showSteps && step ? 28 : 22,
-          paddingHorizontal: 14,
+          paddingTop: insets.top + SPACE[3],
+          paddingBottom: showSteps && step ? SPACE[7] : SPACE[5],
+          paddingHorizontal: SPACE.gutter,
           overflow: 'hidden',
         }}
       >
-        {/* Soft curved light trails */}
         <Box
           pointerEvents="none"
           style={{
             position: 'absolute',
-            top: -90,
-            right: -50,
-            width: 220,
-            height: 220,
-            borderRadius: 999,
-            borderWidth: 1.5,
-            borderColor: 'rgba(255,255,255,0.16)',
-          }}
-        />
-        <Box
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            top: -55,
-            right: -20,
+            top: -60,
+            right: -40,
             width: 160,
             height: 160,
             borderRadius: 999,
-            borderWidth: 1.5,
-            borderColor: 'rgba(255,255,255,0.12)',
-          }}
-        />
-        <Box
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            top: -20,
-            right: 10,
-            width: 100,
-            height: 100,
-            borderRadius: 999,
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.1)',
+            backgroundColor: 'rgba(255,255,255,0.08)',
           }}
         />
 
@@ -228,88 +216,79 @@ export function SurveyHero({
             pointerEvents="none"
             style={{
               position: 'absolute',
-              right: -8,
-              top: insets.top - 4,
-              opacity: 0.18,
+              right: -4,
+              top: insets.top,
+              opacity: 0.14,
             }}
           >
-            <Compass size={118} color="#FFFFFF" strokeWidth={1.15} />
+            <Compass size={100} color="#FFFFFF" strokeWidth={1.1} />
           </Box>
         ) : null}
 
-        <HStack className="items-center gap-2.5" style={{ zIndex: 2 }}>
+        <HStack className="items-center" style={{ zIndex: 2, gap: SPACE[3] }}>
           <Pressable
             onPress={onBack}
             hitSlop={10}
             className="items-center justify-center active:opacity-75"
             style={{
-              width: 36,
-              height: 36,
-              borderRadius: 999,
-              backgroundColor: 'rgba(255,255,255,0.12)',
-              borderWidth: 1.5,
-              borderColor: 'rgba(255,255,255,0.45)',
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              backgroundColor: 'rgba(255,255,255,0.16)',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.28)',
             }}
           >
-            <ArrowLeft size={18} color="#FFFFFF" strokeWidth={2.2} />
+            <ArrowLeft size={18} color="#FFFFFF" strokeWidth={2.3} />
           </Pressable>
 
-          <VStack className="flex-1 min-w-0">
+          <VStack className="flex-1 min-w-0" style={{ gap: 4 }}>
             <Text
-              className={`text-white font-bold tracking-tight ${
-                showSteps && step ? 'text-[17px] leading-5' : 'text-[20px] leading-6'
-              }`}
+              style={{
+                fontFamily: FONTS.bold,
+                fontSize: 18,
+                lineHeight: 24,
+                color: COLORS.white,
+                letterSpacing: -0.2,
+              }}
               numberOfLines={1}
             >
               {title}
             </Text>
             {underTitle ? (
               <Text
-                className={`font-medium mt-0.5 ${
-                  showSteps && step ? 'text-[11px]' : 'text-[12px]'
-                }`}
-                style={{ color: 'rgba(255,255,255,0.9)' }}
-                numberOfLines={2}
+                style={{
+                  fontFamily: FONTS.medium,
+                  fontSize: 12,
+                  lineHeight: 16,
+                  color: 'rgba(255,255,255,0.82)',
+                }}
+                numberOfLines={1}
               >
                 {underTitle}
               </Text>
             ) : null}
           </VStack>
 
-          {badgeText ? (
-            <Box
-              className="px-2.5 py-1.5 rounded-full flex-row items-center gap-1.5"
-              style={{
-                backgroundColor: 'rgba(30, 64, 175, 0.4)',
-                borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.35)',
-              }}
-            >
-              <Box
-                className="rounded-full"
-                style={{ width: 6, height: 6, backgroundColor: '#22C55E' }}
-              />
-              <Text className="text-[10px] font-semibold text-white">{badgeText}</Text>
-            </Box>
-          ) : null}
           {go ? (
             <Pressable
               onPress={async () => {
                 await logout();
                 go('login');
               }}
-              className="flex-row items-center gap-1 active:opacity-85"
+              hitSlop={8}
+              accessibilityLabel="Logout"
+              className="items-center justify-center active:opacity-80"
               style={{
-                height: 32,
-                paddingHorizontal: 10,
-                borderRadius: 999,
-                backgroundColor: 'rgba(255,255,255,0.18)',
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                backgroundColor: 'rgba(255,255,255,0.14)',
                 borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.35)',
+                borderColor: 'rgba(255,255,255,0.26)',
               }}
             >
-              <LogOut size={13} color="#FFFFFF" />
-              <Text className="text-[10px] font-bold text-white">Logout</Text>
+              <LogOut size={16} color="#FFFFFF" strokeWidth={2.2} />
             </Pressable>
           ) : null}
         </HStack>
@@ -318,16 +297,11 @@ export function SurveyHero({
       {showSteps && step ? (
         <Box
           style={{
-            marginTop: -20,
-            borderTopLeftRadius: 28,
-            borderTopRightRadius: 28,
+            marginTop: -18,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
             backgroundColor: '#FFFFFF',
             overflow: 'hidden',
-            shadowColor: '#0F172A',
-            shadowOffset: { width: 0, height: -2 },
-            shadowOpacity: 0.06,
-            shadowRadius: 8,
-            elevation: 2,
           }}
         >
           <StepRail step={step} total={total} />
@@ -354,7 +328,6 @@ function CompactSurveyHeader({
 }) {
   const insets = useSafeAreaInsets();
   const { logout } = useAuth();
-  const badgeText = badge?.includes('Auto-saved') ? 'Auto-saved' : badge;
   const steps = stepsForTotal(total);
 
   return (
@@ -381,19 +354,6 @@ function CompactSurveyHeader({
           overflow: 'hidden',
         }}
       >
-        <Box
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            top: -70,
-            right: -40,
-            width: 160,
-            height: 160,
-            borderRadius: 999,
-            borderWidth: 1.5,
-            borderColor: 'rgba(255,255,255,0.14)',
-          }}
-        />
         <HStack className="items-center gap-2.5">
           <Pressable
             onPress={onBack}
@@ -420,28 +380,13 @@ function CompactSurveyHeader({
               </Text>
             ) : null}
           </VStack>
-          {badgeText ? (
-            <Box
-              className="px-2 py-1 rounded-full flex-row items-center gap-1"
-              style={{
-                backgroundColor: 'rgba(30, 64, 175, 0.4)',
-                borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.35)',
-              }}
-            >
-              <Box
-                className="rounded-full"
-                style={{ width: 5, height: 5, backgroundColor: '#22C55E' }}
-              />
-              <Text className="text-[10px] font-semibold text-white">{badgeText}</Text>
-            </Box>
-          ) : null}
           {go ? (
             <Pressable
               onPress={async () => {
                 await logout();
                 go('login');
               }}
+              accessibilityLabel="Logout"
               className="active:opacity-85"
               style={{
                 width: 32,
@@ -474,17 +419,76 @@ export function StickyBar({
   const insets = useSafeAreaInsets();
   return (
     <Box
-      className="px-4 pt-3"
       style={{
-        // In-flow footer — absolute overlay stole taps / fought keyboard layout.
-        paddingBottom: compactBottom ? 2 : Math.max(insets.bottom, 14),
-        backgroundColor: '#F3F4F6',
+        paddingHorizontal: SPACE.gutter,
+        paddingTop: SPACE[2],
+        paddingBottom: compactBottom ? 2 : Math.max(insets.bottom, SPACE[3]),
+        backgroundColor: COLORS.soft,
         borderTopWidth: 1,
-        borderTopColor: '#E5E7EB',
+        borderTopColor: COLORS.border,
       }}
     >
       {children}
     </Box>
+  );
+}
+
+/** Compact full-width Continue — same size across all survey steppers. */
+export function FooterContinueBtn({
+  label,
+  onPress,
+  disabled,
+  loading,
+}: {
+  label: string;
+  onPress?: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+}) {
+  const blocked = Boolean(disabled || loading);
+  return (
+    <Pressable
+      disabled={blocked}
+      onPress={onPress}
+      className={blocked ? '' : 'active:opacity-90'}
+      style={{
+        height: 44,
+        borderRadius: 12,
+        overflow: 'hidden',
+        opacity: blocked ? 0.45 : 1,
+        shadowColor: '#2563EB',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 3,
+      }}
+    >
+      <LinearGradient
+        colors={[...GRADIENT_PRIMARY]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          flex: 1,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          paddingHorizontal: 14,
+        }}
+      >
+        <Text
+          style={{
+            fontFamily: FONTS.bold,
+            fontSize: 14,
+            color: COLORS.white,
+          }}
+          numberOfLines={1}
+        >
+          {loading ? 'Saving…' : label}
+        </Text>
+        {!loading ? <ArrowRight size={16} color="#fff" strokeWidth={2.5} /> : null}
+      </LinearGradient>
+    </Pressable>
   );
 }
 
@@ -548,7 +552,7 @@ export function SurveyScaffold({
   };
 
   return (
-    <ScreenShell className="bg-[#F3F4F6]">
+    <ScreenShell className="bg-background">
       {/*
         Plain style (no Uniwind className), wrapping scroll + footer.
         iOS: padding. Android: height only while keyboard is open (avoids Expo 54 sticky gap).
@@ -604,7 +608,7 @@ export function SurveyScaffold({
                 go={go}
               />
 
-              <Box style={{ gap: 14, paddingTop: 14, backgroundColor: '#F3F4F6' }}>
+              <Box style={{ gap: SPACE[4], paddingTop: SPACE[4], backgroundColor: COLORS.soft }}>
                 {children}
               </Box>
             </View>
@@ -628,7 +632,7 @@ export function WorkspaceHeader({
   title,
   subtitle,
   stepLabel,
-  iconBg = '#2563EB',
+  iconBg = COLORS.primary,
 }: {
   icon: LucideIcon;
   title: string;
@@ -637,33 +641,54 @@ export function WorkspaceHeader({
   iconBg?: string;
 }) {
   return (
-    <Box style={{ paddingHorizontal: 14, paddingTop: 14, paddingBottom: 10 }}>
-      <HStack className="items-center gap-2.5">
+    <Box
+      style={{
+        paddingHorizontal: SPACE.gutter,
+        paddingTop: SPACE[4],
+        paddingBottom: SPACE[3],
+      }}
+    >
+      <HStack className="items-center" style={{ gap: SPACE[3] }}>
         <Box
           className="items-center justify-center"
           style={{
-            width: 38,
-            height: 38,
+            width: 44,
+            height: 44,
             borderRadius: 12,
             backgroundColor: iconBg,
           }}
         >
           <Icon size={18} color="#fff" strokeWidth={2.3} />
         </Box>
-        <VStack className="flex-1 min-w-0">
-          <Text className="text-[14px] font-bold text-foreground tracking-tight" numberOfLines={1}>
+        <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
+          <Text style={{ ...TYPE.title, color: COLORS.ink }} numberOfLines={1}>
             {title}
           </Text>
-          <Text className="text-[11px] mt-0.5" style={{ color: '#94A3B8' }} numberOfLines={1}>
+          <Text style={{ ...TYPE.caption, color: COLORS.ink }} numberOfLines={2}>
             {subtitle}
           </Text>
         </VStack>
         {stepLabel ? (
           <Box
-            className="px-2 py-1 rounded-lg"
-            style={{ backgroundColor: '#EFF6FF' }}
+            style={{
+              paddingHorizontal: SPACE[2],
+              paddingVertical: SPACE[1],
+              borderRadius: 8,
+              backgroundColor: COLORS.white,
+              shadowColor: '#0F172A',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.08,
+              shadowRadius: 6,
+              elevation: 2,
+            }}
           >
-            <Text className="text-[9px] font-extrabold" style={{ color: '#2563EB' }}>
+            <Text
+              style={{
+                ...TYPE.caption,
+                fontFamily: FONTS.bold,
+                color: COLORS.ink,
+              }}
+            >
               {stepLabel}
             </Text>
           </Box>

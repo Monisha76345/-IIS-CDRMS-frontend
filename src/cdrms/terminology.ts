@@ -122,6 +122,10 @@ export const TERMS = {
     foregroundTitle: 'Location While Using App',
     foregroundDesc: 'Enables Check Bandi verification & geo-fence',
     backgroundTitle: 'Background Location',
+    cameraTitle: 'Camera',
+    cameraDesc: 'Take engineer selfies and site photos',
+    microphoneTitle: 'Microphone',
+    microphoneDesc: 'Record audio with inspection videos',
     geoValidation: 'Geo Validation',
     geoValidationSubtitle: 'Verifying assigned jurisdiction',
   },
@@ -180,9 +184,9 @@ export const SURVEY_STEPS: SurveyStep[] = [
 /** Four-step engineer capture for ZC-assigned backend tasks (web parity). */
 export const ENGINEER_SURVEY_STEPS: SurveyStep[] = [
   {
-    label: 'Observations',
-    short: 'Obs',
-    title: 'Observations',
+    label: 'ZC details',
+    short: 'ZC',
+    title: 'Assigned site',
     icon: Building2,
   },
   {

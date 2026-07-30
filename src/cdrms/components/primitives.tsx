@@ -30,7 +30,7 @@ import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/src/auth/AuthContext';
-import { COLORS, GRADIENT_HEADER, GRADIENT_PRIMARY } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GRADIENT_HEADER, GRADIENT_PRIMARY, SPACE, TYPE } from '@/src/cdrms/theme';
 import type { Go, NavTab, Screen } from '@/src/cdrms/types';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 
@@ -39,7 +39,7 @@ const BAR_H = 64;
 const FAB_SIZE = 54;
 const FAB_GAP = 7;
 const NOTCH_R = FAB_SIZE / 2 + FAB_GAP;
-const TOP_RADIUS = 24;
+const TOP_RADIUS = 20;
 
 export function ScreenShell({
   children,
@@ -69,9 +69,9 @@ export function GradientHeader({
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{
-        paddingTop: insets.top + 8,
-        borderBottomLeftRadius: rounded ? 32 : 0,
-        borderBottomRightRadius: rounded ? 32 : 0,
+        paddingTop: insets.top + SPACE[2],
+        borderBottomLeftRadius: rounded ? SPACE.radiusLg : 0,
+        borderBottomRightRadius: rounded ? SPACE.radiusLg : 0,
       }}
       className={className}
     >
@@ -134,8 +134,11 @@ export function AppHeader({
     >
       <LogOut size={14} color={gradient ? COLORS.white : COLORS.destructive} />
       <Text
-        className="text-[12px] font-bold"
-        style={{ color: gradient ? '#FFFFFF' : COLORS.destructive }}
+        style={{
+          ...TYPE.caption,
+          fontFamily: FONTS.bold,
+          color: gradient ? '#FFFFFF' : COLORS.destructive,
+        }}
       >
         Logout
       </Text>
@@ -153,25 +156,28 @@ export function AppHeader({
   if (!gradient) {
     return (
       <Box
-        className="bg-card border-b border-border px-5 pb-4"
-        style={{ paddingTop: insets.top + 8 }}
+        className="bg-card border-b border-border"
+        style={{ paddingTop: insets.top + SPACE[2], paddingHorizontal: SPACE.gutter, paddingBottom: SPACE[4] }}
       >
-        <HStack className="items-center justify-between">
-          <HStack className="items-center gap-2 flex-1 min-w-0">
+        <HStack className="items-center justify-between" style={{ gap: SPACE[3] }}>
+          <HStack className="items-center flex-1 min-w-0" style={{ gap: SPACE[2] }}>
             {onBack ? (
               <Pressable
                 onPress={onBack}
-                className="h-10 w-10 rounded-full items-center justify-center"
+                className="items-center justify-center active:opacity-80"
+                style={{ height: 44, width: 44, borderRadius: 12, backgroundColor: COLORS.muted }}
               >
                 <ArrowLeft size={20} color={COLORS.primaryDeep} />
               </Pressable>
             ) : null}
-            <VStack className="flex-1 min-w-0">
-              <Text className="text-lg font-bold text-foreground" numberOfLines={1}>
+            <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
+              <Text style={TYPE.screen} numberOfLines={1}>
                 {title}
               </Text>
               {subtitle ? (
-                <Text className="text-xs text-muted-foreground">{subtitle}</Text>
+                <Text style={TYPE.caption} numberOfLines={2}>
+                  {subtitle}
+                </Text>
               ) : null}
             </VStack>
           </HStack>
@@ -183,23 +189,39 @@ export function AppHeader({
 
   return (
     <GradientHeader>
-      <Box className="px-5 pb-7">
-        <HStack className="items-center justify-between pt-1">
-          <HStack className="items-center gap-3 flex-1 min-w-0">
+      <Box style={{ paddingHorizontal: SPACE.gutter, paddingBottom: SPACE[6] }}>
+        <HStack className="items-center justify-between" style={{ paddingTop: SPACE[1], gap: SPACE[3] }}>
+          <HStack className="items-center flex-1 min-w-0" style={{ gap: SPACE[3] }}>
             {onBack ? (
               <Pressable
                 onPress={onBack}
-                className="h-10 w-10 rounded-full bg-white/15 border border-white/20 items-center justify-center active:opacity-80"
+                className="items-center justify-center active:opacity-80"
+                style={{
+                  height: 44,
+                  width: 44,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(255,255,255,0.16)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.22)',
+                }}
               >
                 <ArrowLeft size={20} color={COLORS.white} />
               </Pressable>
             ) : null}
-            <VStack className="flex-1 min-w-0">
-              <Text className="text-xl font-extrabold text-white tracking-tight" numberOfLines={1}>
+            <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
+              <Text
+                style={{ ...TYPE.screen, color: COLORS.white, fontFamily: FONTS.bold }}
+                numberOfLines={1}
+              >
                 {title}
               </Text>
               {subtitle ? (
-                <Text className="text-xs text-white/75 font-medium mt-0.5">{subtitle}</Text>
+                <Text
+                  style={{ ...TYPE.caption, color: 'rgba(255,255,255,0.82)' }}
+                  numberOfLines={2}
+                >
+                  {subtitle}
+                </Text>
               ) : null}
             </VStack>
           </HStack>
@@ -219,12 +241,17 @@ export function AppCard({
 }) {
   return (
     <Card
-      className={`bg-card rounded-3xl p-5 border border-border/60 ${className}`}
+      className={`bg-card ${className}`}
       style={{
-        shadowColor: '#2563EB',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.06,
-        shadowRadius: 16,
+        borderRadius: SPACE.radiusLg,
+        padding: SPACE.cardPad,
+        backgroundColor: COLORS.white,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.1,
+        shadowRadius: 14,
         elevation: 3,
       }}
     >
@@ -255,17 +282,19 @@ export function AppBtn({
       <Pressable
         disabled={disabled}
         onPress={onPress}
-        className={`w-full h-14 rounded-2xl overflow-hidden active:opacity-90 ${disabled ? 'opacity-50' : ''} ${className}`}
+        className={`w-full overflow-hidden active:opacity-90 ${disabled ? 'opacity-50' : ''} ${className}`}
         style={{
-          shadowColor: '#1D4ED8',
-          shadowOffset: { width: 0, height: 10 },
-          shadowOpacity: 0.35,
-          shadowRadius: 16,
-          elevation: 6,
+          height: SPACE.touch,
+          borderRadius: SPACE.radius,
+          shadowColor: COLORS.primaryDeep,
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.28,
+          shadowRadius: 14,
+          elevation: 5,
         }}
       >
         <LinearGradient
-          colors={['#2563EB', '#3B82F6', '#3B82F6']}
+          colors={[...GRADIENT_PRIMARY]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{
@@ -273,11 +302,12 @@ export function AppBtn({
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 8,
+            gap: SPACE[2],
+            paddingHorizontal: SPACE[4],
           }}
         >
           {Icon ? <Icon size={18} color={COLORS.white} strokeWidth={2.5} /> : null}
-          <Text className="text-[15px] font-extrabold text-white tracking-wide">{children}</Text>
+          <Text style={{ ...TYPE.button, color: COLORS.white }}>{children}</Text>
         </LinearGradient>
       </Pressable>
     );
@@ -289,11 +319,11 @@ export function AppBtn({
     danger: 'bg-destructive',
     success: 'bg-success',
   };
-  const textStyles: Record<Exclude<BtnVariant, 'primary'>, string> = {
-    ghost: 'text-primary',
-    outline: 'text-foreground',
-    danger: 'text-destructive-foreground',
-    success: 'text-success-foreground',
+  const textColor: Record<Exclude<BtnVariant, 'primary'>, string> = {
+    ghost: COLORS.primary,
+    outline: COLORS.ink,
+    danger: COLORS.white,
+    success: COLORS.white,
   };
   const iconColor: Record<Exclude<BtnVariant, 'primary'>, string> = {
     ghost: COLORS.primary,
@@ -306,10 +336,16 @@ export function AppBtn({
     <Pressable
       disabled={disabled}
       onPress={onPress}
-      className={`w-full h-14 rounded-2xl flex-row items-center justify-center gap-2 active:opacity-90 ${disabled ? 'opacity-50' : ''} ${styles[variant]} ${className}`}
+      className={`w-full flex-row items-center justify-center active:opacity-90 ${disabled ? 'opacity-50' : ''} ${styles[variant]} ${className}`}
+      style={{
+        height: SPACE.touch,
+        borderRadius: SPACE.radius,
+        gap: SPACE[2],
+        paddingHorizontal: SPACE[4],
+      }}
     >
       {Icon ? <Icon size={16} color={iconColor[variant]} /> : null}
-      <Text className={`text-[15px] font-semibold ${textStyles[variant]}`}>{children}</Text>
+      <Text style={{ ...TYPE.button, color: textColor[variant] }}>{children}</Text>
     </Pressable>
   );
 }
@@ -319,6 +355,7 @@ export function Field({
   icon: Icon,
   showCheck = true,
   endAdornment,
+  compact = false,
   style,
   value,
   defaultValue,
@@ -328,6 +365,8 @@ export function Field({
   icon?: LucideIcon;
   showCheck?: boolean;
   endAdornment?: ReactNode;
+  /** Smaller control for dense forms (e.g. Step 3 dimensions). */
+  compact?: boolean;
 } & TextInputProps) {
   // No setState on focus — any re-render during focus can dismiss the keyboard
   // on Expo Go when parents restyle. Keep this tree static while typing.
@@ -341,37 +380,35 @@ export function Field({
   const isEditable = props.editable ?? true;
 
   return (
-    <View style={{ gap: 4 }} collapsable={false}>
-      <Text className="text-[10px] font-extrabold text-slate-500 uppercase tracking-[1.2px]">
-        {label}
-      </Text>
+    <View style={{ gap: compact ? 4 : SPACE[2] }} collapsable={false}>
+      <Text style={compact ? { ...TYPE.label, fontSize: 10 } : TYPE.label}>{label}</Text>
       <View
         collapsable={false}
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 10,
-          minHeight: 52,
-          paddingHorizontal: 12,
-          borderRadius: 16,
-          borderWidth: 1,
-          backgroundColor: '#F3F4F6',
-          borderColor: 'transparent',
+          gap: compact ? SPACE[2] : SPACE[3],
+          minHeight: compact ? 36 : SPACE.touch,
+          paddingHorizontal: compact ? SPACE[2] : SPACE[3],
+          borderRadius: compact ? 10 : SPACE.radius,
+          borderWidth: 1.5,
+          backgroundColor: COLORS.white,
+          borderColor: COLORS.border,
         }}
       >
         {Icon ? (
           <View
             pointerEvents="none"
             style={{
-              height: 36,
-              width: 36,
-              borderRadius: 12,
-              backgroundColor: '#2563EB',
+              height: compact ? 28 : 36,
+              width: compact ? 28 : 36,
+              borderRadius: 10,
+              backgroundColor: COLORS.primary,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Icon size={15} color="#FFFFFF" strokeWidth={2.4} />
+            <Icon size={compact ? 12 : 15} color="#FFFFFF" strokeWidth={2.4} />
           </View>
         ) : null}
         <TextInput
@@ -384,18 +421,18 @@ export function Field({
           autoCapitalize={props.autoCapitalize ?? 'sentences'}
           onFocus={props.onFocus}
           onBlur={props.onBlur}
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor="#94A3A0"
           underlineColorAndroid="transparent"
           style={[
             {
               flex: 1,
               minWidth: 0,
-              minHeight: 44,
-              paddingVertical: 12,
+              minHeight: compact ? 32 : 44,
+              paddingVertical: compact ? 6 : 12,
               paddingHorizontal: 0,
-              fontSize: 14,
-              fontWeight: '700',
-              color: '#1E293B',
+              fontSize: compact ? 14 : 15,
+              fontFamily: FONTS.semibold,
+              color: COLORS.ink,
               ...(Platform.OS === 'web'
                 ? ({ outlineStyle: 'none', cursor: 'text' } as object)
                 : null),
@@ -409,15 +446,15 @@ export function Field({
           <View
             pointerEvents="none"
             style={{
-              width: 22,
-              height: 22,
-              borderRadius: 11,
-              backgroundColor: '#22C55E',
+              width: compact ? 18 : 22,
+              height: compact ? 18 : 22,
+              borderRadius: compact ? 9 : 11,
+              backgroundColor: COLORS.success,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Check size={12} color="#FFFFFF" strokeWidth={3} />
+            <Check size={compact ? 10 : 12} color="#FFFFFF" strokeWidth={3} />
           </View>
         ) : null}
       </View>
@@ -439,19 +476,30 @@ function NotchedBarBg({
   const cx = width / 2;
   const r = topRadius;
   const bowl = notchR + 2;
-  // Full-bleed bar: rounded top corners only, smooth U cutout for the +.
-  const d = [
-    `M0,${r}`,
-    `Q0,0 ${r},0`,
-    `L${cx - notchR - 12},0`,
-    `C${cx - notchR - 2},0 ${cx - notchR + 6},${bowl * 0.85} ${cx},${bowl}`,
-    `C${cx + notchR - 6},${bowl * 0.85} ${cx + notchR + 2},0 ${cx + notchR + 12},0`,
-    `L${width - r},0`,
-    `Q${width},0 ${width},${r}`,
-    `L${width},${height}`,
-    `L0,${height}`,
-    'Z',
-  ].join(' ');
+  // Full-bleed bar: rounded top corners; optional U cutout for the +.
+  const d =
+    notchR <= 0
+      ? [
+          `M0,${r}`,
+          `Q0,0 ${r},0`,
+          `L${width - r},0`,
+          `Q${width},0 ${width},${r}`,
+          `L${width},${height}`,
+          `L0,${height}`,
+          'Z',
+        ].join(' ')
+      : [
+          `M0,${r}`,
+          `Q0,0 ${r},0`,
+          `L${cx - notchR - 12},0`,
+          `C${cx - notchR - 2},0 ${cx - notchR + 6},${bowl * 0.85} ${cx},${bowl}`,
+          `C${cx + notchR - 6},${bowl * 0.85} ${cx + notchR + 2},0 ${cx + notchR + 12},0`,
+          `L${width - r},0`,
+          `Q${width},0 ${width},${r}`,
+          `L${width},${height}`,
+          `L0,${height}`,
+          'Z',
+        ].join(' ');
 
   return (
     <Svg width={width} height={height} style={{ position: 'absolute', left: 0, top: 0 }}>
@@ -467,6 +515,7 @@ export function BottomNav({
   homeTarget = 'dashboard',
   appsTarget = 'history',
   hidePlus = false,
+  hideAlerts = false,
 }: {
   active: NavTab;
   onNav: Go;
@@ -474,6 +523,7 @@ export function BottomNav({
   homeTarget?: Screen;
   appsTarget?: Screen;
   hidePlus?: boolean;
+  hideAlerts?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -482,7 +532,7 @@ export function BottomNav({
   const bottomPad = Math.max(insets.bottom, 8);
   const barH = BAR_H + bottomPad;
   // FAB sits so ~55% is above the bar top.
-  const fabOverhang = FAB_SIZE * 0.55;
+  const fabOverhang = hidePlus ? 0 : FAB_SIZE * 0.55;
 
   const handlePlus = () => {
     if (onPlus) {
@@ -510,7 +560,9 @@ export function BottomNav({
     target: Screen;
     badge?: number;
   }> = [
-    { k: 'notif', label: 'Alerts', icon: Bell, target: 'notifications' },
+    ...(hideAlerts
+      ? []
+      : [{ k: 'notif' as const, label: 'Alerts', icon: Bell, target: 'notifications' as Screen }]),
     { k: 'profile', label: 'Profile', target: 'profile', icon: User },
   ];
 
@@ -589,13 +641,13 @@ export function BottomNav({
         <NotchedBarBg
           width={width}
           height={barH}
-          notchR={NOTCH_R}
+          notchR={hidePlus ? 0 : NOTCH_R}
           topRadius={TOP_RADIUS}
         />
 
         <HStack style={{ height: BAR_H, alignItems: 'center' }}>
           {leftItems.map(renderTab)}
-          <Box style={{ width: NOTCH_R * 2 }} />
+          {hidePlus ? null : <Box style={{ width: NOTCH_R * 2 }} />}
           {rightItems.map(renderTab)}
         </HStack>
       </Box>
@@ -615,8 +667,8 @@ export function BottomNav({
           borderRadius: 999,
           backgroundColor: '#FFFFFF',
           borderWidth: 1,
-          borderColor: 'rgba(15, 23, 42, 0.04)',
-          shadowColor: '#1E3A8A',
+          borderColor: COLORS.border,
+          shadowColor: COLORS.primaryDeep,
           shadowOffset: { width: 0, height: 8 },
           shadowOpacity: 0.16,
           shadowRadius: 14,
@@ -630,7 +682,7 @@ export function BottomNav({
             width: FAB_SIZE - 10,
             height: FAB_SIZE - 10,
             borderRadius: 999,
-            backgroundColor: '#EFF6FF',
+            backgroundColor: COLORS.muted,
           }}
         >
           <Plus size={24} color={COLORS.primary} strokeWidth={2.4} />
@@ -648,15 +700,21 @@ export function StatusChip({ status }: { status: string }) {
     Approved: { bg: '#D1FAE5', fg: '#047857' },
     Returned: { bg: '#FFEDD5', fg: '#C2410C' },
     Rejected: { bg: '#FEE2E2', fg: '#DC2626' },
-    Draft: { bg: '#F1F5F9', fg: '#64748B' },
+    Draft: { bg: '#EFF6FF', fg: '#1D4ED8' },
+    'In progress': { bg: '#F1F5F9', fg: '#334155' },
+    Assigned: { bg: '#EFF6FF', fg: '#2563EB' },
   };
-  const s = styles[status] || { bg: '#F1F5F9', fg: '#64748B' };
+  const s = styles[status] || { bg: '#F1F5F9', fg: '#0F172A' };
   return (
     <Box
-      className="px-2.5 py-1 rounded-full"
-      style={{ backgroundColor: s.bg }}
+      style={{
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 999,
+        backgroundColor: s.bg,
+      }}
     >
-      <Text className="text-[11px] font-bold" style={{ color: s.fg }}>
+      <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: s.fg }}>
         {status}
       </Text>
     </Box>

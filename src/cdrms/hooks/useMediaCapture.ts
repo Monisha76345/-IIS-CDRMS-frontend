@@ -4,11 +4,15 @@ import { Alert, Linking, Platform } from 'react-native';
 
 import { openDeviceCamera } from '@/src/cdrms/camera/cameraCaptureGate';
 import {
-  isAndroidVirtual,
   isLiveVideoBlocked,
   MAC_CAMERA_HINT,
   VIRTUAL_CAMERA_MESSAGE,
 } from '@/src/cdrms/device/isVirtualDevice';
+import {
+  createDummyImageAsset,
+  createDummyVideoAsset,
+} from '@/src/cdrms/hooks/dummyMedia';
+import { ensureMediaCapturePermissions } from '@/src/cdrms/mediaPermission';
 import type { MediaAsset } from '@/src/cdrms/project/types';
 
 function toAsset(
@@ -90,14 +94,21 @@ async function pickPhotoFromLibrary(): Promise<MediaAsset | null> {
  * On Android emulator → Gallery.
  * On iOS Simulator → in-app camera using MacBook camera (set I/O → Camera).
  * On real phone → device camera.
+ * In __DEV__, returns a local sample image so you can proceed without camera.
  */
 export async function capturePhoto(options?: {
   facing?: 'front' | 'back';
   title?: string;
 }): Promise<MediaAsset | null> {
+  if (__DEV__) {
+    return createDummyImageAsset();
+  }
+
   if (Platform.OS === 'ios' && __DEV__) {
     explainMacCameraOnce();
   }
+
+  if (!(await ensureMediaCapturePermissions('photo'))) return null;
 
   // Prefer in-app CameraView so both real devices and Emulators/Simulators can use the camera.
   return openDeviceCamera({
@@ -196,8 +207,13 @@ export async function chooseVideoFile(): Promise<MediaAsset | null> {
  * Inspection video.
  * Apple blocks live *recording* on iOS Simulator — Gallery/Files only there.
  * Real phone uses camera record.
+ * In __DEV__, returns a local sample video so you can proceed without recording.
  */
 export async function captureVideo(): Promise<MediaAsset | null> {
+  if (__DEV__) {
+    return createDummyVideoAsset();
+  }
+
   if (isLiveVideoBlocked()) {
     if (!explainedVideoOnce) {
       explainedVideoOnce = true;
@@ -205,6 +221,8 @@ export async function captureVideo(): Promise<MediaAsset | null> {
     }
     return chooseVideoFile();
   }
+
+  if (!(await ensureMediaCapturePermissions('video'))) return null;
 
   return openDeviceCamera({
     mode: 'video',

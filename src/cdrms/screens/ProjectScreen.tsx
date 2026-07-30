@@ -1,9 +1,7 @@
 import {
-  ArrowRight,
   Building2,
   MapPin,
   Ruler,
-  Save,
   UserRound,
 } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
@@ -27,12 +25,13 @@ import { VStack } from '@/components/ui/vstack';
 import { GpsSiteCard } from '@/src/cdrms/components/GpsSiteCard';
 import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
 import { EngineerStickyHeader } from '@/src/cdrms/components/EngineerStickyHeader';
-import { AppBtn, Field } from '@/src/cdrms/components/primitives';
+import { Field } from '@/src/cdrms/components/primitives';
 import {
   SectionTitle,
   SurveyCard,
   SurveyScaffold,
   WorkspaceHeader,
+  FooterContinueBtn,
 } from '@/src/cdrms/components/SurveyLayout';
 import { useDeviceLocation } from '@/src/cdrms/hooks/useDeviceLocation';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
@@ -117,7 +116,7 @@ function SiteLoadingCards() {
           title={TERMS.sections.siteLocation}
           subtitle="Capturing GPS…"
           stepLabel="STEP 01"
-          iconBg="#0F766E"
+          iconBg="#2563EB"
         />
         <Box className="mx-[14px] mb-4 overflow-hidden" style={{ borderRadius: 18, height: 200 }}>
           <Box
@@ -146,7 +145,7 @@ function SiteLoadingCards() {
                     borderRadius: 28,
                     borderWidth: 3,
                     borderColor: '#A7F3D0',
-                    borderTopColor: '#0F766E',
+                    borderTopColor: '#2563EB',
                     alignItems: 'center',
                     justifyContent: 'center',
                     backgroundColor: '#FFFFFF',
@@ -165,10 +164,10 @@ function SiteLoadingCards() {
                   backgroundColor: '#FFFFFF',
                 }}
               >
-                <MapPin size={18} color="#0F766E" strokeWidth={2.4} />
+                <MapPin size={18} color="#2563EB" strokeWidth={2.4} />
               </Box>
             </Box>
-            <Text className="mt-4 text-[13px] font-bold" style={{ color: '#0F766E' }}>
+            <Text className="mt-4 text-[13px] font-bold" style={{ color: '#2563EB' }}>
               Locating site…
             </Text>
             <Text className="mt-1 text-[11px]" style={{ color: '#64748B' }}>
@@ -229,7 +228,7 @@ function SiteLoadingCards() {
 }
 
 export function ProjectScreen({ go }: { go: Go }) {
-  const { draft, updateField, setDimSide, setGps, saveDraft, persistBackendStep, reloadBackendDraft } =
+  const { draft, updateField, setDimSide, setGps, persistBackendStep, reloadBackendDraft } =
     useProject();
   const { refresh, loading } = useDeviceLocation();
   const autoStarted = useRef(false);
@@ -285,16 +284,16 @@ export function ProjectScreen({ go }: { go: Go }) {
     <SurveyScaffold
       title={
         isBackendTask
-          ? 'Step 1 — Observations'
+          ? 'Step 1 — ZC details'
           : isResubmit
             ? TERMS.workflow.fixResubmit
             : TERMS.workflow.newApplication
       }
       subtitle={
         isBackendTask
-          ? 'Zonal Commissioner details, schedules & observations'
+          ? 'View only · assigned by Zonal Commissioner'
           : isResubmit
-            ? TERMS.workflow.fixResubmitSubtitle
+            ? TERMS.workflow.formResubmitSubtitle
             : TERMS.workflow.newApplicationSubtitle
       }
       onBack={() => {
@@ -313,7 +312,7 @@ export function ProjectScreen({ go }: { go: Go }) {
       total={isBackendTask ? 4 : 5}
       badge={
         isBackendTask
-          ? 'ZC task'
+          ? undefined
           : isResubmit
           ? 'Resubmit'
           : showLoader
@@ -323,68 +322,31 @@ export function ProjectScreen({ go }: { go: Go }) {
               : 'Locating…'
       }
       footer={
-        <HStack space="md" className="items-center">
-          <Pressable
-            onPress={() => {
-              void (async () => {
+        <FooterContinueBtn
+          label={
+            isBackendTask
+              ? 'Continue'
+              : TERMS.workflow.continueToCheckBandi
+          }
+          loading={stepSaving}
+          disabled={showLoader || stepSaving}
+          onPress={() => {
+            void (async () => {
+              if (isBackendTask) {
+                setStepSaving(true);
                 try {
-                  await saveDraft();
-                  go('draft');
+                  await persistBackendStep('site');
                 } catch (err) {
                   alertDraftError(err);
+                  setStepSaving(false);
+                  return;
                 }
-              })();
-            }}
-            disabled={showLoader || stepSaving}
-            className="h-14 w-14 rounded-2xl items-center justify-center active:opacity-80"
-            style={{
-              backgroundColor: '#FFFFFF',
-              borderWidth: 1,
-              borderColor: '#DBEAFE',
-              shadowColor: '#2563EB',
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.1,
-              shadowRadius: 10,
-              elevation: 3,
-              opacity: showLoader || stepSaving ? 0.5 : 1,
-            }}
-          >
-            <Save size={20} color={COLORS.primary} />
-          </Pressable>
-          <Box className="flex-1">
-            <AppBtn
-              onPress={() => {
-                void (async () => {
-                  if (isBackendTask) {
-                    setStepSaving(true);
-                    try {
-                      await persistBackendStep('site');
-                    } catch (err) {
-                      alertDraftError(err);
-                      setStepSaving(false);
-                      return;
-                    }
-                    setStepSaving(false);
-                  }
-                  go('bandi');
-                })();
-              }}
-              icon={ArrowRight}
-              className="h-14 rounded-2xl"
-              disabled={
-                showLoader ||
-                stepSaving ||
-                (isBackendTask && !draft.siteDetails.trim())
+                setStepSaving(false);
               }
-            >
-              {isBackendTask
-                ? stepSaving
-                  ? 'Saving…'
-                  : 'Continue to Compass & schedule'
-                : TERMS.workflow.continueToCheckBandi}
-            </AppBtn>
-          </Box>
-        </HStack>
+              go('bandi');
+            })();
+          }}
+        />
       }
           go={go}
     >
@@ -410,28 +372,8 @@ export function ProjectScreen({ go }: { go: Go }) {
       {showLoader ? (
         <SiteLoadingCards />
       ) : isBackendTask ? (
-        <Animated.View entering={FadeInUp.duration(420)} style={{ gap: 14 }}>
+        <Animated.View entering={FadeInUp.duration(420)}>
           <EngineerStickyHeader />
-          <SurveyCard>
-            <WorkspaceHeader
-              icon={UserRound}
-              title="Step 1 — Observations"
-              subtitle="Observations (required)"
-              stepLabel="STEP 01"
-              iconBg="#2563EB"
-            />
-            <VStack space="md" className="px-[14px] pb-5">
-              <Field
-                label="Observations *"
-                value={draft.siteDetails}
-                onChangeText={(t) => updateField('siteDetails', t)}
-                placeholder="Describe site condition / observations"
-                multiline
-                numberOfLines={5}
-                style={{ minHeight: 120, textAlignVertical: 'top' }}
-              />
-            </VStack>
-          </SurveyCard>
         </Animated.View>
       ) : (
         <Animated.View entering={FadeInUp.duration(420)} style={{ gap: 14 }}>
@@ -445,7 +387,7 @@ export function ProjectScreen({ go }: { go: Go }) {
                   : 'Tap refresh to capture GPS'
               }
               stepLabel="STEP 01"
-              iconBg="#0F766E"
+              iconBg="#2563EB"
             />
             <GpsSiteCard
               height={220}

@@ -65,7 +65,12 @@ export type ProjectDraft = {
   gps: GpsFix | null;
   bandiVerified: boolean;
   bandiRemarks: string;
+  /** Engineer-entered schedule notes (empty until engineer fills). */
   directions: Record<Cardinal, string>;
+  /** ZC-provided schedule text — shown only on Step 1. */
+  zcDirections: Record<Cardinal, string>;
+  /** Per-side Road checkbox (true when checked). */
+  roadFlags: Record<Cardinal, boolean>;
   approachRoadWidth: string;
   approachRoadName: string;
   approachNotes: string;
@@ -179,6 +184,8 @@ export function createEmptyDraft(): ProjectDraft {
     bandiVerified: false,
     bandiRemarks: '',
     directions: { N: '', S: '', E: '', W: '' },
+    zcDirections: { N: '', S: '', E: '', W: '' },
+    roadFlags: { N: false, S: false, E: false, W: false },
     approachRoadWidth: '',
     approachRoadName: '',
     approachNotes: '',

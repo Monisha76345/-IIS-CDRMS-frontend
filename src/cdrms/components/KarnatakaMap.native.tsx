@@ -1,20 +1,22 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import { Box } from '@/components/ui/box';
 import { Text } from '@/components/ui/text';
 import { StaticMapPreview } from '@/src/cdrms/components/StaticMapPreview';
-import { buildOsmEmbedUrl } from '@/src/cdrms/components/osmMapUrl';
-import { KARNATAKA } from '@/src/cdrms/location';
+import {
+  buildLeafletMapHtml,
+  zoomFromLatitudeDelta,
+} from '@/src/cdrms/components/osmMapUrl';
+import { KARNATAKA, SITE_REGION } from '@/src/cdrms/location';
 import type { KarnatakaMapProps } from './KarnatakaMap.types';
 
 export type { KarnatakaMapProps };
 
 /**
- * Native map for iOS + Android using OpenStreetMap in a WebView.
- * Avoids react-native-maps / Google Maps (needs API key, crashes on New Arch
- * in Expo Go). OSM works on Android without extra native config.
+ * Native map: Leaflet + OSM tiles in WebView.
+ * Pinch / double-tap / Leaflet +/- work inside the map; parent +/- uses injectJS.
  */
 export function KarnatakaMap({
   height = 180,
@@ -30,25 +32,48 @@ export function KarnatakaMap({
   recenterKey = 0,
 }: KarnatakaMapProps) {
   const [failed, setFailed] = useState(false);
+  const [ready, setReady] = useState(false);
+  const webRef = useRef<WebView>(null);
 
   const latitude = latitudeProp ?? KARNATAKA.site.latitude;
   const longitude = longitudeProp ?? KARNATAKA.site.longitude;
+  const latitudeDelta =
+    mode === 'state'
+      ? KARNATAKA.stateCenter.latitudeDelta
+      : (latitudeDeltaProp ?? SITE_REGION.latitudeDelta);
+  const zoom = zoomFromLatitudeDelta(latitudeDelta);
 
-  const src = useMemo(
+  // Remount only when interactivity / mode changes — zoom uses injectJS.
+  const html = useMemo(
     () =>
-      buildOsmEmbedUrl({
-        mode,
-        latitude,
-        longitude,
-        latitudeDelta: latitudeDeltaProp,
+      buildLeafletMapHtml({
+        latitude: mode === 'state' ? KARNATAKA.stateCenter.latitude : latitude,
+        longitude: mode === 'state' ? KARNATAKA.stateCenter.longitude : longitude,
+        zoom,
+        interactive,
       }),
-    [mode, latitude, longitude, latitudeDeltaProp, recenterKey]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [interactive, mode]
   );
+
+  useEffect(() => {
+    setReady(false);
+  }, [html]);
+
+  useEffect(() => {
+    if (!ready || failed) return;
+    const la = mode === 'state' ? KARNATAKA.stateCenter.latitude : latitude;
+    const ln = mode === 'state' ? KARNATAKA.stateCenter.longitude : longitude;
+    const z = zoomFromLatitudeDelta(latitudeDelta);
+    webRef.current?.injectJavaScript(
+      `try{window.setMapView&&window.setMapView(${la},${ln},${z});}catch(e){} true;`
+    );
+  }, [ready, failed, latitude, longitude, latitudeDelta, mode, recenterKey]);
 
   if (failed) {
     return (
       <StaticMapPreview
-        height={fill ? height : height}
+        height={height}
         rounded={rounded}
         showBadge={showBadge}
         badgeText={badgeText}
@@ -58,46 +83,60 @@ export function KarnatakaMap({
     );
   }
 
-  return (
-    <View
-      pointerEvents={interactive ? 'auto' : 'none'}
-      style={
-        fill
-          ? {
-              flex: 1,
-              width: '100%',
-              backgroundColor: '#E8EEF5',
-              borderRadius: rounded,
-              overflow: 'hidden',
-            }
-          : {
-              width: '100%',
-              height,
-              backgroundColor: '#E8EEF5',
-              borderRadius: rounded,
-              overflow: 'hidden',
-            }
+  const containerStyle = fill
+    ? {
+        flex: 1,
+        width: '100%' as const,
+        backgroundColor: '#E8EEF5',
+        borderRadius: rounded,
+        overflow: 'hidden' as const,
       }
-    >
+    : {
+        width: '100%' as const,
+        height,
+        backgroundColor: '#E8EEF5',
+        borderRadius: rounded,
+        overflow: 'hidden' as const,
+      };
+
+  return (
+    <View pointerEvents={interactive ? 'auto' : 'none'} style={containerStyle}>
       <WebView
-        key={`${src}-${recenterKey}`}
-        source={{ uri: src }}
-        style={fill ? StyleSheet.absoluteFillObject : { width: '100%', height, backgroundColor: '#E8EEF5' }}
-        originWhitelist={['https://*', 'http://*']}
+        ref={webRef}
+        source={{ html, baseUrl: 'https://unpkg.com' }}
+        style={
+          fill
+            ? StyleSheet.absoluteFillObject
+            : { width: '100%', height, backgroundColor: '#E8EEF5' }
+        }
+        originWhitelist={['*']}
         javaScriptEnabled
         domStorageEnabled
         startInLoadingState
-        scalesPageToFit={Platform.OS === 'android'}
+        scalesPageToFit={false}
         setSupportMultipleWindows={false}
         allowsInlineMediaPlayback
         scrollEnabled={interactive}
         bounces={false}
         nestedScrollEnabled={interactive}
+        overScrollMode="never"
+        showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
+        // Let Leaflet own pinch gestures inside the WebView.
+        allowsBackForwardNavigationGestures={false}
         pointerEvents={interactive ? 'auto' : 'none'}
+        onLoadEnd={() => {
+          setReady(true);
+          webRef.current?.injectJavaScript(
+            `try{setTimeout(function(){if(window.setMapView){}},50);}catch(e){} true;`
+          );
+        }}
         onError={() => setFailed(true)}
         onHttpError={() => setFailed(true)}
-        // Android: avoid crashing if the embed page fails to load chrome features.
         androidLayerType="hardware"
+        {...(Platform.OS === 'ios'
+          ? { allowsLinkPreview: false, dataDetectorTypes: 'none' as const }
+          : null)}
       />
       {showBadge ? (
         <Box
