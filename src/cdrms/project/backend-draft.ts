@@ -39,9 +39,11 @@ export function draftFromBackendApplication(app: MobileApplication): ProjectDraf
     dimensionArea:
       app.totalSiteArea != null
         ? String(app.totalSiteArea)
-        : app.siteDimensionType === 'Odd'
-          ? 'Odd shaped'
-          : '',
+        : app.siteDimension
+          ? String(app.siteDimension)
+          : app.siteDimensionType === 'Odd'
+            ? 'Odd shaped'
+            : '',
     village: app.addressArea || '',
     taluk: app.addressBlock || '',
     district: address,

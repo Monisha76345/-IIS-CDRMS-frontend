@@ -251,7 +251,7 @@ export function SplashScreen({ go }: { go: Go }) {
                     source={require('../../../assets/bda-logo.png')}
                     style={{ width: 88, height: 88 }}
                     resizeMode="contain"
-                    accessibilityLabel="Bangalore Development Authority"
+                    accessibilityLabel="BDA"
                   />
                 </Box>
               </Animated.View>
@@ -369,7 +369,7 @@ export function LoginScreen({ go }: { go: Go }) {
                       source={require('../../../assets/bda-logo.png')}
                       style={{ width: 42, height: 42 }}
                       resizeMode="contain"
-                      accessibilityLabel="Bangalore Development Authority"
+                      accessibilityLabel="BDA"
                     />
                   </Box>
                   <Pressable className="bg-white/15 px-3 py-2 rounded-full border border-white/20">

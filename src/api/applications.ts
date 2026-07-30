@@ -15,7 +15,8 @@ export type MobileApplication = {
   addressArea: string;
   addressBlock: string;
   addressPincode: string;
-  siteDimensionType: 'Regular' | 'Odd';
+  siteDimensionType: 'Even' | 'Odd' | 'Regular';
+  siteDimension?: string | null;
   siteDimensionComment?: string | null;
   scheduleNorth?: string | null;
   scheduleSouth?: string | null;
