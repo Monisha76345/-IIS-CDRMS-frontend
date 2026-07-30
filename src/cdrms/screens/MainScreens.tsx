@@ -1334,6 +1334,32 @@ export function HistoryScreen({ go }: { go: Go }) {
   const liveApps = useMemo(() => {
     const apiRows = apiTasks.map(mapTaskCard);
 
+    if (accessToken) {
+      // When authenticated with backend, live API tasks are the single source of truth.
+      // Include local draft only if it is attached to a backend task.
+      const backendDraftRow =
+        draft.status === 'draft' &&
+        draft.backendApplicationId &&
+        !apiRows.some((r) => r.id === draft.backendApplicationId)
+          ? [
+              {
+                id: draft.id,
+                project: draft.projectName.trim() || draft.applicationNumber || 'Untitled draft',
+                status: 'Draft' as string,
+                date: draft.siteNo || '—',
+                village: draft.village.trim() || '—',
+                image:
+                  draft.photos[0]?.uri ||
+                  draft.surroundingPhotos.N?.uri ||
+                  null,
+                live: true as const,
+                apiTask: false as const,
+              },
+            ]
+          : [];
+      return [...apiRows, ...backendDraftRow];
+    }
+
     const submitted = applications.map((a) => ({
       id: a.applicationId,
       project: a.projectName,
@@ -1378,9 +1404,8 @@ export function HistoryScreen({ go }: { go: Go }) {
           ]
         : [];
 
-    // Live engineer assignments + local draft only (no hardcoded sample apps).
-    return [...apiRows, ...draftRow, ...submitted];
-  }, [apiTasks, applications, draft, statusOverrides, accessToken]);
+    return [...draftRow, ...submitted];
+  }, [apiTasks, applications, draft, accessToken]);
 
   const filtered = tab === 'All' ? liveApps : liveApps.filter((a) => a.status === tab);
 
