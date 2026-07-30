@@ -11,8 +11,10 @@ import { useAuth } from '@/src/auth/AuthContext';
 import { ApiError } from '@/src/api/client';
 import {
   fetchApplication,
+  saveEngineerDraft,
   startApplicationTask,
   submitEngineerApplication,
+  type EngineerDraftInput,
 } from '@/src/api/applications';
 import { uploadMobileMedia } from '@/src/api/object-store';
 import {
@@ -25,8 +27,16 @@ import {
   type SubmittedApplication,
 } from '@/src/cdrms/project/types';
 import { draftFromBackendApplication } from '@/src/cdrms/project/backend-draft';
+import { siteDimensionToFormDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { draftFromApplicationRecord, findSampleApp } from '@/src/cdrms/data';
 import { validateDraft, validationSummary } from '@/src/cdrms/project/validation';
+
+export type BackendDraftStep =
+  | 'site'
+  | 'compass'
+  | 'dimensions'
+  | 'media'
+  | 'schedules';
 
 type ProjectField = Exclude<
   keyof ProjectDraft,
@@ -62,8 +72,14 @@ type ProjectContextValue = {
   loadApplicationForEdit: (id: string) => boolean;
   /** Open a ZC-assigned backend task (fetch + start + seed draft). */
   openBackendTask: (id: string) => Promise<void>;
+  /** Re-fetch GET /applications/:id and reseed local draft. */
+  reloadBackendDraft: () => Promise<void>;
+  /** Persist current step (or schedules) via PATCH /applications/:id/draft. */
+  persistBackendStep: (step: BackendDraftStep) => Promise<void>;
   startNewProject: () => void;
   updateField: (field: ProjectField, value: string) => void;
+  /** Even sites keep opposite sides equal (web Step 3 parity). */
+  setDimSide: (side: 'N' | 'S' | 'E' | 'W', value: string) => void;
   setGps: (
     gps: GpsFix,
     address?: Partial<Pick<ProjectDraft, 'village' | 'taluk' | 'district' | 'state'>>,
@@ -77,11 +93,33 @@ type ProjectContextValue = {
   addPhoto: (asset: MediaAsset) => void;
   removePhoto: (id: string) => void;
   setVideo: (asset: MediaAsset | null) => void;
-  saveDraft: () => void;
+  saveDraft: () => Promise<void>;
   submitApplication: () => Promise<SubmittedApplication | null>;
 };
 
 const ProjectContext = createContext<ProjectContextValue | null>(null);
+
+function isRemoteUri(uri: string) {
+  return /^https?:\/\//i.test(uri);
+}
+
+async function resolveMediaUrl(opts: {
+  token: string;
+  applicationId: string;
+  refKey: string;
+  asset: MediaAsset | null | undefined;
+  kind: 'image' | 'video';
+}): Promise<string | undefined> {
+  if (!opts.asset?.uri) return undefined;
+  if (isRemoteUri(opts.asset.uri)) return opts.asset.uri;
+  return uploadMobileMedia({
+    token: opts.token,
+    applicationId: opts.applicationId,
+    refKey: opts.refKey,
+    uri: opts.asset.uri,
+    kind: opts.kind,
+  });
+}
 
 function toSubmitted(draft: ProjectDraft, applicationId: string): SubmittedApplication {
   const directionsFilled = (['N', 'S', 'E', 'W'] as const).filter((k) =>
@@ -230,6 +268,114 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     [accessToken, user],
   );
 
+  const reloadBackendDraft = useCallback(async () => {
+    if (!accessToken || !draft.backendApplicationId) return;
+    const app = await fetchApplication(accessToken, draft.backendApplicationId);
+    setDraft(draftFromBackendApplication(app));
+  }, [accessToken, draft.backendApplicationId]);
+
+  const persistBackendStep = useCallback(
+    async (step: BackendDraftStep) => {
+      if (!accessToken || !draft.backendApplicationId) return;
+      const appId = draft.backendApplicationId;
+      const body: EngineerDraftInput = {};
+
+      if (step === 'site') {
+        body.engineerSiteDetails = draft.siteDetails.trim();
+      }
+
+      if (step === 'schedules' || step === 'dimensions') {
+        body.scheduleNorth = draft.directions.N.trim();
+        body.scheduleSouth = draft.directions.S.trim();
+        body.scheduleWest = draft.directions.W.trim();
+        body.scheduleEast = draft.directions.E.trim();
+      }
+
+      if (step === 'compass') {
+        body.compass = draft.compassReading.trim();
+        if (draft.gps) {
+          body.latitude = String(draft.gps.latitude);
+          body.longitude = String(draft.gps.longitude);
+        }
+        body.occupancy = draft.occupancy;
+        body.occupancyReason =
+          draft.occupancy === 'Occupied' ? draft.occupancyReason.trim() : '';
+        const schedulePhotoUrls: NonNullable<EngineerDraftInput['schedulePhotoUrls']> = {};
+        for (const key of ['N', 'S', 'E', 'W'] as const) {
+          const url = await resolveMediaUrl({
+            token: accessToken,
+            applicationId: appId,
+            refKey: `schedule-${key}`,
+            asset: draft.surroundingPhotos[key],
+            kind: 'image',
+          });
+          if (url) schedulePhotoUrls[key] = url;
+        }
+        if (Object.keys(schedulePhotoUrls).length > 0) {
+          body.schedulePhotoUrls = schedulePhotoUrls;
+        }
+      }
+
+      if (step === 'dimensions') {
+        body.dimNorth = draft.dimNorth.trim();
+        body.dimSouth = draft.dimSouth.trim();
+        body.dimEast = draft.dimEast.trim();
+        body.dimWest = draft.dimWest.trim();
+        body.scheduleNorth = draft.directions.N.trim();
+        body.scheduleSouth = draft.directions.S.trim();
+        body.scheduleWest = draft.directions.W.trim();
+        body.scheduleEast = draft.directions.E.trim();
+        const n = Number(draft.dimNorth);
+        const s = Number(draft.dimSouth);
+        const e = Number(draft.dimEast);
+        const w = Number(draft.dimWest);
+        if ([n, s, e, w].every((v) => Number.isFinite(v) && v > 0)) {
+          body.totalSiteArea = String(avgArea(n, s, e, w));
+        }
+      }
+
+      if (step === 'media') {
+        if (draft.photos[0]) {
+          body.selfieUrl = await resolveMediaUrl({
+            token: accessToken,
+            applicationId: appId,
+            refKey: 'selfie',
+            asset: draft.photos[0],
+            kind: 'image',
+          });
+        }
+        const photoUrls: string[] = [];
+        for (let i = 1; i < draft.photos.length && photoUrls.length < 4; i += 1) {
+          const url = await resolveMediaUrl({
+            token: accessToken,
+            applicationId: appId,
+            refKey: `photo-${photoUrls.length + 1}`,
+            asset: draft.photos[i],
+            kind: 'image',
+          });
+          if (url) photoUrls.push(url);
+        }
+        body.photoUrls = photoUrls;
+        if (draft.video) {
+          body.videoUrl = await resolveMediaUrl({
+            token: accessToken,
+            applicationId: appId,
+            refKey: 'video',
+            asset: draft.video,
+            kind: 'video',
+          });
+        }
+        if (draft.engineerComments.trim()) {
+          body.engineerComments = draft.engineerComments.trim();
+        }
+      }
+
+      await saveEngineerDraft(accessToken, appId, body);
+      touch((prev) => ({ ...prev, status: 'draft' }));
+    },
+    [accessToken, draft, touch],
+  );
+
   const startNewProject = useCallback(() => {
     setSelectedApplicationId(null);
     setDraft(createEmptyDraft());
@@ -238,6 +384,25 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const updateField = useCallback(
     (field: ProjectField, value: string) => {
       touch((prev) => ({ ...prev, [field]: value }));
+    },
+    [touch],
+  );
+
+  const setDimSide = useCallback(
+    (side: 'N' | 'S' | 'E' | 'W', value: string) => {
+      touch((prev) => {
+        const odd = prev.siteDimensionType === 'Odd';
+        if (side === 'N') {
+          return { ...prev, dimNorth: value, ...(odd ? {} : { dimSouth: value }) };
+        }
+        if (side === 'S') {
+          return { ...prev, dimSouth: value, ...(odd ? {} : { dimNorth: value }) };
+        }
+        if (side === 'E') {
+          return { ...prev, dimEast: value, ...(odd ? {} : { dimWest: value }) };
+        }
+        return { ...prev, dimWest: value, ...(odd ? {} : { dimEast: value }) };
+      });
     },
     [touch],
   );
@@ -312,7 +477,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const addPhoto = useCallback(
     (asset: MediaAsset) => {
       touch((prev) => {
-        if (prev.photos.length >= 10) return prev;
+        const max = prev.backendApplicationId ? 5 : 10;
+        if (prev.photos.length >= max) return prev;
         return { ...prev, photos: [...prev.photos, asset] };
       });
     },
@@ -336,9 +502,22 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     [touch],
   );
 
-  const saveDraft = useCallback(() => {
+  const saveDraft = useCallback(async () => {
     touch((prev) => ({ ...prev, status: 'draft' }));
-  }, [touch]);
+    if (!draft.backendApplicationId || !accessToken) return;
+    // Snapshot whatever is filled so the Save button also hits the DB.
+    await persistBackendStep('site');
+    if (draft.compassReading.trim() || draft.gps) {
+      await persistBackendStep('compass');
+    }
+    if ([draft.dimNorth, draft.dimSouth, draft.dimEast, draft.dimWest].some((v) => Number(v) > 0)) {
+      await persistBackendStep('dimensions');
+    }
+    if (draft.photos.length > 0 || draft.video || draft.engineerComments.trim()) {
+      await persistBackendStep('media');
+    }
+    await persistBackendStep('schedules');
+  }, [accessToken, draft, persistBackendStep, touch]);
 
   const submitApplication = useCallback(async (): Promise<SubmittedApplication | null> => {
     const summary = validationSummary(validateDraft(draft));
@@ -348,69 +527,96 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     if (draft.backendApplicationId && accessToken) {
       const appId = draft.backendApplicationId;
       if (!draft.gps) throw new ApiError(400, 'GPS is required');
-      if (draft.photos.length < 5) {
-        throw new ApiError(400, 'Capture selfie + 4 site photos (5 images total)');
+      if (!draft.siteDetails.trim()) {
+        throw new ApiError(400, 'Site details / observations are required');
+      }
+      if (draft.occupancy === 'Occupied' && !draft.occupancyReason.trim()) {
+        throw new ApiError(400, 'Occupancy reason is required');
+      }
+      if (!draft.engineerComments.trim()) {
+        throw new ApiError(400, 'Engineer comments are required');
+      }
+      if (draft.photos.length < 1) {
+        throw new ApiError(400, 'Engineer selfie is required');
       }
       if (!draft.video) throw new ApiError(400, 'Site video is required');
+      const missingSchedule = (['N', 'S', 'E', 'W'] as const).filter(
+        (k) => !draft.surroundingPhotos[k],
+      );
+      if (missingSchedule.length > 0) {
+        throw new ApiError(
+          400,
+          `Schedule photos required for: ${missingSchedule.join(', ')}`,
+        );
+      }
       const compass =
         draft.compassReading.trim() ||
-        draft.bandiRemarks.trim() ||
-        'Captured on site';
-      const siteDetails =
-        draft.siteDetails.trim() ||
-        draft.approachNotes.trim() ||
-        draft.landmarks.trim() ||
-        `Site ${draft.siteNo} survey`;
-      const comments =
-        draft.bandiRemarks.trim() ||
-        draft.approachNotes.trim() ||
-        siteDetails;
+        (draft.bandiVerified ? 'Verified on site' : '');
+      if (!compass) throw new ApiError(400, 'Compass reading is required');
+      const siteDetails = draft.siteDetails.trim();
+      const comments = draft.engineerComments.trim();
 
-      const selfieUrl = await uploadMobileMedia({
+      const selfieUrl = await resolveMediaUrl({
         token: accessToken,
         applicationId: appId,
         refKey: 'selfie',
-        uri: draft.photos[0].uri,
+        asset: draft.photos[0],
         kind: 'image',
       });
+      if (!selfieUrl) throw new ApiError(400, 'Engineer selfie is required');
+      // Extra site photos (after selfie) are optional — upload up to 4.
       const photoUrls: string[] = [];
-      for (let i = 1; i <= 4; i += 1) {
-        photoUrls.push(
-          await uploadMobileMedia({
-            token: accessToken,
-            applicationId: appId,
-            refKey: `photo-${i}`,
-            uri: draft.photos[i].uri,
-            kind: 'image',
-          }),
-        );
+      for (let i = 1; i < draft.photos.length && photoUrls.length < 4; i += 1) {
+        const url = await resolveMediaUrl({
+          token: accessToken,
+          applicationId: appId,
+          refKey: `photo-${photoUrls.length + 1}`,
+          asset: draft.photos[i],
+          kind: 'image',
+        });
+        if (url) photoUrls.push(url);
       }
 
-      const schedulePhotoUrls: Record<string, string> = {};
+      const schedulePhotoUrls: Record<'N' | 'S' | 'E' | 'W', string> = {
+        N: '',
+        S: '',
+        E: '',
+        W: '',
+      };
       for (const key of ['N', 'S', 'E', 'W'] as const) {
-        const asset = draft.surroundingPhotos[key];
-        if (!asset) continue;
-        schedulePhotoUrls[key] = await uploadMobileMedia({
+        const url = await resolveMediaUrl({
           token: accessToken,
           applicationId: appId,
           refKey: `schedule-${key}`,
-          uri: asset.uri,
+          asset: draft.surroundingPhotos[key],
           kind: 'image',
         });
+        if (!url) {
+          throw new ApiError(400, `Schedule photo required for ${key}`);
+        }
+        schedulePhotoUrls[key] = url;
       }
 
-      const videoUrl = await uploadMobileMedia({
+      const videoUrl = await resolveMediaUrl({
         token: accessToken,
         applicationId: appId,
         refKey: 'video',
-        uri: draft.video.uri,
+        asset: draft.video,
         kind: 'video',
       });
+      if (!videoUrl) throw new ApiError(400, 'Site video is required');
 
-      const n = Number(draft.dimNorth);
-      const s = Number(draft.dimSouth);
-      const e = Number(draft.dimEast);
-      const w = Number(draft.dimWest);
+      const fromSite = siteDimensionToFormDims(draft.dimensionArea);
+      const n = Number(draft.dimNorth) || Number(fromSite?.north) || 0;
+      const s = Number(draft.dimSouth) || Number(fromSite?.south) || 0;
+      const e = Number(draft.dimEast) || Number(fromSite?.east) || 0;
+      const w = Number(draft.dimWest) || Number(fromSite?.west) || 0;
+      if (!(n > 0 && s > 0 && e > 0 && w > 0)) {
+        throw new ApiError(
+          400,
+          'Site dimensions N/S/E/W are required (seeded from Site dimension e.g. 40*50)',
+        );
+      }
 
       await submitEngineerApplication(accessToken, appId, {
         engineerSiteDetails: siteDetails,
@@ -420,22 +626,18 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         occupancy: draft.occupancy,
         occupancyReason:
           draft.occupancy === 'Occupied' ? draft.occupancyReason.trim() || 'Occupied' : undefined,
-        dimNorth: String(Number.isFinite(n) && n > 0 ? n : 40),
-        dimSouth: String(Number.isFinite(s) && s > 0 ? s : 40),
-        dimEast: String(Number.isFinite(e) && e > 0 ? e : 30),
-        dimWest: String(Number.isFinite(w) && w > 0 ? w : 30),
-        totalSiteArea: String(
-          avgArea(
-            Number.isFinite(n) && n > 0 ? n : 40,
-            Number.isFinite(s) && s > 0 ? s : 40,
-            Number.isFinite(e) && e > 0 ? e : 30,
-            Number.isFinite(w) && w > 0 ? w : 30,
-          ),
-        ),
+        dimNorth: String(n),
+        dimSouth: String(s),
+        dimEast: String(e),
+        dimWest: String(w),
+        totalSiteArea: String(avgArea(n, s, e, w)),
         selfieUrl,
         photoUrls,
-        schedulePhotoUrls:
-          Object.keys(schedulePhotoUrls).length > 0 ? schedulePhotoUrls : undefined,
+        schedulePhotoUrls,
+        scheduleNorth: draft.directions.N.trim() || undefined,
+        scheduleSouth: draft.directions.S.trim() || undefined,
+        scheduleWest: draft.directions.W.trim() || undefined,
+        scheduleEast: draft.directions.E.trim() || undefined,
         videoUrl,
         engineerComments: comments,
       });
@@ -501,8 +703,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       clearSelectedApplication,
       loadApplicationForEdit,
       openBackendTask,
+      reloadBackendDraft,
+      persistBackendStep,
       startNewProject,
       updateField,
+      setDimSide,
       setGps,
       setBandiVerified,
       setBandiRemarks,
@@ -526,8 +731,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       clearSelectedApplication,
       loadApplicationForEdit,
       openBackendTask,
+      reloadBackendDraft,
+      persistBackendStep,
       startNewProject,
       updateField,
+      setDimSide,
       setGps,
       setBandiVerified,
       setBandiRemarks,

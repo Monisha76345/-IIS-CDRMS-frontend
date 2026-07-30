@@ -30,7 +30,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useState } from 'react';
-import { Image } from 'react-native';
+import { ActivityIndicator, Image, TextInput } from 'react-native';
 
 import { Box } from '@/components/ui/box';
 import { Checkbox, CheckboxIcon, CheckboxIndicator, CheckboxLabel } from '@/components/ui/checkbox';
@@ -41,6 +41,8 @@ import { Progress, ProgressFilledTrack } from '@/components/ui/progress';
 import { Text } from '@/components/ui/text';
 import { Textarea, TextareaInput } from '@/components/ui/textarea';
 import { VStack } from '@/components/ui/vstack';
+import { GpsSiteCard } from '@/src/cdrms/components/GpsSiteCard';
+import { EngineerStickyHeader } from '@/src/cdrms/components/EngineerStickyHeader';
 import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
 import { AppBtn, AppSheet, Field } from '@/src/cdrms/components/primitives';
 import {
@@ -50,6 +52,7 @@ import {
   WorkspaceHeader,
 } from '@/src/cdrms/components/SurveyLayout';
 import { cardinalFromHeading, useCompass } from '@/src/cdrms/hooks/useCompass';
+import { useDeviceLocation } from '@/src/cdrms/hooks/useDeviceLocation';
 import {
   capturePhoto,
   captureSelfie,
@@ -59,6 +62,7 @@ import {
 } from '@/src/cdrms/hooks/useMediaCapture';
 import { isLiveVideoBlocked } from '@/src/cdrms/device/isVirtualDevice';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
+import { alertDraftError } from '@/src/cdrms/project/draft-api';
 import {
   DIRECTION_META,
   formatCoords,
@@ -89,12 +93,35 @@ export function BandiScreen({ go }: { go: Go }) {
     setApproachNotes,
     setCompassReading,
     updateField,
+    setGps,
     saveDraft,
+    persistBackendStep,
+    reloadBackendDraft,
   } = useProject();
+  const isBackendTask = Boolean(draft.backendApplicationId);
+  const nextAfterBandi = isBackendTask ? 'dimensions' : 'surroundings';
   const compass = useCompass(true);
+  const { refresh, loading: geoBusy } = useDeviceLocation();
+  const [stepSaving, setStepSaving] = useState(false);
+  const schedulePhotosReady = (['N', 'S', 'E', 'W'] as const).every(
+    (k) => Boolean(draft.surroundingPhotos[k]),
+  );
+  const occupancyOk =
+    draft.occupancy === 'Empty' ||
+    (draft.occupancy === 'Occupied' && draft.occupancyReason.trim().length > 0);
+  const compassOk =
+    Boolean(draft.compassReading.trim()) || compass.available;
+  const canContinueBandi = isBackendTask
+    ? schedulePhotosReady && Boolean(draft.gps) && compassOk && occupancyOk
+    : draft.bandiVerified;
   const [editing, setEditing] = useState<Cardinal | null>(null);
   const [draftNote, setDraftNote] = useState('');
   const [approachOpen, setApproachOpen] = useState(false);
+  const [schedulesEditing, setSchedulesEditing] = useState(false);
+  const [scheduleDraft, setScheduleDraft] = useState({ N: '', S: '', E: '', W: '' });
+
+  const latDisplay = draft.gps ? String(draft.gps.latitude) : '';
+  const lngDisplay = draft.gps ? String(draft.gps.longitude) : '';
 
   const coords = draft.gps
     ? formatCoords(draft.gps.latitude, draft.gps.longitude)
@@ -112,6 +139,17 @@ export function BandiScreen({ go }: { go: Go }) {
     draft.approachNotes ||
     'Tap to add approach / access notes';
 
+  const recaptureGps = async () => {
+    const result = await refresh({ silent: false });
+    if (!result) return;
+    setGps(result.gps);
+  };
+
+  const syncCompassFromSensor = () => {
+    if (!compass.available) return;
+    setCompassReading(`${heading}° ${face}`);
+  };
+
   const openEdit = (k: Cardinal) => {
     setEditing(k);
     setDraftNote(draft.directions[k]);
@@ -121,6 +159,23 @@ export function BandiScreen({ go }: { go: Go }) {
     if (editing) setDirection(editing, draftNote.trim());
     setEditing(null);
     setDraftNote('');
+  };
+
+  const beginScheduleEdit = () => {
+    setScheduleDraft({
+      N: draft.directions.N,
+      S: draft.directions.S,
+      E: draft.directions.E,
+      W: draft.directions.W,
+    });
+    setSchedulesEditing(true);
+  };
+
+  const saveScheduleEdit = () => {
+    ;(['N', 'S', 'E', 'W'] as const).forEach((k) => {
+      setDirection(k, scheduleDraft[k].trim());
+    });
+    setSchedulesEditing(false);
   };
 
   const rows: Array<{
@@ -165,19 +220,44 @@ export function BandiScreen({ go }: { go: Go }) {
 
   return (
     <SurveyScaffold
-      title={TERMS.workflow.checkBandi}
-      subtitle={TERMS.workflow.checkBandiSubtitle}
-      onBack={() => go('project')}
+      title={
+        isBackendTask ? 'Step 2 — Compass & schedule' : TERMS.workflow.checkBandi
+      }
+      subtitle={
+        isBackendTask
+          ? 'Compass, GPS, occupancy & schedule photos'
+          : TERMS.workflow.checkBandiSubtitle
+      }
+      onBack={() => {
+        void (async () => {
+          if (isBackendTask) {
+            try {
+              await reloadBackendDraft();
+            } catch {
+              /* still navigate */
+            }
+          }
+          go('project');
+        })();
+      }}
       step={2}
+      total={isBackendTask ? 4 : 5}
       badge={badge}
       watermark="compass"
       footer={
         <HStack space="md" className="items-center">
           <Pressable
             onPress={() => {
-              saveDraft();
-              go('draft');
+              void (async () => {
+                try {
+                  await saveDraft();
+                  go('draft');
+                } catch (err) {
+                  alertDraftError(err);
+                }
+              })();
             }}
+            disabled={stepSaving}
             className="h-14 w-14 rounded-2xl items-center justify-center active:opacity-85"
             style={{
               backgroundColor: '#FFFFFF',
@@ -188,20 +268,39 @@ export function BandiScreen({ go }: { go: Go }) {
               shadowOpacity: 0.12,
               shadowRadius: 12,
               elevation: 3,
+              opacity: stepSaving ? 0.5 : 1,
             }}
           >
             <Save size={20} color={COLORS.primary} strokeWidth={2.2} />
           </Pressable>
           <Pressable
-            disabled={!draft.bandiVerified}
-            onPress={() => go('surroundings')}
+            disabled={!canContinueBandi || stepSaving}
+            onPress={() => {
+              void (async () => {
+                if (isBackendTask && !schedulePhotosReady) return;
+                if (isBackendTask) {
+                  if (!draft.compassReading.trim()) syncCompassFromSensor();
+                  if (!draft.bandiVerified) setBandiVerified(true);
+                  setStepSaving(true);
+                  try {
+                    await persistBackendStep('compass');
+                  } catch (err) {
+                    alertDraftError(err);
+                    setStepSaving(false);
+                    return;
+                  }
+                  setStepSaving(false);
+                }
+                go(nextAfterBandi);
+              })();
+            }}
             className={`flex-1 h-14 rounded-2xl overflow-hidden ${
-              draft.bandiVerified ? 'active:opacity-90' : 'opacity-45'
+              canContinueBandi && !stepSaving ? 'active:opacity-90' : 'opacity-45'
             }`}
             style={{
               shadowColor: '#1D4ED8',
               shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: draft.bandiVerified ? 0.35 : 0.1,
+              shadowOpacity: canContinueBandi ? 0.35 : 0.1,
               shadowRadius: 16,
               elevation: 6,
             }}
@@ -220,7 +319,19 @@ export function BandiScreen({ go }: { go: Go }) {
               }}
             >
               <Text className="text-[15px] font-extrabold text-white tracking-wide">
-                {TERMS.workflow.continueToSurroundings}
+                {isBackendTask
+                  ? stepSaving
+                    ? 'Saving…'
+                    : !draft.gps
+                      ? 'Capture GPS first'
+                      : !compassOk
+                        ? 'Capture compass reading'
+                        : !occupancyOk
+                          ? 'Complete occupancy'
+                          : !schedulePhotosReady
+                            ? 'Add all 4 schedule photos'
+                            : 'Continue to Dimensions'
+                  : TERMS.workflow.continueToSurroundings}
               </Text>
               <ArrowRight size={18} color="#fff" strokeWidth={2.5} />
             </LinearGradient>
@@ -229,10 +340,12 @@ export function BandiScreen({ go }: { go: Go }) {
       }
           go={go}
     >
+      {isBackendTask ? <EngineerStickyHeader /> : null}
+
       <SurveyCard>
         <WorkspaceHeader
           icon={Compass}
-          title={TERMS.sections.boundaryCompass}
+          title={isBackendTask ? 'Live compass *' : TERMS.sections.boundaryCompass}
           subtitle={
             compass.available
               ? `Facing ${face} · magnetic heading`
@@ -343,66 +456,337 @@ export function BandiScreen({ go }: { go: Go }) {
               {compass.available ? `facing ${face}` : 'waiting for sensor'}
             </Text>
           </Box>
+
+          {isBackendTask && compass.available ? (
+            <Pressable
+              onPress={syncCompassFromSensor}
+              className="mt-3 active:opacity-80"
+              style={{
+                height: 36,
+                paddingHorizontal: 14,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: '#BFDBFE',
+                backgroundColor: '#EFF6FF',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '800', color: '#2563EB' }}>
+                Save live reading
+                {draft.compassReading.trim() ? ` · ${draft.compassReading}` : ''}
+              </Text>
+            </Pressable>
+          ) : null}
         </VStack>
       </SurveyCard>
 
-      <SurveyCard>
-        <VStack className="px-[18px] py-5" space="sm">
-          <SectionTitle
-            title={TERMS.sections.siteMatchDetails}
-            subtitle="Matched from site particulars and live GPS"
-            accent="#0F766E"
+      {isBackendTask ? (
+        <SurveyCard>
+          <WorkspaceHeader
+            icon={Compass}
+            title="Compass, GPS & occupancy"
+            subtitle="Required before dimensions"
+            stepLabel="STEP 02"
           />
-          {rows.map((r, i) => {
-            const Icon = r.icon;
-            return (
-              <HStack
-                key={r.label}
-                className={`items-center gap-3 ${
-                  i > 0 ? 'pt-3.5 mt-0.5 border-t border-border' : 'pt-1'
-                }`}
+          <VStack space="md" className="px-[14px] pb-5">
+            <Field
+              label="Compass *"
+              value={draft.compassReading}
+              onChangeText={(t) => setCompassReading(t)}
+              placeholder="e.g. 42° NE"
+              endAdornment={
+                compass.available ? (
+                  <Pressable onPress={syncCompassFromSensor} className="active:opacity-80 px-1">
+                    <Text className="text-[11px] font-extrabold" style={{ color: '#2563EB' }}>
+                      Use live
+                    </Text>
+                  </Pressable>
+                ) : null
+              }
+            />
+
+            <Text className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+              Occupancy *
+            </Text>
+            <HStack space="sm">
+              {(['Empty', 'Occupied'] as const).map((opt) => {
+                const on = draft.occupancy === opt;
+                return (
+                  <Pressable
+                    key={opt}
+                    onPress={() => updateField('occupancy', opt)}
+                    className="flex-1 active:opacity-90"
+                    style={{
+                      borderRadius: 14,
+                      borderWidth: 1.5,
+                      borderColor: on ? '#2563EB' : '#E2E8F0',
+                      backgroundColor: on ? '#EFF6FF' : '#FFFFFF',
+                      paddingVertical: 12,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: '800',
+                        color: on ? '#1D4ED8' : '#64748B',
+                      }}
+                    >
+                      {opt}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </HStack>
+            {draft.occupancy === 'Occupied' ? (
+              <Field
+                label="Occupied reason *"
+                value={draft.occupancyReason}
+                onChangeText={(t) => updateField('occupancyReason', t)}
+                placeholder="Why is the site occupied?"
+                multiline
+                numberOfLines={2}
+                style={{ minHeight: 64, textAlignVertical: 'top' }}
+              />
+            ) : null}
+
+            <HStack space="sm">
+              <Box className="flex-1">
+                <Field
+                  label="Latitude (auto)"
+                  value={latDisplay}
+                  editable={false}
+                  placeholder="Capture GPS"
+                />
+              </Box>
+              <Box className="flex-1">
+                <Field
+                  label="Longitude (auto)"
+                  value={lngDisplay}
+                  editable={false}
+                  placeholder="Capture GPS"
+                />
+              </Box>
+            </HStack>
+
+            <Pressable
+              onPress={() => void recaptureGps()}
+              disabled={geoBusy}
+              className="active:opacity-90"
+              style={{
+                height: 44,
+                borderRadius: 12,
+                borderWidth: 1.5,
+                borderColor: '#BFDBFE',
+                backgroundColor: '#EFF6FF',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                opacity: geoBusy ? 0.6 : 1,
+              }}
+            >
+              {geoBusy ? (
+                <ActivityIndicator size="small" color="#2563EB" />
+              ) : (
+                <MapPin size={16} color="#2563EB" strokeWidth={2.4} />
+              )}
+              <Text style={{ fontSize: 13, fontWeight: '800', color: '#1D4ED8' }}>
+                {geoBusy ? 'Capturing…' : 'Recapture GPS'}
+              </Text>
+            </Pressable>
+
+            <Text className="text-[10px] font-extrabold uppercase tracking-wider text-[#1d4ed8]">
+              Site map
+            </Text>
+            <GpsSiteCard
+              height={220}
+              variant="padded"
+              gps={draft.gps}
+              villageLabel={draft.village || draft.addressArea || undefined}
+              syNo={draft.siteNo || draft.surveyNo || undefined}
+              layoutName={draft.addressBlock || draft.zoneCode || undefined}
+              refreshing={geoBusy}
+              onRefresh={() => void recaptureGps()}
+              liveMap
+              allowMapGestures={false}
+            />
+            <Text className="text-[11px] text-slate-500">
+              Map pin shows Sy No, village and layout at the captured GPS.
+            </Text>
+          </VStack>
+        </SurveyCard>
+      ) : (
+        <SurveyCard>
+          <VStack className="px-[18px] py-5" space="sm">
+            <SectionTitle
+              title={TERMS.sections.siteMatchDetails}
+              subtitle="Matched from site particulars and live GPS"
+              accent="#0F766E"
+            />
+            {rows.map((r, i) => {
+              const Icon = r.icon;
+              return (
+                <HStack
+                  key={r.label}
+                  className={`items-center gap-3 ${
+                    i > 0 ? 'pt-3.5 mt-0.5 border-t border-border' : 'pt-1'
+                  }`}
+                >
+                  <Box
+                    className="items-center justify-center"
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 12,
+                      backgroundColor: r.iconBg,
+                    }}
+                  >
+                    <Icon size={18} color={r.iconColor} strokeWidth={2.3} />
+                  </Box>
+                  <VStack className="flex-1 min-w-0">
+                    <Text
+                      className="text-[10px] uppercase font-extrabold tracking-wider"
+                      style={{ color: '#94A3B8' }}
+                    >
+                      {r.label}
+                    </Text>
+                    <Text
+                      className="font-bold text-[13px] text-foreground mt-0.5"
+                      numberOfLines={2}
+                    >
+                      {r.val}
+                    </Text>
+                  </VStack>
+                  {r.ok ? (
+                    <Box
+                      className="h-9 w-9 rounded-full items-center justify-center"
+                      style={{ backgroundColor: '#D1FAE5' }}
+                    >
+                      <CheckCircle2 size={18} color="#059669" strokeWidth={2.2} />
+                    </Box>
+                  ) : (
+                    <Box className="h-9 w-9" />
+                  )}
+                </HStack>
+              );
+            })}
+          </VStack>
+        </SurveyCard>
+      )}
+
+      {!isBackendTask ? (
+        <SurveyCard>
+          <VStack className="px-[18px] py-4" space="sm">
+            <HStack className="items-center justify-between">
+              <VStack className="flex-1 min-w-0 pr-2">
+                <Text className="text-[15px] font-extrabold" style={{ color: '#0F172A' }}>
+                  Schedules (site around)
+                </Text>
+                <Text className="text-[11px] mt-0.5" style={{ color: '#94A3B8' }}>
+                  Prefills from ZC — tap Edit to update
+                </Text>
+              </VStack>
+              <Pressable
+                onPress={() => (schedulesEditing ? saveScheduleEdit() : beginScheduleEdit())}
+                className="active:opacity-80"
+                style={{
+                  height: 34,
+                  paddingHorizontal: 12,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: '#BFDBFE',
+                  backgroundColor: schedulesEditing ? '#2563EB' : '#EFF6FF',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
               >
-                <Box
-                  className="items-center justify-center"
+                {schedulesEditing ? (
+                  <Check size={14} color="#FFFFFF" strokeWidth={2.5} />
+                ) : (
+                  <Edit3 size={14} color="#2563EB" strokeWidth={2.5} />
+                )}
+                <Text
                   style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    backgroundColor: r.iconBg,
+                    fontSize: 12,
+                    fontWeight: '800',
+                    color: schedulesEditing ? '#FFFFFF' : '#2563EB',
                   }}
                 >
-                  <Icon size={18} color={r.iconColor} strokeWidth={2.3} />
-                </Box>
-                <VStack className="flex-1 min-w-0">
-                  <Text
-                    className="text-[10px] uppercase font-extrabold tracking-wider"
-                    style={{ color: '#94A3B8' }}
-                  >
-                    {r.label}
-                  </Text>
-                  <Text
-                    className="font-bold text-[13px] text-foreground mt-0.5"
-                    numberOfLines={2}
-                  >
-                    {r.val}
-                  </Text>
-                </VStack>
-                {r.ok ? (
-                  <Box
-                    className="h-9 w-9 rounded-full items-center justify-center"
-                    style={{ backgroundColor: '#D1FAE5' }}
-                  >
-                    <CheckCircle2 size={18} color="#059669" strokeWidth={2.2} />
-                  </Box>
-                ) : (
-                  <Box className="h-9 w-9" />
-                )}
-              </HStack>
-            );
-          })}
-        </VStack>
-      </SurveyCard>
+                  {schedulesEditing ? 'Done' : 'Edit'}
+                </Text>
+              </Pressable>
+            </HStack>
 
+            {CARDINALS.map((k) => {
+              const meta = DIRECTION_META[k];
+              const value = schedulesEditing ? scheduleDraft[k] : draft.directions[k];
+              return (
+                <VStack key={`sched-${k}`} space="xs">
+                  <Text
+                    className="text-[10px] font-extrabold uppercase tracking-wider"
+                    style={{ color: meta.color }}
+                  >
+                    Schedule {k} · {meta.label}
+                  </Text>
+                  {schedulesEditing ? (
+                    <TextInput
+                      value={value}
+                      onChangeText={(t) => setScheduleDraft((d) => ({ ...d, [k]: t }))}
+                      placeholder={`What is on the ${meta.label.toLowerCase()} side?`}
+                      placeholderTextColor="#94A3B8"
+                      style={{
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: '#BFDBFE',
+                        backgroundColor: '#FFFFFF',
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                        fontSize: 13,
+                        fontWeight: '700',
+                        color: '#0F172A',
+                      }}
+                    />
+                  ) : (
+                    <Box
+                      style={{
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: '#E5E7EB',
+                        backgroundColor: '#F8FAFC',
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          fontWeight: '700',
+                          color: value ? '#0F172A' : '#94A3B8',
+                        }}
+                      >
+                        {value || '—'}
+                      </Text>
+                    </Box>
+                  )}
+                </VStack>
+              );
+            })}
+          </VStack>
+        </SurveyCard>
+      ) : null}
+
+      <Box className="mx-4 mb-1">
+        <Text className="text-[15px] font-extrabold" style={{ color: '#0F172A' }}>
+          Schedule photos *
+        </Text>
+        <Text className="text-[11px] mt-0.5" style={{ color: '#94A3B8' }}>
+          All four sides (N / S / E / W) are mandatory
+          {isBackendTask ? ` · ${(['N', 'S', 'E', 'W'] as const).filter((k) => draft.surroundingPhotos[k]).length}/4` : ''}
+        </Text>
+      </Box>
       <Box className="mx-4 flex-row flex-wrap justify-between" style={{ gap: 12 }}>
         {CARDINALS.map((k) => {
           const meta = DIRECTION_META[k];
@@ -496,6 +880,8 @@ export function BandiScreen({ go }: { go: Go }) {
         })}
       </Box>
 
+      {!isBackendTask ? (
+      <>
       <Pressable
         onPress={() => setApproachOpen(true)}
         className="mx-4 active:opacity-90"
@@ -622,6 +1008,8 @@ export function BandiScreen({ go }: { go: Go }) {
           </Checkbox>
         </HStack>
       </Box>
+      </>
+      ) : null}
 
       <AppSheet
         open={editing != null}
@@ -907,8 +1295,13 @@ export function SurroundingsScreen({ go }: { go: Go }) {
 }
 
 export function PhotosScreen({ go }: { go: Go }) {
-  const { draft, addPhoto, removePhoto } = useProject();
+  const { draft, addPhoto, removePhoto, updateField, persistBackendStep, reloadBackendDraft } =
+    useProject();
   const [sheet, setSheet] = useState(false);
+  const [stepSaving, setStepSaving] = useState(false);
+  const isBackendTask = Boolean(draft.backendApplicationId);
+  const maxPhotos = isBackendTask ? 5 : 10;
+  const backScreen = isBackendTask ? 'dimensions' : 'surroundings';
 
   const take = async (mode: 'camera' | 'gallery') => {
     // Close the sheet first — iOS cannot present the picker over another Modal.
@@ -926,22 +1319,59 @@ export function PhotosScreen({ go }: { go: Go }) {
 
   return (
     <SurveyScaffold
-      title="Upload Photographs"
-      subtitle={TERMS.workflow.photosSubtitle}
-      onBack={() => go('surroundings')}
+      title={isBackendTask ? 'Step 4 — Media & submit' : 'Upload Photographs'}
+      subtitle={
+        isBackendTask
+          ? 'Selfie mandatory · extra site photos optional · then video required'
+          : TERMS.workflow.photosSubtitle
+      }
+      onBack={() => {
+        void (async () => {
+          if (isBackendTask) {
+            try {
+              await reloadBackendDraft();
+            } catch {
+              /* still navigate */
+            }
+          }
+          go(backScreen);
+        })();
+      }}
       step={4}
-      badge={`${draft.photos.length} of 10`}
+      total={isBackendTask ? 4 : 5}
+      badge={`${draft.photos.length} of ${maxPhotos}`}
       footer={
         <AppBtn
-          onPress={() => go('video')}
+          onPress={() => {
+            void (async () => {
+              if (isBackendTask) {
+                setStepSaving(true);
+                try {
+                  await persistBackendStep('media');
+                } catch (err) {
+                  alertDraftError(err);
+                  setStepSaving(false);
+                  return;
+                }
+                setStepSaving(false);
+              }
+              go('video');
+            })();
+          }}
           icon={ArrowRight}
-          disabled={draft.photos.length < 1}
+          disabled={
+            stepSaving ||
+            draft.photos.length < 1 ||
+            (isBackendTask && !draft.engineerComments.trim())
+          }
         >
-          {TERMS.workflow.continueToVideo}
+          {stepSaving ? 'Saving…' : TERMS.workflow.continueToVideo}
         </AppBtn>
       }
           go={go}
     >
+      {isBackendTask ? <EngineerStickyHeader /> : null}
+
       <SurveyCard>
         <WorkspaceHeader
           icon={ImageIcon}
@@ -955,16 +1385,18 @@ export function PhotosScreen({ go }: { go: Go }) {
             <VStack>
               <Text className="text-sm font-extrabold text-foreground">Uploaded assets</Text>
               <Text className="text-xs text-muted-foreground">
-                {draft.photos.length} photo{draft.photos.length === 1 ? '' : 's'} ready
+                {draft.photos.length === 0
+                  ? 'Add selfie first'
+                  : `${draft.photos.length} photo${draft.photos.length === 1 ? '' : 's'} ready`}
               </Text>
             </VStack>
             <Pressable
               onPress={() => setSheet(true)}
-              disabled={draft.photos.length >= 10}
+              disabled={draft.photos.length >= maxPhotos}
               className="h-11 px-4 rounded-2xl flex-row items-center gap-1.5"
               style={{
                 backgroundColor: '#2563EB',
-                opacity: draft.photos.length >= 10 ? 0.5 : 1,
+                opacity: draft.photos.length >= maxPhotos ? 0.5 : 1,
                 shadowColor: '#2563EB',
                 shadowOpacity: 0.35,
                 shadowRadius: 10,
@@ -995,7 +1427,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                 </Box>
               </Box>
             ))}
-            {draft.photos.length < 10 ? (
+            {draft.photos.length < maxPhotos ? (
               <Pressable
                 onPress={() => setSheet(true)}
                 className="rounded-2xl items-center justify-center"
@@ -1014,6 +1446,24 @@ export function PhotosScreen({ go }: { go: Go }) {
           </Box>
         </Box>
       </SurveyCard>
+
+      {isBackendTask ? (
+        <SurveyCard>
+          <VStack className="px-[18px] py-4" space="sm">
+            <Text className="text-[15px] font-extrabold text-foreground">Engineer comments *</Text>
+            <Text className="text-[11px] text-muted-foreground">
+              Required — same as web Step 4 before submit
+            </Text>
+            <Textarea>
+              <TextareaInput
+                value={draft.engineerComments}
+                onChangeText={(t) => updateField('engineerComments', t)}
+                placeholder="Enter field remarks / comments…"
+              />
+            </Textarea>
+          </VStack>
+        </SurveyCard>
+      ) : null}
 
       {draft.photos.length > 0 ? (
         <SurveyCard>
@@ -1058,8 +1508,8 @@ export function PhotosScreen({ go }: { go: Go }) {
         </HStack>
         <Text className="mt-4 text-[11px] text-muted-foreground text-center">
           {draft.photos.length === 0
-            ? 'Selfie uses front camera. On Simulator: I/O → Camera → MacBook camera first.'
-            : 'Photos stay on this device until you submit the application.'}
+            ? 'Selfie is required (front camera). Extra site photos are optional.'
+            : 'Selfie done. Extra site photos are optional — continue when ready.'}
         </Text>
       </AppSheet>
     </SurveyScaffold>
@@ -1075,9 +1525,11 @@ function formatDuration(ms?: number | null) {
 }
 
 export function VideoScreen({ go }: { go: Go }) {
-  const { draft, setVideo, saveDraft } = useProject();
+  const { draft, setVideo, saveDraft, persistBackendStep, reloadBackendDraft } = useProject();
   const [busy, setBusy] = useState<'record' | 'choose' | null>(null);
+  const [stepSaving, setStepSaving] = useState(false);
   const videoPickOnly = isLiveVideoBlocked();
+  const isBackendTask = Boolean(draft.backendApplicationId);
 
   const record = async () => {
     if (busy) return;
@@ -1113,19 +1565,42 @@ export function VideoScreen({ go }: { go: Go }) {
 
   return (
     <SurveyScaffold
-      title="Upload Inspection Video"
-      subtitle={TERMS.workflow.videoSubtitle}
-      onBack={() => go('photos')}
-      step={5}
+      title={isBackendTask ? 'Step 4 — Media & submit' : 'Upload Inspection Video'}
+      subtitle={
+        isBackendTask
+          ? 'Site video required before validation'
+          : TERMS.workflow.videoSubtitle
+      }
+      onBack={() => {
+        void (async () => {
+          if (isBackendTask) {
+            try {
+              await reloadBackendDraft();
+            } catch {
+              /* still navigate */
+            }
+          }
+          go('photos');
+        })();
+      }}
+      step={isBackendTask ? 4 : 5}
+      total={isBackendTask ? 4 : 5}
       badge="Final step"
       footer={
         <VStack space="sm">
           <HStack space="md" className="items-center">
             <Pressable
               onPress={() => {
-                saveDraft();
-                go('draft');
+                void (async () => {
+                  try {
+                    await saveDraft();
+                    go('draft');
+                  } catch (err) {
+                    alertDraftError(err);
+                  }
+                })();
               }}
+              disabled={stepSaving}
               className="h-14 w-14 rounded-2xl items-center justify-center active:opacity-85"
               style={{
                 backgroundColor: '#FFFFFF',
@@ -1136,12 +1611,29 @@ export function VideoScreen({ go }: { go: Go }) {
                 shadowOpacity: 0.12,
                 shadowRadius: 12,
                 elevation: 3,
+                opacity: stepSaving ? 0.5 : 1,
               }}
             >
               <Save size={20} color={COLORS.primary} strokeWidth={2.2} />
             </Pressable>
             <Pressable
-              onPress={() => go('validate')}
+              onPress={() => {
+                void (async () => {
+                  if (isBackendTask) {
+                    setStepSaving(true);
+                    try {
+                      await persistBackendStep('media');
+                    } catch (err) {
+                      alertDraftError(err);
+                      setStepSaving(false);
+                      return;
+                    }
+                    setStepSaving(false);
+                  }
+                  go('validate');
+                })();
+              }}
+              disabled={stepSaving || (isBackendTask && !draft.video)}
               className="flex-1 h-14 rounded-2xl overflow-hidden active:opacity-90"
               style={{
                 shadowColor: '#1D4ED8',
@@ -1149,6 +1641,7 @@ export function VideoScreen({ go }: { go: Go }) {
                 shadowOpacity: 0.35,
                 shadowRadius: 16,
                 elevation: 6,
+                opacity: stepSaving || (isBackendTask && !draft.video) ? 0.45 : 1,
               }}
             >
               <LinearGradient
@@ -1182,12 +1675,14 @@ export function VideoScreen({ go }: { go: Go }) {
       }
           go={go}
     >
+      {isBackendTask ? <EngineerStickyHeader /> : null}
+
       <SurveyCard>
         <WorkspaceHeader
           icon={Camera}
           title={TERMS.sections.walkthroughVideo}
           subtitle="HD recording · on device"
-          stepLabel="STEP 05"
+          stepLabel={isBackendTask ? 'STEP 04' : 'STEP 05'}
           iconBg="#2563EB"
         />
         <Box className="px-[18px] pb-5">

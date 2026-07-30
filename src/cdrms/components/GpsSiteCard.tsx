@@ -37,6 +37,9 @@ type Props = {
   variant?: 'padded' | 'embed' | 'bleed' | 'inset';
   gps?: GpsFix | null;
   villageLabel?: string;
+  /** Shown on map callout card */
+  syNo?: string | null;
+  layoutName?: string | null;
   refreshing?: boolean;
   onRefresh?: () => void;
   /** Show the real map (default true). */
@@ -60,6 +63,8 @@ export function GpsSiteCard({
   variant = 'padded',
   gps,
   villageLabel,
+  syNo,
+  layoutName,
   refreshing = false,
   onRefresh,
   liveMap = true,
@@ -72,6 +77,7 @@ export function GpsSiteCard({
   const accuracy =
     gps?.accuracy != null ? `±${Math.round(gps.accuracy)}m` : gps ? 'GPS' : 'Waiting';
   const place = villageLabel || KARNATAKA.site.village;
+  const showSiteCallout = Boolean(syNo || villageLabel || layoutName);
 
   const [delta, setDelta] = useState<number>(SITE_REGION.latitudeDelta);
   const [expanded, setExpanded] = useState(false);
@@ -225,6 +231,51 @@ export function GpsSiteCard({
             ) : null}
           </Box>
         </Box>
+
+        {showSiteCallout ? (
+          <Box
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: 10,
+              right: 56,
+              bottom: 10,
+              zIndex: 20,
+              borderRadius: 14,
+              backgroundColor: 'rgba(255,255,255,0.96)',
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              shadowColor: '#0F172A',
+              shadowOpacity: 0.12,
+              shadowRadius: 10,
+              shadowOffset: { width: 0, height: 4 },
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 9,
+                fontWeight: '800',
+                color: '#2563EB',
+                letterSpacing: 1.2,
+                textTransform: 'uppercase',
+                marginBottom: 6,
+              }}
+            >
+              Site location
+            </Text>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#0F172A' }}>
+              Sy No: {syNo?.trim() || '—'}
+            </Text>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#334155', marginTop: 2 }}>
+              Village: {place || '—'}
+            </Text>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#334155', marginTop: 2 }}>
+              Layout: {layoutName?.trim() || '—'}
+            </Text>
+          </Box>
+        ) : null}
       </Box>
 
       <Box className="mt-3.5 flex-row items-center justify-between px-0.5">

@@ -25,6 +25,8 @@ import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { GpsSiteCard } from '@/src/cdrms/components/GpsSiteCard';
+import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
+import { EngineerStickyHeader } from '@/src/cdrms/components/EngineerStickyHeader';
 import { AppBtn, Field } from '@/src/cdrms/components/primitives';
 import {
   SectionTitle,
@@ -34,6 +36,8 @@ import {
 } from '@/src/cdrms/components/SurveyLayout';
 import { useDeviceLocation } from '@/src/cdrms/hooks/useDeviceLocation';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
+import { alertDraftError } from '@/src/cdrms/project/draft-api';
+import { siteDimensionToFormDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { TERMS } from '@/src/cdrms/terminology';
 import { COLORS } from '@/src/cdrms/theme';
 import type { Go } from '@/src/cdrms/types';
@@ -225,11 +229,13 @@ function SiteLoadingCards() {
 }
 
 export function ProjectScreen({ go }: { go: Go }) {
-  const { draft, updateField, setGps, saveDraft } = useProject();
+  const { draft, updateField, setDimSide, setGps, saveDraft, persistBackendStep, reloadBackendDraft } =
+    useProject();
   const { refresh, loading } = useDeviceLocation();
   const autoStarted = useRef(false);
   const isResubmit = Boolean(draft.resubmitOfId);
   const isBackendTask = Boolean(draft.backendApplicationId);
+  const [stepSaving, setStepSaving] = useState(false);
   // Keep loader up until GPS + auto-filled fields are written — not just while GPS fetches.
   const willAutoFill = !isResubmit && !isBackendTask && !draft.surveyNo.trim();
   const [filling, setFilling] = useState(willAutoFill);
@@ -279,20 +285,32 @@ export function ProjectScreen({ go }: { go: Go }) {
     <SurveyScaffold
       title={
         isBackendTask
-          ? draft.applicationNumber || 'Assigned task'
+          ? 'Step 1 — Observations'
           : isResubmit
-            ? TERMS.workflow.formResubmit
+            ? TERMS.workflow.fixResubmit
             : TERMS.workflow.newApplication
       }
       subtitle={
         isBackendTask
-          ? `ZC ${draft.createdByZcName || '-'} · Zone ${draft.zoneCode || '-'} · Site ${draft.siteNo}`
+          ? 'Zonal Commissioner details, schedules & observations'
           : isResubmit
-            ? TERMS.workflow.formResubmitSubtitle
+            ? TERMS.workflow.fixResubmitSubtitle
             : TERMS.workflow.newApplicationSubtitle
       }
-      onBack={() => go(isResubmit || isBackendTask ? 'history' : 'dashboard')}
+      onBack={() => {
+        void (async () => {
+          if (isBackendTask) {
+            try {
+              await reloadBackendDraft();
+            } catch {
+              /* still leave */
+            }
+          }
+          go(isResubmit || isBackendTask ? 'history' : 'dashboard');
+        })();
+      }}
       step={1}
+      total={isBackendTask ? 4 : 5}
       badge={
         isBackendTask
           ? 'ZC task'
@@ -308,10 +326,16 @@ export function ProjectScreen({ go }: { go: Go }) {
         <HStack space="md" className="items-center">
           <Pressable
             onPress={() => {
-              saveDraft();
-              go('draft');
+              void (async () => {
+                try {
+                  await saveDraft();
+                  go('draft');
+                } catch (err) {
+                  alertDraftError(err);
+                }
+              })();
             }}
-            disabled={showLoader}
+            disabled={showLoader || stepSaving}
             className="h-14 w-14 rounded-2xl items-center justify-center active:opacity-80"
             style={{
               backgroundColor: '#FFFFFF',
@@ -322,19 +346,42 @@ export function ProjectScreen({ go }: { go: Go }) {
               shadowOpacity: 0.1,
               shadowRadius: 10,
               elevation: 3,
-              opacity: showLoader ? 0.5 : 1,
+              opacity: showLoader || stepSaving ? 0.5 : 1,
             }}
           >
             <Save size={20} color={COLORS.primary} />
           </Pressable>
           <Box className="flex-1">
             <AppBtn
-              onPress={() => go('bandi')}
+              onPress={() => {
+                void (async () => {
+                  if (isBackendTask) {
+                    setStepSaving(true);
+                    try {
+                      await persistBackendStep('site');
+                    } catch (err) {
+                      alertDraftError(err);
+                      setStepSaving(false);
+                      return;
+                    }
+                    setStepSaving(false);
+                  }
+                  go('bandi');
+                })();
+              }}
               icon={ArrowRight}
               className="h-14 rounded-2xl"
-              disabled={showLoader}
+              disabled={
+                showLoader ||
+                stepSaving ||
+                (isBackendTask && !draft.siteDetails.trim())
+              }
             >
-              {TERMS.workflow.continueToCheckBandi}
+              {isBackendTask
+                ? stepSaving
+                  ? 'Saving…'
+                  : 'Continue to Compass & schedule'
+                : TERMS.workflow.continueToCheckBandi}
             </AppBtn>
           </Box>
         </HStack>
@@ -362,6 +409,30 @@ export function ProjectScreen({ go }: { go: Go }) {
 
       {showLoader ? (
         <SiteLoadingCards />
+      ) : isBackendTask ? (
+        <Animated.View entering={FadeInUp.duration(420)} style={{ gap: 14 }}>
+          <EngineerStickyHeader />
+          <SurveyCard>
+            <WorkspaceHeader
+              icon={UserRound}
+              title="Step 1 — Observations"
+              subtitle="Observations (required)"
+              stepLabel="STEP 01"
+              iconBg="#2563EB"
+            />
+            <VStack space="md" className="px-[14px] pb-5">
+              <Field
+                label="Observations *"
+                value={draft.siteDetails}
+                onChangeText={(t) => updateField('siteDetails', t)}
+                placeholder="Describe site condition / observations"
+                multiline
+                numberOfLines={5}
+                style={{ minHeight: 120, textAlignVertical: 'top' }}
+              />
+            </VStack>
+          </SurveyCard>
+        </Animated.View>
       ) : (
         <Animated.View entering={FadeInUp.duration(420)} style={{ gap: 14 }}>
           <SurveyCard>
@@ -377,10 +448,12 @@ export function ProjectScreen({ go }: { go: Go }) {
               iconBg="#0F766E"
             />
             <GpsSiteCard
-              height={200}
+              height={220}
               variant="padded"
               gps={draft.gps}
-              villageLabel={draft.village || undefined}
+              villageLabel={draft.village || draft.addressArea || undefined}
+              syNo={draft.siteNo || draft.surveyNo || undefined}
+              layoutName={draft.addressBlock || draft.zoneCode || undefined}
               refreshing={loading}
               onRefresh={() => void applyLocation(false)}
               liveMap
@@ -449,8 +522,16 @@ export function ProjectScreen({ go }: { go: Go }) {
                     label={TERMS.fields.dimensionArea}
                     icon={Ruler}
                     value={draft.dimensionArea}
-                    onChangeText={(t) => updateField('dimensionArea', t)}
-                    placeholder="e.g. 1,240 sqm"
+                    onChangeText={(t) => {
+                      updateField('dimensionArea', t);
+                      const parsed = siteDimensionToFormDims(t);
+                      if (!parsed) return;
+                      updateField('dimNorth', parsed.north);
+                      updateField('dimSouth', parsed.south);
+                      updateField('dimEast', parsed.east);
+                      updateField('dimWest', parsed.west);
+                    }}
+                    placeholder="e.g. 40*50"
                   />
                 </Box>
                 <Box className="flex-1">
@@ -462,6 +543,68 @@ export function ProjectScreen({ go }: { go: Go }) {
                   />
                 </Box>
               </HStack>
+
+              <SectionTitle
+                title="Site dimensions (N / S / E / W)"
+                subtitle={
+                  draft.dimensionArea
+                    ? `Prefills from ${draft.dimensionArea} — same as Boundaries`
+                    : 'Enter Site dimension (e.g. 40*50) or edit sides below'
+                }
+                accent="#2563EB"
+              />
+              <HStack space="sm">
+                <Box className="flex-1">
+                  <Field
+                    label="North"
+                    value={draft.dimNorth}
+                    onChangeText={(t) => setDimSide('N', t)}
+                    placeholder="N"
+                    keyboardType="decimal-pad"
+                  />
+                </Box>
+                <Box className="flex-1">
+                  <Field
+                    label="South"
+                    value={draft.dimSouth}
+                    onChangeText={(t) => setDimSide('S', t)}
+                    placeholder="S"
+                    keyboardType="decimal-pad"
+                  />
+                </Box>
+              </HStack>
+              <HStack space="sm">
+                <Box className="flex-1">
+                  <Field
+                    label="East"
+                    value={draft.dimEast}
+                    onChangeText={(t) => setDimSide('E', t)}
+                    placeholder="E"
+                    keyboardType="decimal-pad"
+                  />
+                </Box>
+                <Box className="flex-1">
+                  <Field
+                    label="West"
+                    value={draft.dimWest}
+                    onChangeText={(t) => setDimSide('W', t)}
+                    placeholder="W"
+                    keyboardType="decimal-pad"
+                  />
+                </Box>
+              </HStack>
+              <BoundariesDiagram
+                north={Number(draft.dimNorth) || 0}
+                south={Number(draft.dimSouth) || 0}
+                east={Number(draft.dimEast) || 0}
+                west={Number(draft.dimWest) || 0}
+                odd={false}
+                siteNo={draft.siteNo || draft.surveyNo}
+                scheduleNorth={draft.directions.N}
+                scheduleSouth={draft.directions.S}
+                scheduleEast={draft.directions.E}
+                scheduleWest={draft.directions.W}
+              />
 
               <Box className="h-px my-1" style={{ backgroundColor: '#EFF6FF' }} />
 

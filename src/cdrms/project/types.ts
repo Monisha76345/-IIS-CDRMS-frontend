@@ -36,10 +36,17 @@ export type ProjectDraft = {
   addressPincode: string;
   zoneCode: string;
   createdByZcName: string;
+  /** Even | Odd — drives opposite-side dimension sync (web parity). */
+  siteDimensionType: 'Even' | 'Odd';
+  /** ZC master site dimension string e.g. 20*30 */
+  siteDimensionMaster: string;
+  siteDimensionComment: string;
   siteDetails: string;
   compassReading: string;
   occupancy: 'Empty' | 'Occupied';
   occupancyReason: string;
+  /** Engineer remarks (web Step 4 comments) */
+  engineerComments: string;
   dimNorth: string;
   dimSouth: string;
   dimEast: string;
@@ -145,14 +152,18 @@ export function createEmptyDraft(): ProjectDraft {
     addressPincode: '',
     zoneCode: '',
     createdByZcName: '',
+    siteDimensionType: 'Even',
+    siteDimensionMaster: '',
+    siteDimensionComment: '',
     siteDetails: '',
     compassReading: '',
     occupancy: 'Empty',
     occupancyReason: '',
-    dimNorth: '40',
-    dimSouth: '40',
-    dimEast: '30',
-    dimWest: '30',
+    engineerComments: '',
+    dimNorth: '',
+    dimSouth: '',
+    dimEast: '',
+    dimWest: '',
     projectName: '',
     khatedarName: '',
     surveyNo: '',

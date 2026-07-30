@@ -3,6 +3,7 @@ import {
   Camera,
   Compass,
   MapPinned,
+  Ruler,
   Video,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -83,8 +84,8 @@ export const TERMS = {
       'e.g. Boundary pillar missing on north side, encroachment noted…',
     directionsSubtitle: 'Record boundary particulars for each cardinal direction.',
     surroundingsSubtitle: 'Capture directional photographs of the site environment.',
-    photosSubtitle: 'Upload clear geo-tagged site photographs — max 10 images.',
-    videoSubtitle: 'Record a short site inspection walk-through video.',
+    photosSubtitle: 'Selfie is required. Extra site photos are optional (max 10).',
+    videoSubtitle: 'Record a short site inspection walk-through video (required).',
     validate: 'Validate Report',
     validateSubtitle: 'Pre-submission checklist before CAO review.',
     reviewSubmit: 'Review & Submit',
@@ -173,5 +174,33 @@ export const SURVEY_STEPS: SurveyStep[] = [
     short: 'Video',
     title: TERMS.sections.walkthroughVideo,
     icon: Video,
+  },
+];
+
+/** Four-step engineer capture for ZC-assigned backend tasks (web parity). */
+export const ENGINEER_SURVEY_STEPS: SurveyStep[] = [
+  {
+    label: 'Observations',
+    short: 'Obs',
+    title: 'Observations',
+    icon: Building2,
+  },
+  {
+    label: 'Compass',
+    short: 'Compass',
+    title: 'Compass & schedule',
+    icon: Compass,
+  },
+  {
+    label: 'Dimensions',
+    short: 'Dims',
+    title: 'Dimensions',
+    icon: Ruler,
+  },
+  {
+    label: 'Media',
+    short: 'Media',
+    title: 'Media & submit',
+    icon: Camera,
   },
 ];

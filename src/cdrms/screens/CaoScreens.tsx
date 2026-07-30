@@ -36,6 +36,8 @@ import {
   StatusCountGrid,
   type StatusCountItem,
 } from '@/src/cdrms/components/StatusCountGrid';
+import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
+import { resolveBoundaryDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { getSelectedOfficeAppId, setSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
 import { COLORS } from '@/src/cdrms/theme';
 import type { Go } from '@/src/cdrms/types';
@@ -365,10 +367,51 @@ export function CaoDetailScreen({ go }: { go: Go }) {
               <DetailRow label="Address" value={addressLine(app)} />
               <DetailRow label="Occupancy" value={app.occupancy || '—'} />
               <DetailRow label="Site area" value={app.totalSiteArea || '—'} />
-              <DetailRow label="N / S / E / W" value={[app.dimNorth, app.dimSouth, app.dimEast, app.dimWest].filter(Boolean).join(' · ') || '—'} />
+              <DetailRow label="Site type" value={app.siteDimensionType || '—'} />
+              <DetailRow label="Site dimension" value={app.siteDimension || '—'} />
               <DetailRow label="GPS" value={app.latitude && app.longitude ? `${app.latitude}, ${app.longitude}` : '—'} />
               <DetailRow label="Engineer comments" value={app.engineerComments || '—'} />
             </Box>
+
+            <Box
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                marginBottom: 12,
+              }}
+            >
+              <Text className="text-[14px] font-extrabold mb-1" style={{ color: '#0F172A' }}>
+                Schedules (site around)
+              </Text>
+              <DetailRow label="Schedule N" value={app.scheduleNorth || '—'} />
+              <DetailRow label="Schedule S" value={app.scheduleSouth || '—'} />
+              <DetailRow label="Schedule W" value={app.scheduleWest || '—'} />
+              <DetailRow label="Schedule E" value={app.scheduleEast || '—'} />
+            </Box>
+
+            {(() => {
+              const boundary = resolveBoundaryDims(app);
+              if (!boundary.dims) return null;
+              return (
+                <BoundariesDiagram
+                  north={boundary.dims.north}
+                  south={boundary.dims.south}
+                  east={boundary.dims.east}
+                  west={boundary.dims.west}
+                  odd={app.siteDimensionType === 'Odd'}
+                  siteNo={app.siteNo}
+                  totalArea={boundary.total}
+                  scheduleNorth={app.scheduleNorth}
+                  scheduleSouth={app.scheduleSouth}
+                  scheduleEast={app.scheduleEast}
+                  scheduleWest={app.scheduleWest}
+                />
+              );
+            })()}
 
             <Text className="text-[13px] font-bold mb-2" style={{ color: '#0F172A' }}>
               CAO remarks

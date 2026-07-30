@@ -25,16 +25,19 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/src/auth/AuthContext';
 import { ScreenShell } from '@/src/cdrms/components/primitives';
-import { SURVEY_STEPS } from '@/src/cdrms/terminology';
+import { ENGINEER_SURVEY_STEPS, SURVEY_STEPS } from '@/src/cdrms/terminology';
 import { COLORS, GRADIENT_HEADER } from '@/src/cdrms/theme';
 import type { Go } from '@/src/cdrms/types';
 
-const STEPS = SURVEY_STEPS;
+function stepsForTotal(total: number) {
+  return total === 4 ? ENGINEER_SURVEY_STEPS : SURVEY_STEPS;
+}
 
 const COMPACT_SCROLL_THRESHOLD = 64;
 
 /** Icon + label step tabs — sits in the rounded white sheet under the hero. */
 export function StepRail({ step, total = 5 }: { step: number; total?: number }) {
+  const steps = stepsForTotal(total);
   return (
     <Box
       style={{
@@ -46,7 +49,7 @@ export function StepRail({ step, total = 5 }: { step: number; total?: number }) 
       }}
     >
       <HStack className="items-stretch justify-between">
-        {STEPS.slice(0, total).map((item, i) => {
+        {steps.map((item, i) => {
           const active = i === step - 1;
           const Icon = item.icon;
           return (
@@ -156,9 +159,10 @@ export function SurveyHero({
 }) {
   const insets = useSafeAreaInsets();
   const { logout } = useAuth();
+  const steps = stepsForTotal(total);
   const stepLine =
     step != null
-      ? `Step ${step} of ${total} · ${STEPS[step - 1]?.title ?? 'Survey'}`
+      ? `Step ${step} of ${total} · ${steps[step - 1]?.title ?? 'Survey'}`
       : undefined;
   const underTitle = subtitle || stepLine;
 
@@ -351,6 +355,7 @@ function CompactSurveyHeader({
   const insets = useSafeAreaInsets();
   const { logout } = useAuth();
   const badgeText = badge?.includes('Auto-saved') ? 'Auto-saved' : badge;
+  const steps = stepsForTotal(total);
 
   return (
     <Box
@@ -411,7 +416,7 @@ function CompactSurveyHeader({
             </Text>
             {step ? (
               <Text className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.88)' }}>
-                Step {step} of {total} · {STEPS[step - 1]?.title ?? 'Survey'}
+                Step {step} of {total} · {steps[step - 1]?.title ?? 'Survey'}
               </Text>
             ) : null}
           </VStack>
@@ -488,6 +493,7 @@ export function SurveyScaffold({
   subtitle,
   onBack,
   step,
+  total = 5,
   badge,
   showSteps = true,
   watermark,
@@ -499,6 +505,7 @@ export function SurveyScaffold({
   subtitle: string;
   onBack: () => void;
   step?: number;
+  total?: number;
   badge?: string;
   showSteps?: boolean;
   watermark?: 'compass';
@@ -566,7 +573,7 @@ export function SurveyScaffold({
             opacity: compact ? 1 : 0,
           }}
         >
-          <CompactSurveyHeader title={title} onBack={onBack} step={step} badge={badge} go={go} />
+          <CompactSurveyHeader title={title} onBack={onBack} step={step} total={total} badge={badge} go={go} />
         </Box>
 
         <ScrollView
@@ -590,6 +597,7 @@ export function SurveyScaffold({
                 subtitle={subtitle}
                 onBack={onBack}
                 step={step}
+                total={total}
                 badge={badge ?? 'Auto-saved'}
                 showSteps={showSteps}
                 watermark={watermark}

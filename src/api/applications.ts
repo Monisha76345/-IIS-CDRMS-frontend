@@ -76,7 +76,9 @@ export type CreateApplicationInput = {
   addressArea: string;
   addressBlock: string;
   addressPincode: string;
-  siteDimensionType: 'Regular' | 'Odd';
+  siteDimensionType: 'Even' | 'Odd';
+  /** Plot size e.g. 20*40 — required by backend */
+  siteDimension: string;
   siteDimensionComment?: string;
   scheduleNorth?: string;
   scheduleSouth?: string;
@@ -84,6 +86,28 @@ export type CreateApplicationInput = {
   scheduleEast?: string;
   assignedEngineerUserId: string;
 };
+
+export type SiteDimensionOption = {
+  id: string;
+  label: string;
+  code?: string;
+};
+
+/** Public master list for Site dimension dropdown (Even/Odd plot sizes). */
+export async function fetchSiteDimensions(token?: string | null) {
+  const raw = await apiRequest<{ items?: SiteDimensionOption[] } | SiteDimensionOption[]>(
+    '/public/attributes?type=site_dimension&status=Active',
+    { token: token ?? undefined },
+  );
+  const items = Array.isArray(raw) ? raw : raw.items ?? [];
+  return items
+    .map((row) => ({
+      id: String((row as SiteDimensionOption).id ?? ''),
+      label: String((row as SiteDimensionOption).label ?? '').trim(),
+      code: (row as SiteDimensionOption).code,
+    }))
+    .filter((row) => row.label);
+}
 
 export function fetchEngineerTasks(token: string) {
   return apiRequest<MobileApplication[]>('/applications?as=engineer', { token });
@@ -150,6 +174,42 @@ export function startApplicationTask(token: string, id: string) {
   return apiRequest<MobileApplication>(`/applications/${id}/start`, {
     method: 'PATCH',
     token,
+  });
+}
+
+/** Partial engineer capture — each step / schedule edit. */
+export type EngineerDraftInput = {
+  engineerSiteDetails?: string;
+  compass?: string;
+  latitude?: string;
+  longitude?: string;
+  occupancy?: 'Empty' | 'Occupied';
+  occupancyReason?: string;
+  dimNorth?: string;
+  dimSouth?: string;
+  dimEast?: string;
+  dimWest?: string;
+  totalSiteArea?: string;
+  selfieUrl?: string;
+  photoUrls?: string[];
+  schedulePhotoUrls?: Partial<Record<'N' | 'S' | 'E' | 'W', string>>;
+  scheduleNorth?: string;
+  scheduleSouth?: string;
+  scheduleWest?: string;
+  scheduleEast?: string;
+  videoUrl?: string;
+  engineerComments?: string;
+};
+
+export function saveEngineerDraft(
+  token: string,
+  id: string,
+  body: EngineerDraftInput,
+) {
+  return apiRequest<MobileApplication>(`/applications/${id}/draft`, {
+    method: 'PATCH',
+    token,
+    body,
   });
 }
 

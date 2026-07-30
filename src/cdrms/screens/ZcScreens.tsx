@@ -30,10 +30,12 @@ import {
   createApplication,
   fetchApplication,
   fetchMyZoneMeta,
+  fetchSiteDimensions,
   fetchZcApplications,
   type CreateApplicationInput,
   type MobileApplication,
   type MyZoneMeta,
+  type SiteDimensionOption,
 } from '@/src/api/applications';
 import {
   AppHeader,
@@ -46,6 +48,8 @@ import {
   StatusCountGrid,
   type StatusCountItem,
 } from '@/src/cdrms/components/StatusCountGrid';
+import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
+import { resolveBoundaryDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { setSelectedOfficeAppId, getSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
 import { COLORS } from '@/src/cdrms/theme';
 import type { Go } from '@/src/cdrms/types';
@@ -288,7 +292,8 @@ const emptyForm: CreateApplicationInput = {
   addressArea: '',
   addressBlock: '',
   addressPincode: '',
-  siteDimensionType: 'Regular',
+  siteDimensionType: 'Even',
+  siteDimension: '',
   siteDimensionComment: '',
   scheduleNorth: '',
   scheduleSouth: '',
@@ -340,6 +345,8 @@ export function ZcCreateScreen({ go }: { go: Go }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [zoneError, setZoneError] = useState<string | null>(null);
+  const [dimensions, setDimensions] = useState<SiteDimensionOption[]>([]);
+  const [dimOpen, setDimOpen] = useState(false);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -357,20 +364,49 @@ export function ZcCreateScreen({ go }: { go: Go }) {
         );
       })
       .finally(() => setLoading(false));
+
+    fetchSiteDimensions(accessToken)
+      .then(setDimensions)
+      .catch(() => setDimensions([]));
   }, [accessToken]);
 
-  const engineers = (zone?.engineers ?? []).filter((e) => e.userId);
+  const engineers = useMemo(
+    () =>
+      (zone?.engineers ?? [])
+        .map((e) => ({
+          ...e,
+          userId: String(e.userId ?? '').trim(),
+        }))
+        .filter((e) => Boolean(e.userId)),
+    [zone?.engineers],
+  );
+
+  // Single engineer in zone → auto-assign (list alone is not a selection).
+  useEffect(() => {
+    if (engineers.length !== 1) return;
+    const onlyId = engineers[0].userId;
+    setForm((f) =>
+      f.assignedEngineerUserId === onlyId
+        ? f
+        : { ...f, assignedEngineerUserId: onlyId },
+    );
+  }, [engineers]);
 
   const onSubmit = async () => {
     if (!accessToken) return;
     if (!form.siteNo.trim()) return Alert.alert('Validation', 'Site no is required');
+    if (!form.siteDimension.trim()) {
+      return Alert.alert('Validation', 'Site dimension is required (e.g. 20*40)');
+    }
     if (!form.addressArea.trim() || !form.addressBlock.trim() || !form.addressPincode.trim()) {
       return Alert.alert('Validation', 'Area, block and pincode are mandatory');
     }
     if (form.siteDimensionType === 'Odd' && !form.siteDimensionComment?.trim()) {
-      return Alert.alert('Validation', 'Comment is required for Odd site dimension');
+      return Alert.alert('Validation', 'Comment is required for Odd site type');
     }
-    if (!form.assignedEngineerUserId) return Alert.alert('Validation', 'Assign an engineer');
+    if (!String(form.assignedEngineerUserId || '').trim()) {
+      return Alert.alert('Validation', 'Tap an engineer to assign the task');
+    }
 
     setSaving(true);
     try {
@@ -380,6 +416,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
         addressArea: form.addressArea.trim(),
         addressBlock: form.addressBlock.trim(),
         addressPincode: form.addressPincode.trim(),
+        siteDimension: form.siteDimension.trim(),
         siteDimensionComment: form.siteDimensionComment?.trim() || undefined,
         scheduleNorth: form.scheduleNorth?.trim() || undefined,
         scheduleSouth: form.scheduleSouth?.trim() || undefined,
@@ -431,10 +468,10 @@ export function ZcCreateScreen({ go }: { go: Go }) {
             />
 
             <Text className="text-[12px] font-semibold mb-1.5" style={{ color: '#334155' }}>
-              Site dimension *
+              Site type *
             </Text>
             <HStack className="gap-2 mb-3">
-              {(['Regular', 'Odd'] as const).map((opt) => {
+              {(['Even', 'Odd'] as const).map((opt) => {
                 const on = form.siteDimensionType === opt;
                 return (
                   <Pressable
@@ -462,6 +499,76 @@ export function ZcCreateScreen({ go }: { go: Go }) {
               })}
             </HStack>
 
+            <Text className="text-[12px] font-semibold mb-1.5" style={{ color: '#334155' }}>
+              Site dimension *
+            </Text>
+            <Pressable
+              onPress={() => setDimOpen((o) => !o)}
+              style={{
+                height: 44,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+                backgroundColor: '#FFFFFF',
+                paddingHorizontal: 12,
+                justifyContent: 'center',
+                marginBottom: dimOpen ? 8 : 12,
+              }}
+            >
+              <Text style={{ fontSize: 14, color: form.siteDimension ? '#0F172A' : '#94A3B8' }}>
+                {form.siteDimension || 'Select site dimension'}
+              </Text>
+            </Pressable>
+            {dimOpen ? (
+              <Box
+                style={{
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: '#E5E7EB',
+                  backgroundColor: '#FFFFFF',
+                  marginBottom: 12,
+                  overflow: 'hidden',
+                  maxHeight: 220,
+                }}
+              >
+                <ScrollView nestedScrollEnabled>
+                  {dimensions.length === 0 ? (
+                    <Text style={{ padding: 12, color: '#94A3B8', fontSize: 13 }}>
+                      No master dimensions loaded. Enter below.
+                    </Text>
+                  ) : (
+                    dimensions.map((d) => (
+                      <Pressable
+                        key={d.id || d.label}
+                        onPress={() => {
+                          setForm((f) => ({ ...f, siteDimension: d.label }));
+                          setDimOpen(false);
+                        }}
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingVertical: 12,
+                          borderBottomWidth: 1,
+                          borderBottomColor: '#F1F5F9',
+                          backgroundColor:
+                            form.siteDimension === d.label ? '#EFF6FF' : '#FFFFFF',
+                        }}
+                      >
+                        <Text style={{ fontSize: 14, color: '#0F172A', fontWeight: '600' }}>
+                          {d.label}
+                        </Text>
+                      </Pressable>
+                    ))
+                  )}
+                </ScrollView>
+              </Box>
+            ) : null}
+            <Field
+              label="Or enter dimension (e.g. 20*40)"
+              value={form.siteDimension}
+              onChange={(v) => setForm((f) => ({ ...f, siteDimension: v }))}
+              placeholder="20*40"
+            />
+
             <Field
               label="Area *"
               value={form.addressArea}
@@ -478,7 +585,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
               onChange={(v) => setForm((f) => ({ ...f, addressPincode: v }))}
             />
             <Field
-              label={form.siteDimensionType === 'Odd' ? 'Odd site comment *' : 'Dimension comments'}
+              label={form.siteDimensionType === 'Odd' ? 'Comments *' : 'Comments'}
               value={form.siteDimensionComment || ''}
               onChange={(v) => setForm((f) => ({ ...f, siteDimensionComment: v }))}
             />
@@ -510,6 +617,9 @@ export function ZcCreateScreen({ go }: { go: Go }) {
             <Text className="text-[12px] font-semibold mb-1.5" style={{ color: '#334155' }}>
               Assign engineer * (zone {zone?.zoneCode})
             </Text>
+            <Text style={{ fontSize: 11, color: '#94A3B8', marginBottom: 8 }}>
+              Tap to select who receives this task
+            </Text>
             <View
               style={{
                 borderRadius: 12,
@@ -531,7 +641,10 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     <Pressable
                       key={eng.userId}
                       onPress={() =>
-                        setForm((f) => ({ ...f, assignedEngineerUserId: eng.userId }))
+                        setForm((f) => ({
+                          ...f,
+                          assignedEngineerUserId: eng.userId,
+                        }))
                       }
                       style={{
                         paddingHorizontal: 12,
@@ -539,11 +652,36 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                         backgroundColor: on ? '#EFF6FF' : '#FFFFFF',
                         borderBottomWidth: 1,
                         borderBottomColor: '#F1F5F9',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 10,
                       }}
                     >
+                      <View
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: 10,
+                          borderWidth: 2,
+                          borderColor: on ? '#1D4ED8' : '#CBD5E1',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {on ? (
+                          <View
+                            style={{
+                              width: 10,
+                              height: 10,
+                              borderRadius: 5,
+                              backgroundColor: '#1D4ED8',
+                            }}
+                          />
+                        ) : null}
+                      </View>
                       <Text
                         className="text-[13px] font-semibold"
-                        style={{ color: on ? '#1D4ED8' : '#0F172A' }}
+                        style={{ color: on ? '#1D4ED8' : '#0F172A', flex: 1 }}
                       >
                         {eng.name}
                         {eng.postName ? ` · ${eng.postName}` : ''}
@@ -627,34 +765,73 @@ export function ZcDetailScreen({ go }: { go: Go }) {
         ) : error || !app ? (
           <Text style={{ color: '#DC2626' }}>{error || 'Not found'}</Text>
         ) : (
-          <Box
-            style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: 16,
-              borderWidth: 1,
-              borderColor: '#E5E7EB',
-              paddingHorizontal: 14,
-              paddingVertical: 4,
-            }}
-          >
-            <Text className="text-[18px] font-bold mt-3 mb-1" style={{ color: '#0F172A' }}>
-              {app.applicationNumber}
-            </Text>
-            <DetailRow label="Status" value={applicationStatusLabel(app.status)} />
-            <DetailRow label="Site no" value={app.siteNo} />
-            <DetailRow label="Area" value={app.addressArea} />
-            <DetailRow label="Block" value={app.addressBlock} />
-            <DetailRow label="Pincode" value={app.addressPincode} />
-            <DetailRow label="Site dimension" value={app.siteDimensionType} />
-            <DetailRow label="Comment" value={app.siteDimensionComment || '—'} />
-            <DetailRow label="Schedule N" value={app.scheduleNorth || '—'} />
-            <DetailRow label="Schedule S" value={app.scheduleSouth || '—'} />
-            <DetailRow label="Schedule W" value={app.scheduleWest || '—'} />
-            <DetailRow label="Schedule E" value={app.scheduleEast || '—'} />
-            <DetailRow label="Zone" value={app.zoneCode} />
-            <DetailRow label="Assigned engineer" value={app.assignedEngineerName || '—'} />
-            {app.caoRemarks ? <DetailRow label="CAO remarks" value={app.caoRemarks} /> : null}
-          </Box>
+          <>
+            <Box
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+                paddingHorizontal: 14,
+                paddingVertical: 4,
+              }}
+            >
+              <Text className="text-[18px] font-bold mt-3 mb-1" style={{ color: '#0F172A' }}>
+                {app.applicationNumber}
+              </Text>
+              <DetailRow label="Status" value={applicationStatusLabel(app.status)} />
+              <DetailRow label="Site no" value={app.siteNo} />
+              <DetailRow label="Area" value={app.addressArea} />
+              <DetailRow label="Block" value={app.addressBlock} />
+              <DetailRow label="Pincode" value={app.addressPincode} />
+              <DetailRow label="Site type" value={app.siteDimensionType} />
+              <DetailRow label="Site dimension" value={app.siteDimension || '—'} />
+              <DetailRow label="Comment" value={app.siteDimensionComment || '—'} />
+              <DetailRow label="Zone" value={app.zoneCode} />
+              <DetailRow label="Assigned engineer" value={app.assignedEngineerName || '—'} />
+              {app.caoRemarks ? <DetailRow label="CAO remarks" value={app.caoRemarks} /> : null}
+            </Box>
+
+            <Box
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                marginTop: 12,
+              }}
+            >
+              <Text className="text-[14px] font-extrabold mb-1" style={{ color: '#0F172A' }}>
+                Schedules (site around)
+              </Text>
+              <DetailRow label="Schedule N" value={app.scheduleNorth || '—'} />
+              <DetailRow label="Schedule S" value={app.scheduleSouth || '—'} />
+              <DetailRow label="Schedule W" value={app.scheduleWest || '—'} />
+              <DetailRow label="Schedule E" value={app.scheduleEast || '—'} />
+            </Box>
+
+            {(() => {
+              const boundary = resolveBoundaryDims(app);
+              if (!boundary.dims) return null;
+              return (
+                <BoundariesDiagram
+                  north={boundary.dims.north}
+                  south={boundary.dims.south}
+                  east={boundary.dims.east}
+                  west={boundary.dims.west}
+                  odd={app.siteDimensionType === 'Odd'}
+                  siteNo={app.siteNo}
+                  totalArea={boundary.total}
+                  scheduleNorth={app.scheduleNorth}
+                  scheduleSouth={app.scheduleSouth}
+                  scheduleEast={app.scheduleEast}
+                  scheduleWest={app.scheduleWest}
+                />
+              );
+            })()}
+          </>
         )}
       </ScrollView>
     </ScreenShell>

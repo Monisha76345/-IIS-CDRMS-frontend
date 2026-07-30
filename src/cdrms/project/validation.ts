@@ -4,11 +4,15 @@ import { TERMS } from '@/src/cdrms/terminology';
 
 export type CheckKey =
   | 'project'
+  | 'siteDetails'
   | 'gps'
   | 'bandi'
+  | 'occupancy'
+  | 'dimensions'
   | 'directions'
   | 'surroundings'
   | 'photos'
+  | 'comments'
   | 'video';
 
 export type ValidationItem = {
@@ -21,20 +25,36 @@ export type ValidationItem = {
 
 const CARDINALS = ['N', 'S', 'E', 'W'] as const;
 const MIN_SITE_PHOTOS = 3;
-const MIN_BACKEND_SITE_PHOTOS = 5; // selfie + 4 site photos for Nest submit
+/** Backend ZC tasks: only engineer selfie is mandatory; up to 4 extra site photos. */
+const MIN_BACKEND_SELFIE = 1;
+const MAX_BACKEND_PHOTOS = 5; // selfie + 4
+
+function dimsOk(draft: ProjectDraft) {
+  return [draft.dimNorth, draft.dimSouth, draft.dimEast, draft.dimWest].every(
+    (v) => Number(v) > 0,
+  );
+}
 
 export function validateDraft(draft: ProjectDraft): ValidationItem[] {
   const dirsFilled = CARDINALS.filter(
-    (k) => draft.directions[k].trim().length > 0 || Boolean(draft.surroundingPhotos[k])
+    (k) => draft.directions[k].trim().length > 0 || Boolean(draft.surroundingPhotos[k]),
   ).length;
   const surroundsFilled = CARDINALS.filter((k) => draft.surroundingPhotos[k]).length;
   const isBackend = Boolean(draft.backendApplicationId);
-  const minPhotos = isBackend ? MIN_BACKEND_SITE_PHOTOS : MIN_SITE_PHOTOS;
+  const minPhotos = isBackend ? MIN_BACKEND_SELFIE : MIN_SITE_PHOTOS;
   const projectOk = isBackend
     ? Boolean(draft.siteNo.trim() || draft.surveyNo.trim())
     : Boolean(draft.projectName.trim() && draft.surveyNo.trim() && draft.village.trim());
+  const optionalSiteCount = Math.max(0, draft.photos.length - 1);
+  const occupancyOk =
+    draft.occupancy === 'Empty' ||
+    (draft.occupancy === 'Occupied' && draft.occupancyReason.trim().length > 0);
+  const commentsOk = isBackend
+    ? draft.engineerComments.trim().length > 0
+    : true;
+  const siteDetailsOk = isBackend ? draft.siteDetails.trim().length > 0 : true;
 
-  return [
+  const items: ValidationItem[] = [
     {
       key: 'project',
       label: TERMS.validation.projectDetails,
@@ -48,6 +68,19 @@ export function validateDraft(draft: ProjectDraft): ValidationItem[] {
           : 'Work name, survey no. and village required',
       fixScreen: 'project',
     },
+  ];
+
+  if (isBackend) {
+    items.push({
+      key: 'siteDetails',
+      label: 'Site details / observations',
+      ok: siteDetailsOk,
+      detail: siteDetailsOk ? 'Observations recorded' : 'Enter site details (required)',
+      fixScreen: 'project',
+    });
+  }
+
+  items.push(
     {
       key: 'gps',
       label: TERMS.validation.gpsCoordinates,
@@ -59,48 +92,120 @@ export function validateDraft(draft: ProjectDraft): ValidationItem[] {
     },
     {
       key: 'bandi',
-      label: TERMS.validation.checkBandi,
-      ok: draft.bandiVerified,
-      detail: draft.bandiVerified
-        ? draft.compassReading
-          ? `Verified · compass ${draft.compassReading}`
-          : 'On-site Bandi verification confirmed'
-        : 'Confirm physical site verification (Check Bandi)',
+      label: isBackend ? 'Compass / site verification' : TERMS.validation.checkBandi,
+      ok: isBackend
+        ? Boolean(draft.compassReading.trim() || draft.bandiVerified)
+        : draft.bandiVerified,
+      detail: isBackend
+        ? draft.compassReading.trim() || draft.bandiVerified
+          ? draft.compassReading
+            ? `Compass ${draft.compassReading}`
+            : 'On-site verification confirmed'
+          : 'Confirm compass / physical verification'
+        : draft.bandiVerified
+          ? draft.compassReading
+            ? `Verified · compass ${draft.compassReading}`
+            : 'On-site Bandi verification confirmed'
+          : 'Confirm physical site verification (Check Bandi)',
       fixScreen: 'bandi',
     },
-    {
-      key: 'directions',
-      label: TERMS.validation.directionsBoundaries,
-      ok: dirsFilled === 4,
-      detail: `${dirsFilled}/4 boundary sides recorded`,
+  );
+
+  if (isBackend) {
+    items.push({
+      key: 'occupancy',
+      label: 'Occupancy',
+      ok: occupancyOk,
+      detail: occupancyOk
+        ? draft.occupancy === 'Occupied'
+          ? `Occupied · ${draft.occupancyReason.trim()}`
+          : 'Empty'
+        : 'Reason required when site is Occupied',
       fixScreen: 'bandi',
-    },
-    {
+    });
+    items.push({
+      key: 'dimensions',
+      label: 'Site dimensions N/S/E/W',
+      ok: dimsOk(draft),
+      detail: dimsOk(draft)
+        ? `${draft.dimNorth}*${draft.dimEast}*${draft.dimSouth}*${draft.dimWest}`
+        : 'Enter all four side lengths',
+      fixScreen: 'dimensions',
+    });
+  }
+
+  items.push({
+    key: 'directions',
+    label: TERMS.validation.directionsBoundaries,
+    ok: isBackend ? true : dirsFilled === 4,
+    detail: isBackend
+      ? `${dirsFilled}/4 schedules (optional to edit)`
+      : `${dirsFilled}/4 boundary sides recorded`,
+    fixScreen: 'bandi',
+  });
+
+  if (!isBackend) {
+    items.push({
       key: 'surroundings',
       label: TERMS.validation.surroundingPhotos,
       ok: surroundsFilled >= 2,
       detail: `${surroundsFilled}/4 directional photographs`,
       fixScreen: 'surroundings',
-    },
-    {
-      key: 'photos',
-      label: isBackend
-        ? 'Selfie + 4 site photos (5)'
-        : `${TERMS.validation.sitePhotos} (min ${MIN_SITE_PHOTOS})`,
-      ok: draft.photos.length >= minPhotos,
-      detail: isBackend
-        ? `${draft.photos.length}/5 (1st=selfie, next 4=site)`
-        : `${draft.photos.length}/${MIN_SITE_PHOTOS} photographs`,
+    });
+  } else {
+    items.push({
+      key: 'surroundings',
+      label: 'Schedule photos (N/S/E/W)',
+      ok: surroundsFilled === 4,
+      detail:
+        surroundsFilled === 4
+          ? 'All 4 schedule photos captured'
+          : `${surroundsFilled}/4 schedule photos — all mandatory`,
+      fixScreen: 'bandi',
+    });
+  }
+
+  items.push({
+    key: 'photos',
+    label: isBackend
+      ? 'Engineer selfie'
+      : `${TERMS.validation.sitePhotos} (min ${MIN_SITE_PHOTOS})`,
+    ok: draft.photos.length >= minPhotos,
+    detail: isBackend
+      ? draft.photos.length >= 1
+        ? optionalSiteCount > 0
+          ? `Selfie OK · ${optionalSiteCount} optional site photo(s) (max 4)`
+          : 'Selfie captured (extra site photos optional, max 4)'
+        : 'Selfie required — extra site photos are optional'
+      : `${draft.photos.length}/${MIN_SITE_PHOTOS} photographs`,
+    fixScreen: 'photos',
+  });
+
+  if (isBackend) {
+    items.push({
+      key: 'comments',
+      label: 'Engineer comments',
+      ok: commentsOk,
+      detail: commentsOk ? 'Comments recorded' : 'Comments required before submit',
       fixScreen: 'photos',
-    },
-    {
-      key: 'video',
-      label: TERMS.validation.walkthroughVideo,
-      ok: Boolean(draft.video),
-      detail: draft.video ? 'Inspection video captured' : 'Record or attach site inspection video',
-      fixScreen: 'video',
-    },
-  ];
+    });
+  }
+
+  items.push({
+    key: 'video',
+    label: isBackend ? 'Site video (mandatory)' : TERMS.validation.walkthroughVideo,
+    ok: Boolean(draft.video),
+    detail: draft.video
+      ? 'Inspection video captured'
+      : 'Video is mandatory — record or attach site inspection video',
+    fixScreen: 'video',
+  });
+
+  return items;
+}
+
+export function maxPhotosForDraft(draft: ProjectDraft) {
+  return draft.backendApplicationId ? MAX_BACKEND_PHOTOS : 10;
 }
 
 export function validationSummary(items: ValidationItem[]) {

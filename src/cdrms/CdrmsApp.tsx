@@ -24,6 +24,7 @@ import {
   SurroundingsScreen,
   VideoScreen,
 } from '@/src/cdrms/screens/SurveyScreens';
+import { DimensionsScreen } from '@/src/cdrms/screens/DimensionsScreen';
 import {
   DraftScreen,
   ErrorScreen,
@@ -78,6 +79,8 @@ export function CdrmsApp() {
         return <ProjectScreen go={go} />;
       case 'bandi':
         return <BandiScreen go={go} />;
+      case 'dimensions':
+        return <DimensionsScreen go={go} />;
       case 'directions':
         return <DirectionsScreen go={go} />;
       case 'surroundings':

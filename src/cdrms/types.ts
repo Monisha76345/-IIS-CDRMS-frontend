@@ -12,6 +12,7 @@ export type Screen =
   | 'cao_detail'
   | 'project'
   | 'bandi'
+  | 'dimensions'
   | 'directions'
   | 'surroundings'
   | 'photos'
