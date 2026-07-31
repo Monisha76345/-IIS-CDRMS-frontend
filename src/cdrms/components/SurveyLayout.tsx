@@ -6,7 +6,7 @@ import {
   LogOut,
   type LucideIcon,
 } from 'lucide-react-native';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import React, { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -661,9 +661,18 @@ export function WorkspaceHeader({
           <Icon size={18} color="#fff" strokeWidth={2.3} />
         </Box>
         <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
-          <Text style={{ ...TYPE.title, color: COLORS.ink }} numberOfLines={1}>
-            {title}
-          </Text>
+          {typeof title === 'string' && title.includes('*') ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+              <Text style={{ ...TYPE.title, color: COLORS.ink }} numberOfLines={1}>
+                {title.replace(/\s*\*\s*/g, '')}
+              </Text>
+              <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#DC2626' }}>*</Text>
+            </View>
+          ) : (
+            <Text style={{ ...TYPE.title, color: COLORS.ink }} numberOfLines={1}>
+              {title}
+            </Text>
+          )}
           <Text style={{ ...TYPE.caption, color: COLORS.ink }} numberOfLines={2}>
             {subtitle}
           </Text>

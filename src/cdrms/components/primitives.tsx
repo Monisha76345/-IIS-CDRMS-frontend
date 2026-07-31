@@ -10,7 +10,7 @@ import {
   User,
   type LucideIcon,
 } from 'lucide-react-native';
-import { type ReactNode, forwardRef, useState } from 'react';
+import React, { type ReactNode, forwardRef, useState } from 'react';
 import {
   Modal,
   Platform,
@@ -395,9 +395,27 @@ export const Field = forwardRef<
   const hasValue = Boolean(displayValue || normalize(defaultValue));
   const isEditable = props.editable ?? true;
 
+  const labelStyle = compact ? { ...TYPE.label, fontSize: 10 } : TYPE.label;
+
   return (
     <View style={{ gap: compact ? 4 : SPACE[2] }} collapsable={false}>
-      <Text style={compact ? { ...TYPE.label, fontSize: 10 } : TYPE.label}>{label}</Text>
+      {typeof label === 'string' && label.includes('*') ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+          <Text style={labelStyle}>{label.replace(/\s*\*\s*/g, '')}</Text>
+          <Text
+            style={{
+              fontSize: compact ? 13 : 14,
+              fontWeight: 'bold',
+              color: '#DC2626',
+              lineHeight: 16,
+            }}
+          >
+            *
+          </Text>
+        </View>
+      ) : (
+        <Text style={labelStyle}>{label}</Text>
+      )}
       <View
         collapsable={false}
         style={{
