@@ -128,7 +128,7 @@ export function SchedulesEditorCard({
                 elevation: 2,
               }}
             >
-              <Box style={{ width: 44, justifyContent: 'center' }}>
+              <Box style={{ width: 56, justifyContent: 'center' }}>
                 <Text
                   numberOfLines={1}
                   style={{
@@ -138,7 +138,7 @@ export function SchedulesEditorCard({
                     textAlign: 'left',
                   }}
                 >
-                  {k}
+                  {DIRECTION_META[k].label}
                 </Text>
                 <Text
                   style={{

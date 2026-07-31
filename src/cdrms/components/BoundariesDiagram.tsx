@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { Ruler } from 'lucide-react-native';
 import Svg, { G, Line, Polygon, Rect, Text as SvgText } from 'react-native-svg';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
+import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import {
@@ -79,7 +81,7 @@ function dimensionLabelRotationDeg(tdx: number, tdy: number): number {
 function RoadGlyph({
   x,
   y,
-  width = 42,
+  width = 220,
   height = 14,
 }: {
   x: number;
@@ -96,11 +98,11 @@ function RoadGlyph({
         y={top}
         width={width}
         height={height}
-        rx={2}
-        ry={2}
-        fill="#4B5563"
+        rx={3}
+        ry={3}
+        fill="#374151"
         stroke="#1F2937"
-        strokeWidth={0.6}
+        strokeWidth={0.8}
       />
       {/* curb edges */}
       <Line
@@ -109,7 +111,7 @@ function RoadGlyph({
         x2={left + width - 1.2}
         y2={top + 1.4}
         stroke="#9CA3AF"
-        strokeWidth={0.55}
+        strokeWidth={0.6}
       />
       <Line
         x1={left + 1.2}
@@ -117,17 +119,17 @@ function RoadGlyph({
         x2={left + width - 1.2}
         y2={top + height - 1.4}
         stroke="#9CA3AF"
-        strokeWidth={0.55}
+        strokeWidth={0.6}
       />
       {/* horizontal dashed center line */}
       <Line
-        x1={left + 2.5}
+        x1={left + 4}
         y1={y}
-        x2={left + width - 2.5}
+        x2={left + width - 4}
         y2={y}
         stroke="#FBBF24"
-        strokeWidth={1.1}
-        strokeDasharray="3.2 2.2"
+        strokeWidth={1.3}
+        strokeDasharray="6 4"
       />
     </G>
   );
@@ -159,6 +161,8 @@ function arrowHead(at: Pt, toward: Pt, color: string, key: string) {
  * Engineering-style site dimensions — parity with web SiteDimensionPlot
  * (frame, gaps, rotated E/W dimension numbers, survey compass letters).
  */
+type AreaUnit = 'sqft' | 'sqm';
+
 export function BoundariesDiagram({
   north,
   south,
@@ -176,6 +180,8 @@ export function BoundariesDiagram({
   roadEast,
   roadWest,
 }: Props) {
+  const [unit, setUnit] = useState<AreaUnit>('sqft');
+
   const dims: CardinalDims = {
     north: Math.max(0, Number(north) || 0),
     south: Math.max(0, Number(south) || 0),
@@ -188,6 +194,14 @@ export function BoundariesDiagram({
     totalArea != null && Number(totalArea) > 0
       ? Number(Number(totalArea).toFixed(2))
       : computeBoundaryArea(dims);
+
+  const getFormattedArea = () => {
+    if (unit === 'sqm') {
+      const sqmVal = area * 0.092903;
+      return { val: sqmVal.toFixed(2), label: 'Sq. M' };
+    }
+    return { val: area.toFixed(2), label: 'Sq. Ft' };
+  };
 
   const schedules = {
     N: scheduleNorth,
@@ -463,37 +477,37 @@ export function BoundariesDiagram({
 
                 {showCrop
                   ? (
-                      [
-                        [-plotHw, -plotHh],
-                        [plotHw, -plotHh],
-                        [plotHw, plotHh],
-                        [-plotHw, plotHh],
-                      ] as const
-                    ).map(([cx, cy], i) => {
-                      const L = 5;
-                      const sx = Math.sign(cx) || 1;
-                      const sy = Math.sign(cy) || 1;
-                      return (
-                        <G key={`crop-${i}`}>
-                          <Line
-                            x1={cx}
-                            y1={cy}
-                            x2={cx - sx * L}
-                            y2={cy}
-                            stroke={CROP}
-                            strokeWidth={0.9}
-                          />
-                          <Line
-                            x1={cx}
-                            y1={cy}
-                            x2={cx}
-                            y2={cy - sy * L}
-                            stroke={CROP}
-                            strokeWidth={0.9}
-                          />
-                        </G>
-                      );
-                    })
+                    [
+                      [-plotHw, -plotHh],
+                      [plotHw, -plotHh],
+                      [plotHw, plotHh],
+                      [-plotHw, plotHh],
+                    ] as const
+                  ).map(([cx, cy], i) => {
+                    const L = 5;
+                    const sx = Math.sign(cx) || 1;
+                    const sy = Math.sign(cy) || 1;
+                    return (
+                      <G key={`crop-${i}`}>
+                        <Line
+                          x1={cx}
+                          y1={cy}
+                          x2={cx - sx * L}
+                          y2={cy}
+                          stroke={CROP}
+                          strokeWidth={0.9}
+                        />
+                        <Line
+                          x1={cx}
+                          y1={cy}
+                          x2={cx}
+                          y2={cy - sy * L}
+                          stroke={CROP}
+                          strokeWidth={0.9}
+                        />
+                      </G>
+                    );
+                  })
                   : null}
 
                 {edges.map((ed) => {
@@ -606,7 +620,7 @@ export function BoundariesDiagram({
                             <RoadGlyph
                               x={nb.cx}
                               y={nb.cy - 15}
-                              width={42}
+                              width={220}
                               height={14}
                             />
                           ) : null}
@@ -675,10 +689,80 @@ export function BoundariesDiagram({
             </HStack>
 
             {area > 0 ? (
-              <Box className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
-                <Text className="text-center text-[12px] font-extrabold text-amber-900">
-                  Total Dimension = {area.toFixed(2)} Sq. Yd
-                </Text>
+              <Box
+                style={{
+                  borderRadius: 14,
+                  backgroundColor: '#FEF3C7',
+                  borderWidth: 1,
+                  borderColor: '#FDE68A',
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                }}
+              >
+                <HStack style={{ alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                  <VStack style={{ gap: 1 }}>
+                    <Text style={{ fontFamily: FONTS.medium, fontSize: 10, color: '#92400E', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Total Area
+                    </Text>
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#78350F' }}>
+                      {getFormattedArea().val}{' '}
+                      <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: '#92400E' }}>
+                        {getFormattedArea().label}
+                      </Text>
+                    </Text>
+                  </VStack>
+
+                  {/* Interactive Unit Toggle: Sq. Ft <-> Sq. M */}
+                  <HStack
+                    style={{
+                      backgroundColor: '#FFFFFF',
+                      padding: 3,
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: '#FCD34D',
+                      gap: 2,
+                    }}
+                  >
+                    <Pressable
+                      onPress={() => setUnit('sqft')}
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 5,
+                        borderRadius: 7,
+                        backgroundColor: unit === 'sqft' ? COLORS.primary : 'transparent',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: FONTS.bold,
+                          fontSize: 11,
+                          color: unit === 'sqft' ? '#FFFFFF' : '#78350F',
+                        }}
+                      >
+                        Sq. Ft
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setUnit('sqm')}
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 5,
+                        borderRadius: 7,
+                        backgroundColor: unit === 'sqm' ? COLORS.primary : 'transparent',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: FONTS.bold,
+                          fontSize: 11,
+                          color: unit === 'sqm' ? '#FFFFFF' : '#78350F',
+                        }}
+                      >
+                        Sq. M
+                      </Text>
+                    </Pressable>
+                  </HStack>
+                </HStack>
               </Box>
             ) : null}
           </VStack>

@@ -707,7 +707,7 @@ export function BandiScreen({ go }: { go: Go }) {
               Schedule photos <Text style={{ color: '#DC2626', fontWeight: 'bold' }}>*</Text>
             </Text>
             <Text className="text-[11px] mt-0.5" style={{ color: '#94A3B8' }}>
-              All four sides (N / S / E / W) are mandatory
+              All four sides (North, South, East, West) are mandatory
             </Text>
           </Box>
           <Box className="mx-4 flex-row flex-wrap justify-between" style={{ gap: 12 }}>

@@ -129,7 +129,7 @@ export function ValidateScreen({ go }: { go: Go }) {
           {summary.allOk ? 'Continue to Review' : 'Fix issues to continue'}
         </AppBtn>
       }
-          go={go}
+      go={go}
     >
       <SurveyCard>
         <LinearGradient
@@ -930,9 +930,8 @@ export function ReviewScreen({ go }: { go: Go }) {
         title={isResubmit ? 'Resubmit application?' : 'Submit application?'}
       >
         <Text className="text-sm text-muted-foreground">
-          Once submitted, this report for{' '}
-          <Text className="font-bold text-foreground">{titleId}</Text> will be marked as
-          submitted for CAO verification. You cannot edit after submission.
+          Are you sure you want to submit this report{' '}
+          <Text className="font-bold text-foreground">({titleId})</Text>?
         </Text>
         {submitting ? (
           <ScreenLoader text="Submitting application…" minHeight={120} />
@@ -1123,13 +1122,12 @@ export function ReturnedScreen({ go }: { go: Go }) {
                 <HStack key={t.label} className="items-start gap-3">
                   <VStack className="items-center">
                     <Box
-                      className={`h-4 w-4 rounded-full ${
-                        t.warn
-                          ? 'bg-warning'
-                          : t.done
-                            ? 'bg-success'
-                            : 'bg-muted border-2 border-border'
-                      }`}
+                      className={`h-4 w-4 rounded-full ${t.warn
+                        ? 'bg-warning'
+                        : t.done
+                          ? 'bg-success'
+                          : 'bg-muted border-2 border-border'
+                        }`}
                     />
                     {i < timeline.length - 1 ? (
                       <Box className="w-0.5 flex-1 min-h-6 bg-border" />
