@@ -586,7 +586,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
               />
 
               <Text className="text-[12px] font-semibold mb-1.5" style={{ color: '#334155' }}>
-                Site type *
+                Site type <Text style={{ color: '#DC2626', fontWeight: 'bold' }}>*</Text>
               </Text>
               <HStack className="gap-2 mb-3">
                 {(['Even', 'Odd'] as const).map((opt) => {
@@ -618,7 +618,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
               </HStack>
 
               <Text className="text-[12px] font-semibold mb-1.5" style={{ color: '#334155' }}>
-                Site dimension *
+                Site dimension <Text style={{ color: '#DC2626', fontWeight: 'bold' }}>*</Text>
               </Text>
               <Pressable
                 onPress={() => setDimOpen((o) => !o)}
@@ -744,7 +744,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
               />
 
               <Text className="text-[12px] font-semibold mb-1.5" style={{ color: '#334155' }}>
-                Assign engineer * (zone {zone?.zoneCode})
+                Assign engineer <Text style={{ color: '#DC2626', fontWeight: 'bold' }}>*</Text> (zone {zone?.zoneCode})
               </Text>
               <Text style={{ fontSize: 11, color: '#94A3B8', marginBottom: 8 }}>
                 Tap to select who receives this task

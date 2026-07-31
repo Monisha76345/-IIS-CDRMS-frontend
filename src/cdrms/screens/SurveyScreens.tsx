@@ -317,7 +317,9 @@ export function BandiScreen({ go }: { go: Go }) {
           />
           <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
             <HStack className="items-center" style={{ gap: SPACE[4], flexWrap: 'wrap' }}>
-              <Text style={{ ...TYPE.label, color: COLORS.ink }}>Occupancy *</Text>
+              <Text style={{ ...TYPE.label, color: COLORS.ink }}>
+                Occupancy <Text style={{ color: '#DC2626', fontWeight: 'bold' }}>*</Text>
+              </Text>
               <HStack style={{ gap: SPACE[4], alignItems: 'center' }}>
                 {(['Empty', 'Occupied'] as const).map((opt) => {
                   const on = draft.occupancy === opt;
@@ -564,7 +566,7 @@ export function BandiScreen({ go }: { go: Go }) {
         <>
           <Box className="mx-4 mb-1">
             <Text className="text-[15px] font-extrabold" style={{ color: '#0F172A' }}>
-              Schedule photos *
+              Schedule photos <Text style={{ color: '#DC2626', fontWeight: 'bold' }}>*</Text>
             </Text>
             <Text className="text-[11px] mt-0.5" style={{ color: '#94A3B8' }}>
               All four sides (N / S / E / W) are mandatory

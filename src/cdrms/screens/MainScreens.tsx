@@ -4,17 +4,20 @@ import {
   ArrowLeft,
   Bell,
   Building2,
+  Camera,
   CheckCircle2,
   ChevronRight,
   ClipboardCheck,
   Clock,
   Edit3,
+  Eye,
   FileText,
   FolderOpen,
   HelpCircle,
   Layers,
   Lock,
   LogOut,
+  Mail,
   MapPin,
   MapPinned,
   MoreVertical,
@@ -23,12 +26,17 @@ import {
   Send,
   Settings,
   ShieldCheck,
+  Trash2,
   Undo2,
+  Upload,
+  User,
+  UserCheck,
   XCircle,
   type LucideIcon,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import { TextInput, Alert } from 'react-native';
+import { TextInput, Alert, Image, Modal } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -1320,167 +1328,301 @@ export function ProfileScreen({ go }: { go: Go }) {
   const { user, logout } = useAuth();
   const appRole = resolveAppRole(user);
   const home = homeScreenForRole(user);
-  const name =
-    user?.name?.trim() ||
-    user?.loginId ||
-    user?.email ||
-    'Officer';
-  const loginId = user?.loginId || user?.email || '—';
-  const role = user?.roleName || user?.userType || 'engineer';
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+
+  const handlePickPhoto = async () => {
+    try {
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!res.canceled && res.assets[0]?.uri) {
+        setProfilePhoto(res.assets[0].uri);
+        Alert.alert('Profile Photo', 'Profile photo updated successfully!');
+      }
+    } catch {
+      Alert.alert('Photo', 'Unable to open image gallery');
+    }
+  };
+
+  const handleDeletePhoto = () => {
+    Alert.alert(
+      'Delete Photo',
+      'Are you sure you want to remove your profile photo?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            setProfilePhoto(null);
+            setPreviewModalOpen(false);
+          },
+        },
+      ],
+    );
+  };
+
+  const u = (user || {}) as any;
+  const name = user?.name?.trim() || (appRole === 'zc' ? 'Ramesh Kumar (ZC)' : appRole === 'cao' ? 'Monisha s' : 'Field Engineer');
+  const nameParts = name.split(/\s+/).filter(Boolean);
+  const firstName = nameParts[0] || 'Monisha';
+  const lastName = nameParts.slice(1).join(' ') || 's';
+  const loginId = user?.loginId || 'CDRMS00007';
+  const rawRoleTitle: string =
+    u.roleName ||
+    u.userType ||
+    (appRole === 'zc'
+      ? 'Zonal Commissioner'
+      : appRole === 'cao'
+        ? 'CAO Officer'
+        : appRole === 'super_admin'
+          ? 'Administrator'
+          : 'Field Engineer');
+  const roleTitle = rawRoleTitle
+    .split(/[\s_-]+/)
+    .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+
   const portalLabel =
     appRole === 'zc'
       ? 'CDRMS Zonal Commissioner'
-      : appRole === 'cao' || appRole === 'super_admin'
+      : appRole === 'cao'
         ? 'CDRMS CAO'
-        : 'CDRMS Field Engineer';
+        : appRole === 'super_admin'
+          ? 'CDRMS Administrator'
+          : 'CDRMS Field Engineer';
 
-  const infoRows = [
-    { icon: Phone, label: 'Account', val: loginId },
-    { icon: MapPinned, label: 'Role', val: String(role).replace(/_/g, ' ') },
-    { icon: Building2, label: 'Portal', val: portalLabel },
-  ] as const;
+  const zone = u.zoneCode || (appRole === 'zc' ? 'SOUTH' : 'EAST');
+  const email = user?.email || 'monimonisha4379@gmail.com';
+  const phone = u.phone || u.mobileNumber || '7019726060';
 
-  const menuRows = [
-    { icon: Lock, label: 'Change Password' },
-    { icon: HelpCircle, label: 'Help & Support' },
-    { icon: Settings, label: 'App Settings' },
-    { icon: ShieldCheck, label: 'About CDRMS' },
-  ] as const;
+  const personalFields = [
+    { label: 'NAME', value: name },
+    { label: 'ROLE NAME', value: roleTitle, icon: Building2 },
+    { label: 'EMAIL ADDRESS', value: email, icon: Mail },
+    { label: 'MOBILE NUMBER', value: phone, icon: Phone },
+    { label: 'GENDER', value: u.gender || 'female' },
+    { label: 'DEPARTMENT', value: u.department || 'bda' },
+    { label: 'DISTRICT / STATE', value: u.districtState || 'Belagavi, Karnataka', icon: MapPin },
+    { label: 'OFFICE ADDRESS', value: u.officeAddress || 'Maddur,Mandya', icon: Building2 },
+  ];
 
   return (
-    <ScreenShell>
+    <ScreenShell className="bg-[#F8FAFC]">
+      <AppHeader
+        title="Profile"
+        subtitle="Officer details & personal information"
+        go={go}
+      />
+
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: 120 }}
+        contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16, paddingTop: 16 }}
+        showsVerticalScrollIndicator={false}
       >
-        <GradientHeader rounded>
-          <Box className="px-5 pb-10">
-            <HStack className="items-center justify-between gap-2 pt-2">
-              <HStack className="items-center gap-2 flex-1 min-w-0">
-                <Pressable
-                  onPress={() => go(home)}
-                  className="h-10 w-10 rounded-full items-center justify-center"
-                >
-                  <ArrowLeft size={20} color={COLORS.white} />
+        <VStack space="md">
+          {/* Top Officer Header Card */}
+          <Box
+            className="p-5 rounded-2xl border"
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderColor: '#E2E8F0',
+              shadowColor: '#0F172A',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.06,
+              shadowRadius: 12,
+              elevation: 2,
+            }}
+          >
+            <VStack space="md">
+              <HStack className="items-center gap-4">
+                {/* Avatar with Camera Badge */}
+                <Pressable onPress={() => void handlePickPhoto()} className="relative active:opacity-90">
+                  <Box
+                    className="items-center justify-center rounded-full overflow-hidden"
+                    style={{
+                      width: 72,
+                      height: 72,
+                      backgroundColor: '#2563EB',
+                    }}
+                  >
+                    {profilePhoto ? (
+                      <Image source={{ uri: profilePhoto }} className="h-full w-full" resizeMode="cover" />
+                    ) : (
+                      <Text className="font-bold text-2xl text-white">
+                        {firstName[0]?.toUpperCase()}
+                        {lastName[0]?.toUpperCase()}
+                      </Text>
+                    )}
+                  </Box>
+                  <Box
+                    className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full items-center justify-center border-2 border-white"
+                    style={{ backgroundColor: '#2563EB' }}
+                  >
+                    <Camera size={13} color="#FFFFFF" strokeWidth={2.4} />
+                  </Box>
                 </Pressable>
-                <Text className="text-lg font-bold text-white">Profile</Text>
+
+                {/* Name, Status & Info */}
+                <VStack space="xs" className="flex-1 min-w-0">
+                  <HStack className="items-center gap-2 flex-wrap">
+                    <Text className="text-lg font-extrabold text-slate-900" numberOfLines={1}>
+                      {name}
+                    </Text>
+                    <Box className="flex-row items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200">
+                      <CheckCircle2 size={11} color="#059669" strokeWidth={2.5} />
+                      <Text className="text-[11px] font-bold text-emerald-700">Active</Text>
+                    </Box>
+                  </HStack>
+
+                  <Text className="text-xs font-semibold text-slate-600">
+                    {roleTitle} · {zone}
+                  </Text>
+
+                  <Text className="text-[11px] font-mono text-slate-500">
+                    Login ID: <Text className="font-semibold text-slate-700">{loginId}</Text>
+                  </Text>
+                </VStack>
               </HStack>
-              <Pressable
-                onPress={async () => {
-                  await logout();
-                  go('login');
-                }}
-                className="flex-row items-center gap-1.5 active:opacity-85"
-                style={{
-                  height: 36,
-                  paddingHorizontal: 12,
-                  borderRadius: 999,
-                  backgroundColor: 'rgba(255,255,255,0.18)',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255,255,255,0.35)',
-                }}
-              >
-                <LogOut size={14} color={COLORS.white} />
-                <Text className="text-[12px] font-bold text-white">Logout</Text>
-              </Pressable>
+
+              {/* Photo Actions: Upload OR (View + Delete) */}
+              <HStack className="items-center gap-2 pt-1">
+                {profilePhoto ? (
+                  <>
+                    <Pressable
+                      onPress={() => setPreviewModalOpen(true)}
+                      className="flex-1 flex-row items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 active:bg-slate-100"
+                    >
+                      <Eye size={14} color="#2563EB" strokeWidth={2.2} />
+                      <Text className="text-xs font-bold text-slate-800">View Photo</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={handleDeletePhoto}
+                      className="flex-1 flex-row items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-red-200 bg-red-50 active:bg-red-100"
+                    >
+                      <Trash2 size={14} color="#DC2626" strokeWidth={2.2} />
+                      <Text className="text-xs font-bold text-red-600">Delete Photo</Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  <Pressable
+                    onPress={() => void handlePickPhoto()}
+                    className="flex-1 flex-row items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 active:bg-slate-100"
+                  >
+                    <Upload size={14} color="#2563EB" strokeWidth={2.2} />
+                    <Text className="text-xs font-bold text-slate-800">Upload Photo</Text>
+                  </Pressable>
+                )}
+              </HStack>
+            </VStack>
+          </Box>
+
+          {/* Personal Information Section */}
+          <Box
+            className="p-5 rounded-2xl border"
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderColor: '#E2E8F0',
+              shadowColor: '#0F172A',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.06,
+              shadowRadius: 12,
+              elevation: 2,
+            }}
+          >
+            <HStack className="items-center gap-2 mb-4">
+              <User size={18} color="#2563EB" strokeWidth={2.4} />
+              <Text className="text-base font-extrabold text-slate-900">Personal Information</Text>
             </HStack>
 
-            <VStack className="mt-6 items-center">
-              <Box
-                className="items-center justify-center"
-                style={{
-                  width: 104,
-                  height: 104,
-                  borderRadius: 28,
-                  backgroundColor: 'rgba(255,255,255,0.95)',
-                  shadowColor: '#0F172A',
-                  shadowOffset: { width: 0, height: 8 },
-                  shadowOpacity: 0.22,
-                  shadowRadius: 16,
-                  elevation: 6,
-                }}
-              >
-                <Text className="font-extrabold text-[34px]" style={{ color: '#2563EB' }}>
-                  {name
-                    .split(/\s+/)
-                    .filter(Boolean)
-                    .slice(0, 2)
-                    .map((p) => p[0]?.toUpperCase() || '')
-                    .join('') || 'U'}
-                </Text>
-              </Box>
-              <Text className="mt-4 font-extrabold text-xl text-white">
-                {name}
-              </Text>
-              <Text className="text-sm text-white/85">{portalLabel}</Text>
-              <HStack className="mt-3 items-center gap-2">
-                <Box className="bg-white/15 px-2.5 py-1 rounded-full">
-                  <Text className="text-[11px] text-white">ID · {loginId}</Text>
+            <VStack space="sm">
+              {personalFields.map((field) => {
+                const Icon = field.icon;
+                return (
+                  <Box
+                    key={field.label}
+                    className="p-3.5 rounded-xl border border-slate-100 bg-slate-50/70"
+                  >
+                    <Text className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                      {field.label}
+                    </Text>
+                    <HStack className="items-center gap-2">
+                      {Icon && <Icon size={14} color="#2563EB" strokeWidth={2.2} />}
+                      <Text className="text-sm font-bold text-slate-900">{field.value}</Text>
+                    </HStack>
+                  </Box>
+                );
+              })}
+
+              {/* Side-by-side Row Container for ASSIGNED ZONE & MAPPING STATUS */}
+              <HStack className="gap-3 mt-1">
+                <Box className="flex-1 p-3.5 rounded-xl border border-slate-100 bg-slate-50/70">
+                  <Text className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                    ASSIGNED ZONE
+                  </Text>
+                  <Text className="text-sm font-bold text-slate-900">{zone}</Text>
+                </Box>
+                <Box className="flex-1 p-3.5 rounded-xl border border-slate-100 bg-slate-50/70">
+                  <Text className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                    MAPPING STATUS
+                  </Text>
+                  <HStack className="items-center gap-1.5 self-start px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200">
+                    <CheckCircle2 size={12} color="#059669" strokeWidth={2.5} />
+                    <Text className="text-[11px] font-bold text-emerald-700">ACTIVE</Text>
+                  </HStack>
                 </Box>
               </HStack>
             </VStack>
           </Box>
-        </GradientHeader>
 
-        <VStack className="px-5 -mt-5" space="sm">
-          <AppCard className="p-0 overflow-hidden">
-            {infoRows.map((r, i) => {
-              const Icon = r.icon;
-              return (
-                <HStack
-                  key={r.label}
-                  className={`items-center gap-3 p-4 ${i > 0 ? 'border-t border-border' : ''}`}
-                >
-                  <IconBox className="bg-primary/10">
-                    <Icon size={20} color={COLORS.primary} />
-                  </IconBox>
-                  <VStack className="flex-1">
-                    <Text className="text-[11px] uppercase font-semibold text-muted-foreground">
-                      {r.label}
-                    </Text>
-                    <Text className="font-semibold text-sm text-foreground">{r.val}</Text>
-                  </VStack>
-                </HStack>
-              );
-            })}
-          </AppCard>
-
-          <AppCard className="p-0 overflow-hidden">
-            {menuRows.map((r, i) => {
-              const Icon = r.icon;
-              return (
-                <Pressable
-                  key={r.label}
-                  className={`flex-row items-center gap-3 p-4 active:opacity-80 ${i > 0 ? 'border-t border-border' : ''}`}
-                >
-                  <IconBox className="bg-muted">
-                    <Icon size={20} color={COLORS.primaryDeep} />
-                  </IconBox>
-                  <Text className="flex-1 font-semibold text-sm text-foreground">
-                    {r.label}
-                  </Text>
-                  <ChevronRight size={16} color="#6B7289" />
-                </Pressable>
-              );
-            })}
-          </AppCard>
-
+          {/* Logout Action */}
           <Pressable
             onPress={async () => {
               await logout();
               go('login');
             }}
-            className="w-full h-14 rounded-2xl bg-destructive/10 flex-row items-center justify-center gap-2 active:opacity-90"
+            className="w-full h-13 rounded-2xl bg-red-50 border border-red-200 flex-row items-center justify-center gap-2 active:opacity-90"
           >
-            <LogOut size={20} color={COLORS.destructive} />
-            <Text className="font-bold text-destructive">Logout</Text>
+            <LogOut size={18} color="#DC2626" strokeWidth={2.2} />
+            <Text className="font-bold text-red-600 text-sm">Logout Officer Account</Text>
           </Pressable>
-
-          <Text className="text-center text-[11px] text-muted-foreground pt-2">
-            {portalLabel} · mobile
-          </Text>
         </VStack>
       </ScrollView>
+
+      {/* Full-screen Photo Preview Modal */}
+      {previewModalOpen && profilePhoto && (
+        <Modal
+          visible={previewModalOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPreviewModalOpen(false)}
+        >
+          <Pressable
+            onPress={() => setPreviewModalOpen(false)}
+            className="flex-1 bg-black/80 justify-center items-center p-4"
+          >
+            <Box className="w-full max-w-sm bg-white rounded-2xl p-4 overflow-hidden">
+              <HStack className="justify-between items-center pb-3 mb-3 border-b border-slate-100">
+                <Text className="font-extrabold text-base text-slate-900">Profile Photo Preview</Text>
+                <Pressable onPress={() => setPreviewModalOpen(false)} className="p-1">
+                  <Text className="text-slate-400 font-bold text-base">✕</Text>
+                </Pressable>
+              </HStack>
+              <Image
+                source={{ uri: profilePhoto }}
+                style={{ width: '100%', height: 300, borderRadius: 12 }}
+                resizeMode="contain"
+              />
+            </Box>
+          </Pressable>
+        </Modal>
+      )}
+
       <BottomNav
         active="profile"
         onNav={go}
