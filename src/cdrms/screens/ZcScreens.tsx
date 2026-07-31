@@ -37,12 +37,14 @@ import {
   fetchMyZoneMeta,
   fetchSiteDimensions,
   fetchZcApplications,
+  formatApplicationDate,
+  normalizeApplicationStatus,
   type CreateApplicationInput,
   type MobileApplication,
   type MyZoneMeta,
   type SiteDimensionOption,
 } from '@/src/api/applications';
-import { ApplicationStatusBadge } from '@/src/cdrms/components/ApplicationStatusBadge';
+import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
 import {
   AppHeader,
   BottomNav,
@@ -52,15 +54,12 @@ import {
   ButtonLoader,
 } from '@/src/cdrms/components/primitives';
 import {
-  DetailRow,
   OfficeAppRow,
   StatusCountGrid,
   type StatusCountItem,
 } from '@/src/cdrms/components/StatusCountGrid';
-import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
-import { resolveBoundaryDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { setSelectedOfficeAppId, getSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
-import { COLORS } from '@/src/cdrms/theme';
+import { COLORS, FONTS } from '@/src/cdrms/theme';
 import type { Go } from '@/src/cdrms/types';
 
 type ZcTab =
@@ -72,8 +71,29 @@ type ZcTab =
   | 'returned'
   | 'rejected';
 
-function addressLine(app: MobileApplication) {
-  return [app.addressArea, app.addressBlock, app.addressPincode].filter(Boolean).join(', ');
+const ZC_STATUS_FILTERS: { key: ZcTab; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'assigned', label: 'Assigned' },
+  { key: 'in_progress', label: 'In progress' },
+  { key: 'submitted', label: 'Pending CAO' },
+  { key: 'verified', label: 'Verified' },
+  { key: 'returned', label: 'Returned' },
+  { key: 'rejected', label: 'Rejected' },
+];
+
+function villageLine(app: MobileApplication) {
+  const village = app.addressArea || '—';
+  const taluka = app.addressBlock || '—';
+  const district = app.zoneCode || '—';
+  return `${village} (${taluka}, ${district})`;
+}
+
+function zcAppDetailLines(app: MobileApplication) {
+  return [
+    villageLine(app),
+    `Sy. ${app.siteNo}`,
+    `Submitted ${formatApplicationDate(app.createdAt)}`,
+  ];
 }
 
 export function ZcHomeScreen({ go }: { go: Go }) {
@@ -163,16 +183,24 @@ export function ZcHomeScreen({ go }: { go: Go }) {
 
   const filtered = useMemo(() => {
     let items = apps;
-    if (tab !== 'all') items = items.filter((a) => a.status === tab);
+    if (tab !== 'all') {
+      items = items.filter((a) => normalizeApplicationStatus(a.status) === tab);
+    }
     if (!q.trim()) return items;
     const needle = q.trim().toLowerCase();
     return items.filter(
       (a) =>
         a.applicationNumber.toLowerCase().includes(needle) ||
         a.siteNo.toLowerCase().includes(needle) ||
-        (a.assignedEngineerName || '').toLowerCase().includes(needle),
+        (a.assignedEngineerName || '').toLowerCase().includes(needle) ||
+        (a.assignedEngineerLoginId || '').toLowerCase().includes(needle) ||
+        (a.zoneCode || '').toLowerCase().includes(needle) ||
+        villageLine(a).toLowerCase().includes(needle),
     );
   }, [apps, tab, q]);
+
+  const sectionLabel =
+    tab === 'all' ? 'All applications' : ZC_STATUS_FILTERS.find((f) => f.key === tab)?.label;
 
   const openDetail = (id: string) => {
     setSelectedOfficeAppId(id);
@@ -187,10 +215,10 @@ export function ZcHomeScreen({ go }: { go: Go }) {
         showsVerticalScrollIndicator={false}
       >
         <AppHeader
-          title="ZC Applications"
+          title="Zone Applications"
           subtitle={
             zone
-              ? `Zone ${zone.zoneCode} · ${zone.zoneName}`
+              ? `Zone ${zone.zoneCode} · ${zone.zoneName} · Series ZC-${zone.zoneCode}-AUC-####`
               : `Welcome, ${displayName(user)}`
           }
           go={go}
@@ -223,7 +251,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
 
           <StatusCountGrid
             items={countItems}
-            activeKey={tab}
+            activeKey={tab === 'all' ? '' : tab}
             columns={3}
             onSelect={(key) => setTab((prev) => (prev === key ? 'all' : (key as ZcTab)))}
           />
@@ -243,15 +271,55 @@ export function ZcHomeScreen({ go }: { go: Go }) {
             <TextInput
               value={q}
               onChangeText={setQ}
-              placeholder="Search app, site, engineer…"
+              placeholder="Search by application no, site, engineer…"
               placeholderTextColor="#94A3B8"
               style={{ flex: 1, marginLeft: 8, fontSize: 13, color: '#0F172A' }}
             />
           </Box>
 
-          <HStack className="items-center justify-between mt-5 mb-2">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingTop: 12, paddingBottom: 4, gap: 8 }}
+          >
+            {ZC_STATUS_FILTERS.map((f) => {
+              const on = tab === f.key;
+              const count =
+                f.key === 'all'
+                  ? counts.total
+                  : counts[f.key as Exclude<ZcTab, 'all'>];
+              return (
+                <Pressable
+                  key={f.key}
+                  onPress={() => setTab(f.key)}
+                  style={{
+                    height: 36,
+                    paddingHorizontal: 14,
+                    borderRadius: 999,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: on ? COLORS.primary : COLORS.white,
+                    borderWidth: 1,
+                    borderColor: on ? COLORS.primary : COLORS.border,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 12,
+                      color: on ? '#FFFFFF' : COLORS.ink,
+                    }}
+                  >
+                    {f.label} · {count}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          <HStack className="items-center justify-between mt-4 mb-2">
             <Text className="text-[15px] font-bold" style={{ color: '#0F172A' }}>
-              {tab === 'all' ? 'All applications' : countItems.find((i) => i.key === tab)?.label}
+              {sectionLabel}
             </Text>
             <Pressable onPress={() => void reload()} className="active:opacity-70">
               <Text className="text-[12px] font-semibold" style={{ color: COLORS.primary }}>
@@ -268,15 +336,21 @@ export function ZcHomeScreen({ go }: { go: Go }) {
             </Text>
           ) : filtered.length === 0 ? (
             <Text className="text-[13px] mt-4" style={{ color: '#64748B' }}>
-              No applications in this bucket. Create one to assign an engineer.
+              No applications found matching your criteria.
             </Text>
           ) : (
             filtered.map((app) => (
               <OfficeAppRow
                 key={app.id}
                 title={app.applicationNumber}
-                subtitle={`Site ${app.siteNo} · ${addressLine(app) || '—'}`}
-                meta={app.assignedEngineerName || 'Unassigned engineer'}
+                subtitle={`Site #${app.siteNo} · Zone ${app.zoneCode}`}
+                detailLines={zcAppDetailLines(app)}
+                meta={app.assignedEngineerName || 'Assigned Engineer'}
+                metaSub={
+                  app.assignedEngineerLoginId ||
+                  app.assignedEngineerUserId ||
+                  undefined
+                }
                 status={app.status}
                 onPress={() => openDetail(app.id)}
               />
@@ -869,102 +943,38 @@ export function ZcCreateScreen({ go }: { go: Go }) {
 
 export function ZcDetailScreen({ go }: { go: Go }) {
   const { accessToken } = useAuth();
+  const appId = getSelectedOfficeAppId();
   const [app, setApp] = useState<MobileApplication | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const id = getSelectedOfficeAppId();
-    if (!accessToken || !id) {
+    if (!accessToken || !appId) {
       setError('No application selected');
       setLoading(false);
       return;
     }
-    fetchApplication(accessToken, id)
+    setLoading(true);
+    setError(null);
+    fetchApplication(accessToken, appId)
       .then(setApp)
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Not found'))
       .finally(() => setLoading(false));
-  }, [accessToken]);
+  }, [accessToken, appId]);
 
   return (
     <ScreenShell className="bg-[#F3F4F6]">
-      <AppHeader title="Application" onBack={() => go('zc_home')} gradient={false} go={go} />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+      <AppHeader title="View Application" onBack={() => go('zc_home')} gradient={false} go={go} />
+      <ScrollView
+        contentContainerStyle={{ padding: 16, paddingBottom: 80 }}
+        showsVerticalScrollIndicator
+      >
         {loading ? (
-          <ScreenLoader text="Loading ZC application details…" />
+          <ScreenLoader text="Loading application details…" />
         ) : error || !app ? (
           <Text style={{ color: '#DC2626' }}>{error || 'Not found'}</Text>
         ) : (
-          <>
-            <Box
-              style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: '#E5E7EB',
-                paddingHorizontal: 14,
-                paddingVertical: 4,
-              }}
-            >
-              <Text className="text-[18px] font-bold mt-3 mb-1" style={{ color: '#0F172A' }}>
-                {app.applicationNumber}
-              </Text>
-              <DetailRow
-                label="Status"
-                value={<ApplicationStatusBadge status={app.status} size="md" />}
-              />
-              <DetailRow label="Site no" value={app.siteNo} />
-              <DetailRow label="Area" value={app.addressArea} />
-              <DetailRow label="Block" value={app.addressBlock} />
-              <DetailRow label="Pincode" value={app.addressPincode} />
-              <DetailRow label="Site type" value={app.siteDimensionType} />
-              <DetailRow label="Site dimension" value={app.siteDimension || '—'} />
-              <DetailRow label="Comment" value={app.siteDimensionComment || '—'} />
-              <DetailRow label="Zone" value={app.zoneCode} />
-              <DetailRow label="Assigned engineer" value={app.assignedEngineerName || '—'} />
-              {app.caoRemarks ? <DetailRow label="CAO remarks" value={app.caoRemarks} /> : null}
-            </Box>
-
-            <Box
-              style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: '#E5E7EB',
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-                marginTop: 12,
-              }}
-            >
-              <Text className="text-[14px] font-extrabold mb-1" style={{ color: '#0F172A' }}>
-                Schedules (site around)
-              </Text>
-              <DetailRow label="Schedule N" value={app.scheduleNorth || '—'} />
-              <DetailRow label="Schedule S" value={app.scheduleSouth || '—'} />
-              <DetailRow label="Schedule W" value={app.scheduleWest || '—'} />
-              <DetailRow label="Schedule E" value={app.scheduleEast || '—'} />
-            </Box>
-
-            {(() => {
-              const boundary = resolveBoundaryDims(app);
-              if (!boundary.dims) return null;
-              return (
-                <BoundariesDiagram
-                  north={boundary.dims.north}
-                  south={boundary.dims.south}
-                  east={boundary.dims.east}
-                  west={boundary.dims.west}
-                  odd={app.siteDimensionType === 'Odd'}
-                  siteNo={app.siteNo}
-                  totalArea={boundary.total}
-                  scheduleNorth={app.scheduleNorth}
-                  scheduleSouth={app.scheduleSouth}
-                  scheduleEast={app.scheduleEast}
-                  scheduleWest={app.scheduleWest}
-                />
-              );
-            })()}
-          </>
+          <ApplicationRecordDetails app={app} showEmptyEngineer={false} />
         )}
       </ScrollView>
     </ScreenShell>

@@ -109,12 +109,16 @@ export function OfficeAppRow({
   title,
   subtitle,
   meta,
+  metaSub,
+  detailLines,
   status,
   onPress,
 }: {
   title: string;
   subtitle: string;
   meta?: string;
+  metaSub?: string;
+  detailLines?: string[];
   status: MobileApplicationStatus | string;
   onPress: () => void;
 }) {
@@ -166,14 +170,34 @@ export function OfficeAppRow({
             {subtitle}
           </Text>
 
+          {detailLines?.map((line) => (
+            <Text
+              key={line}
+              style={{ fontFamily: FONTS.medium, fontSize: 11, color: '#64748B' }}
+              numberOfLines={1}
+            >
+              {line}
+            </Text>
+          ))}
+
           {meta ? (
             <HStack className="items-center justify-between" style={{ gap: 8, marginTop: 1 }}>
-              <Text
-                style={{ flex: 1, fontFamily: FONTS.medium, fontSize: 11, color: COLORS.ink }}
-                numberOfLines={1}
-              >
-                {meta}
-              </Text>
+              <VStack className="flex-1 min-w-0" style={{ gap: 1 }}>
+                <Text
+                  style={{ fontFamily: FONTS.medium, fontSize: 11, color: COLORS.ink }}
+                  numberOfLines={1}
+                >
+                  {meta}
+                </Text>
+                {metaSub ? (
+                  <Text
+                    style={{ fontFamily: FONTS.medium, fontSize: 10, color: '#64748B' }}
+                    numberOfLines={1}
+                  >
+                    {metaSub}
+                  </Text>
+                ) : null}
+              </VStack>
               <HStack
                 className="items-center"
                 style={{

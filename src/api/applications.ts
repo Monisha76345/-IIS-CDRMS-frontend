@@ -1,5 +1,28 @@
 import { apiRequest } from './client';
 
+function asData<T>(payload: unknown): T {
+  if (
+    payload !== null &&
+    typeof payload === 'object' &&
+    Object.prototype.hasOwnProperty.call(payload, 'data')
+  ) {
+    return (payload as { data: T }).data;
+  }
+  return payload as T;
+}
+
+function asList<T>(payload: unknown): T[] {
+  if (
+    payload !== null &&
+    typeof payload === 'object' &&
+    Array.isArray((payload as { items?: unknown }).items)
+  ) {
+    return (payload as { items: T[] }).items;
+  }
+  const value = asData<unknown>(payload);
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
 export type MobileApplicationStatus =
   | 'assigned'
   | 'in_progress'
@@ -45,7 +68,10 @@ export type MobileApplication = {
   assignedEngineerName?: string | null;
   assignedEngineerUserId?: string;
   assignedEngineerLoginId?: string | null;
+  assignedEngineerProfilePhoto?: string | null;
   assignedCaoName?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
   engineerSiteDetails?: string | null;
   compass?: string | null;
   latitude?: string | null;
@@ -129,36 +155,169 @@ export async function fetchSiteDimensions(token?: string | null) {
     .filter((row) => row.label);
 }
 
+function parseJsonField<T>(value: unknown): T | null {
+  if (value == null || value === '') return null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    try {
+      return JSON.parse(trimmed) as T;
+    } catch {
+      return null;
+    }
+  }
+  return value as T;
+}
+
+function normalizeStringArray(value: unknown): string[] | null {
+  const parsed = parseJsonField<unknown>(value) ?? value;
+  if (typeof parsed === 'string' && parsed.trim()) return [parsed.trim()];
+  if (!Array.isArray(parsed)) return null;
+  const urls = parsed.map((v) => String(v).trim()).filter(Boolean);
+  return urls.length ? urls : null;
+}
+
+function normalizeStringRecord(value: unknown): Record<string, string> | null {
+  const parsed = parseJsonField<unknown>(value) ?? value;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  const out: Record<string, string> = {};
+  for (const [key, val] of Object.entries(parsed as Record<string, unknown>)) {
+    if (val != null && String(val).trim()) out[key] = String(val);
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+function normalizeHistory(value: unknown): ApplicationHistoryItem[] | null {
+  const parsed = parseJsonField<unknown>(value) ?? value;
+  if (!Array.isArray(parsed)) return null;
+  return parsed.map((row) => {
+    const r = row as Record<string, unknown>;
+    return {
+      id: r.id != null ? String(r.id) : undefined,
+      taskName: String(r.taskName ?? ''),
+      performedBy: String(r.performedBy ?? ''),
+      sentTo: r.sentTo != null ? String(r.sentTo) : null,
+      startedOn: r.startedOn != null ? String(r.startedOn) : null,
+      completedOn: r.completedOn != null ? String(r.completedOn) : null,
+      comments: r.comments != null ? String(r.comments) : null,
+      statusBefore: r.statusBefore != null ? String(r.statusBefore) : null,
+      statusAfter: r.statusAfter != null ? String(r.statusAfter) : null,
+    };
+  });
+}
+
+function normalizeApplication(raw: Record<string, unknown>): MobileApplication {
+  const status =
+    normalizeApplicationStatus(String(raw.status ?? '')) ?? ('assigned' as MobileApplicationStatus);
+
+  return {
+    id: String(raw.id ?? ''),
+    applicationNumber: String(raw.applicationNumber ?? ''),
+    siteNo: String(raw.siteNo ?? ''),
+    addressArea: String(raw.addressArea ?? ''),
+    addressBlock: String(raw.addressBlock ?? ''),
+    addressPincode: String(raw.addressPincode ?? ''),
+    siteDimensionType:
+      raw.siteDimensionType === 'Odd' || raw.siteDimensionType === 'Regular'
+        ? (raw.siteDimensionType === 'Odd' ? 'Odd' : 'Even')
+        : 'Even',
+    siteDimension: raw.siteDimension != null ? String(raw.siteDimension) : null,
+    siteDimensionComment:
+      raw.siteDimensionComment != null ? String(raw.siteDimensionComment) : null,
+    scheduleNorth: raw.scheduleNorth != null ? String(raw.scheduleNorth) : null,
+    scheduleSouth: raw.scheduleSouth != null ? String(raw.scheduleSouth) : null,
+    scheduleWest: raw.scheduleWest != null ? String(raw.scheduleWest) : null,
+    scheduleEast: raw.scheduleEast != null ? String(raw.scheduleEast) : null,
+    engineerScheduleNotes:
+      normalizeStringRecord(raw.engineerScheduleNotes) as MobileApplication['engineerScheduleNotes'],
+    scheduleRoadFlags: parseJsonField<MobileApplication['scheduleRoadFlags']>(
+      raw.scheduleRoadFlags,
+    ),
+    engineerDimensions:
+      normalizeStringRecord(raw.engineerDimensions) as MobileApplication['engineerDimensions'],
+    zoneId: raw.zoneId != null ? Number(raw.zoneId) : undefined,
+    zoneCode: String(raw.zoneCode ?? ''),
+    status,
+    createdByZcName: raw.createdByZcName != null ? String(raw.createdByZcName) : null,
+    assignedEngineerName:
+      raw.assignedEngineerName != null ? String(raw.assignedEngineerName) : null,
+    assignedEngineerUserId:
+      raw.assignedEngineerUserId != null ? String(raw.assignedEngineerUserId) : undefined,
+    assignedEngineerLoginId:
+      raw.assignedEngineerLoginId != null ? String(raw.assignedEngineerLoginId) : null,
+    assignedEngineerProfilePhoto:
+      raw.assignedEngineerProfilePhoto != null
+        ? String(raw.assignedEngineerProfilePhoto)
+        : null,
+    assignedCaoName: raw.assignedCaoName != null ? String(raw.assignedCaoName) : null,
+    engineerSiteDetails:
+      raw.engineerSiteDetails != null ? String(raw.engineerSiteDetails) : null,
+    compass: raw.compass != null ? String(raw.compass) : null,
+    latitude: raw.latitude != null ? String(raw.latitude) : null,
+    longitude: raw.longitude != null ? String(raw.longitude) : null,
+    occupancy:
+      raw.occupancy === 'Empty' || raw.occupancy === 'Occupied' ? raw.occupancy : null,
+    occupancyReason: raw.occupancyReason != null ? String(raw.occupancyReason) : null,
+    dimNorth: raw.dimNorth != null ? String(raw.dimNorth) : null,
+    dimSouth: raw.dimSouth != null ? String(raw.dimSouth) : null,
+    dimEast: raw.dimEast != null ? String(raw.dimEast) : null,
+    dimWest: raw.dimWest != null ? String(raw.dimWest) : null,
+    totalSiteArea: raw.totalSiteArea != null ? String(raw.totalSiteArea) : null,
+    selfieUrl: raw.selfieUrl != null ? String(raw.selfieUrl) : null,
+    photoUrls: normalizeStringArray(raw.photoUrls),
+    schedulePhotoUrls:
+      normalizeStringRecord(raw.schedulePhotoUrls) as MobileApplication['schedulePhotoUrls'],
+    videoUrl: raw.videoUrl != null ? String(raw.videoUrl) : null,
+    engineerComments: raw.engineerComments != null ? String(raw.engineerComments) : null,
+    engineerSubmittedAt:
+      raw.engineerSubmittedAt != null ? String(raw.engineerSubmittedAt) : null,
+    caoRemarks: raw.caoRemarks != null ? String(raw.caoRemarks) : null,
+    caoReviewedAt: raw.caoReviewedAt != null ? String(raw.caoReviewedAt) : null,
+    history: normalizeHistory(raw.history),
+    createdAt: raw.createdAt != null ? String(raw.createdAt) : null,
+    updatedAt: raw.updatedAt != null ? String(raw.updatedAt) : null,
+  };
+}
+
+async function fetchApplicationList(token: string, as: ApplicationAs) {
+  const raw = await apiRequest<unknown>(`/applications?as=${as}`, { token });
+  return asList<Record<string, unknown>>(raw).map(normalizeApplication);
+}
+
 export function fetchEngineerTasks(token: string) {
-  return apiRequest<MobileApplication[]>('/applications?as=engineer', { token });
+  return fetchApplicationList(token, 'engineer');
 }
 
 export function fetchZcApplications(token: string) {
-  return apiRequest<MobileApplication[]>('/applications?as=zc', { token });
+  return fetchApplicationList(token, 'zc');
 }
 
 export function fetchCaoApplications(token: string) {
-  return apiRequest<MobileApplication[]>('/applications?as=cao', { token });
+  return fetchApplicationList(token, 'cao');
 }
 
 export function fetchApplicationsAs(token: string, as: ApplicationAs) {
-  return apiRequest<MobileApplication[]>(`/applications?as=${as}`, { token });
+  return fetchApplicationList(token, as);
 }
 
 export function fetchMyZoneMeta(token: string) {
-  return apiRequest<MyZoneMeta>('/applications/meta/my-zone', { token });
+  return apiRequest<unknown>('/applications/meta/my-zone', { token }).then((raw) =>
+    asData<MyZoneMeta>(raw),
+  );
 }
 
 export function fetchCaoCounts(token: string) {
-  return apiRequest<CaoCounts>('/applications/meta/cao-counts', { token });
+  return apiRequest<unknown>('/applications/meta/cao-counts', { token }).then((raw) =>
+    asData<CaoCounts>(raw),
+  );
 }
 
 export function createApplication(token: string, body: CreateApplicationInput) {
-  return apiRequest<MobileApplication>('/applications', {
+  return apiRequest<unknown>('/applications', {
     method: 'POST',
     token,
     body,
-  });
+  }).then((raw) => normalizeApplication(asData<Record<string, unknown>>(raw)));
 }
 
 export function caoDecideApplication(
@@ -175,17 +334,27 @@ export function caoDecideApplication(
 }
 
 export function fetchApplication(token: string, id: string) {
-  return apiRequest<MobileApplication>(`/applications/${id}`, { token });
+  return apiRequest<unknown>(`/applications/${id}`, { token }).then((raw) =>
+    normalizeApplication(asData<Record<string, unknown>>(raw)),
+  );
+}
+
+export function formatApplicationDate(value?: string | null) {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString('en-GB');
 }
 
 export function countZcBuckets(apps: MobileApplication[]) {
   return {
-    assigned: apps.filter((a) => a.status === 'assigned').length,
-    in_progress: apps.filter((a) => a.status === 'in_progress').length,
-    submitted: apps.filter((a) => a.status === 'submitted').length,
-    verified: apps.filter((a) => a.status === 'verified').length,
-    returned: apps.filter((a) => a.status === 'returned').length,
-    rejected: apps.filter((a) => a.status === 'rejected').length,
+    assigned: apps.filter((a) => normalizeApplicationStatus(a.status) === 'assigned').length,
+    in_progress: apps.filter((a) => normalizeApplicationStatus(a.status) === 'in_progress')
+      .length,
+    submitted: apps.filter((a) => normalizeApplicationStatus(a.status) === 'submitted').length,
+    verified: apps.filter((a) => normalizeApplicationStatus(a.status) === 'verified').length,
+    returned: apps.filter((a) => normalizeApplicationStatus(a.status) === 'returned').length,
+    rejected: apps.filter((a) => normalizeApplicationStatus(a.status) === 'rejected').length,
     total: apps.length,
   };
 }

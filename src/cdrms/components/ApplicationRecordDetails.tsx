@@ -384,7 +384,8 @@ export function ApplicationRecordDetails({
       (app.photoUrls && app.photoUrls.some(Boolean)) ||
       app.videoUrl ||
       app.dimNorth ||
-      app.compass,
+      app.compass ||
+      hasGps,
   );
 
   const photos = (app.photoUrls || []).filter((u) => Boolean(u?.trim()));
@@ -671,6 +672,12 @@ export function ApplicationRecordDetails({
           >
             <SiteVideoPlayer uri={app.videoUrl} />
           </Box>
+        </SectionCard>
+      ) : null}
+
+      {app.engineerComments ? (
+        <SectionCard title="Engineer — Comments" icon={Building2} accent="#64748B">
+          <InfoRow label="Comments" value={app.engineerComments} />
         </SectionCard>
       ) : null}
 
