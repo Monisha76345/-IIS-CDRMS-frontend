@@ -1,9 +1,11 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
+import Constants from 'expo-constants';
 import { Alert, Linking, Platform } from 'react-native';
 
 import { openDeviceCamera } from '@/src/cdrms/camera/cameraCaptureGate';
 import {
+  isAndroidVirtual,
   isLiveVideoBlocked,
   MAC_CAMERA_HINT,
   VIRTUAL_CAMERA_MESSAGE,
@@ -48,6 +50,13 @@ function showPermissionAlert(title: string, message: string) {
   ]);
 }
 
+/** Sample media only on Simulator / Emulator — never on a real phone. */
+function useDummyCapture(): boolean {
+  if (isAndroidVirtual()) return true;
+  if (Platform.OS === 'ios' && Constants.isDevice === false) return true;
+  return false;
+}
+
 async function ensureLibraryPermission() {
   try {
     const current = await ImagePicker.getMediaLibraryPermissionsAsync();
@@ -90,35 +99,72 @@ async function pickPhotoFromLibrary(): Promise<MediaAsset | null> {
 }
 
 /**
+ * Open the native system camera (most reliable on real Android / iPhone).
+ * Falls back to in-app CameraView if the system picker fails.
+ */
+async function captureWithSystemCamera(options?: {
+  facing?: 'front' | 'back';
+  title?: string;
+}): Promise<MediaAsset | null> {
+  if (!(await ensureMediaCapturePermissions('photo'))) return null;
+
+  try {
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      cameraType:
+        options?.facing === 'front'
+          ? ImagePicker.CameraType.front
+          : ImagePicker.CameraType.back,
+      quality: 0.8,
+      allowsEditing: false,
+      exif: false,
+    });
+    if (result.canceled || !result.assets?.[0]) return null;
+    return toAsset(result.assets[0], 'image');
+  } catch (e) {
+    try {
+      return await openDeviceCamera({
+        mode: 'photo',
+        facing: options?.facing ?? 'back',
+        title: options?.title ?? 'Take photo',
+      });
+    } catch {
+      Alert.alert(
+        'Camera error',
+        e instanceof Error
+          ? e.message
+          : 'Could not open the camera. Allow Camera in Settings and try again.'
+      );
+      return null;
+    }
+  }
+}
+
+/**
  * Site / directional photo / selfie.
- * On Android emulator → Gallery.
- * On iOS Simulator → in-app camera using MacBook camera (set I/O → Camera).
- * On real phone → device camera.
- * In __DEV__, returns a local sample image so you can proceed without camera.
+ * Simulator/Emulator → sample image.
+ * Real phone → system camera (with CameraView fallback).
  */
 export async function capturePhoto(options?: {
   facing?: 'front' | 'back';
   title?: string;
 }): Promise<MediaAsset | null> {
-  if (__DEV__) {
-    return createDummyImageAsset();
+  if (useDummyCapture()) {
+    try {
+      return await createDummyImageAsset();
+    } catch {
+      // Fall through if sample asset fails
+    }
   }
 
-  if (Platform.OS === 'ios' && __DEV__) {
+  if (Platform.OS === 'ios' && Constants.isDevice === false) {
     explainMacCameraOnce();
   }
 
-  if (!(await ensureMediaCapturePermissions('photo'))) return null;
-
-  // Prefer in-app CameraView so both real devices and Emulators/Simulators can use the camera.
-  return openDeviceCamera({
-    mode: 'photo',
-    facing: options?.facing ?? 'back',
-    title: options?.title ?? 'Take photo',
-  });
+  return captureWithSystemCamera(options);
 }
 
-/** Engineer selfie — front camera (MacBook FaceTime front when mapped on Simulator). */
+/** Engineer selfie — front camera on a real device. */
 export async function captureSelfie(): Promise<MediaAsset | null> {
   return capturePhoto({ facing: 'front', title: 'Take selfie' });
 }
@@ -205,13 +251,16 @@ export async function chooseVideoFile(): Promise<MediaAsset | null> {
 
 /**
  * Inspection video.
- * Apple blocks live *recording* on iOS Simulator — Gallery/Files only there.
- * Real phone uses camera record.
- * In __DEV__, returns a local sample video so you can proceed without recording.
+ * Simulator → sample / gallery.
+ * Real phone → system camera recorder (fallback: in-app CameraView).
  */
 export async function captureVideo(): Promise<MediaAsset | null> {
-  if (__DEV__) {
-    return createDummyVideoAsset();
+  if (useDummyCapture()) {
+    try {
+      return await createDummyVideoAsset();
+    } catch {
+      return chooseVideoFile();
+    }
   }
 
   if (isLiveVideoBlocked()) {
@@ -224,12 +273,29 @@ export async function captureVideo(): Promise<MediaAsset | null> {
 
   if (!(await ensureMediaCapturePermissions('video'))) return null;
 
-  return openDeviceCamera({
-    mode: 'video',
-    facing: 'back',
-    title: 'Record inspection video',
-    maxDurationSec: 120,
-  });
+  // System camera video is the most reliable on real Android / iPhone.
+  try {
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['videos'],
+      videoMaxDuration: 120,
+      allowsEditing: false,
+      quality: 0.7,
+      ...(Platform.OS === 'ios'
+        ? {
+            videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
+          }
+        : {}),
+    });
+    if (result.canceled || !result.assets?.[0]) return null;
+    return toAsset(result.assets[0], 'video');
+  } catch {
+    return openDeviceCamera({
+      mode: 'video',
+      facing: 'back',
+      title: 'Record inspection video',
+      maxDurationSec: 120,
+    });
+  }
 }
 
 export async function pickVideo(): Promise<MediaAsset | null> {

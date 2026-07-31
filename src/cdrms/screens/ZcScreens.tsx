@@ -8,13 +8,19 @@ import {
   XCircle,
   Search,
 } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   TextInput,
   View,
+  type ScrollView as RNScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Pressable } from '@/components/ui/pressable';
@@ -307,22 +313,44 @@ function Field({
   value,
   onChange,
   placeholder,
+  onFocus,
+  returnKeyType,
+  onSubmitEditing,
+  blurOnSubmit,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
+  onFocus?: (info: { y: number; height: number }) => void;
+  returnKeyType?: 'next' | 'done' | 'go' | 'default';
+  onSubmitEditing?: () => void;
+  blurOnSubmit?: boolean;
 }) {
+  const inputRef = useRef<TextInput>(null);
+
   return (
     <VStack className="mb-3">
       <Text className="text-[12px] font-semibold mb-1.5" style={{ color: '#334155' }}>
         {label}
       </Text>
       <TextInput
+        ref={inputRef}
         value={value}
         onChangeText={onChange}
         placeholder={placeholder}
         placeholderTextColor="#94A3B8"
+        onFocus={() => {
+          // Delay so keyboard height is known, then report field screen position.
+          setTimeout(() => {
+            inputRef.current?.measureInWindow((_x, y, _w, h) => {
+              onFocus?.({ y, height: h || 44 });
+            });
+          }, Platform.OS === 'ios' ? 50 : 100);
+        }}
+        returnKeyType={returnKeyType ?? 'next'}
+        onSubmitEditing={onSubmitEditing}
+        blurOnSubmit={blurOnSubmit ?? false}
         style={{
           height: 44,
           borderRadius: 12,
@@ -340,6 +368,10 @@ function Field({
 
 export function ZcCreateScreen({ go }: { go: Go }) {
   const { accessToken } = useAuth();
+  const insets = useSafeAreaInsets();
+  const scrollRef = useRef<RNScrollView>(null);
+  const scrollYRef = useRef(0);
+  const keyboardHeightRef = useRef(0);
   const [zone, setZone] = useState<MyZoneMeta | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(true);
@@ -347,6 +379,63 @@ export function ZcCreateScreen({ go }: { go: Go }) {
   const [zoneError, setZoneError] = useState<string | null>(null);
   const [dimensions, setDimensions] = useState<SiteDimensionOption[]>([]);
   const [dimOpen, setDimOpen] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        const h = e.endCoordinates?.height ?? 0;
+        keyboardHeightRef.current = h;
+        setKeyboardHeight(h);
+      },
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        keyboardHeightRef.current = 0;
+        setKeyboardHeight(0);
+      },
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
+  /**
+   * Nudge scroll so the focused field sits just above the keyboard.
+   * Do NOT scrollToEnd / jump to top — that was shoving the whole form away.
+   */
+  const ensureVisible = useCallback((anchorYInWindow?: number, fieldHeight = 44) => {
+    if (anchorYInWindow == null) return;
+    const scroll = scrollRef.current as unknown as {
+      measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void;
+      scrollTo: (opts: { y: number; animated?: boolean }) => void;
+    } | null;
+    if (!scroll?.measureInWindow) return;
+
+    scroll.measureInWindow((_sx, sy, _sw, sh) => {
+      const kb = keyboardHeightRef.current;
+      const screenH = Dimensions.get('window').height;
+      const keyboardTop = kb > 0 ? screenH - kb : sy + sh;
+      const fieldBottom = anchorYInWindow + fieldHeight + 12;
+      const visibleBottom = Math.min(sy + sh, keyboardTop) - 12;
+      if (fieldBottom <= visibleBottom) return;
+      const delta = fieldBottom - visibleBottom;
+      scroll.scrollTo({
+        y: Math.max(0, scrollYRef.current + delta),
+        animated: true,
+      });
+    });
+  }, []);
+
+  const onFieldFocus = useCallback(
+    (info: { y: number; height: number }) => {
+      ensureVisible(info.y, info.height);
+    },
+    [ensureVisible],
+  );
 
   useEffect(() => {
     if (!accessToken) return;
@@ -436,303 +525,341 @@ export function ZcCreateScreen({ go }: { go: Go }) {
   return (
     <ScreenShell className="bg-[#F3F4F6]">
       <AppHeader title="Create application" onBack={() => go('zc_home')} gradient={false} go={go} />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-        {loading ? (
-          <ActivityIndicator color={COLORS.primary} />
-        ) : zoneError ? (
-          <Box
-            style={{
-              backgroundColor: '#FFF1F2',
-              borderColor: '#FECDD3',
-              borderWidth: 1,
-              borderRadius: 14,
-              padding: 14,
-            }}
-          >
-            <Text style={{ color: '#9F1239', fontSize: 13 }}>{zoneError}</Text>
-          </Box>
-        ) : (
-          <VStack>
-            <Text className="text-[13px] mb-4" style={{ color: '#64748B' }}>
-              Will generate{' '}
-              <Text className="font-bold" style={{ color: '#0F172A' }}>
-                ZC-{zone?.zoneCode}-AUC-####
-              </Text>{' '}
-              and create a task for the assigned engineer.
-            </Text>
-
-            <Field
-              label="Site no *"
-              value={form.siteNo}
-              onChange={(v) => setForm((f) => ({ ...f, siteNo: v }))}
-            />
-
-            <Text className="text-[12px] font-semibold mb-1.5" style={{ color: '#334155' }}>
-              Site type *
-            </Text>
-            <HStack className="gap-2 mb-3">
-              {(['Even', 'Odd'] as const).map((opt) => {
-                const on = form.siteDimensionType === opt;
-                return (
-                  <Pressable
-                    key={opt}
-                    onPress={() => setForm((f) => ({ ...f, siteDimensionType: opt }))}
-                    style={{
-                      flex: 1,
-                      height: 42,
-                      borderRadius: 12,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: on ? '#1e3a5f' : '#FFFFFF',
-                      borderWidth: 1,
-                      borderColor: on ? '#1e3a5f' : '#E5E7EB',
-                    }}
-                  >
-                    <Text
-                      className="text-[13px] font-semibold"
-                      style={{ color: on ? '#FFFFFF' : '#334155' }}
-                    >
-                      {opt}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </HStack>
-
-            <Text className="text-[12px] font-semibold mb-1.5" style={{ color: '#334155' }}>
-              Site dimension *
-            </Text>
-            <Pressable
-              onPress={() => setDimOpen((o) => !o)}
+      {/*
+        iOS: light padding avoidance.
+        Android: do NOT use behavior="height" — it shrinks the whole page upward.
+        Use keyboard-height padding + scroll only the focused field into view.
+      */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+      >
+        <ScrollView
+          ref={scrollRef}
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            padding: 16,
+            paddingBottom: Math.max(40 + insets.bottom, keyboardHeight + 24),
+            flexGrow: 1,
+          }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          nestedScrollEnabled
+          showsVerticalScrollIndicator
+          scrollEventThrottle={16}
+          onScroll={(e) => {
+            scrollYRef.current = e.nativeEvent.contentOffset.y;
+          }}
+        >
+          {loading ? (
+            <ActivityIndicator color={COLORS.primary} />
+          ) : zoneError ? (
+            <Box
               style={{
-                height: 44,
-                borderRadius: 12,
+                backgroundColor: '#FFF1F2',
+                borderColor: '#FECDD3',
                 borderWidth: 1,
-                borderColor: '#E5E7EB',
-                backgroundColor: '#FFFFFF',
-                paddingHorizontal: 12,
-                justifyContent: 'center',
-                marginBottom: dimOpen ? 8 : 12,
+                borderRadius: 14,
+                padding: 14,
               }}
             >
-              <Text style={{ fontSize: 14, color: form.siteDimension ? '#0F172A' : '#94A3B8' }}>
-                {form.siteDimension || 'Select site dimension'}
+              <Text style={{ color: '#9F1239', fontSize: 13 }}>{zoneError}</Text>
+            </Box>
+          ) : (
+            <VStack>
+              <Text className="text-[13px] mb-4" style={{ color: '#64748B' }}>
+                Will generate{' '}
+                <Text className="font-bold" style={{ color: '#0F172A' }}>
+                  ZC-{zone?.zoneCode}-AUC-####
+                </Text>{' '}
+                and create a task for the assigned engineer.
               </Text>
-            </Pressable>
-            {dimOpen ? (
-              <Box
+
+              <Field
+                label="Site no *"
+                value={form.siteNo}
+                onChange={(v) => setForm((f) => ({ ...f, siteNo: v }))}
+              />
+
+              <Text className="text-[12px] font-semibold mb-1.5" style={{ color: '#334155' }}>
+                Site type *
+              </Text>
+              <HStack className="gap-2 mb-3">
+                {(['Even', 'Odd'] as const).map((opt) => {
+                  const on = form.siteDimensionType === opt;
+                  return (
+                    <Pressable
+                      key={opt}
+                      onPress={() => setForm((f) => ({ ...f, siteDimensionType: opt }))}
+                      style={{
+                        flex: 1,
+                        height: 42,
+                        borderRadius: 12,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: on ? '#1e3a5f' : '#FFFFFF',
+                        borderWidth: 1,
+                        borderColor: on ? '#1e3a5f' : '#E5E7EB',
+                      }}
+                    >
+                      <Text
+                        className="text-[13px] font-semibold"
+                        style={{ color: on ? '#FFFFFF' : '#334155' }}
+                      >
+                        {opt}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </HStack>
+
+              <Text className="text-[12px] font-semibold mb-1.5" style={{ color: '#334155' }}>
+                Site dimension *
+              </Text>
+              <Pressable
+                onPress={() => setDimOpen((o) => !o)}
+                style={{
+                  height: 44,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: '#E5E7EB',
+                  backgroundColor: '#FFFFFF',
+                  paddingHorizontal: 12,
+                  justifyContent: 'center',
+                  marginBottom: dimOpen ? 8 : 12,
+                }}
+              >
+                <Text style={{ fontSize: 14, color: form.siteDimension ? '#0F172A' : '#94A3B8' }}>
+                  {form.siteDimension || 'Select site dimension'}
+                </Text>
+              </Pressable>
+              {dimOpen ? (
+                <Box
+                  style={{
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: '#E5E7EB',
+                    backgroundColor: '#FFFFFF',
+                    marginBottom: 12,
+                    overflow: 'hidden',
+                    maxHeight: 220,
+                  }}
+                >
+                  <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                    {dimensions.length === 0 ? (
+                      <Text style={{ padding: 12, color: '#94A3B8', fontSize: 13 }}>
+                        No master dimensions loaded. Enter below.
+                      </Text>
+                    ) : (
+                      dimensions.map((d) => (
+                        <Pressable
+                          key={d.id || d.label}
+                          onPress={() => {
+                            setForm((f) => ({ ...f, siteDimension: d.label }));
+                            setDimOpen(false);
+                          }}
+                          style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 12,
+                            borderBottomWidth: 1,
+                            borderBottomColor: '#F1F5F9',
+                            backgroundColor:
+                              form.siteDimension === d.label ? '#EFF6FF' : '#FFFFFF',
+                          }}
+                        >
+                          <Text style={{ fontSize: 14, color: '#0F172A', fontWeight: '600' }}>
+                            {d.label}
+                          </Text>
+                        </Pressable>
+                      ))
+                    )}
+                  </ScrollView>
+                </Box>
+              ) : null}
+              <Field
+                label="Or enter dimension (e.g. 20*40)"
+                value={form.siteDimension}
+                onChange={(v) => setForm((f) => ({ ...f, siteDimension: v }))}
+                placeholder="20*40"
+              />
+
+              <Field
+                label="Area *"
+                value={form.addressArea}
+                onChange={(v) => setForm((f) => ({ ...f, addressArea: v }))}
+              />
+              <Field
+                label="Block *"
+                value={form.addressBlock}
+                onChange={(v) => setForm((f) => ({ ...f, addressBlock: v }))}
+                onFocus={onFieldFocus}
+              />
+              <Field
+                label="Pincode *"
+                value={form.addressPincode}
+                onChange={(v) => setForm((f) => ({ ...f, addressPincode: v }))}
+                onFocus={onFieldFocus}
+                returnKeyType="next"
+              />
+              <Field
+                label={form.siteDimensionType === 'Odd' ? 'Comments *' : 'Comments'}
+                value={form.siteDimensionComment || ''}
+                onChange={(v) => setForm((f) => ({ ...f, siteDimensionComment: v }))}
+                onFocus={onFieldFocus}
+              />
+
+              <Text className="text-[13px] font-bold mb-2 mt-1" style={{ color: '#0F172A' }}>
+                Schedule (site around)
+              </Text>
+              <Field
+                label="North"
+                value={form.scheduleNorth || ''}
+                onChange={(v) => setForm((f) => ({ ...f, scheduleNorth: v }))}
+                onFocus={onFieldFocus}
+              />
+              <Field
+                label="South"
+                value={form.scheduleSouth || ''}
+                onChange={(v) => setForm((f) => ({ ...f, scheduleSouth: v }))}
+                onFocus={onFieldFocus}
+              />
+              <Field
+                label="West"
+                value={form.scheduleWest || ''}
+                onChange={(v) => setForm((f) => ({ ...f, scheduleWest: v }))}
+                onFocus={onFieldFocus}
+              />
+              <Field
+                label="East"
+                value={form.scheduleEast || ''}
+                onChange={(v) => setForm((f) => ({ ...f, scheduleEast: v }))}
+                onFocus={onFieldFocus}
+                returnKeyType="done"
+                blurOnSubmit
+                onSubmitEditing={() => Keyboard.dismiss()}
+              />
+
+              <Text className="text-[12px] font-semibold mb-1.5" style={{ color: '#334155' }}>
+                Assign engineer * (zone {zone?.zoneCode})
+              </Text>
+              <Text style={{ fontSize: 11, color: '#94A3B8', marginBottom: 8 }}>
+                Tap to select who receives this task
+              </Text>
+              <View
                 style={{
                   borderRadius: 12,
                   borderWidth: 1,
                   borderColor: '#E5E7EB',
                   backgroundColor: '#FFFFFF',
-                  marginBottom: 12,
                   overflow: 'hidden',
-                  maxHeight: 220,
+                  marginBottom: 8,
                 }}
               >
-                <ScrollView nestedScrollEnabled>
-                  {dimensions.length === 0 ? (
-                    <Text style={{ padding: 12, color: '#94A3B8', fontSize: 13 }}>
-                      No master dimensions loaded. Enter below.
-                    </Text>
-                  ) : (
-                    dimensions.map((d) => (
+                {engineers.length === 0 ? (
+                  <Text style={{ padding: 12, color: '#B45309', fontSize: 12 }}>
+                    No engineers with an active post mapping in this zone.
+                  </Text>
+                ) : (
+                  engineers.map((eng) => {
+                    const on = form.assignedEngineerUserId === eng.userId;
+                    return (
                       <Pressable
-                        key={d.id || d.label}
-                        onPress={() => {
-                          setForm((f) => ({ ...f, siteDimension: d.label }));
-                          setDimOpen(false);
-                        }}
+                        key={eng.userId}
+                        onPress={() =>
+                          setForm((f) => ({
+                            ...f,
+                            assignedEngineerUserId: eng.userId,
+                          }))
+                        }
                         style={{
                           paddingHorizontal: 12,
                           paddingVertical: 12,
+                          backgroundColor: on ? '#EFF6FF' : '#FFFFFF',
                           borderBottomWidth: 1,
                           borderBottomColor: '#F1F5F9',
-                          backgroundColor:
-                            form.siteDimension === d.label ? '#EFF6FF' : '#FFFFFF',
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 10,
                         }}
                       >
-                        <Text style={{ fontSize: 14, color: '#0F172A', fontWeight: '600' }}>
-                          {d.label}
+                        <View
+                          style={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: 10,
+                            borderWidth: 2,
+                            borderColor: on ? '#1D4ED8' : '#CBD5E1',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          {on ? (
+                            <View
+                              style={{
+                                width: 10,
+                                height: 10,
+                                borderRadius: 5,
+                                backgroundColor: '#1D4ED8',
+                              }}
+                            />
+                          ) : null}
+                        </View>
+                        <Text
+                          className="text-[13px] font-semibold"
+                          style={{ color: on ? '#1D4ED8' : '#0F172A', flex: 1 }}
+                        >
+                          {eng.name}
+                          {eng.postName ? ` · ${eng.postName}` : ''}
                         </Text>
                       </Pressable>
-                    ))
-                  )}
-                </ScrollView>
-              </Box>
-            ) : null}
-            <Field
-              label="Or enter dimension (e.g. 20*40)"
-              value={form.siteDimension}
-              onChange={(v) => setForm((f) => ({ ...f, siteDimension: v }))}
-              placeholder="20*40"
-            />
-
-            <Field
-              label="Area *"
-              value={form.addressArea}
-              onChange={(v) => setForm((f) => ({ ...f, addressArea: v }))}
-            />
-            <Field
-              label="Block *"
-              value={form.addressBlock}
-              onChange={(v) => setForm((f) => ({ ...f, addressBlock: v }))}
-            />
-            <Field
-              label="Pincode *"
-              value={form.addressPincode}
-              onChange={(v) => setForm((f) => ({ ...f, addressPincode: v }))}
-            />
-            <Field
-              label={form.siteDimensionType === 'Odd' ? 'Comments *' : 'Comments'}
-              value={form.siteDimensionComment || ''}
-              onChange={(v) => setForm((f) => ({ ...f, siteDimensionComment: v }))}
-            />
-
-            <Text className="text-[13px] font-bold mb-2 mt-1" style={{ color: '#0F172A' }}>
-              Schedule (site around)
-            </Text>
-            <Field
-              label="North"
-              value={form.scheduleNorth || ''}
-              onChange={(v) => setForm((f) => ({ ...f, scheduleNorth: v }))}
-            />
-            <Field
-              label="South"
-              value={form.scheduleSouth || ''}
-              onChange={(v) => setForm((f) => ({ ...f, scheduleSouth: v }))}
-            />
-            <Field
-              label="West"
-              value={form.scheduleWest || ''}
-              onChange={(v) => setForm((f) => ({ ...f, scheduleWest: v }))}
-            />
-            <Field
-              label="East"
-              value={form.scheduleEast || ''}
-              onChange={(v) => setForm((f) => ({ ...f, scheduleEast: v }))}
-            />
-
-            <Text className="text-[12px] font-semibold mb-1.5" style={{ color: '#334155' }}>
-              Assign engineer * (zone {zone?.zoneCode})
-            </Text>
-            <Text style={{ fontSize: 11, color: '#94A3B8', marginBottom: 8 }}>
-              Tap to select who receives this task
-            </Text>
-            <View
-              style={{
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: '#E5E7EB',
-                backgroundColor: '#FFFFFF',
-                overflow: 'hidden',
-                marginBottom: 8,
-              }}
-            >
-              {engineers.length === 0 ? (
-                <Text style={{ padding: 12, color: '#B45309', fontSize: 12 }}>
-                  No engineers with an active post mapping in this zone.
-                </Text>
-              ) : (
-                engineers.map((eng) => {
-                  const on = form.assignedEngineerUserId === eng.userId;
-                  return (
-                    <Pressable
-                      key={eng.userId}
-                      onPress={() =>
-                        setForm((f) => ({
-                          ...f,
-                          assignedEngineerUserId: eng.userId,
-                        }))
-                      }
-                      style={{
-                        paddingHorizontal: 12,
-                        paddingVertical: 12,
-                        backgroundColor: on ? '#EFF6FF' : '#FFFFFF',
-                        borderBottomWidth: 1,
-                        borderBottomColor: '#F1F5F9',
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 10,
-                      }}
-                    >
-                      <View
-                        style={{
-                          width: 20,
-                          height: 20,
-                          borderRadius: 10,
-                          borderWidth: 2,
-                          borderColor: on ? '#1D4ED8' : '#CBD5E1',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        {on ? (
-                          <View
-                            style={{
-                              width: 10,
-                              height: 10,
-                              borderRadius: 5,
-                              backgroundColor: '#1D4ED8',
-                            }}
-                          />
-                        ) : null}
-                      </View>
-                      <Text
-                        className="text-[13px] font-semibold"
-                        style={{ color: on ? '#1D4ED8' : '#0F172A', flex: 1 }}
-                      >
-                        {eng.name}
-                        {eng.postName ? ` · ${eng.postName}` : ''}
-                      </Text>
-                    </Pressable>
-                  );
-                })
-              )}
-            </View>
-
-            <HStack className="gap-2 mt-4">
-              <Pressable
-                onPress={() => go('zc_home')}
-                style={{
-                  flex: 1,
-                  height: 48,
-                  borderRadius: 14,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderWidth: 1,
-                  borderColor: '#E5E7EB',
-                  backgroundColor: '#FFFFFF',
-                }}
-              >
-                <Text className="font-semibold" style={{ color: '#334155' }}>
-                  Cancel
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => void onSubmit()}
-                disabled={saving}
-                style={{
-                  flex: 1,
-                  height: 48,
-                  borderRadius: 14,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: '#1e3a5f',
-                  opacity: saving ? 0.7 : 1,
-                }}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text className="font-bold text-white">Submit</Text>
+                    );
+                  })
                 )}
-              </Pressable>
-            </HStack>
-          </VStack>
-        )}
-      </ScrollView>
+              </View>
+
+              <HStack className="gap-2 mt-4">
+                <Pressable
+                  onPress={() => go('zc_home')}
+                  style={{
+                    flex: 1,
+                    height: 48,
+                    borderRadius: 14,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 1,
+                    borderColor: '#E5E7EB',
+                    backgroundColor: '#FFFFFF',
+                  }}
+                >
+                  <Text className="font-semibold" style={{ color: '#334155' }}>
+                    Cancel
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => void onSubmit()}
+                  disabled={saving}
+                  style={{
+                    flex: 1,
+                    height: 48,
+                    borderRadius: 14,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: '#1e3a5f',
+                    opacity: saving ? 0.7 : 1,
+                  }}
+                >
+                  {saving ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text className="font-bold text-white">Submit</Text>
+                  )}
+                </Pressable>
+              </HStack>
+            </VStack>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </ScreenShell>
   );
 }

@@ -39,17 +39,29 @@ export function SchedulesEditorCard({
       {
         text: 'Camera',
         onPress: () => {
-          void capturePhoto({ title: `Take ${DIRECTION_META[k].label} photo` }).then((asset) => {
-            if (asset) void setSurroundingPhoto(k, asset);
-          });
+          void (async () => {
+            try {
+              const asset = await capturePhoto({
+                title: `Take ${DIRECTION_META[k].label} photo`,
+              });
+              if (asset) await setSurroundingPhoto(k, asset);
+            } catch (err) {
+              alertDraftError(err);
+            }
+          })();
         },
       },
       {
         text: 'Gallery',
         onPress: () => {
-          void pickPhoto().then((asset) => {
-            if (asset) void setSurroundingPhoto(k, asset);
-          });
+          void (async () => {
+            try {
+              const asset = await pickPhoto();
+              if (asset) await setSurroundingPhoto(k, asset);
+            } catch (err) {
+              alertDraftError(err);
+            }
+          })();
         },
       },
       { text: 'Cancel', style: 'cancel' },

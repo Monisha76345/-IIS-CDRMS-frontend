@@ -10,7 +10,7 @@ import {
   User,
   type LucideIcon,
 } from 'lucide-react-native';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, forwardRef, useState } from 'react';
 import {
   Modal,
   Platform,
@@ -350,24 +350,31 @@ export function AppBtn({
   );
 }
 
-export function Field({
-  label,
-  icon: Icon,
-  showCheck = true,
-  endAdornment,
-  compact = false,
-  style,
-  value,
-  defaultValue,
-  ...props
-}: {
-  label: string;
-  icon?: LucideIcon;
-  showCheck?: boolean;
-  endAdornment?: ReactNode;
-  /** Smaller control for dense forms (e.g. Step 3 dimensions). */
-  compact?: boolean;
-} & TextInputProps) {
+export const Field = forwardRef<
+  TextInput,
+  {
+    label: string;
+    icon?: LucideIcon;
+    showCheck?: boolean;
+    endAdornment?: ReactNode;
+    /** Smaller control for dense forms (e.g. Step 3 dimensions). */
+    compact?: boolean;
+  } & TextInputProps
+>(function Field(
+  {
+    label,
+    icon: Icon,
+    showCheck = true,
+    endAdornment,
+    compact = false,
+    style,
+    value,
+    defaultValue,
+    blurOnSubmit,
+    ...props
+  },
+  ref
+) {
   // No setState on focus — any re-render during focus can dismiss the keyboard
   // on Expo Go when parents restyle. Keep this tree static while typing.
   const normalize = (v: unknown) => {
@@ -413,10 +420,11 @@ export function Field({
         ) : null}
         <TextInput
           {...props}
+          ref={ref}
           value={displayValue}
           editable={isEditable}
           showSoftInputOnFocus
-          blurOnSubmit={false}
+          blurOnSubmit={blurOnSubmit ?? false}
           autoCorrect={props.autoCorrect ?? false}
           autoCapitalize={props.autoCapitalize ?? 'sentences'}
           onFocus={props.onFocus}
@@ -460,7 +468,7 @@ export function Field({
       </View>
     </View>
   );
-}
+});
 
 function NotchedBarBg({
   width,

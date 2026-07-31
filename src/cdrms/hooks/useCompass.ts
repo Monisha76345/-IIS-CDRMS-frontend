@@ -1,3 +1,8 @@
+import * as Location from 'expo-location';
+import { Magnetometer } from 'expo-sensors';
+import { useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
+
 export const COMPASS_CARDINALS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'] as const;
 export type CompassCardinal = (typeof COMPASS_CARDINALS)[number];
 
@@ -12,7 +17,7 @@ const CARDINAL_NAMES: Record<CompassCardinal, string> = {
   NW: 'Northwest',
 };
 
-/** Fixed degrees for each cardinal chip. */
+/** Fixed degrees for each cardinal (for parse/display helpers). */
 export const CARDINAL_DEGREES: Record<CompassCardinal, number> = {
   N: 0,
   NE: 45,
@@ -22,6 +27,15 @@ export const CARDINAL_DEGREES: Record<CompassCardinal, number> = {
   SW: 225,
   W: 270,
   NW: 315,
+};
+
+export type CompassReading = {
+  /** Degrees clockwise from north (0–359). */
+  heading: number;
+  accuracy: number;
+  available: boolean;
+  status: 'live' | 'calibrating' | 'permission' | 'unavailable' | 'idle';
+  source: 'location' | 'magnetometer' | 'none';
 };
 
 function normalizeHeading(deg: number): number {
@@ -47,6 +61,11 @@ export function formatCardinalReading(face: CompassCardinal): string {
   return `${CARDINAL_DEGREES[face]}° ${face}`;
 }
 
+export function formatLiveReading(heading: number): string {
+  const h = Math.round(normalizeHeading(heading));
+  return `${h}° ${cardinalFromHeading(h)}`;
+}
+
 /** Parse saved values like `312° NW`, `90 E`, or `NE`. */
 export function parseCompassReading(
   raw: string,
@@ -67,4 +86,174 @@ export function parseCompassReading(
     return { heading: CARDINAL_DEGREES[faceRaw], face: faceRaw };
   }
   return { heading, face: cardinalFromHeading(heading) };
+}
+
+function magnetometerToHeading(x: number, y: number): number {
+  // atan2(y, x) → degrees; convert so 0° = North when phone is flat.
+  let angle = (Math.atan2(y, x) * 180) / Math.PI;
+  angle = 90 - angle; // align with typical phone flat orientation
+  return normalizeHeading(angle);
+}
+
+function isLikelyEmulator(): boolean {
+  if (Platform.OS === 'android') {
+    const c = Platform.constants as {
+      Brand?: string;
+      Model?: string;
+      Fingerprint?: string;
+    };
+    return /sdk|emulator|gphone|generic/i.test(
+      `${c.Brand ?? ''} ${c.Model ?? ''} ${c.Fingerprint ?? ''}`,
+    );
+  }
+  // iOS Simulator has no magnetometer — callers still try sensors;
+  // unavailable status is returned if sensors fail.
+  return false;
+}
+
+/**
+ * Live device compass (real phone only).
+ * Primary: Location.watchHeadingAsync (device true/magnetic heading).
+ * Fallback: Magnetometer when heading API is unavailable.
+ */
+export function useCompass(enabled = true): CompassReading {
+  const [reading, setReading] = useState<CompassReading>({
+    heading: 0,
+    accuracy: -1,
+    available: false,
+    status: 'idle',
+    source: 'none',
+  });
+  const lastGood = useRef(0);
+  const sourceRef = useRef<'location' | 'magnetometer' | 'none'>('none');
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    if (isLikelyEmulator()) {
+      setReading({
+        heading: 0,
+        accuracy: -1,
+        available: false,
+        status: 'unavailable',
+        source: 'none',
+      });
+      return;
+    }
+
+    let cancelled = false;
+    let headingSub: Location.LocationSubscription | null = null;
+    let magSub: { remove: () => void } | null = null;
+    let magTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const apply = (
+      heading: number,
+      accuracy: number,
+      source: 'location' | 'magnetometer',
+    ) => {
+      if (cancelled || !Number.isFinite(heading)) return;
+      // Prefer location heading once it has delivered at least one sample.
+      if (source === 'magnetometer' && sourceRef.current === 'location') return;
+      sourceRef.current = source;
+      lastGood.current = Date.now();
+      setReading({
+        heading: normalizeHeading(heading),
+        accuracy,
+        available: true,
+        status: 'live',
+        source,
+      });
+    };
+
+    const start = async () => {
+      setReading((prev) => ({
+        ...prev,
+        status: 'calibrating',
+        available: false,
+        source: 'none',
+      }));
+      sourceRef.current = 'none';
+
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (cancelled) return;
+        if (status !== 'granted') {
+          setReading({
+            heading: 0,
+            accuracy: -1,
+            available: false,
+            status: 'permission',
+            source: 'none',
+          });
+        } else {
+          headingSub = await Location.watchHeadingAsync((event) => {
+            // trueHeading preferred; fall back to magHeading
+            const h =
+              event.trueHeading >= 0 ? event.trueHeading : event.magHeading;
+            if (h < 0 || !Number.isFinite(h)) return;
+            apply(h, event.accuracy ?? -1, 'location');
+          });
+        }
+      } catch {
+        // Heading may be unsupported — magnetometer fallback below.
+      }
+
+      // Magnetometer fallback / backup (always try on real devices).
+      try {
+        const magAvailable = await Magnetometer.isAvailableAsync();
+        if (!magAvailable || cancelled) {
+          if (!headingSub) {
+            setReading({
+              heading: 0,
+              accuracy: -1,
+              available: false,
+              status: 'unavailable',
+              source: 'none',
+            });
+          }
+          return;
+        }
+
+        Magnetometer.setUpdateInterval(120);
+        magSub = Magnetometer.addListener(({ x, y }) => {
+          apply(magnetometerToHeading(x, y), -1, 'magnetometer');
+        });
+
+        // If neither source produces data, mark unavailable.
+        magTimer = setTimeout(() => {
+          if (cancelled) return;
+          if (Date.now() - lastGood.current > 2500 && sourceRef.current === 'none') {
+            setReading({
+              heading: 0,
+              accuracy: -1,
+              available: false,
+              status: 'unavailable',
+              source: 'none',
+            });
+          }
+        }, 2800);
+      } catch {
+        if (!headingSub && !cancelled) {
+          setReading({
+            heading: 0,
+            accuracy: -1,
+            available: false,
+            status: 'unavailable',
+            source: 'none',
+          });
+        }
+      }
+    };
+
+    void start();
+
+    return () => {
+      cancelled = true;
+      headingSub?.remove();
+      magSub?.remove();
+      if (magTimer) clearTimeout(magTimer);
+    };
+  }, [enabled]);
+
+  return reading;
 }

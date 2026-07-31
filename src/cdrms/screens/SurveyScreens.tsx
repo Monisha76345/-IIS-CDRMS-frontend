@@ -290,8 +290,8 @@ export function BandiScreen({ go }: { go: Go }) {
           title={isBackendTask ? 'Facing direction *' : TERMS.sections.boundaryCompass}
           subtitle={
             compassFace
-              ? `Selected ${draft.compassReading}`
-              : 'Tap the direction you are facing'
+              ? `Live ${draft.compassReading} · turn phone to update`
+              : 'Hold phone flat — live sensor on real device'
           }
           stepLabel="STEP 02"
           iconBg={COLORS.primary}
@@ -1123,14 +1123,18 @@ export function PhotosScreen({ go }: { go: Go }) {
     // Close the sheet first — iOS cannot present the picker over another Modal.
     setSheet(false);
     await new Promise((r) => setTimeout(r, 350));
-    // First photo is the engineer selfie.
-    const asset =
-      mode === 'camera'
-        ? draft.photos.length === 0
-          ? await captureSelfie()
-          : await capturePhoto({ facing: 'back', title: 'Take site photo' })
-        : await pickPhoto();
-    if (asset) await addPhoto(asset);
+    try {
+      // First photo is the engineer selfie.
+      const asset =
+        mode === 'camera'
+          ? draft.photos.length === 0
+            ? await captureSelfie()
+            : await capturePhoto({ facing: 'back', title: 'Take site photo' })
+          : await pickPhoto();
+      if (asset) await addPhoto(asset);
+    } catch (err) {
+      alertDraftError(err);
+    }
   };
 
   return (
@@ -1364,11 +1368,7 @@ export function PhotosScreen({ go }: { go: Go }) {
             >
               <Camera size={28} color="#fff" />
               <Text className="font-extrabold text-sm text-white">
-                {__DEV__
-                  ? 'Use sample'
-                  : draft.photos.length === 0
-                    ? 'Take Selfie'
-                    : 'Take Photo'}
+                {draft.photos.length === 0 ? 'Take Selfie' : 'Take Photo'}
               </Text>
             </LinearGradient>
           </Pressable>
@@ -1382,11 +1382,9 @@ export function PhotosScreen({ go }: { go: Go }) {
           </Pressable>
         </HStack>
         <Text className="mt-4 text-[11px] text-muted-foreground text-center">
-          {__DEV__
-            ? 'Dev mode: camera uses a sample image so you can upload and continue.'
-            : draft.photos.length === 0
-              ? 'Selfie is required (front camera). Extra site photos are optional.'
-              : 'Selfie done. Extra site photos are optional — continue when ready.'}
+          {draft.photos.length === 0
+            ? 'Selfie is required (front camera). Extra site photos are optional.'
+            : 'Selfie done. Extra site photos are optional — continue when ready.'}
         </Text>
       </AppSheet>
     </SurveyScaffold>
@@ -1414,6 +1412,8 @@ export function VideoScreen({ go }: { go: Go }) {
     try {
       const asset = await captureVideo();
       if (asset) await setVideo(asset);
+    } catch (err) {
+      alertDraftError(err);
     } finally {
       setBusy(null);
     }
@@ -1425,6 +1425,8 @@ export function VideoScreen({ go }: { go: Go }) {
     try {
       const asset = await chooseVideoFile();
       if (asset) await setVideo(asset);
+    } catch (err) {
+      alertDraftError(err);
     } finally {
       setBusy(null);
     }
@@ -1641,11 +1643,9 @@ export function VideoScreen({ go }: { go: Go }) {
             <Text className="flex-1 font-extrabold text-white text-[13px]">
               {busy === 'record'
                 ? 'Opening…'
-                : __DEV__
-                  ? 'Use sample video'
-                  : videoPickOnly
-                    ? 'Pick Video'
-                    : 'Record Video'}
+                : videoPickOnly
+                  ? 'Pick Video'
+                  : 'Record Video'}
             </Text>
             <ChevronRight size={18} color="rgba(255,255,255,0.9)" strokeWidth={2.4} />
           </LinearGradient>

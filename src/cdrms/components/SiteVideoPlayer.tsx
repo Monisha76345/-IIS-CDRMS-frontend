@@ -8,15 +8,16 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { GestureResponderEvent, LayoutChangeEvent } from 'react-native';
+import { ActivityIndicator } from 'react-native';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/src/auth/AuthContext';
-import { mediaSource } from '@/src/cdrms/media/displayUri';
+import { useResolvedMediaUri } from '@/src/cdrms/media/displayUri';
 import { COLORS, GRADIENT_PRIMARY } from '@/src/cdrms/theme';
 
 type Props = {
@@ -41,18 +42,9 @@ export function SiteVideoPlayer({ uri, durationLabel }: Props) {
   const [broken, setBroken] = useState(false);
 
   const safeUri = typeof uri === 'string' ? uri.trim() : '';
-  const source = useMemo(
-    () => mediaSource(safeUri, accessToken),
-    [safeUri, accessToken]
-  );
-  const playerSource = useMemo(() => {
-    if (!source?.uri) return null;
-    return source.headers
-      ? { uri: source.uri, headers: source.headers }
-      : source.uri;
-  }, [source]);
+  const { displayUri, loading, error } = useResolvedMediaUri(safeUri, accessToken);
 
-  const player = useVideoPlayer(playerSource, (p) => {
+  const player = useVideoPlayer(displayUri ?? null, (p) => {
     p.loop = false;
     p.muted = false;
     p.timeUpdateEventInterval = 0.25;
@@ -70,18 +62,18 @@ export function SiteVideoPlayer({ uri, durationLabel }: Props) {
   });
 
   useEffect(() => {
-    if (!playerSource) {
-      setBroken(true);
+    if (!displayUri) {
+      if (!loading) setBroken(true);
       return;
     }
     setBroken(false);
     try {
-      player.replace(playerSource);
+      player.replace(displayUri);
       setCurrentTime(0);
     } catch {
       setBroken(true);
     }
-  }, [playerSource, player]);
+  }, [displayUri, player, loading]);
 
   const duration =
     player.duration > 0
@@ -132,7 +124,16 @@ export function SiteVideoPlayer({ uri, durationLabel }: Props) {
     }
   };
 
-  if (!safeUri || broken) {
+  if (loading) {
+    return (
+      <Box className="flex-1 relative bg-black items-center justify-center">
+        <ActivityIndicator color="#fff" />
+        <Text className="text-white/70 text-xs font-semibold mt-2">Loading video…</Text>
+      </Box>
+    );
+  }
+
+  if (!safeUri || broken || error || !displayUri) {
     return (
       <Box className="flex-1 relative bg-black items-center justify-center">
         <Text className="text-white/80 text-sm font-semibold">Video unavailable</Text>
@@ -151,7 +152,6 @@ export function SiteVideoPlayer({ uri, durationLabel }: Props) {
         nativeControls={false}
       />
 
-      {/* Center play / pause affordance */}
       {!isPlaying ? (
         <Pressable
           onPress={togglePlay}
@@ -184,7 +184,6 @@ export function SiteVideoPlayer({ uri, durationLabel }: Props) {
         <Pressable onPress={togglePlay} className="absolute inset-0" />
       )}
 
-      {/* Bottom control bar */}
       <LinearGradient
         colors={['transparent', 'rgba(15,23,42,0.85)']}
         style={{

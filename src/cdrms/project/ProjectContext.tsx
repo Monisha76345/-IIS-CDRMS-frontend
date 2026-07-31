@@ -326,23 +326,16 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           });
           if (url) {
             schedulePhotoUrls[key] = url;
-            const prev = draft.surroundingPhotos[key];
-            if (prev && prev.uri !== url) {
-              nextSurrounding[key] = { ...prev, uri: url };
-            }
+            // Keep local surrounding URIs for on-device preview.
           }
         }
         if (Object.keys(schedulePhotoUrls).length > 0) {
           body.schedulePhotoUrls = schedulePhotoUrls;
         }
-        const savedCompass = await saveEngineerDraft(accessToken, appId, body);
-        const mappedCompass = draftFromBackendApplication(savedCompass);
+        await saveEngineerDraft(accessToken, appId, body);
         setDraft((d) => ({
           ...d,
-          surroundingPhotos:
-            Object.keys(mappedCompass.surroundingPhotos).length > 0
-              ? mappedCompass.surroundingPhotos
-              : nextSurrounding,
+          surroundingPhotos: nextSurrounding,
           status: 'draft',
           updatedAt: Date.now(),
         }));
@@ -383,9 +376,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           });
           if (selfieUrl) {
             body.selfieUrl = selfieUrl;
-            if (nextPhotos[0].uri !== selfieUrl) {
-              nextPhotos[0] = { ...nextPhotos[0], uri: selfieUrl };
-            }
+            // Keep local URI in draft for preview — do not swap to MinIO host.
           }
         }
 
@@ -400,9 +391,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           });
           if (url) {
             photoUrls.push(url);
-            if (nextPhotos[i].uri !== url) {
-              nextPhotos[i] = { ...nextPhotos[i], uri: url };
-            }
           }
         }
         body.photoUrls = photoUrls;
@@ -417,9 +405,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           });
           if (videoUrl) {
             body.videoUrl = videoUrl;
-            if (nextVideo.uri !== videoUrl) {
-              nextVideo = { ...nextVideo, uri: videoUrl };
-            }
           }
         }
 
@@ -427,12 +412,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           body.engineerComments = draft.engineerComments.trim();
         }
 
-        const saved = await saveEngineerDraft(accessToken, appId, body);
-        const mapped = draftFromBackendApplication(saved);
+        await saveEngineerDraft(accessToken, appId, body);
+        // Prefer on-device local URIs so selfie / video previews keep working.
         setDraft((d) => ({
           ...d,
-          photos: mapped.photos.length > 0 ? mapped.photos : nextPhotos,
-          video: mapped.video ?? nextVideo,
+          photos: nextPhotos.length > 0 ? nextPhotos : d.photos,
+          video: nextVideo ?? d.video,
           status: 'draft',
           updatedAt: Date.now(),
         }));
@@ -570,11 +555,13 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         schedulePhotoUrls: { [cardinal]: url },
       });
 
+      // Keep the local file for on-device preview. Remote MinIO URLs use
+      // 127.0.0.1 which phones cannot open directly; proxy loads on reload.
       touch((prev) => ({
         ...prev,
         surroundingPhotos: {
           ...prev.surroundingPhotos,
-          [cardinal]: { ...asset, uri: url },
+          [cardinal]: asset,
         },
       }));
     },
@@ -645,12 +632,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         });
       }
 
-      touch((prev) => ({
-        ...prev,
-        photos: prev.photos.map((p) =>
-          p.id === asset.id ? { ...p, uri: url } : p,
-        ),
-      }));
+      // Keep local file:// for on-device preview (MinIO URLs use 127.0.0.1).
     },
     [accessToken, draft.backendApplicationId, draft.photos, touch],
   );
@@ -728,10 +710,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       if (!url) return;
 
       await saveEngineerDraft(accessToken, appId, { videoUrl: url });
-      touch((prev) => ({
-        ...prev,
-        video: { ...asset, uri: url },
-      }));
+      // Keep local file for playback; remote MinIO host is not reachable from phone.
     },
     [accessToken, draft.backendApplicationId, draft.video?.uri, touch],
   );

@@ -1,44 +1,65 @@
 import { Navigation } from 'lucide-react-native';
-import { useMemo } from 'react';
+import { useEffect, useRef } from 'react';
+import { Animated, Easing } from 'react-native';
 
 import { Box } from '@/components/ui/box';
-import { HStack } from '@/components/ui/hstack';
-import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import {
-  CARDINAL_DEGREES,
-  COMPASS_CARDINALS,
-  cardinalFullName,
-  formatCardinalReading,
-  parseCompassReading,
-  type CompassCardinal,
+  cardinalFromHeading,
+  cardinalNameFromHeading,
+  formatLiveReading,
+  useCompass,
 } from '@/src/cdrms/hooks/useCompass';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { COLORS, FONTS, SPACE, TYPE } from '@/src/cdrms/theme';
 
-const SIZE = 100;
+const SIZE = 132;
 const CENTER = SIZE / 2;
-const LABEL_R = 36;
-const TICK_R = 40;
+const LABEL_R = 48;
+const TICK_R = 52;
 
 /**
- * Cardinal picker only — tap direction. No device sensors.
+ * Live sensor compass (real device).
+ * Dial rotates so geographic N stays correct; red tip at top = direction you face.
+ * No manual cardinal picker — reading is auto-saved from the sensor.
  */
 export function LiveCompassDial() {
-  const { draft, setCompassReading } = useProject();
+  const { setCompassReading } = useProject();
+  const compass = useCompass(true);
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const lastSaved = useRef('');
 
-  const selected = useMemo(() => {
-    const parsed = parseCompassReading(draft.compassReading);
-    return parsed?.face ?? null;
-  }, [draft.compassReading]);
+  const heading = Math.round(compass.heading);
+  const face = cardinalFromHeading(compass.heading);
+  const faceName = cardinalNameFromHeading(compass.heading);
+  // Rotate rose opposite to heading so N points to real north; tip stays at top.
+  const roseRotation = compass.available ? -heading : 0;
 
-  const heading = selected ? CARDINAL_DEGREES[selected] : 0;
-  const roseRotation = selected ? -heading : 0;
+  useEffect(() => {
+    Animated.timing(rotateAnim, {
+      toValue: roseRotation,
+      duration: 180,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [roseRotation, rotateAnim]);
 
-  const pick = (face: CompassCardinal) => {
-    setCompassReading(formatCardinalReading(face));
-  };
+  useEffect(() => {
+    if (!compass.available) return;
+    const reading = formatLiveReading(compass.heading);
+    if (reading === lastSaved.current) return;
+    lastSaved.current = reading;
+    setCompassReading(reading);
+  }, [compass.available, compass.heading, setCompassReading]);
+
+  const statusLabel = !compass.available
+    ? compass.status === 'permission'
+      ? 'Allow Location for compass'
+      : compass.status === 'calibrating'
+        ? 'Calibrating… hold phone flat'
+        : 'Use a real device · sensor required'
+    : `Facing ${faceName}`;
 
   return (
     <VStack className="items-center" style={{ gap: SPACE[3], width: '100%' }}>
@@ -56,9 +77,9 @@ export function LiveCompassDial() {
             style={{
               width: 0,
               height: 0,
-              borderLeftWidth: 5,
-              borderRightWidth: 5,
-              borderBottomWidth: 9,
+              borderLeftWidth: 6,
+              borderRightWidth: 6,
+              borderBottomWidth: 10,
               borderLeftColor: 'transparent',
               borderRightColor: 'transparent',
               borderBottomColor: '#DC2626',
@@ -66,20 +87,27 @@ export function LiveCompassDial() {
           />
         </Box>
 
-        <Box
+        <Animated.View
           style={{
             width: SIZE,
             height: SIZE,
             alignItems: 'center',
             justifyContent: 'center',
-            transform: [{ rotate: `${roseRotation}deg` }],
+            transform: [
+              {
+                rotate: rotateAnim.interpolate({
+                  inputRange: [-720, 720],
+                  outputRange: ['-720deg', '720deg'],
+                }),
+              },
+            ],
           }}
         >
           <Box
             className="absolute inset-0 rounded-full"
             style={{
               borderWidth: 5,
-              borderColor: '#DBEAFE',
+              borderColor: compass.available ? '#DBEAFE' : '#E2E8F0',
               backgroundColor: '#F8FAFF',
             }}
           />
@@ -110,10 +138,10 @@ export function LiveCompassDial() {
 
           {(
             [
-              { label: 'N', deg: 0, color: '#DC2626', size: 11 },
-              { label: 'E', deg: 90, color: '#334155', size: 10 },
-              { label: 'S', deg: 180, color: '#334155', size: 10 },
-              { label: 'W', deg: 270, color: '#334155', size: 10 },
+              { label: 'N', deg: 0, color: '#DC2626', size: 12 },
+              { label: 'E', deg: 90, color: '#334155', size: 11 },
+              { label: 'S', deg: 180, color: '#334155', size: 11 },
+              { label: 'W', deg: 270, color: '#334155', size: 11 },
             ] as const
           ).map((d) => {
             const rad = ((d.deg - 90) * Math.PI) / 180;
@@ -125,9 +153,9 @@ export function LiveCompassDial() {
                 pointerEvents="none"
                 style={{
                   position: 'absolute',
-                  left: x - 6,
-                  top: y - 6,
-                  width: 12,
+                  left: x - 7,
+                  top: y - 7,
+                  width: 14,
                   textAlign: 'center',
                   fontSize: d.size,
                   fontWeight: '900',
@@ -141,98 +169,51 @@ export function LiveCompassDial() {
 
           <Box
             style={{
-              height: 32,
-              width: 32,
-              borderRadius: 16,
+              height: 36,
+              width: 36,
+              borderRadius: 18,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: '#2563EB',
+              backgroundColor: compass.available ? '#2563EB' : '#94A3B8',
               zIndex: 2,
             }}
           >
             <Navigation
-              size={14}
+              size={15}
               color="#fff"
               strokeWidth={2.4}
               style={{ transform: [{ rotate: '-45deg' }] }}
             />
           </Box>
-        </Box>
+        </Animated.View>
       </Box>
 
       <VStack className="items-center" style={{ gap: 4 }}>
         <Text
           style={{
             fontFamily: FONTS.bold,
-            fontSize: 20,
-            lineHeight: 24,
+            fontSize: 22,
+            lineHeight: 26,
             color: COLORS.ink,
           }}
         >
-          {selected ? selected : '—'}
+          {compass.available ? `${heading}° ${face}` : '—'}
         </Text>
-        <Text style={{ ...TYPE.label, color: COLORS.ink }}>
-          {selected ? cardinalFullName(selected) : 'Tap a direction'}
+        <Text style={{ ...TYPE.label, color: COLORS.ink, textAlign: 'center' }}>
+          {statusLabel}
         </Text>
-      </VStack>
-
-      <VStack style={{ width: '100%', gap: SPACE[2] }}>
-        <Text style={{ ...TYPE.label, color: COLORS.ink }}>Facing direction *</Text>
-        <HStack style={{ flexWrap: 'wrap', gap: 8 }}>
-          {COMPASS_CARDINALS.map((k) => {
-            const on = selected === k;
-            return (
-              <Pressable
-                key={k}
-                onPress={() => pick(k)}
-                className="active:opacity-80"
-                accessibilityRole="button"
-                accessibilityState={{ selected: on }}
-                style={{
-                  width: '22%',
-                  flexGrow: 1,
-                  minWidth: 64,
-                  height: 34,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  paddingHorizontal: 4,
-                  borderRadius: 10,
-                  backgroundColor: COLORS.white,
-                  shadowColor: '#0F172A',
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: on ? 0.1 : 0.06,
-                  shadowRadius: 4,
-                  elevation: 2,
-                  borderWidth: on ? 1.5 : 1,
-                  borderColor: on ? COLORS.primary : COLORS.border,
-                }}
-              >
-                <Text
-                  style={{
-                    fontFamily: FONTS.bold,
-                    fontSize: 12,
-                    color: COLORS.ink,
-                    lineHeight: 14,
-                  }}
-                >
-                  {k}
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: FONTS.medium,
-                    fontSize: 9,
-                    color: COLORS.ink,
-                    lineHeight: 11,
-                    marginTop: 1,
-                  }}
-                  numberOfLines={1}
-                >
-                  {cardinalFullName(k)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </HStack>
+        {compass.available ? (
+          <Text
+            style={{
+              fontFamily: FONTS.medium,
+              fontSize: 11,
+              color: COLORS.slate,
+              marginTop: 2,
+            }}
+          >
+            Live sensor · hold phone flat · turn slowly
+          </Text>
+        ) : null}
       </VStack>
     </VStack>
   );

@@ -22,12 +22,16 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  ActivityIndicator,
   Image,
   Keyboard,
+  KeyboardAvoidingView,
   Linking,
+  Platform,
   TextInput,
   TouchableWithoutFeedback,
   View,
+  type ScrollView as RNScrollView,
 } from 'react-native';
 import Animated, {
   Easing,
@@ -75,7 +79,6 @@ import {
 import { KarnatakaMap } from '@/src/cdrms/components/KarnatakaMap';
 import {
   GEO_FENCE_RADIUS_FT,
-  KARNATAKA,
   distanceFeet,
 } from '@/src/cdrms/location';
 import {
@@ -340,14 +343,35 @@ export function SplashScreen({ go }: { go: Go }) {
 
 export function LoginScreen({ go }: { go: Go }) {
   const { login } = useAuth();
+  const insets = useSafeAreaInsets();
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const passwordRef = useRef<TextInput>(null);
+  const scrollRef = useRef<RNScrollView>(null);
+
+  useEffect(() => {
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardOpen(true),
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardOpen(false),
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   async function onSecureLogin() {
+    if (loading) return;
+    Keyboard.dismiss();
     setError('');
     if (!loginId.trim() || !password.trim()) {
       setError('Enter Login ID / email and password');
@@ -376,142 +400,176 @@ export function LoginScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell>
-      <ScrollView
-        className="flex-1"
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        contentContainerStyle={{ flexGrow: 1 }}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <View style={{ flexGrow: 1 }}>
-            <GradientHeader rounded>
-              <Box className="px-6 pb-10">
-                <HStack className="items-center justify-between pt-2">
-                  <Box className="h-12 w-12 rounded-2xl bg-white border border-white/25 items-center justify-center overflow-hidden">
-                    <Image
-                      source={require('../../../assets/bda-logo.png')}
-                      style={{ width: 42, height: 42 }}
-                      resizeMode="contain"
-                      accessibilityLabel="BDA"
-                    />
-                  </Box>
-                  <Pressable className="bg-white/15 px-3 py-2 rounded-full border border-white/20">
-                    <Text className="text-xs font-semibold text-white">Need Help?</Text>
-                  </Pressable>
-                </HStack>
-
-                <VStack className="mt-8" space="xs">
-                  <Text className="text-3xl font-extrabold leading-tight text-white">
-                    Welcome back
-                  </Text>
-                  <Text className="mt-2 text-sm text-white/85">
-                    Sign in with your CDRMS Login ID to continue.
-                  </Text>
-                </VStack>
-
-                <HStack className="mt-6 items-center gap-3">
-                  <Box className="h-16 w-16 rounded-2xl bg-white/15 border border-white/25 items-center justify-center">
-                    <MapPinned size={32} color={COLORS.white} />
-                  </Box>
-                  <VStack>
-                    <Text className="text-xs font-semibold text-white">
-                      CDRMS Mobile
-                    </Text>
-                    <Text className="text-xs text-white/80">
-                      Secure Government Access · TLS 1.3
-                    </Text>
-                  </VStack>
-                </HStack>
-              </Box>
-            </GradientHeader>
-
-            <Box className="flex-1 -mt-6 px-5 pb-8">
-              <AppCard>
-                <VStack space="md">
-                  <Field
-                    label="Login ID / Email"
-                    icon={User}
-                    value={loginId}
-                    onChangeText={setLoginId}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    autoComplete="off"
-                    textContentType="none"
-                    importantForAutofill="no"
-                    placeholder="Enter login ID or email"
-                    showCheck={false}
-                  />
-                  <Field
-                    label="Password"
-                    icon={Lock}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    autoComplete="off"
-                    textContentType="oneTimeCode"
-                    importantForAutofill="no"
-                    passwordRules=""
-                    placeholder="Enter password"
-                    showCheck={false}
-                    endAdornment={
-                      <Pressable
-                        onPress={() => setShowPassword((v) => !v)}
-                        hitSlop={10}
-                        accessibilityRole="button"
-                        accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-                        className="h-9 w-9 items-center justify-center rounded-full active:opacity-70"
-                      >
-                        {showPassword ? (
-                          <EyeOff size={18} color="#64748B" />
-                        ) : (
-                          <Eye size={18} color="#64748B" />
-                        )}
+        <ScrollView
+          ref={scrollRef}
+          className="flex-1"
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingBottom: keyboardOpen ? 24 : 8,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <View style={{ flexGrow: 1 }}>
+              <GradientHeader rounded>
+                <Box className={`px-6 ${keyboardOpen ? 'pb-4' : 'pb-10'}`}>
+                  <HStack className="items-center justify-between pt-2">
+                    <Box className="h-12 w-12 rounded-2xl bg-white border border-white/25 items-center justify-center overflow-hidden">
+                      <Image
+                        source={require('../../../assets/bda-logo.png')}
+                        style={{ width: 42, height: 42 }}
+                        resizeMode="contain"
+                        accessibilityLabel="BDA"
+                      />
+                    </Box>
+                    {!keyboardOpen ? (
+                      <Pressable className="bg-white/15 px-3 py-2 rounded-full border border-white/20">
+                        <Text className="text-xs font-semibold text-white">Need Help?</Text>
                       </Pressable>
-                    }
-                  />
+                    ) : (
+                      <Text className="text-sm font-extrabold text-white">Welcome back</Text>
+                    )}
+                  </HStack>
 
-                  {error ? (
-                    <Text className="text-sm text-red-600">{error}</Text>
+                  {!keyboardOpen ? (
+                    <>
+                      <VStack className="mt-8" space="xs">
+                        <Text className="text-3xl font-extrabold leading-tight text-white">
+                          Welcome back
+                        </Text>
+                        <Text className="mt-2 text-sm text-white/85">
+                          Sign in with your CDRMS Login ID to continue.
+                        </Text>
+                      </VStack>
+
+                      <HStack className="mt-6 items-center gap-3">
+                        <Box className="h-16 w-16 rounded-2xl bg-white/15 border border-white/25 items-center justify-center">
+                          <MapPinned size={32} color={COLORS.white} />
+                        </Box>
+                        <VStack>
+                          <Text className="text-xs font-semibold text-white">
+                            CDRMS Mobile
+                          </Text>
+                          <Text className="text-xs text-white/80">
+                            Secure Government Access · TLS 1.3
+                          </Text>
+                        </VStack>
+                      </HStack>
+                    </>
                   ) : null}
+                </Box>
+              </GradientHeader>
 
-                  <Checkbox
-                    value="remember"
-                    isChecked={remember}
-                    onChange={(v) => setRemember(!!v)}
-                    className="mt-1"
-                  >
-                    <CheckboxIndicator>
-                      <CheckboxIcon as={CheckIcon} />
-                    </CheckboxIndicator>
-                    <CheckboxLabel className="text-sm text-muted-foreground">
-                      Remember this device
-                    </CheckboxLabel>
-                  </Checkbox>
+              <Box className={`flex-1 px-5 pb-8 ${keyboardOpen ? '-mt-3' : '-mt-6'}`}>
+                <AppCard>
+                  <VStack space="md">
+                    <Field
+                      label="Login ID / Email"
+                      icon={User}
+                      value={loginId}
+                      onChangeText={setLoginId}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      autoComplete="off"
+                      textContentType="none"
+                      importantForAutofill="no"
+                      placeholder="Enter login ID or email"
+                      showCheck={false}
+                      returnKeyType="next"
+                      submitBehavior="submit"
+                      blurOnSubmit={false}
+                      onSubmitEditing={() => passwordRef.current?.focus()}
+                    />
+                    <Field
+                      ref={passwordRef}
+                      label="Password"
+                      icon={Lock}
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      autoComplete="off"
+                      textContentType="oneTimeCode"
+                      importantForAutofill="no"
+                      passwordRules=""
+                      placeholder="Enter password"
+                      showCheck={false}
+                      returnKeyType="go"
+                      submitBehavior="blurAndSubmit"
+                      blurOnSubmit
+                      onSubmitEditing={() => {
+                        void onSecureLogin();
+                      }}
+                      endAdornment={
+                        <Pressable
+                          onPress={() => setShowPassword((v) => !v)}
+                          hitSlop={10}
+                          accessibilityRole="button"
+                          accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                          className="h-9 w-9 items-center justify-center rounded-full active:opacity-70"
+                        >
+                          {showPassword ? (
+                            <EyeOff size={18} color="#64748B" />
+                          ) : (
+                            <Eye size={18} color="#64748B" />
+                          )}
+                        </Pressable>
+                      }
+                    />
 
-                  <AppBtn onPress={onSecureLogin} icon={Lock} disabled={loading}>
-                    {loading ? 'Signing in…' : 'Secure Login'}
-                  </AppBtn>
-                </VStack>
-              </AppCard>
+                    {error ? (
+                      <Text className="text-sm text-red-600">{error}</Text>
+                    ) : null}
 
-              <HStack className="mt-4 items-center justify-between">
-                <Pressable>
-                  <Text className="text-sm text-primary font-semibold">Forgot Login ID?</Text>
-                </Pressable>
-                <Pressable>
-                  <Text className="text-sm text-muted-foreground font-medium">Contact Admin</Text>
-                </Pressable>
-              </HStack>
+                    <Checkbox
+                      value="remember"
+                      isChecked={remember}
+                      onChange={(v) => setRemember(!!v)}
+                      className="mt-1"
+                    >
+                      <CheckboxIndicator>
+                        <CheckboxIcon as={CheckIcon} />
+                      </CheckboxIndicator>
+                      <CheckboxLabel className="text-sm text-muted-foreground">
+                        Remember this device
+                      </CheckboxLabel>
+                    </Checkbox>
 
-              <Text className="text-center text-[11px] text-muted-foreground mt-8">
-                {TERMS.app.copyright} · {TERMS.app.version}
-              </Text>
-            </Box>
-          </View>
-        </TouchableWithoutFeedback>
-      </ScrollView>
+                    <AppBtn onPress={onSecureLogin} icon={Lock} disabled={loading}>
+                      {loading ? 'Signing in…' : 'Secure Login'}
+                    </AppBtn>
+                  </VStack>
+                </AppCard>
+
+                {!keyboardOpen ? (
+                  <>
+                    <HStack className="mt-4 items-center justify-between">
+                      <Pressable>
+                        <Text className="text-sm text-primary font-semibold">Forgot Login ID?</Text>
+                      </Pressable>
+                      <Pressable>
+                        <Text className="text-sm text-muted-foreground font-medium">Contact Admin</Text>
+                      </Pressable>
+                    </HStack>
+
+                    <Text className="text-center text-[11px] text-muted-foreground mt-8">
+                      {TERMS.app.copyright} · {TERMS.app.version}
+                    </Text>
+                  </>
+                ) : null}
+              </Box>
+            </View>
+          </TouchableWithoutFeedback>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </ScreenShell>
   );
 }
@@ -1429,6 +1487,7 @@ export function GeoScreen({ go }: { go: Go }) {
   const [outsideSimulated, setOutsideSimulated] = useState(false);
   const [scanning, setScanning] = useState(true);
   const [locationResult, setLocationResult] = useState<LocationResult | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [mapDelta, setMapDelta] = useState(0.008);
   const [mapRecenterKey, setMapRecenterKey] = useState(0);
   const [mapGesturing, setMapGesturing] = useState(false);
@@ -1451,6 +1510,7 @@ export function GeoScreen({ go }: { go: Go }) {
 
   const performFetchLocation = useCallback(async () => {
     setScanning(true);
+    setLocationError(null);
     try {
       const res = await refresh({ silent: true });
       if (res) {
@@ -1459,9 +1519,11 @@ export function GeoScreen({ go }: { go: Go }) {
           latitude: res.gps.latitude,
           longitude: res.gps.longitude,
         });
+      } else {
+        setLocationError('Could not read GPS. Allow location and try again.');
       }
-    } catch {
-      // ignore
+    } catch (e) {
+      setLocationError(e instanceof Error ? e.message : 'Could not read GPS');
     } finally {
       setScanning(false);
       verifyBadge.value = withSpring(1, { damping: 12, stiffness: 170 });
@@ -1487,22 +1549,23 @@ export function GeoScreen({ go }: { go: Go }) {
     void performFetchLocation();
   }, [radar, radar2, cardLift, performFetchLocation]);
 
-  const currentLat =
-    locationResult?.gps.latitude ?? fenceAnchor?.latitude ?? KARNATAKA.site.latitude;
-  const currentLng =
-    locationResult?.gps.longitude ?? fenceAnchor?.longitude ?? KARNATAKA.site.longitude;
+  const isBusy = scanning || geoBusy;
+  const hasLocation = Boolean(locationResult?.gps);
+
+  const currentLat = locationResult?.gps.latitude ?? 0;
+  const currentLng = locationResult?.gps.longitude ?? 0;
   const currentAccuracy = locationResult?.gps.accuracy;
 
   const anchorLat = fenceAnchor?.latitude ?? currentLat;
   const anchorLng = fenceAnchor?.longitude ?? currentLng;
 
   const realDistFt =
-    locationResult?.gps && fenceAnchor
+    hasLocation && fenceAnchor
       ? distanceFeet(currentLat, currentLng, anchorLat, anchorLng)
       : 0;
 
   const outside =
-    outsideSimulated || (locationResult?.gps && fenceAnchor ? realDistFt > FENCE_RADIUS_FT : false);
+    outsideSimulated || (hasLocation && fenceAnchor ? realDistFt > FENCE_RADIUS_FT : false);
 
   useEffect(() => {
     verifyBadge.value = withSpring(outside ? 0 : 1, { damping: 12, stiffness: 170 });
@@ -1527,12 +1590,72 @@ export function GeoScreen({ go }: { go: Go }) {
     transform: [{ scale: interpolate(verifyBadge.value, [0, 1], [0.86, 1]) }],
   }));
 
+  // Wait for real GPS — never show hardcoded Devanahalli / demo zone placeholders.
+  if (!hasLocation || !locationResult) {
+    return (
+      <ScreenShell>
+        <AppHeader
+          title={TERMS.permissions.geoValidation}
+          subtitle={
+            locationError
+              ? 'Location unavailable'
+              : 'Acquiring GPS — please wait…'
+          }
+          onBack={() => go('login')}
+          showLogout={false}
+        />
+        <Box className="flex-1 items-center justify-center px-8" style={{ marginTop: -24 }}>
+          {isBusy || !locationError ? (
+            <VStack className="items-center" style={{ gap: 16 }}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+              <Text className="text-base font-extrabold text-foreground text-center">
+                Fetching your location…
+              </Text>
+              <Text className="text-sm text-muted-foreground text-center leading-5">
+                Waiting for GPS coordinates. Place names appear only after a real fix.
+              </Text>
+            </VStack>
+          ) : (
+            <VStack className="items-center w-full" style={{ gap: 14 }}>
+              <IconBox size="lg" className="bg-destructive/15">
+                <AlertTriangle size={22} color={COLORS.destructive} />
+              </IconBox>
+              <Text className="text-base font-extrabold text-foreground text-center">
+                Location not available
+              </Text>
+              <Text className="text-sm text-muted-foreground text-center leading-5">
+                {locationError}
+              </Text>
+              <Box className="w-full mt-2">
+                <AppBtn
+                  onPress={() => void performFetchLocation()}
+                  icon={RefreshCw}
+                  disabled={isBusy}
+                >
+                  {isBusy ? 'Retrying…' : 'Retry GPS'}
+                </AppBtn>
+              </Box>
+              <Pressable onPress={() => go('login')} className="py-2.5 items-center">
+                <Text className="text-sm text-destructive font-semibold">Logout</Text>
+              </Pressable>
+            </VStack>
+          )}
+        </Box>
+      </ScreenShell>
+    );
+  }
+
   const villageName =
-    locationResult?.address.village ||
-    locationResult?.address.taluk ||
-    KARNATAKA.site.village;
-  const stateName = locationResult?.address.state || KARNATAKA.state;
-  const isBusy = scanning || geoBusy;
+    locationResult.address.village ||
+    locationResult.address.taluk ||
+    locationResult.address.displayName ||
+    `${currentLat.toFixed(5)}, ${currentLng.toFixed(5)}`;
+  const stateName = locationResult.address.state || '—';
+  const districtName = locationResult.address.district || stateName;
+  const zoneLabel =
+    [locationResult.address.district, locationResult.address.state]
+      .filter(Boolean)
+      .join(' · ') || 'Live GPS zone';
 
   return (
     <ScreenShell>
@@ -1668,7 +1791,7 @@ export function GeoScreen({ go }: { go: Go }) {
                               : `${stateName} · GPS Locked ${
                                   currentAccuracy
                                     ? `±${Math.round(currentAccuracy)}m`
-                                    : '±3m'
+                                    : ''
                                 }`}
                         </Text>
                       </Animated.View>
@@ -1766,7 +1889,7 @@ export function GeoScreen({ go }: { go: Go }) {
                     {villageName}
                   </Text>
                   <Text className="text-xs text-muted-foreground mt-0.5">
-                    {locationResult?.address.district || stateName}, {stateName}
+                    {districtName}, {stateName}
                   </Text>
                 </Box>
 
@@ -1780,7 +1903,7 @@ export function GeoScreen({ go }: { go: Go }) {
                     </Text>
                   </HStack>
                   <Text className="font-extrabold text-[13px] text-foreground">
-                    {KARNATAKA.site.zone}
+                    {zoneLabel}
                   </Text>
                   <Text className="text-xs text-muted-foreground mt-0.5">
                     Radius {FENCE_RADIUS_FT} ft
@@ -1901,4 +2024,3 @@ export function GeoScreen({ go }: { go: Go }) {
     </ScreenShell>
   );
 }
-

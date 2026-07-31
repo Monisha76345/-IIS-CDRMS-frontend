@@ -2,7 +2,6 @@ import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 
-import { KARNATAKA } from '@/src/cdrms/location';
 import { ensureForegroundLocationPermission } from '@/src/cdrms/locationPermission';
 import type { GpsFix } from '@/src/cdrms/project/types';
 
@@ -42,22 +41,20 @@ function pickAddress(parts: Location.LocationGeocodedAddress[]): GeoAddress {
   const a = parts[0];
   if (!a) {
     return {
-      village: KARNATAKA.site.village,
-      taluk: KARNATAKA.site.taluk,
-      district: KARNATAKA.site.district,
-      state: KARNATAKA.state,
-      area: KARNATAKA.site.village,
-      block: KARNATAKA.site.taluk,
-      displayName: `${KARNATAKA.site.village}, ${KARNATAKA.site.district}`,
+      village: '',
+      taluk: '',
+      district: '',
+      state: '',
+      displayName: '',
     };
   }
 
-  const village = a.city || a.district || a.name || a.subregion || KARNATAKA.site.village;
-  const taluk = a.subregion || a.district || a.city || KARNATAKA.site.taluk;
-  const district = a.district || a.subregion || a.region || KARNATAKA.site.district;
+  const village = a.city || a.district || a.name || a.subregion || '';
+  const taluk = a.subregion || a.district || a.city || '';
+  const district = a.district || a.subregion || a.region || '';
   const state = a.region?.toLowerCase().includes('karnataka')
     ? 'Karnataka'
-    : a.region || KARNATAKA.state;
+    : a.region || '';
   const street = a.street
     ? a.streetNumber
       ? `${a.streetNumber} ${a.street}`
@@ -80,7 +77,7 @@ function pickAddress(parts: Location.LocationGeocodedAddress[]): GeoAddress {
     block: taluk,
     postalCode: a.postalCode || undefined,
     country: a.country || undefined,
-    displayName: displayName || `${village}, ${district}`,
+    displayName: displayName || [village, district, state].filter(Boolean).join(', '),
   };
 }
 
@@ -89,14 +86,13 @@ async function reverseGeocode(latitude: number, longitude: number): Promise<GeoA
     const parts = await Location.reverseGeocodeAsync({ latitude, longitude });
     return pickAddress(parts);
   } catch {
+    // Keep coordinates usable even if reverse-geocode fails — never invent a place name.
     return {
-      village: KARNATAKA.site.village,
-      taluk: KARNATAKA.site.taluk,
-      district: KARNATAKA.site.district,
-      state: KARNATAKA.state,
-      area: KARNATAKA.site.village,
-      block: KARNATAKA.site.taluk,
-      displayName: `${KARNATAKA.site.village}, ${KARNATAKA.site.district}`,
+      village: '',
+      taluk: '',
+      district: '',
+      state: '',
+      displayName: `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
     };
   }
 }

@@ -28,7 +28,6 @@ export function isAndroidVirtual(): boolean {
  */
 export function isLiveVideoBlocked(): boolean {
   if (isSimulatorVideoBlocked()) return true;
-  if (Platform.OS === 'ios' && __DEV__) return true;
   if (isAndroidEmulator()) return true;
   return false;
 }

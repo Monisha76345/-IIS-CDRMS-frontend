@@ -47,12 +47,18 @@
         "NSCameraUsageDescription": "Allow CDRMS to take selfies, site photos, and inspection videos.",
         "NSPhotoLibraryUsageDescription": "Allow CDRMS to access photos and videos for site documentation.",
         "NSPhotoLibraryAddUsageDescription": "Allow CDRMS to save survey photos and videos to your library when needed.",
-        "NSMicrophoneUsageDescription": "Allow CDRMS to record audio with site walk-through videos."
+        "NSMicrophoneUsageDescription": "Allow CDRMS to record audio with site walk-through videos.",
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSAllowsLocalNetworking": true
+        }
       }
     },
-    "android": {
+      "android": {
       "package": "com.cdrms.mobile",
       "versionCode": 1,
+      "usesCleartextTraffic": true,
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#2563EB",
         "foregroundImage": "./assets/android-icon-foreground.png",

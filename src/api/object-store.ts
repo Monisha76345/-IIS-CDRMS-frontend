@@ -1,3 +1,5 @@
+import * as FileSystem from 'expo-file-system/legacy';
+
 import { API_BASE_URL } from './config';
 import { ApiError } from './client';
 
@@ -41,8 +43,41 @@ function fileNameFromUri(uri: string, kind: 'image' | 'video', refKey: string) {
   return `${refKey}.${ext}`;
 }
 
+function networkHint(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err ?? '');
+  if (/network request failed|failed to fetch|network error/i.test(msg)) {
+    return (
+      `Network request failed. Phone cannot reach ${API_BASE_URL}. ` +
+      `Keep phone + Mac on the same Wi‑Fi, ensure backend is running on port 3700, ` +
+      `and set EXPO_PUBLIC_API_URL to your Mac LAN IP (then restart Metro).`
+    );
+  }
+  return msg || 'Upload failed';
+}
+
+/**
+ * Ensure a file:// path RN upload APIs can read (content:// often breaks FormData).
+ */
+async function ensureUploadableUri(uri: string, kind: 'image' | 'video'): Promise<string> {
+  const trimmed = uri.trim();
+  if (trimmed.startsWith('file://')) return trimmed;
+
+  const cache = FileSystem.cacheDirectory;
+  if (!cache) return trimmed;
+
+  const ext = kind === 'video' ? 'mp4' : 'jpg';
+  const dest = `${cache}cdrms-upload-${Date.now()}.${ext}`;
+  try {
+    await FileSystem.copyAsync({ from: trimmed, to: dest });
+    return dest;
+  } catch {
+    return trimmed;
+  }
+}
+
 /**
  * Upload a local file URI to MinIO via the same Nest object-store API as web.
+ * Uses expo-file-system multipart upload — more reliable than fetch+FormData on device.
  */
 export async function uploadMobileMedia(params: {
   token: string;
@@ -52,12 +87,9 @@ export async function uploadMobileMedia(params: {
   kind: 'image' | 'video';
 }): Promise<string> {
   const { token, applicationId, refKey, uri, kind } = params;
-  const form = new FormData();
-  form.append('file', {
-    uri,
-    name: fileNameFromUri(uri, kind, refKey),
-    type: guessMime(uri, kind),
-  } as unknown as Blob);
+  const fileUri = await ensureUploadableUri(uri, kind);
+  const mime = guessMime(fileUri, kind);
+  const fileName = fileNameFromUri(fileUri, kind, refKey);
 
   const qs = new URLSearchParams({
     entityType: 'DOCUMENT',
@@ -66,35 +98,52 @@ export async function uploadMobileMedia(params: {
     refId: `${applicationId}:${refKey}`,
   });
 
-  const res = await fetch(`${API_BASE_URL}/object-store/upload?${qs.toString()}`, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: form,
-  });
+  const uploadUrl = `${API_BASE_URL}/object-store/upload?${qs.toString()}`;
 
-  const text = await res.text();
+  let status = 0;
+  let bodyText = '';
+
+  try {
+    const result = await FileSystem.uploadAsync(uploadUrl, fileUri, {
+      httpMethod: 'POST',
+      uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+      fieldName: 'file',
+      mimeType: mime,
+      parameters: {
+        // Some Android stacks need the filename in parameters too
+        filename: fileName,
+      },
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      sessionType: FileSystem.FileSystemSessionType.FOREGROUND,
+    });
+    status = result.status;
+    bodyText = result.body ?? '';
+  } catch (err) {
+    throw new ApiError(0, networkHint(err));
+  }
+
   let data: unknown = null;
-  if (text) {
+  if (bodyText) {
     try {
-      data = JSON.parse(text);
+      data = JSON.parse(bodyText);
     } catch {
-      data = text;
+      data = bodyText;
     }
   }
 
-  if (!res.ok) {
+  if (status < 200 || status >= 300) {
     const msg =
       data &&
       typeof data === 'object' &&
       'message' in data &&
       typeof (data as { message: unknown }).message === 'string'
         ? (data as { message: string }).message
-        : `Upload failed (${res.status})`;
-    // If storage is down but we already uploaded this ref earlier, reuse that URL.
-    if (res.status >= 500) {
+        : `Upload failed (${status || 'network'})`;
+
+    if (status >= 500 || status === 0) {
       try {
         const existing = await fetch(
           `${API_BASE_URL}/object-store/by-ref?refId=${encodeURIComponent(`${applicationId}:${refKey}`)}`,
@@ -113,7 +162,7 @@ export async function uploadMobileMedia(params: {
         /* fall through */
       }
     }
-    throw new ApiError(res.status, msg);
+    throw new ApiError(status || 0, msg);
   }
 
   const url = String((data as UploadResult)?.image_url || '');
@@ -135,22 +184,31 @@ export async function deleteMobileMedia(params: {
 
   if (url && !url.startsWith('data:') && /^https?:\/\//i.test(url)) {
     const qs = new URLSearchParams({ url });
-    const res = await fetch(`${API_BASE_URL}/object-store/by-url?${qs.toString()}`, {
-      method: 'DELETE',
-      headers,
-    });
-    if (res.ok) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/object-store/by-url?${qs.toString()}`, {
+        method: 'DELETE',
+        headers,
+      });
+      if (res.ok) return;
+    } catch (err) {
+      throw new ApiError(0, networkHint(err));
+    }
   }
 
   if (refId) {
     const qs = new URLSearchParams({ refId });
-    const res = await fetch(`${API_BASE_URL}/object-store/by-ref?${qs.toString()}`, {
-      method: 'DELETE',
-      headers,
-    });
-    if (!res.ok && res.status !== 404) {
-      const text = await res.text().catch(() => '');
-      throw new ApiError(res.status, text || `Delete failed (${res.status})`);
+    try {
+      const res = await fetch(`${API_BASE_URL}/object-store/by-ref?${qs.toString()}`, {
+        method: 'DELETE',
+        headers,
+      });
+      if (!res.ok && res.status !== 404) {
+        const text = await res.text().catch(() => '');
+        throw new ApiError(res.status, text || `Delete failed (${res.status})`);
+      }
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      throw new ApiError(0, networkHint(err));
     }
   }
 }
