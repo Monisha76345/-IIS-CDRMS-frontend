@@ -52,8 +52,6 @@ export function LiveGpsPanel({
     .filter(Boolean)
     .join(' · ');
   const pinCode = address?.postalCode?.trim();
-  const numVal = syNo?.trim() || siteNo?.trim();
-  const siteBits = numVal ? `Sy No: ${numVal}` : null;
 
   const showOuterHeader = !hideTitleHeader && Boolean(title);
 
@@ -165,15 +163,6 @@ export function LiveGpsPanel({
               <Text style={{ ...TYPE.caption, color: COLORS.ink }} numberOfLines={1}>
                 {areaLine}
                 {pinCode ? ` · ${pinCode}` : ''}
-              </Text>
-            ) : null}
-
-            {siteBits ? (
-              <Text
-                style={{ ...TYPE.caption, fontFamily: FONTS.semibold, color: COLORS.ink }}
-                numberOfLines={1}
-              >
-                {siteBits}
               </Text>
             ) : null}
           </VStack>

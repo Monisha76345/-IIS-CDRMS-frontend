@@ -258,7 +258,7 @@ export function Dashboard({ go }: { go: Go }) {
               <HStack className="items-center gap-3 flex-1 min-w-0">
                 <Pressable
                   onPress={() => go('profile')}
-                  className="active:opacity-85 items-center justify-center"
+                  className="active:opacity-85 items-center justify-center overflow-hidden"
                   style={{
                     width: 52,
                     height: 52,
@@ -271,14 +271,22 @@ export function Dashboard({ go }: { go: Go }) {
                     elevation: 4,
                   }}
                 >
-                  <Text className="font-extrabold text-[16px]" style={{ color: '#2563EB' }}>
-                    {displayName(user)
-                      .split(/\s+/)
-                      .filter(Boolean)
-                      .slice(0, 2)
-                      .map((p) => p[0]?.toUpperCase() || '')
-                      .join('') || 'U'}
-                  </Text>
+                  {user?.profilePhoto ? (
+                    <Image
+                      source={{ uri: user.profilePhoto }}
+                      className="w-full h-full"
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text className="font-extrabold text-[16px]" style={{ color: '#2563EB' }}>
+                      {displayName(user)
+                        .split(/\s+/)
+                        .filter(Boolean)
+                        .slice(0, 2)
+                        .map((p) => p[0]?.toUpperCase() || '')
+                        .join('') || 'U'}
+                    </Text>
+                  )}
                 </Pressable>
                 <VStack className="flex-1 min-w-0">
                   <Text className="text-[12px]" style={{ color: 'rgba(255,255,255,0.85)' }}>
@@ -1334,8 +1342,10 @@ export function ProfileScreen({ go }: { go: Go }) {
       : appRole === 'zc'
         ? 'zc_home'
         : 'history';
-  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+  const { updateProfilePhoto } = useAuth();
+  const profilePhoto = user?.profilePhoto || null;
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [savingPhoto, setSavingPhoto] = useState(false);
 
   const handlePickPhoto = async () => {
     try {
@@ -1343,15 +1353,24 @@ export function ProfileScreen({ go }: { go: Go }) {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8,
+        quality: 0.4,
+        base64: true,
       });
 
-      if (!res.canceled && res.assets[0]?.uri) {
-        setProfilePhoto(res.assets[0].uri);
+      if (!res.canceled && res.assets[0]) {
+        setSavingPhoto(true);
+        const asset = res.assets[0];
+        const photoData = asset.base64
+          ? `data:image/jpeg;base64,${asset.base64}`
+          : asset.uri;
+        await updateProfilePhoto(photoData);
+        setSavingPhoto(false);
         Alert.alert('Profile Photo', 'Profile photo updated successfully!');
       }
-    } catch {
-      Alert.alert('Photo', 'Unable to open image gallery');
+    } catch (err) {
+      setSavingPhoto(false);
+      const msg = err instanceof Error ? err.message : 'Unable to update profile photo';
+      Alert.alert('Photo', msg);
     }
   };
 
@@ -1365,8 +1384,16 @@ export function ProfileScreen({ go }: { go: Go }) {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            setProfilePhoto(null);
-            setPreviewModalOpen(false);
+            void (async () => {
+              try {
+                setSavingPhoto(true);
+                await updateProfilePhoto(null);
+                setSavingPhoto(false);
+                setPreviewModalOpen(false);
+              } catch {
+                setSavingPhoto(false);
+              }
+            })();
           },
         },
       ],

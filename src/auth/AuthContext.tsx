@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import * as FileSystem from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import { apiRequest, ApiError } from '@/src/api/client';
@@ -23,6 +24,7 @@ export type AuthUser = {
   userType?: string;
   role?: string;
   roleName?: string;
+  profilePhoto?: string | null;
 };
 
 type AuthContextValue = {
@@ -31,6 +33,7 @@ type AuthContextValue = {
   isAuthenticated: boolean;
   login: (loginIdOrEmail: string, password: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
+  updateProfilePhoto: (photoUriOrBase64: string | null) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -70,7 +73,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           readItem(TOKEN_KEY),
           readItem(USER_KEY),
         ]);
-        if (token) setAccessToken(token);
+        if (token) {
+          setAccessToken(token);
+          // Sync fresh profile data from backend on launch if token present
+          apiRequest<AuthUser>('/auth/profile', { token })
+            .then((p) => {
+              if (p && (p.id || p.email)) {
+                setUser((prev) => {
+                  const merged = { ...prev, ...p };
+                  void saveItem(USER_KEY, JSON.stringify(merged));
+                  return merged;
+                });
+              }
+            })
+            .catch(() => {
+              /* fallback to cached user */
+            });
+        }
         if (rawUser) setUser(JSON.parse(rawUser) as AuthUser);
       } catch {
         // ignore corrupt session
@@ -128,6 +147,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, [accessToken]);
 
+  const updateProfilePhoto = useCallback(
+    async (photoUriOrBase64: string | null) => {
+      let dataUrl: string | null = photoUriOrBase64;
+
+      if (
+        photoUriOrBase64 &&
+        (photoUriOrBase64.startsWith('file://') ||
+          photoUriOrBase64.startsWith('ph://') ||
+          photoUriOrBase64.startsWith('content://'))
+      ) {
+        try {
+          const base64 = await FileSystem.readAsStringAsync(photoUriOrBase64, {
+            encoding: 'base64',
+          });
+          dataUrl = `data:image/jpeg;base64,${base64}`;
+        } catch {
+          dataUrl = photoUriOrBase64;
+        }
+      }
+
+      if (accessToken) {
+        try {
+          if (dataUrl) {
+            await apiRequest<{ success: boolean; profilePhoto: string }>('/auth/profile/avatar', {
+              method: 'POST',
+              token: accessToken,
+              body: { profilePhoto: dataUrl },
+            });
+          } else {
+            await apiRequest('/auth/profile/avatar', {
+              method: 'DELETE',
+              token: accessToken,
+            });
+          }
+        } catch (e) {
+          console.warn('[AuthContext] Backend avatar sync warning:', e);
+        }
+      }
+
+      setUser((prev) => {
+        if (!prev) return null;
+        const updated = { ...prev, profilePhoto: dataUrl };
+        void saveItem(USER_KEY, JSON.stringify(updated));
+        return updated;
+      });
+    },
+    [accessToken],
+  );
+
   const value = useMemo(
     () => ({
       user,
@@ -135,8 +203,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: Boolean(accessToken),
       login,
       logout,
+      updateProfilePhoto,
     }),
-    [user, accessToken, login, logout],
+    [user, accessToken, login, logout, updateProfilePhoto],
   );
 
   if (!hydrated) return null;

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react-native';
 import React, { type ReactNode, forwardRef, useState } from 'react';
 import {
+  Image,
   Modal,
   Platform,
   TextInput,
@@ -601,9 +602,12 @@ export function BottomNav({
     { k: 'profile', label: 'Profile', target: 'profile', icon: User },
   ];
 
+  const { user } = useAuth();
+
   const renderTab = (it: (typeof leftItems)[number]) => {
     const Icon = it.icon;
     const on = active === it.k;
+    const isProfileWithPhoto = it.k === 'profile' && Boolean(user?.profilePhoto);
     return (
       <Pressable
         key={it.k}
@@ -615,11 +619,26 @@ export function BottomNav({
         style={{ height: BAR_H }}
       >
         <Box className="items-center justify-center relative" style={{ height: 28, width: 44 }}>
-          <Icon
-            size={22}
-            color={on ? COLORS.primary : '#A0AEC0'}
-            strokeWidth={on ? 2.4 : 1.9}
-          />
+          {isProfileWithPhoto ? (
+            <Box
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: 12,
+                overflow: 'hidden',
+                borderWidth: on ? 2 : 1,
+                borderColor: on ? COLORS.primary : '#A0AEC0',
+              }}
+            >
+              <Image source={{ uri: user!.profilePhoto! }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+            </Box>
+          ) : (
+            <Icon
+              size={22}
+              color={on ? COLORS.primary : '#A0AEC0'}
+              strokeWidth={on ? 2.4 : 1.9}
+            />
+          )}
           {it.badge ? (
             <Box
               className="absolute items-center justify-center rounded-full"
