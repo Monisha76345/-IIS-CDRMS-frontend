@@ -1504,8 +1504,6 @@ export function GeoScreen({ go }: { go: Go }) {
     }
   }, [user, go]);
 
-  const radar = useSharedValue(0);
-  const radar2 = useSharedValue(0);
   const cardLift = useSharedValue(0);
   const verifyBadge = useSharedValue(0);
 
@@ -1532,15 +1530,6 @@ export function GeoScreen({ go }: { go: Go }) {
   }, [refresh, verifyBadge]);
 
   useEffect(() => {
-    radar.value = withRepeat(
-      withTiming(1, { duration: 2400, easing: Easing.out(Easing.cubic) }),
-      -1,
-      false,
-    );
-    radar2.value = withDelay(
-      900,
-      withRepeat(withTiming(1, { duration: 2400, easing: Easing.out(Easing.cubic) }), -1, false),
-    );
     cardLift.value = withRepeat(
       withTiming(1, { duration: 3200, easing: Easing.inOut(Easing.sin) }),
       -1,
@@ -1548,7 +1537,7 @@ export function GeoScreen({ go }: { go: Go }) {
     );
 
     void performFetchLocation();
-  }, [radar, radar2, cardLift, performFetchLocation]);
+  }, [cardLift, performFetchLocation]);
 
   const isBusy = scanning || geoBusy;
   const hasLocation = Boolean(locationResult?.gps);
@@ -1571,16 +1560,6 @@ export function GeoScreen({ go }: { go: Go }) {
   useEffect(() => {
     verifyBadge.value = withSpring(outside ? 0 : 1, { damping: 12, stiffness: 170 });
   }, [outside, verifyBadge]);
-
-  const radarStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(radar.value, [0, 0.2, 1], [0.45, 0.25, 0]),
-    transform: [{ scale: interpolate(radar.value, [0, 1], [0.55, 1.9]) }],
-  }));
-
-  const radar2Style = useAnimatedStyle(() => ({
-    opacity: interpolate(radar2.value, [0, 0.2, 1], [0.35, 0.18, 0]),
-    transform: [{ scale: interpolate(radar2.value, [0, 1], [0.55, 2.15]) }],
-  }));
 
   const mapCardStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: interpolate(cardLift.value, [0, 1], [0, -3]) }],
@@ -1700,57 +1679,6 @@ export function GeoScreen({ go }: { go: Go }) {
                       latitudeDelta={mapDelta}
                       recenterKey={mapRecenterKey}
                     />
-
-                    <Box
-                      pointerEvents="none"
-                      style={{
-                        position: 'absolute',
-                        right: '28%',
-                        top: '38%',
-                        width: 54,
-                        height: 54,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 3,
-                      }}
-                    >
-                      <Animated.View
-                        style={[
-                          {
-                            position: 'absolute',
-                            width: 54,
-                            height: 54,
-                            borderRadius: 999,
-                            borderWidth: 2,
-                            borderColor: outside ? COLORS.destructive : '#34D399',
-                          },
-                          radarStyle,
-                        ]}
-                      />
-                      <Animated.View
-                        style={[
-                          {
-                            position: 'absolute',
-                            width: 54,
-                            height: 54,
-                            borderRadius: 999,
-                            borderWidth: 1.5,
-                            borderColor: outside ? COLORS.destructive : '#6EE7B7',
-                          },
-                          radar2Style,
-                        ]}
-                      />
-                      <Box
-                        style={{
-                          width: 14,
-                          height: 14,
-                          borderRadius: 999,
-                          backgroundColor: outside ? COLORS.destructive : '#10B981',
-                          borderWidth: 2,
-                          borderColor: '#FFFFFF',
-                        }}
-                      />
-                    </Box>
 
                     <Box
                       className="absolute top-3 left-3 right-3 flex-row items-start justify-between"
