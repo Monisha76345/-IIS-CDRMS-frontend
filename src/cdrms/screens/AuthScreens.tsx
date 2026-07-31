@@ -74,6 +74,7 @@ import {
   GradientHeader,
   IconBox,
   ScreenShell,
+  ScreenLoader,
   StatusChip,
 } from '@/src/cdrms/components/primitives';
 import { KarnatakaMap } from '@/src/cdrms/components/KarnatakaMap';
@@ -1606,15 +1607,12 @@ export function GeoScreen({ go }: { go: Go }) {
         />
         <Box className="flex-1 items-center justify-center px-8" style={{ marginTop: -24 }}>
           {isBusy || !locationError ? (
-            <VStack className="items-center" style={{ gap: 16 }}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
-              <Text className="text-base font-extrabold text-foreground text-center">
-                Fetching your location…
-              </Text>
-              <Text className="text-sm text-muted-foreground text-center leading-5">
-                Waiting for GPS coordinates. Place names appear only after a real fix.
-              </Text>
-            </VStack>
+            <ScreenLoader
+              title="Geo Location Validation"
+              text="Acquiring GPS coordinates…"
+              icon={MapPin}
+              color="#2563EB"
+            />
           ) : (
             <VStack className="items-center w-full" style={{ gap: 14 }}>
               <IconBox size="lg" className="bg-destructive/15">

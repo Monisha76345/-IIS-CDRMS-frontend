@@ -45,6 +45,8 @@ import {
   IconBox,
   ScreenShell,
   StatusChip,
+  ListLoader,
+  ScreenLoader,
 } from '@/src/cdrms/components/primitives';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { COLORS, FONTS } from '@/src/cdrms/theme';
@@ -800,9 +802,7 @@ export function NotificationsScreen({ go }: { go: Go }) {
 
           <VStack className="mt-4" space="sm">
             {loading && items.length === 0 ? (
-              <Text className="text-[13px] mt-6 text-center" style={{ color: '#64748B' }}>
-                Loading notifications…
-              </Text>
+              <ListLoader count={3} text="Loading notifications…" />
             ) : error ? (
               <Text className="text-[13px] mt-6 text-center" style={{ color: '#DC2626' }}>
                 {error}
@@ -1037,13 +1037,19 @@ export function HistoryScreen({ go }: { go: Go }) {
   const { accessToken } = useAuth();
   const [tab, setTab] = useState('All');
   const [apiTasks, setApiTasks] = useState<MobileApplication[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(true);
   const [openingId, setOpeningId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!accessToken) return;
+    if (!accessToken) {
+      setLoadingTasks(false);
+      return;
+    }
+    setLoadingTasks(true);
     fetchEngineerTasks(accessToken)
       .then(setApiTasks)
-      .catch(() => setApiTasks([]));
+      .catch(() => setApiTasks([]))
+      .finally(() => setLoadingTasks(false));
   }, [accessToken]);
 
   const openDetails = async (id: string, status: string, live: boolean, apiTask?: boolean) => {
@@ -1236,7 +1242,9 @@ export function HistoryScreen({ go }: { go: Go }) {
         showsVerticalScrollIndicator={false}
       >
         <VStack className="px-4" style={{ gap: 12 }}>
-          {filtered.length === 0 ? (
+          {loadingTasks ? (
+            <ListLoader count={4} text="Loading engineer applications…" />
+          ) : filtered.length === 0 ? (
             <Box
               className="items-center py-14 px-6"
               style={{

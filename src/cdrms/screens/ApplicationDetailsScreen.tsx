@@ -23,6 +23,8 @@ import {
   AppBtn,
   AppHeader,
   ScreenShell,
+  ScreenLoader,
+  useMinimumLoading,
   StatusChip,
 } from '@/src/cdrms/components/primitives';
 import { findSampleApp } from '@/src/cdrms/data';
@@ -232,10 +234,21 @@ export function ApplicationDetailsScreen({ go }: { go: Go }) {
     return null;
   })();
 
+  const isLoading = useMinimumLoading(!detail, 500);
+
   const back = () => {
     clearSelectedApplication();
     go('history');
   };
+
+  if (isLoading) {
+    return (
+      <ScreenShell className="bg-[#F3F4F6]">
+        <AppHeader title="Application" subtitle="Loading details…" onBack={back} go={go} />
+        <ScreenLoader text="Fetching application record particulars…" minHeight={320} />
+      </ScreenShell>
+    );
+  }
 
   if (!detail) {
     return (

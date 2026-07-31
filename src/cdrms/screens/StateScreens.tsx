@@ -38,7 +38,9 @@ import {
   AppCard,
   AppHeader,
   AppSheet,
+  ButtonLoader,
   IconBox,
+  ScreenLoader,
   ScreenShell,
   StatusChip,
 } from '@/src/cdrms/components/primitives';
@@ -407,7 +409,7 @@ export function ReviewScreen({ go }: { go: Go }) {
             >
               <HStack className="items-center gap-2.5">
                 {submitting ? (
-                  <ActivityIndicator color="#fff" />
+                  <ButtonLoader color="#fff" />
                 ) : (
                   <Box
                     className="items-center justify-center rounded-xl"
@@ -933,10 +935,7 @@ export function ReviewScreen({ go }: { go: Go }) {
           submitted for CAO verification. You cannot edit after submission.
         </Text>
         {submitting ? (
-          <HStack className="mt-6 items-center justify-center gap-3 py-4">
-            <ActivityIndicator color={COLORS.primary} />
-            <Text className="font-bold text-foreground">Submitting…</Text>
-          </HStack>
+          <ScreenLoader text="Submitting application…" minHeight={120} />
         ) : (
           <HStack space="md" className="mt-4">
             <Box className="flex-1">

@@ -25,7 +25,7 @@ import { VStack } from '@/components/ui/vstack';
 import { GpsSiteCard } from '@/src/cdrms/components/GpsSiteCard';
 import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
 import { EngineerStickyHeader } from '@/src/cdrms/components/EngineerStickyHeader';
-import { Field } from '@/src/cdrms/components/primitives';
+import { Field, ButtonLoader } from '@/src/cdrms/components/primitives';
 import {
   SectionTitle,
   SurveyCard,
@@ -187,7 +187,7 @@ function SiteLoadingCards() {
         />
         <VStack space="md" className="px-[14px] pb-5">
           <HStack className="items-center gap-2.5 mb-1">
-            <ActivityIndicator size="small" color={COLORS.primary} />
+            <ButtonLoader size="small" color={COLORS.primary} />
             <Text className="text-[12px] font-semibold" style={{ color: '#2563EB' }}>
               Auto-filling from GPS…
             </Text>
@@ -293,7 +293,7 @@ export function ProjectScreen({ go }: { go: Go }) {
         isBackendTask
           ? 'View only · assigned by Zonal Commissioner'
           : isResubmit
-            ? TERMS.workflow.formResubmitSubtitle
+            ? TERMS.workflow.fixResubmitSubtitle
             : TERMS.workflow.newApplicationSubtitle
       }
       onBack={() => {

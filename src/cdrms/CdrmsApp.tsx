@@ -43,6 +43,51 @@ import {
   ZcHomeScreen,
 } from '@/src/cdrms/screens/ZcScreens';
 import type { Go, Screen } from '@/src/cdrms/types';
+import React, { useEffect } from 'react';
+import { ScreenLoader, getScreenLoaderConfig } from '@/src/cdrms/components/primitives';
+
+function ScreenTransitionWrapper({
+  screen,
+  children,
+}: {
+  screen: Screen;
+  children: React.ReactNode;
+}) {
+  const [transitioning, setTransitioning] = useState(false);
+  const meta = useMemo(() => getScreenLoaderConfig(screen), [screen]);
+  const isAuthScreen =
+    screen === 'splash' ||
+    screen === 'login' ||
+    screen === 'otp' ||
+    screen === 'permission' ||
+    screen === 'geo';
+
+  useEffect(() => {
+    if (isAuthScreen) {
+      setTransitioning(false);
+      return;
+    }
+    setTransitioning(true);
+    const timer = setTimeout(() => {
+      setTransitioning(false);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [screen, isAuthScreen]);
+
+  if (transitioning && !isAuthScreen) {
+    return (
+      <ScreenLoader
+        title={meta.title}
+        subtitle={meta.subtitle}
+        icon={meta.icon}
+        color={meta.color}
+        fullScreen
+      />
+    );
+  }
+
+  return <>{children}</>;
+}
 
 export function CdrmsApp() {
   const [screen, setScreen] = useState<Screen>('splash');
@@ -115,9 +160,11 @@ export function CdrmsApp() {
   return (
     <ProjectProvider>
       <Box className="flex-1 bg-background">
-        <Box key={screen} className="flex-1">
-          {rendered}
-        </Box>
+        <ScreenTransitionWrapper screen={screen}>
+          <Box key={screen} className="flex-1">
+            {rendered}
+          </Box>
+        </ScreenTransitionWrapper>
       </Box>
     </ProjectProvider>
   );

@@ -47,6 +47,9 @@ import {
   AppHeader,
   BottomNav,
   ScreenShell,
+  ScreenLoader,
+  ListLoader,
+  ButtonLoader,
 } from '@/src/cdrms/components/primitives';
 import {
   DetailRow,
@@ -258,7 +261,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
           </HStack>
 
           {loading ? (
-            <ActivityIndicator style={{ marginTop: 24 }} color={COLORS.primary} />
+            <ListLoader text="Loading ZC applications…" />
           ) : error ? (
             <Text className="text-[13px] mt-4" style={{ color: '#DC2626' }}>
               {error}
@@ -553,7 +556,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
           }}
         >
           {loading ? (
-            <ActivityIndicator color={COLORS.primary} />
+            <ScreenLoader text="Loading zone configuration…" minHeight={180} />
           ) : zoneError ? (
             <Box
               style={{
@@ -850,7 +853,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                   }}
                 >
                   {saving ? (
-                    <ActivityIndicator color="#FFFFFF" />
+                    <ButtonLoader color="#FFFFFF" />
                   ) : (
                     <Text className="font-bold text-white">Submit</Text>
                   )}
@@ -888,7 +891,7 @@ export function ZcDetailScreen({ go }: { go: Go }) {
       <AppHeader title="Application" onBack={() => go('zc_home')} gradient={false} go={go} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
         {loading ? (
-          <ActivityIndicator color={COLORS.primary} />
+          <ScreenLoader text="Loading ZC application details…" />
         ) : error || !app ? (
           <Text style={{ color: '#DC2626' }}>{error || 'Not found'}</Text>
         ) : (

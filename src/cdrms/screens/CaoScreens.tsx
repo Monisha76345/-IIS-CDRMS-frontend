@@ -30,6 +30,9 @@ import {
   AppHeader,
   BottomNav,
   ScreenShell,
+  ScreenLoader,
+  ListLoader,
+  ButtonLoader,
 } from '@/src/cdrms/components/primitives';
 import {
   DetailRow,
@@ -242,7 +245,7 @@ export function CaoHomeScreen({ go }: { go: Go }) {
           </HStack>
 
           {loading ? (
-            <ActivityIndicator style={{ marginTop: 24 }} color={COLORS.primary} />
+            <ListLoader text="Loading CAO applications…" />
           ) : error ? (
             <Box
               style={{
@@ -370,7 +373,7 @@ export function CaoDetailScreen({ go }: { go: Go }) {
       <AppHeader title="Task review" onBack={() => go('cao_home')} gradient={false} go={go} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         {loading ? (
-          <ActivityIndicator color={COLORS.primary} />
+          <ScreenLoader text="Loading CAO task review…" />
         ) : error || !app ? (
           <Box
             style={{
@@ -641,7 +644,7 @@ export function CaoDetailScreen({ go }: { go: Go }) {
                   }}
                 >
                   {busy === 'verify' ? (
-                    <ActivityIndicator color="#FFF" />
+                    <ButtonLoader color="#FFF" />
                   ) : (
                     <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#FFFFFF' }}>
                       Verify & approve
@@ -661,7 +664,7 @@ export function CaoDetailScreen({ go }: { go: Go }) {
                   }}
                 >
                   {busy === 'return' ? (
-                    <ActivityIndicator color="#FFF" />
+                    <ButtonLoader color="#FFF" />
                   ) : (
                     <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#FFFFFF' }}>
                       Return to engineer
@@ -681,7 +684,7 @@ export function CaoDetailScreen({ go }: { go: Go }) {
                   }}
                 >
                   {busy === 'reject' ? (
-                    <ActivityIndicator color="#FFF" />
+                    <ButtonLoader color="#FFF" />
                   ) : (
                     <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#FFFFFF' }}>
                       Reject
