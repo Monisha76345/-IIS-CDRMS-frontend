@@ -31,7 +31,6 @@ import { useAuth } from '@/src/auth/AuthContext';
 import { displayName } from '@/src/auth/roles';
 import { ApiError } from '@/src/api/client';
 import {
-  applicationStatusLabel,
   countZcBuckets,
   createApplication,
   fetchApplication,
@@ -43,6 +42,7 @@ import {
   type MyZoneMeta,
   type SiteDimensionOption,
 } from '@/src/api/applications';
+import { ApplicationStatusBadge } from '@/src/cdrms/components/ApplicationStatusBadge';
 import {
   AppHeader,
   BottomNav,
@@ -277,7 +277,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
                 title={app.applicationNumber}
                 subtitle={`Site ${app.siteNo} · ${addressLine(app) || '—'}`}
                 meta={app.assignedEngineerName || 'Unassigned engineer'}
-                status={applicationStatusLabel(app.status)}
+                status={app.status}
                 onPress={() => openDetail(app.id)}
               />
             ))
@@ -909,7 +909,10 @@ export function ZcDetailScreen({ go }: { go: Go }) {
               <Text className="text-[18px] font-bold mt-3 mb-1" style={{ color: '#0F172A' }}>
                 {app.applicationNumber}
               </Text>
-              <DetailRow label="Status" value={applicationStatusLabel(app.status)} />
+              <DetailRow
+                label="Status"
+                value={<ApplicationStatusBadge status={app.status} size="md" />}
+              />
               <DetailRow label="Site no" value={app.siteNo} />
               <DetailRow label="Area" value={app.addressArea} />
               <DetailRow label="Block" value={app.addressBlock} />

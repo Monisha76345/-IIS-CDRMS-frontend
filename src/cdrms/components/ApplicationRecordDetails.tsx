@@ -4,6 +4,7 @@ import {
   Building2,
   Camera,
   Compass,
+  Eye,
   Film,
   History,
   MapPin,
@@ -17,9 +18,9 @@ import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import {
-  applicationStatusLabel,
   type MobileApplication,
 } from '@/src/api/applications';
+import { ApplicationStatusBadge } from '@/src/cdrms/components/ApplicationStatusBadge';
 import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
 import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
 import { GpsSiteCard } from '@/src/cdrms/components/GpsSiteCard';
@@ -100,7 +101,7 @@ function SectionCard({
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <Box
       style={{
@@ -120,17 +121,21 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       >
         {label}
       </Text>
-      <Text
-        style={{
-          fontFamily: FONTS.semibold,
-          fontSize: 13,
-          color: COLORS.ink,
-          marginTop: 3,
-          lineHeight: 18,
-        }}
-      >
-        {value || '—'}
-      </Text>
+      {typeof value === 'string' || typeof value === 'number' ? (
+        <Text
+          style={{
+            fontFamily: FONTS.semibold,
+            fontSize: 13,
+            color: COLORS.ink,
+            marginTop: 3,
+            lineHeight: 18,
+          }}
+        >
+          {value || '—'}
+        </Text>
+      ) : (
+        <Box style={{ marginTop: 4 }}>{value}</Box>
+      )}
     </Box>
   );
 }
@@ -138,42 +143,85 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 function MediaThumb({
   label,
   uri,
-  onPress,
+  onView,
+  columns = 4,
 }: {
   label: string;
   uri: string;
-  onPress: () => void;
+  onView: () => void;
+  columns?: 2 | 4;
 }) {
+  const widthPct = columns === 4 ? '23%' : '47%';
+
   return (
-    <Pressable onPress={onPress} style={{ width: '47%' }}>
+    <Box style={{ width: widthPct }}>
+      <Text
+        style={{
+          fontFamily: FONTS.bold,
+          fontSize: 9,
+          color: '#1E3A5F',
+          marginBottom: 4,
+          textTransform: 'uppercase',
+          letterSpacing: 0.4,
+        }}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
       <Box
         style={{
-          borderRadius: 12,
+          borderRadius: 8,
           overflow: 'hidden',
           borderWidth: 1,
           borderColor: '#E2E8F0',
-          backgroundColor: '#F8FAFC',
+          backgroundColor: '#F1F5F9',
         }}
       >
-        <ApiMediaImage
-          uri={uri}
-          style={{
-            width: '100%',
-            aspectRatio: 1,
-            backgroundColor: '#E2E8F0',
-          }}
-          resizeMode="cover"
-        />
-        <Box style={{ paddingHorizontal: 8, paddingVertical: 6 }}>
-          <Text
-            style={{ fontFamily: FONTS.semibold, fontSize: 11, color: '#475569' }}
-            numberOfLines={1}
+        <Box style={{ position: 'relative' }}>
+          <ApiMediaImage
+            uri={uri}
+            style={{
+              width: '100%',
+              aspectRatio: 1,
+              backgroundColor: '#E2E8F0',
+            }}
+            resizeMode="cover"
+          />
+          <Pressable
+            onPress={onView}
+            accessibilityLabel={`View ${label}`}
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              bottom: 0,
+              left: 0,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(15, 23, 42, 0.45)',
+            }}
           >
-            {label}
-          </Text>
+            <Box
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#FFFFFF',
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.15,
+                shadowRadius: 4,
+                elevation: 3,
+              }}
+            >
+              <Eye size={16} color="#2563EB" strokeWidth={2.3} />
+            </Box>
+          </Pressable>
         </Box>
       </Box>
-    </Pressable>
+    </Box>
   );
 }
 
@@ -284,7 +332,7 @@ function ZcDetailsBlock({ app, siteType, address }: { app: MobileApplication; si
   return (
     <SectionCard title="ZC application details" icon={Building2} accent="#2563EB">
       <InfoRow label="Application no" value={app.applicationNumber} />
-      <InfoRow label="Status" value={applicationStatusLabel(app.status)} />
+      <InfoRow label="Status" value={<ApplicationStatusBadge status={app.status} size="md" />} />
       <InfoRow label="Site no" value={app.siteNo} />
       <InfoRow label="Site type" value={siteType} />
       <InfoRow label="Site dimension" value={app.siteDimension || '—'} />
@@ -530,11 +578,13 @@ export function ApplicationRecordDetails({
                 >
                   Selfie
                 </Text>
-                <MediaThumb
-                  label="Engineer selfie"
-                  uri={app.selfieUrl}
-                  onPress={() => setPreview({ uri: app.selfieUrl!, title: 'Selfie' })}
-                />
+                <HStack className="flex-wrap" style={{ gap: 6 }}>
+                  <MediaThumb
+                    label="Engineer selfie"
+                    uri={app.selfieUrl}
+                    onView={() => setPreview({ uri: app.selfieUrl!, title: 'Selfie' })}
+                  />
+                </HStack>
               </Box>
             ) : null}
 
@@ -552,13 +602,13 @@ export function ApplicationRecordDetails({
                 >
                   Site photos
                 </Text>
-                <HStack className="flex-wrap" style={{ gap: 10 }}>
+                <HStack className="flex-wrap" style={{ gap: 6 }}>
                   {photos.map((url, i) => (
                     <MediaThumb
                       key={`photo-${i}-${url}`}
                       label={`Site photo ${i + 1}`}
                       uri={url}
-                      onPress={() =>
+                      onView={() =>
                         setPreview({ uri: url, title: `Site photo ${i + 1}` })
                       }
                     />
@@ -581,7 +631,7 @@ export function ApplicationRecordDetails({
                 >
                   Schedule boundary photos
                 </Text>
-                <HStack className="flex-wrap" style={{ gap: 10 }}>
+                <HStack className="flex-wrap" style={{ gap: 6 }}>
                   {(
                     [
                       ['N', 'North photo'],
@@ -595,7 +645,7 @@ export function ApplicationRecordDetails({
                         key={key}
                         label={label}
                         uri={schedulePhotos[key]}
-                        onPress={() =>
+                        onView={() =>
                           setPreview({ uri: schedulePhotos[key], title: label })
                         }
                       />

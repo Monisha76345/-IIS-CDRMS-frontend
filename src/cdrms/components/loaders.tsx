@@ -62,11 +62,25 @@ export function getScreenLoaderConfig(screen: Screen): ScreenLoaderMeta {
         icon: ShieldCheck,
         color: '#8B5CF6',
       }
+    case 'cao_apps':
+      return {
+        title: 'CAO Applications',
+        subtitle: 'Loading all applications in your zone…',
+        icon: FileText,
+        color: '#8B5CF6',
+      }
     case 'cao_detail':
       return {
-        title: 'CAO Task Review',
-        subtitle: 'Loading boundary dimensions & survey data…',
+        title: 'View Application',
+        subtitle: 'Loading application particulars & engineer capture…',
         icon: FileCheck2,
+        color: '#8B5CF6',
+      }
+    case 'cao_approve':
+      return {
+        title: 'CAO Approval',
+        subtitle: 'Loading application for review & decision…',
+        icon: ShieldCheck,
         color: '#8B5CF6',
       }
     case 'dashboard':

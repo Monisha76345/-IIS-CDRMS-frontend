@@ -1328,6 +1328,12 @@ export function ProfileScreen({ go }: { go: Go }) {
   const { user, logout } = useAuth();
   const appRole = resolveAppRole(user);
   const home = homeScreenForRole(user);
+  const appsTarget =
+    appRole === 'cao' || appRole === 'super_admin'
+      ? 'cao_apps'
+      : appRole === 'zc'
+        ? 'zc_home'
+        : 'history';
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
@@ -1627,7 +1633,7 @@ export function ProfileScreen({ go }: { go: Go }) {
         active="profile"
         onNav={go}
         homeTarget={home}
-        appsTarget={home}
+        appsTarget={appsTarget}
         hidePlus={appRole !== 'zc'}
         hideAlerts={appRole !== 'zc'}
         onPlus={appRole === 'zc' ? () => go('zc_create') : undefined}

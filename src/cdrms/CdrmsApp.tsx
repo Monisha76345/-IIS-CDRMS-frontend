@@ -34,6 +34,8 @@ import {
   ValidateScreen,
 } from '@/src/cdrms/screens/StateScreens';
 import {
+  CaoApplicationsScreen,
+  CaoApprovalScreen,
   CaoDetailScreen,
   CaoHomeScreen,
 } from '@/src/cdrms/screens/CaoScreens';
@@ -118,8 +120,12 @@ export function CdrmsApp() {
         return <ZcDetailScreen go={go} />;
       case 'cao_home':
         return <CaoHomeScreen go={go} />;
+      case 'cao_apps':
+        return <CaoApplicationsScreen go={go} />;
       case 'cao_detail':
         return <CaoDetailScreen go={go} />;
+      case 'cao_approve':
+        return <CaoApprovalScreen go={go} />;
       case 'project':
         return <ProjectScreen go={go} />;
       case 'bandi':

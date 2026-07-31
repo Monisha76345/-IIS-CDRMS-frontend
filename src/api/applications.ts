@@ -250,7 +250,67 @@ export function applicationStatusLabel(status: MobileApplicationStatus) {
   if (status === 'in_progress') return 'In progress';
   if (status === 'submitted') return 'Pending CAO';
   if (status === 'verified') return 'Verified';
-  if (status === 'returned') return 'Returned';
+  if (status === 'returned') return 'Send back';
   if (status === 'rejected') return 'Rejected';
   return status;
+}
+
+export type ApplicationStatusTone = {
+  bg: string;
+  fg: string;
+  bar: string;
+  border: string;
+};
+
+/** Match web ApplicationStatusBadge palette. */
+export function applicationStatusTone(
+  status: MobileApplicationStatus | string | null | undefined,
+): ApplicationStatusTone {
+  const raw = String(status || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_');
+
+  if (raw === 'assigned') {
+    return { bg: '#E0F2FE', fg: '#075985', bar: '#0EA5E9', border: '#BAE6FD' };
+  }
+  if (raw === 'in_progress' || raw === 'inprogress') {
+    return { bg: '#FFFBEB', fg: '#92400E', bar: '#F59E0B', border: '#FDE68A' };
+  }
+  if (raw === 'submitted' || raw === 'pending_cao' || raw === 'pending') {
+    return { bg: '#F5F3FF', fg: '#5B21B6', bar: '#8B5CF6', border: '#DDD6FE' };
+  }
+  if (raw === 'verified') {
+    return { bg: '#D1FAE5', fg: '#047857', bar: '#059669', border: '#A7F3D0' };
+  }
+  if (raw === 'returned' || raw === 'send_back' || raw === 'sendback') {
+    return { bg: '#FFEDD5', fg: '#C2410C', bar: '#F97316', border: '#FED7AA' };
+  }
+  if (raw === 'rejected') {
+    return { bg: '#FFE4E6', fg: '#BE123C', bar: '#F43F5E', border: '#FECDD3' };
+  }
+  return { bg: '#F8FAFC', fg: '#334155', bar: '#64748B', border: '#E2E8F0' };
+}
+
+export function normalizeApplicationStatus(
+  status: string | null | undefined,
+): MobileApplicationStatus | null {
+  const raw = String(status || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_');
+
+  if (raw === 'assigned') return 'assigned';
+  if (raw === 'in_progress' || raw === 'inprogress') return 'in_progress';
+  if (raw === 'submitted' || raw === 'pending' || raw === 'pending_cao') return 'submitted';
+  if (raw === 'verified') return 'verified';
+  if (raw === 'returned' || raw === 'send_back' || raw === 'sendback') return 'returned';
+  if (raw === 'rejected') return 'rejected';
+  return null;
+}
+
+export function applicationStatusDisplayLabel(status: string | null | undefined) {
+  const key = normalizeApplicationStatus(status);
+  if (key) return applicationStatusLabel(key);
+  return String(status || '—');
 }

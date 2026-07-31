@@ -1,10 +1,16 @@
-import { ChevronRight, type LucideIcon } from 'lucide-react-native';
+import { type ReactNode } from 'react';
+import { Eye, type LucideIcon } from 'lucide-react-native';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
+import {
+  applicationStatusTone,
+  type MobileApplicationStatus,
+} from '@/src/api/applications';
+import { ApplicationStatusBadge } from '@/src/cdrms/components/ApplicationStatusBadge';
 import { COLORS, FONTS } from '@/src/cdrms/theme';
 
 export type StatusCountItem = {
@@ -99,18 +105,6 @@ export function StatusCountGrid({
   );
 }
 
-const STATUS_ACCENT: Record<string, { bg: string; fg: string; bar: string }> = {
-  'Pending CAO': { bg: '#EFF6FF', fg: '#1D4ED8', bar: '#2563EB' },
-  Submitted: { bg: '#EFF6FF', fg: '#1D4ED8', bar: '#2563EB' },
-  Verified: { bg: '#D1FAE5', fg: '#047857', bar: '#059669' },
-  Approved: { bg: '#D1FAE5', fg: '#047857', bar: '#059669' },
-  Returned: { bg: '#FFEDD5', fg: '#C2410C', bar: '#F97316' },
-  Rejected: { bg: '#FEE2E2', fg: '#DC2626', bar: '#EF4444' },
-  Draft: { bg: '#EFF6FF', fg: '#1D4ED8', bar: '#2563EB' },
-  Assigned: { bg: '#EFF6FF', fg: '#2563EB', bar: '#2563EB' },
-  'In progress': { bg: '#F1F5F9', fg: '#334155', bar: '#64748B' },
-};
-
 export function OfficeAppRow({
   title,
   subtitle,
@@ -121,14 +115,10 @@ export function OfficeAppRow({
   title: string;
   subtitle: string;
   meta?: string;
-  status: string;
+  status: MobileApplicationStatus | string;
   onPress: () => void;
 }) {
-  const tone = STATUS_ACCENT[status] || {
-    bg: '#F1F5F9',
-    fg: COLORS.ink,
-    bar: COLORS.primary,
-  };
+  const tone = applicationStatusTone(status);
 
   return (
     <Pressable
@@ -164,17 +154,8 @@ export function OfficeAppRow({
             >
               {title}
             </Text>
-            <Box
-              style={{
-                borderRadius: 999,
-                paddingHorizontal: 8,
-                paddingVertical: 3,
-                backgroundColor: tone.bg,
-              }}
-            >
-              <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: tone.fg }}>
-                {status}
-              </Text>
+            <Box style={{ flexShrink: 0, maxWidth: '46%' }}>
+              <ApplicationStatusBadge status={status} />
             </Box>
           </HStack>
 
@@ -193,19 +174,39 @@ export function OfficeAppRow({
               >
                 {meta}
               </Text>
-              <HStack className="items-center" style={{ gap: 2 }}>
-                <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.primary }}>
-                  Open
+              <HStack
+                className="items-center"
+                style={{
+                  gap: 4,
+                  backgroundColor: '#4F8CFF',
+                  borderRadius: 999,
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                }}
+              >
+                <Eye size={12} color="#FFFFFF" strokeWidth={2.4} />
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#FFFFFF' }}>
+                  View
                 </Text>
-                <ChevronRight size={14} color={COLORS.primary} strokeWidth={2.6} />
               </HStack>
             </HStack>
           ) : (
-            <HStack className="items-center justify-end" style={{ gap: 2 }}>
-              <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.primary }}>
-                Open
-              </Text>
-              <ChevronRight size={14} color={COLORS.primary} strokeWidth={2.6} />
+            <HStack className="items-center justify-end">
+              <HStack
+                className="items-center"
+                style={{
+                  gap: 4,
+                  backgroundColor: '#4F8CFF',
+                  borderRadius: 999,
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                }}
+              >
+                <Eye size={12} color="#FFFFFF" strokeWidth={2.4} />
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#FFFFFF' }}>
+                  View
+                </Text>
+              </HStack>
             </HStack>
           )}
         </VStack>
@@ -214,7 +215,7 @@ export function OfficeAppRow({
   );
 }
 
-export function DetailRow({ label, value }: { label: string; value: string }) {
+export function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <HStack
       className="items-start justify-between gap-3"
@@ -227,17 +228,21 @@ export function DetailRow({ label, value }: { label: string; value: string }) {
       <Text style={{ flex: 1, fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}>
         {label}
       </Text>
-      <Text
-        style={{
-          flex: 1.4,
-          fontFamily: FONTS.semibold,
-          fontSize: 13,
-          color: COLORS.ink,
-          textAlign: 'right',
-        }}
-      >
-        {value || '—'}
-      </Text>
+      {typeof value === 'string' || typeof value === 'number' ? (
+        <Text
+          style={{
+            flex: 1.4,
+            fontFamily: FONTS.semibold,
+            fontSize: 13,
+            color: COLORS.ink,
+            textAlign: 'right',
+          }}
+        >
+          {value || '—'}
+        </Text>
+      ) : (
+        <Box style={{ flex: 1.4, alignItems: 'flex-end' }}>{value}</Box>
+      )}
     </HStack>
   );
 }

@@ -2,6 +2,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ClipboardList,
+  FileText,
   RefreshCw,
   RotateCcw,
   Search,
@@ -19,7 +20,6 @@ import { useAuth } from '@/src/auth/AuthContext';
 import { displayName, resolveAppRole } from '@/src/auth/roles';
 import { ApiError } from '@/src/api/client';
 import {
-  applicationStatusLabel,
   caoDecideApplication,
   fetchApplication,
   fetchCaoApplications,
@@ -27,6 +27,7 @@ import {
   type CaoCounts,
   type MobileApplication,
 } from '@/src/api/applications';
+import { ApplicationStatusBadge } from '@/src/cdrms/components/ApplicationStatusBadge';
 import {
   AppHeader,
   BottomNav,
@@ -41,7 +42,7 @@ import {
   type StatusCountItem,
 } from '@/src/cdrms/components/StatusCountGrid';
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
-import { getSelectedOfficeAppId, setSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
+import { getCaoReturnScreen, getSelectedOfficeAppId, setCaoReturnScreen, setSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
 import { COLORS, FONTS } from '@/src/cdrms/theme';
 import type { Go } from '@/src/cdrms/types';
 
@@ -296,9 +297,10 @@ export function CaoHomeScreen({ go }: { go: Go }) {
                 title={app.applicationNumber}
                 subtitle={`Site ${app.siteNo} · Zone ${app.zoneCode}`}
                 meta={`${app.assignedEngineerName || '—'} · ${addressLine(app) || '—'}`}
-                status={applicationStatusLabel(app.status)}
+                status={app.status}
                 onPress={() => {
                   setSelectedOfficeAppId(app.id);
+                  setCaoReturnScreen('cao_home');
                   go('cao_detail');
                 }}
               />
@@ -311,7 +313,235 @@ export function CaoHomeScreen({ go }: { go: Go }) {
         active="home"
         onNav={go}
         homeTarget="cao_home"
-        appsTarget="cao_home"
+        appsTarget="cao_apps"
+        hidePlus
+        hideAlerts
+      />
+    </ScreenShell>
+  );
+}
+
+type CaoAppsFilter = 'All' | 'Pending CAO' | 'Verified' | 'Returned' | 'Rejected';
+
+const CAO_APP_FILTERS: { key: CaoAppsFilter; status?: MobileApplication['status'] }[] = [
+  { key: 'All' },
+  { key: 'Pending CAO', status: 'submitted' },
+  { key: 'Verified', status: 'verified' },
+  { key: 'Returned', status: 'returned' },
+  { key: 'Rejected', status: 'rejected' },
+];
+
+/** All CAO zone applications — opened from bottom Apps tab. */
+export function CaoApplicationsScreen({ go }: { go: Go }) {
+  const { accessToken } = useAuth();
+  const [apps, setApps] = useState<MobileApplication[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<CaoAppsFilter>('All');
+  const [q, setQ] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    if (!accessToken) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const list = await fetchCaoApplications(accessToken);
+      setApps(list);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Failed to load applications');
+      setApps([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  const filtered = useMemo(() => {
+    const filterDef = CAO_APP_FILTERS.find((f) => f.key === tab);
+    let items = apps;
+    if (filterDef?.status) {
+      items = items.filter((a) => a.status === filterDef.status);
+    }
+    if (!q.trim()) return items;
+    const needle = q.trim().toLowerCase();
+    return items.filter(
+      (a) =>
+        a.applicationNumber.toLowerCase().includes(needle) ||
+        a.siteNo.toLowerCase().includes(needle) ||
+        (a.assignedEngineerName || '').toLowerCase().includes(needle) ||
+        (a.zoneCode || '').toLowerCase().includes(needle) ||
+        addressLine(a).toLowerCase().includes(needle),
+    );
+  }, [apps, tab, q]);
+
+  return (
+    <ScreenShell className="bg-[#F8FAFC]">
+      <AppHeader
+        title="Applications"
+        subtitle={`${apps.length} total · all CAO tasks in your zone`}
+        go={go}
+      />
+
+      <Box style={{ backgroundColor: '#F8FAFC' }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 12,
+            paddingBottom: 8,
+            gap: 8,
+          }}
+        >
+          {CAO_APP_FILTERS.map((f) => {
+            const on = tab === f.key;
+            const count =
+              f.key === 'All'
+                ? apps.length
+                : apps.filter((a) => a.status === f.status).length;
+            return (
+              <Pressable
+                key={f.key}
+                onPress={() => setTab(f.key)}
+                style={{
+                  height: 36,
+                  paddingHorizontal: 14,
+                  borderRadius: 999,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: on ? COLORS.primary : COLORS.white,
+                  borderWidth: 1,
+                  borderColor: on ? COLORS.primary : COLORS.border,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 12,
+                    color: on ? '#FFFFFF' : COLORS.ink,
+                  }}
+                >
+                  {f.key} · {count}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        <Box className="px-4 pb-2">
+          <HStack
+            className="items-center"
+            style={{
+              backgroundColor: COLORS.white,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              paddingHorizontal: 12,
+              height: 44,
+            }}
+          >
+            <Search size={16} color={COLORS.primary} />
+            <TextInput
+              value={q}
+              onChangeText={setQ}
+              placeholder="Search application, site, engineer…"
+              placeholderTextColor="#94A3B8"
+              style={{
+                flex: 1,
+                marginLeft: 8,
+                fontFamily: FONTS.medium,
+                fontSize: 13,
+                color: COLORS.ink,
+              }}
+            />
+            <Pressable onPress={() => void reload()} accessibilityLabel="Refresh">
+              <RefreshCw size={15} color={COLORS.primary} strokeWidth={2.4} />
+            </Pressable>
+          </HStack>
+        </Box>
+      </Box>
+
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100, paddingTop: 8 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {loading ? (
+          <ListLoader text="Loading all CAO applications…" />
+        ) : error ? (
+          <Box
+            style={{
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: '#FECACA',
+              backgroundColor: '#FEF2F2',
+              padding: 14,
+            }}
+          >
+            <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: '#DC2626' }}>
+              {error}
+            </Text>
+          </Box>
+        ) : filtered.length === 0 ? (
+          <Box
+            style={{
+              borderRadius: 16,
+              backgroundColor: COLORS.white,
+              paddingVertical: 32,
+              paddingHorizontal: 16,
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: COLORS.border,
+            }}
+          >
+            <FileText size={28} color={COLORS.ink} />
+            <Text
+              style={{
+                marginTop: 12,
+                fontFamily: FONTS.bold,
+                fontSize: 15,
+                color: COLORS.ink,
+              }}
+            >
+              No applications
+            </Text>
+            <Text
+              style={{
+                marginTop: 6,
+                fontFamily: FONTS.medium,
+                fontSize: 12,
+                color: COLORS.ink,
+                textAlign: 'center',
+              }}
+            >
+              Nothing in this category yet.
+            </Text>
+          </Box>
+        ) : (
+          filtered.map((app) => (
+            <OfficeAppRow
+              key={app.id}
+              title={app.applicationNumber}
+              subtitle={`Site ${app.siteNo} · Zone ${app.zoneCode}`}
+              meta={`${app.assignedEngineerName || '—'} · ${addressLine(app) || '—'}`}
+              status={app.status}
+              onPress={() => {
+                setSelectedOfficeAppId(app.id);
+                setCaoReturnScreen('cao_apps');
+                go('cao_detail');
+              }}
+            />
+          ))
+        )}
+      </ScrollView>
+
+      <BottomNav
+        active="apps"
+        onNav={go}
+        homeTarget="cao_home"
+        appsTarget="cao_apps"
         hidePlus
         hideAlerts
       />
@@ -432,6 +662,171 @@ export function CaoDetailScreen({ go }: { go: Go }) {
   const { accessToken, user } = useAuth();
   const isSuperAdmin = resolveAppRole(user) === 'super_admin';
   const [app, setApp] = useState<MobileApplication | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = getSelectedOfficeAppId();
+    if (!accessToken || !id) {
+      setError('No application selected');
+      setLoading(false);
+      return;
+    }
+    fetchApplication(accessToken, id)
+      .then(setApp)
+      .catch((e) => setError(e instanceof ApiError ? e.message : 'Not found'))
+      .finally(() => setLoading(false));
+  }, [accessToken]);
+
+  const canApprove = !isSuperAdmin && app?.status === 'submitted';
+  const backTarget = getCaoReturnScreen();
+
+  return (
+    <ScreenShell className="bg-[#F8FAFC]">
+      <AppHeader
+        title="View Application"
+        onBack={() => go(backTarget)}
+        gradient={false}
+        go={go}
+      />
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        {loading ? (
+          <ScreenLoader text="Loading application details…" />
+        ) : error || !app ? (
+          <Box
+            style={{
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: '#FECACA',
+              backgroundColor: '#FEF2F2',
+              padding: 14,
+            }}
+          >
+            <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: '#DC2626' }}>
+              {error || 'Not found'}
+            </Text>
+          </Box>
+        ) : (
+          <VStack style={{ gap: 12 }}>
+            {isSuperAdmin ? (
+              <Box
+                style={{
+                  backgroundColor: '#FFFBEB',
+                  borderColor: '#FDE68A',
+                  borderWidth: 1,
+                  borderRadius: 12,
+                  padding: 10,
+                }}
+              >
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: '#92400E' }}>
+                  Super Admin view — read-only. Use Tasks → Approval when signed in as CAO.
+                </Text>
+              </Box>
+            ) : null}
+
+            <Box
+              style={{
+                backgroundColor: COLORS.white,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                overflow: 'hidden',
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.07,
+                shadowRadius: 8,
+                elevation: 2,
+              }}
+            >
+              <HStack>
+                <Box
+                  style={{
+                    width: 4,
+                    backgroundColor:
+                      app.status === 'verified'
+                        ? '#059669'
+                        : app.status === 'returned'
+                          ? '#F97316'
+                          : app.status === 'rejected'
+                            ? '#EF4444'
+                            : '#2563EB',
+                    alignSelf: 'stretch',
+                  }}
+                />
+                <VStack className="flex-1" style={{ padding: 12, gap: 6 }}>
+                  <HStack className="items-center" style={{ gap: 6, flexWrap: 'wrap' }}>
+                    <Box
+                      style={{
+                        backgroundColor: '#EFF6FF',
+                        borderRadius: 8,
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderWidth: 1,
+                        borderColor: COLORS.border,
+                      }}
+                    >
+                      <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: COLORS.primary }}>
+                        Zone {app.zoneCode}
+                      </Text>
+                    </Box>
+                    <Box
+                      style={{
+                        backgroundColor: COLORS.white,
+                        borderRadius: 8,
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderWidth: 1,
+                        borderColor: COLORS.border,
+                      }}
+                    >
+                      <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: COLORS.ink }}>
+                        Site {app.siteNo}
+                      </Text>
+                    </Box>
+                    <Box style={{ marginLeft: 'auto' }}>
+                      <ApplicationStatusBadge status={app.status} size="md" />
+                    </Box>
+                  </HStack>
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 17, color: COLORS.ink }}>
+                    {app.applicationNumber}
+                  </Text>
+                  <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}>
+                    Engineer: {app.assignedEngineerName || '—'}
+                  </Text>
+                </VStack>
+              </HStack>
+            </Box>
+
+            <ApplicationRecordDetails app={app} />
+
+            {canApprove ? (
+              <Pressable
+                onPress={() => go('cao_approve')}
+                style={{
+                  height: 48,
+                  borderRadius: 14,
+                  backgroundColor: COLORS.primary,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#FFFFFF' }}>
+                  Go to Approval
+                </Text>
+              </Pressable>
+            ) : null}
+          </VStack>
+        )}
+      </ScrollView>
+    </ScreenShell>
+  );
+}
+
+/** CAO approval workflow — stepper (details → decision), like web /cao/tasks/:id/approve */
+export function CaoApprovalScreen({ go }: { go: Go }) {
+  const { accessToken, user } = useAuth();
+  const isSuperAdmin = resolveAppRole(user) === 'super_admin';
+  const [app, setApp] = useState<MobileApplication | null>(null);
   const [step, setStep] = useState(0);
   const [decision, setDecision] = useState<CaoDecision>('');
   const [sendBackEngineerId, setSendBackEngineerId] = useState('');
@@ -528,14 +923,14 @@ export function CaoDetailScreen({ go }: { go: Go }) {
         title={step === 0 ? 'Application details' : 'Approval'}
         onBack={() => {
           if (step > 0) setStep(0);
-          else go('cao_home');
+          else go('cao_detail');
         }}
         gradient={false}
         go={go}
       />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         {loading ? (
-          <ScreenLoader text="Loading CAO task review…" />
+          <ScreenLoader text="Loading application for review…" />
         ) : error || !app ? (
           <Box
             style={{
@@ -627,18 +1022,8 @@ export function CaoDetailScreen({ go }: { go: Go }) {
                         Site {app.siteNo}
                       </Text>
                     </Box>
-                    <Box
-                      style={{
-                        marginLeft: 'auto',
-                        borderRadius: 999,
-                        paddingHorizontal: 8,
-                        paddingVertical: 3,
-                        backgroundColor: '#EFF6FF',
-                      }}
-                    >
-                      <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: COLORS.primary }}>
-                        {applicationStatusLabel(app.status)}
-                      </Text>
+                    <Box style={{ marginLeft: 'auto' }}>
+                      <ApplicationStatusBadge status={app.status} size="md" />
                     </Box>
                   </HStack>
                   <Text style={{ fontFamily: FONTS.bold, fontSize: 17, color: COLORS.ink }}>
@@ -672,7 +1057,24 @@ export function CaoDetailScreen({ go }: { go: Go }) {
                       Next: Approval
                     </Text>
                   </Pressable>
-                ) : null}
+                ) : (
+                  <Pressable
+                    onPress={() => go('cao_detail')}
+                    style={{
+                      height: 44,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: '#E2E8F0',
+                      backgroundColor: '#FFFFFF',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.ink }}>
+                      ← Back to view
+                    </Text>
+                  </Pressable>
+                )}
               </>
             ) : (
               <Box
