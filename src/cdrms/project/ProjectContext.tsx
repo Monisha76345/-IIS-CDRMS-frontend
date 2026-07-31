@@ -96,6 +96,8 @@ type ProjectContextValue = {
   ) => Promise<void>;
   /** Clear local schedule photo + object-store + draft URL (web MediaUploadField parity). */
   clearSurroundingPhoto: (cardinal: Cardinal) => Promise<void>;
+  setSelfie: (asset: MediaAsset) => Promise<void>;
+  removeSelfie: () => Promise<void>;
   addPhoto: (asset: MediaAsset) => Promise<void>;
   removePhoto: (id: string) => Promise<void>;
   setVideo: (asset: MediaAsset | null) => Promise<void>;
@@ -363,44 +365,42 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       }
 
       if (step === 'media') {
-        const nextPhotos = [...draft.photos];
-        let nextVideo = draft.video;
-
-        if (nextPhotos[0]) {
+        if (draft.selfie) {
           const selfieUrl = await resolveMediaUrl({
             token: accessToken,
             applicationId: appId,
             refKey: 'selfie',
-            asset: nextPhotos[0],
+            asset: draft.selfie,
             kind: 'image',
           });
           if (selfieUrl) {
             body.selfieUrl = selfieUrl;
-            // Keep local URI in draft for preview — do not swap to MinIO host.
           }
         }
 
         const photoUrls: string[] = [];
-        for (let i = 1; i < nextPhotos.length && photoUrls.length < 4; i += 1) {
+        for (let i = 0; i < draft.photos.length && photoUrls.length < 4; i += 1) {
           const url = await resolveMediaUrl({
             token: accessToken,
             applicationId: appId,
-            refKey: `photo-${photoUrls.length + 1}`,
-            asset: nextPhotos[i],
+            refKey: `photo-${i}`,
+            asset: draft.photos[i],
             kind: 'image',
           });
           if (url) {
             photoUrls.push(url);
           }
         }
-        body.photoUrls = photoUrls;
+        if (photoUrls.length > 0) {
+          body.photoUrls = photoUrls;
+        }
 
-        if (nextVideo) {
+        if (draft.video) {
           const videoUrl = await resolveMediaUrl({
             token: accessToken,
             applicationId: appId,
             refKey: 'video',
-            asset: nextVideo,
+            asset: draft.video,
             kind: 'video',
           });
           if (videoUrl) {
@@ -413,11 +413,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         }
 
         await saveEngineerDraft(accessToken, appId, body);
-        // Prefer on-device local URIs so selfie / video previews keep working.
         setDraft((d) => ({
           ...d,
-          photos: nextPhotos.length > 0 ? nextPhotos : d.photos,
-          video: nextVideo ?? d.video,
           status: 'draft',
           updatedAt: Date.now(),
         }));
@@ -596,11 +593,53 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     ],
   );
 
+  const setSelfie = useCallback(
+    async (asset: MediaAsset) => {
+      touch((prev) => ({ ...prev, selfie: asset }));
+      if (!accessToken || !draft.backendApplicationId) return;
+
+      const appId = draft.backendApplicationId;
+      const url = await resolveMediaUrl({
+        token: accessToken,
+        applicationId: appId,
+        refKey: 'selfie',
+        asset,
+        kind: 'image',
+      });
+      if (url) {
+        await saveEngineerDraft(accessToken, appId, { selfieUrl: url });
+      }
+    },
+    [accessToken, draft.backendApplicationId, touch],
+  );
+
+  const removeSelfie = useCallback(
+    async () => {
+      const removed = draft.selfie;
+      touch((prev) => ({ ...prev, selfie: null }));
+      if (!accessToken || !draft.backendApplicationId || !removed) return;
+      const appId = draft.backendApplicationId;
+
+      try {
+        await deleteMobileMedia({
+          token: accessToken,
+          url: isRemoteUri(removed.uri) ? removed.uri : undefined,
+          refId: `${appId}:selfie`,
+        });
+      } catch {
+        /* ignore */
+      }
+
+      await saveEngineerDraft(accessToken, appId, { selfieUrl: '' });
+    },
+    [accessToken, draft.backendApplicationId, draft.selfie, touch],
+  );
+
   const addPhoto = useCallback(
     async (asset: MediaAsset) => {
       let slotIndex = -1;
       touch((prev) => {
-        const max = prev.backendApplicationId ? 5 : 10;
+        const max = prev.backendApplicationId ? 4 : 10;
         if (prev.photos.length >= max) return prev;
         slotIndex = prev.photos.length;
         return { ...prev, photos: [...prev.photos, asset] };
@@ -609,7 +648,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       if (!accessToken || !draft.backendApplicationId) return;
 
       const appId = draft.backendApplicationId;
-      const refKey = slotIndex === 0 ? 'selfie' : `photo-${slotIndex}`;
+      const refKey = `photo-${slotIndex}`;
       const url = await resolveMediaUrl({
         token: accessToken,
         applicationId: appId,
@@ -619,20 +658,13 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       });
       if (!url) return;
 
-      if (slotIndex === 0) {
-        await saveEngineerDraft(accessToken, appId, { selfieUrl: url });
-      } else {
-        const remoteExtras = draft.photos
-          .slice(1)
-          .map((p) => p.uri)
-          .filter((u) => isRemoteUri(u));
-        remoteExtras.push(url);
-        await saveEngineerDraft(accessToken, appId, {
-          photoUrls: remoteExtras.slice(0, 4),
-        });
-      }
-
-      // Keep local file:// for on-device preview (MinIO URLs use 127.0.0.1).
+      const remoteExtras = draft.photos
+        .map((p) => p.uri)
+        .filter((u) => isRemoteUri(u));
+      remoteExtras.push(url);
+      await saveEngineerDraft(accessToken, appId, {
+        photoUrls: remoteExtras.slice(0, 4),
+      });
     },
     [accessToken, draft.backendApplicationId, draft.photos, touch],
   );
@@ -652,7 +684,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       const appId = draft.backendApplicationId;
 
       try {
-        const refKey = idx === 0 ? 'selfie' : `photo-${idx}`;
+        const refKey = `photo-${idx}`;
         await deleteMobileMedia({
           token: accessToken,
           url: isRemoteUri(removed.uri) ? removed.uri : undefined,
@@ -662,17 +694,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         /* ignore */
       }
 
-      const selfieUrl = nextPhotos[0]?.uri && isRemoteUri(nextPhotos[0].uri)
-        ? nextPhotos[0].uri
-        : '';
       const photoUrls = nextPhotos
-        .slice(1)
         .map((p) => p.uri)
         .filter((u) => isRemoteUri(u))
         .slice(0, 4);
 
       await saveEngineerDraft(accessToken, appId, {
-        selfieUrl,
         photoUrls,
       });
     },
@@ -757,7 +784,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       if (!draft.engineerComments.trim()) {
         throw new ApiError(400, 'Engineer comments are required');
       }
-      if (draft.photos.length < 1) {
+      if (!draft.selfie) {
         throw new ApiError(400, 'Engineer selfie is required');
       }
       if (!draft.video) throw new ApiError(400, 'Site video is required');
@@ -780,17 +807,17 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         token: accessToken,
         applicationId: appId,
         refKey: 'selfie',
-        asset: draft.photos[0],
+        asset: draft.selfie,
         kind: 'image',
       });
       if (!selfieUrl) throw new ApiError(400, 'Engineer selfie is required');
-      // Extra site photos (after selfie) are optional — upload up to 4.
+      // Extra site photos are optional — upload up to 4.
       const photoUrls: string[] = [];
-      for (let i = 1; i < draft.photos.length && photoUrls.length < 4; i += 1) {
+      for (let i = 0; i < draft.photos.length && photoUrls.length < 4; i += 1) {
         const url = await resolveMediaUrl({
           token: accessToken,
           applicationId: appId,
-          refKey: `photo-${photoUrls.length + 1}`,
+          refKey: `photo-${i}`,
           asset: draft.photos[i],
           kind: 'image',
         });
@@ -950,6 +977,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setApproachNotes,
       setSurroundingPhoto,
       clearSurroundingPhoto,
+      setSelfie,
+      removeSelfie,
       addPhoto,
       removePhoto,
       setVideo,
@@ -980,6 +1009,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setApproachNotes,
       setSurroundingPhoto,
       clearSurroundingPhoto,
+      setSelfie,
+      removeSelfie,
       addPhoto,
       removePhoto,
       setVideo,

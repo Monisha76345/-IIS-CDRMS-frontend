@@ -159,11 +159,11 @@ export function validateDraft(draft: ProjectDraft): ValidationItem[] {
     label: isBackend
       ? 'Engineer selfie'
       : `${TERMS.validation.sitePhotos} (min ${MIN_SITE_PHOTOS})`,
-    ok: draft.photos.length >= minPhotos,
+    ok: isBackend ? Boolean(draft.selfie) : draft.photos.length >= minPhotos,
     detail: isBackend
-      ? draft.photos.length >= 1
-        ? optionalSiteCount > 0
-          ? `Selfie OK · ${optionalSiteCount} optional site photo(s) (max 4)`
+      ? draft.selfie
+        ? draft.photos.length > 0
+          ? `Selfie OK · ${draft.photos.length} optional site photo(s) (max 4)`
           : 'Selfie captured (extra site photos optional, max 4)'
         : 'Selfie required — extra site photos are optional'
       : `${draft.photos.length}/${MIN_SITE_PHOTOS} photographs`,

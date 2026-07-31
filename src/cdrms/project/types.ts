@@ -79,6 +79,7 @@ export type ProjectDraft = {
   nearbyRoads: string;
   landmarks: string;
   photos: MediaAsset[];
+  selfie: MediaAsset | null;
   video: MediaAsset | null;
   /** When editing a returned app for resubmit. */
   resubmitOfId: string | null;
@@ -194,6 +195,7 @@ export function createEmptyDraft(): ProjectDraft {
     nearbyRoads: '',
     landmarks: '',
     photos: [],
+    selfie: null,
     video: null,
     resubmitOfId: null,
     caoRemarks: null,

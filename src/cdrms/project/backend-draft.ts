@@ -66,10 +66,12 @@ export function draftFromBackendApplication(app: MobileApplication): ProjectDraf
     .filter(Boolean)
     .join(', ');
 
-  const photos: MediaAsset[] = [];
+  let selfie: MediaAsset | null = null;
   if (app.selfieUrl) {
-    photos.push(remoteAsset(app.selfieUrl, 'image', `selfie-${app.id}`, now));
+    selfie = remoteAsset(app.selfieUrl, 'image', `selfie-${app.id}`, now);
   }
+
+  const photos: MediaAsset[] = [];
   for (let i = 0; i < (app.photoUrls?.length ?? 0) && i < 4; i += 1) {
     const url = app.photoUrls![i];
     if (url) photos.push(remoteAsset(url, 'image', `photo-${app.id}-${i}`, now));
@@ -155,6 +157,7 @@ export function draftFromBackendApplication(app: MobileApplication): ProjectDraf
     },
     surroundingPhotos,
     photos,
+    selfie,
     video: app.videoUrl
       ? remoteAsset(app.videoUrl, 'video', `video-${app.id}`, now)
       : null,

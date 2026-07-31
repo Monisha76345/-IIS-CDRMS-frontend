@@ -17,10 +17,12 @@ type LiveGpsPanelProps = {
   error?: string | null;
   onRefresh: () => void;
   syNo?: string | null;
+  siteNo?: string | null;
   layoutName?: string | null;
   /** @deprecated Map removed — kept for call-site compatibility. */
   mapHeight?: number;
-  title?: string;
+  title?: string | null;
+  hideTitleHeader?: boolean;
 };
 
 /**
@@ -33,8 +35,10 @@ export function LiveGpsPanel({
   error,
   onRefresh,
   syNo,
+  siteNo,
   layoutName,
   title = 'Live location',
+  hideTitleHeader = false,
 }: LiveGpsPanelProps) {
   const hasFix = gps?.latitude != null && gps?.longitude != null;
   const placeLabel =
@@ -48,39 +52,42 @@ export function LiveGpsPanel({
     .filter(Boolean)
     .join(' · ');
   const pinCode = address?.postalCode?.trim();
-  const siteBits = [syNo?.trim() ? `Sy No: ${syNo.trim()}` : null, layoutName?.trim() || null]
-    .filter(Boolean)
-    .join(' · ');
+  const numVal = syNo?.trim() || siteNo?.trim();
+  const siteBits = numVal ? `Sy No: ${numVal}` : null;
+
+  const showOuterHeader = !hideTitleHeader && Boolean(title);
 
   return (
     <VStack style={{ gap: SPACE[2] }}>
-      <HStack className="items-center justify-between" style={{ minHeight: 32 }}>
-        <Text style={{ ...TYPE.label, color: COLORS.ink }}>{title}</Text>
-        <Pressable
-          onPress={onRefresh}
-          accessibilityLabel="Refresh live location"
-          className="active:opacity-80"
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 10,
-            backgroundColor: COLORS.white,
-            alignItems: 'center',
-            justifyContent: 'center',
-            shadowColor: '#0F172A',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.08,
-            shadowRadius: 6,
-            elevation: 2,
-          }}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color={COLORS.ink} />
-          ) : (
-            <RefreshCw size={15} color={COLORS.ink} strokeWidth={2.4} />
-          )}
-        </Pressable>
-      </HStack>
+      {showOuterHeader ? (
+        <HStack className="items-center justify-between" style={{ minHeight: 32 }}>
+          <Text style={{ ...TYPE.label, color: COLORS.ink }}>{title}</Text>
+          <Pressable
+            onPress={onRefresh}
+            accessibilityLabel="Refresh live location"
+            className="active:opacity-80"
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 10,
+              backgroundColor: COLORS.white,
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: '#0F172A',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.08,
+              shadowRadius: 6,
+              elevation: 2,
+            }}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color={COLORS.ink} />
+            ) : (
+              <RefreshCw size={15} color={COLORS.ink} strokeWidth={2.4} />
+            )}
+          </Pressable>
+        </HStack>
+      ) : null}
 
       <Box
         style={{
@@ -170,6 +177,35 @@ export function LiveGpsPanel({
               </Text>
             ) : null}
           </VStack>
+
+          {!showOuterHeader ? (
+            <Pressable
+              onPress={onRefresh}
+              accessibilityLabel="Refresh live location"
+              className="active:opacity-80"
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 10,
+                backgroundColor: COLORS.white,
+                alignItems: 'center',
+                justifyContent: 'center',
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.08,
+                shadowRadius: 6,
+                elevation: 2,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+              }}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color={COLORS.ink} />
+              ) : (
+                <RefreshCw size={15} color={COLORS.ink} strokeWidth={2.4} />
+              )}
+            </Pressable>
+          ) : null}
         </HStack>
       </Box>
     </VStack>

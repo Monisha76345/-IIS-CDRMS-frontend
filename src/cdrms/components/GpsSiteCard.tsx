@@ -39,6 +39,7 @@ type Props = {
   villageLabel?: string;
   /** Shown on map callout card */
   syNo?: string | null;
+  siteNo?: string | null;
   layoutName?: string | null;
   refreshing?: boolean;
   onRefresh?: () => void;
@@ -66,6 +67,7 @@ export function GpsSiteCard({
   gps,
   villageLabel,
   syNo,
+  siteNo,
   layoutName,
   refreshing = false,
   onRefresh,
@@ -270,7 +272,7 @@ export function GpsSiteCard({
               Site location
             </Text>
             <Text style={{ fontSize: 12, fontWeight: '700', color: '#0F172A' }}>
-              Sy No: {syNo?.trim() || '—'}
+              Site No: {siteNo?.trim() || syNo?.trim() || '—'}
             </Text>
             <Text style={{ fontSize: 12, fontWeight: '600', color: '#334155', marginTop: 2 }}>
               Village: {place || '—'}

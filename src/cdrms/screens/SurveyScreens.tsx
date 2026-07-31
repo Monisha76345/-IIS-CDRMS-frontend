@@ -7,6 +7,7 @@ import {
   ChevronRight,
   ClipboardList,
   Compass,
+  Crosshair,
   Edit3,
   Film,
   Image as ImageIcon,
@@ -15,6 +16,7 @@ import {
   MapPin,
   Navigation,
   Plus,
+  RefreshCw,
   Route,
   Ruler,
   ShieldCheck,
@@ -303,99 +305,235 @@ export function BandiScreen({ go }: { go: Go }) {
       </SurveyCard>
 
       {isBackendTask ? (
-        <SurveyCard>
-          <WorkspaceHeader
-            icon={MapPin}
-            title="Live GPS & occupancy"
-            subtitle={
-              isLiveFix
-                ? 'Live GPS locked · occupancy required'
-                : 'Device location required'
-            }
-            stepLabel="STEP 02"
-            iconBg={COLORS.primary}
-          />
-          <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
-            <HStack className="items-center" style={{ gap: SPACE[4], flexWrap: 'wrap' }}>
-              <Text style={{ ...TYPE.label, color: COLORS.ink }}>
-                Occupancy <Text style={{ color: '#DC2626', fontWeight: 'bold' }}>*</Text>
-              </Text>
-              <HStack style={{ gap: SPACE[4], alignItems: 'center' }}>
-                {(['Empty', 'Occupied'] as const).map((opt) => {
-                  const on = draft.occupancy === opt;
-                  return (
-                    <Pressable
-                      key={opt}
-                      onPress={() => updateField('occupancy', opt)}
-                      className="active:opacity-80"
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: on }}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 8,
-                        paddingVertical: 2,
-                      }}
-                    >
+        <>
+          {/* ── Card 1: Live GPS & Coordinates ── */}
+          <SurveyCard>
+            <WorkspaceHeader
+              icon={MapPin}
+              title="Live GPS & coordinates"
+              subtitle={
+                isLiveFix
+                  ? 'Live GPS locked · location & coordinates captured'
+                  : 'Device location required'
+              }
+              stepLabel="STEP 02"
+              iconBg={COLORS.primary}
+            />
+            <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
+              <LiveGpsPanel
+                gps={mapGps}
+                address={liveAddress}
+                loading={geoBusy}
+                error={geoError}
+                onRefresh={() => void recaptureGps()}
+                syNo={draft.surveyNo || draft.siteNo || undefined}
+                title={null}
+                hideTitleHeader
+              />
+
+              {/* Coordinates Section inside same card */}
+              <Box
+                style={{
+                  borderRadius: 12,
+                  backgroundColor: COLORS.white,
+                  paddingHorizontal: 12,
+                  paddingVertical: 11,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.06,
+                  shadowRadius: 6,
+                  elevation: 2,
+                }}
+              >
+                <HStack className="items-center" style={{ gap: SPACE[2] }}>
+                  <Box
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 10,
+                      backgroundColor: COLORS.white,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      shadowColor: '#0F172A',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.08,
+                      shadowRadius: 6,
+                      elevation: 2,
+                    }}
+                  >
+                    <Crosshair size={18} color={COLORS.primary} strokeWidth={2.4} />
+                  </Box>
+
+                  <VStack className="flex-1 min-w-0" style={{ gap: 6 }}>
+                    <HStack className="items-center" style={{ gap: SPACE[2] }}>
                       <Box
                         style={{
-                          width: 18,
-                          height: 18,
-                          borderRadius: 9,
-                          borderWidth: 2,
-                          borderColor: on ? COLORS.primary : COLORS.ink,
-                          backgroundColor: COLORS.white,
-                          alignItems: 'center',
-                          justifyContent: 'center',
+                          width: 7,
+                          height: 7,
+                          borderRadius: 4,
+                          backgroundColor: mapGps ? COLORS.success : COLORS.warning,
                         }}
-                      >
-                        {on ? (
-                          <Box
-                            style={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: 4,
-                              backgroundColor: COLORS.primary,
-                            }}
-                          />
-                        ) : null}
-                      </Box>
+                      />
                       <Text
                         style={{
-                          fontFamily: FONTS.semibold,
-                          fontSize: 13,
+                          ...TYPE.caption,
+                          fontFamily: FONTS.bold,
                           color: COLORS.ink,
                         }}
                       >
-                        {opt}
+                        {mapGps
+                          ? 'LIVE COORDINATES'
+                          : geoBusy
+                            ? 'Finding location…'
+                            : 'Waiting for location'}
                       </Text>
-                    </Pressable>
-                  );
-                })}
-              </HStack>
-            </HStack>
-            {draft.occupancy === 'Occupied' ? (
-              <Field
-                compact
-                label="Occupied reason *"
-                value={draft.occupancyReason}
-                onChangeText={(t) => updateField('occupancyReason', t)}
-                placeholder="Why is the site occupied?"
-              />
-            ) : null}
+                      {mapGps ? (
+                        <Text style={{ ...TYPE.caption, fontFamily: FONTS.semibold, color: COLORS.ink }}>
+                          {`±${Math.round(mapGps.accuracy ?? 6)} m`}
+                        </Text>
+                      ) : null}
+                    </HStack>
 
-            <LiveGpsPanel
-              gps={mapGps}
-              address={liveAddress}
-              loading={geoBusy}
-              error={geoError}
-              onRefresh={() => void recaptureGps()}
-              syNo={draft.siteNo || draft.surveyNo || undefined}
-              layoutName={draft.addressBlock || draft.zoneCode || undefined}
-              title="Live location"
+                    <HStack className="items-center justify-between">
+                      <Text style={{ ...TYPE.caption, color: '#64748B' }}>Latitude</Text>
+                      <Text style={{ ...TYPE.bodyStrong, fontSize: 13, color: COLORS.ink }}>
+                        {mapGps ? mapGps.latitude.toFixed(6) : '—'}
+                      </Text>
+                    </HStack>
+
+                    <Box style={{ height: 1, backgroundColor: COLORS.border }} />
+
+                    <HStack className="items-center justify-between">
+                      <Text style={{ ...TYPE.caption, color: '#64748B' }}>Longitude</Text>
+                      <Text style={{ ...TYPE.bodyStrong, fontSize: 13, color: COLORS.ink }}>
+                        {mapGps ? mapGps.longitude.toFixed(6) : '—'}
+                      </Text>
+                    </HStack>
+                  </VStack>
+
+                  <Pressable
+                    onPress={() => void recaptureGps()}
+                    accessibilityLabel="Refresh live coordinates"
+                    className="active:opacity-80"
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 10,
+                      backgroundColor: COLORS.white,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      shadowColor: '#0F172A',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.08,
+                      shadowRadius: 6,
+                      elevation: 2,
+                      borderWidth: 1,
+                      borderColor: COLORS.border,
+                    }}
+                  >
+                    {geoBusy ? (
+                      <ActivityIndicator size="small" color={COLORS.ink} />
+                    ) : (
+                      <RefreshCw size={15} color={COLORS.ink} strokeWidth={2.4} />
+                    )}
+                  </Pressable>
+                </HStack>
+              </Box>
+            </VStack>
+          </SurveyCard>
+
+          {/* ── Card 2: Occupancy ── */}
+          <SurveyCard>
+            <WorkspaceHeader
+              icon={Building2}
+              title="Occupancy"
+              subtitle="Select the current occupancy status of the site"
+              stepLabel="STEP 02"
+              iconBg={COLORS.primary}
             />
-          </VStack>
-        </SurveyCard>
+            <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
+              <Box
+                style={{
+                  backgroundColor: '#F8FAFC',
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+                  padding: SPACE[4],
+                  gap: SPACE[3],
+                }}
+              >
+                <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                  <Text style={{ ...TYPE.label, color: COLORS.ink }}>Occupancy</Text>
+                  <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#DC2626', lineHeight: 16 }}>*</Text>
+                </Box>
+                <HStack style={{ gap: SPACE[4], alignItems: 'center', marginTop: SPACE[1] }}>
+                  {(['Empty', 'Occupied'] as const).map((opt) => {
+                    const on = draft.occupancy === opt;
+                    return (
+                      <Pressable
+                        key={opt}
+                        onPress={() => updateField('occupancy', opt)}
+                        className="active:opacity-80"
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: on }}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 8,
+                          paddingVertical: 2,
+                        }}
+                      >
+                        <Box
+                          style={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: 10,
+                            borderWidth: 2,
+                            borderColor: on ? COLORS.primary : '#94A3B8',
+                            backgroundColor: COLORS.white,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          {on ? (
+                            <Box
+                              style={{
+                                width: 10,
+                                height: 10,
+                                borderRadius: 5,
+                                backgroundColor: COLORS.primary,
+                              }}
+                            />
+                          ) : null}
+                        </Box>
+                        <Text
+                          style={{
+                            fontFamily: FONTS.semibold,
+                            fontSize: 14,
+                            color: on ? COLORS.primary : COLORS.ink,
+                          }}
+                        >
+                          {opt}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </HStack>
+              </Box>
+              {draft.occupancy === 'Occupied' ? (
+                <Field
+                  compact
+                  label="Occupied reason *"
+                  value={draft.occupancyReason}
+                  onChangeText={(t) => updateField('occupancyReason', t)}
+                  placeholder="Why is the site occupied?"
+                />
+              ) : null}
+            </VStack>
+          </SurveyCard>
+        </>
       ) : (
         <SurveyCard>
           <VStack className="px-4 py-5" space="sm">
@@ -1111,33 +1249,49 @@ export function SurroundingsScreen({ go }: { go: Go }) {
 }
 
 export function PhotosScreen({ go }: { go: Go }) {
-  const { draft, addPhoto, removePhoto, updateField, persistBackendStep, reloadBackendDraft } =
-    useProject();
+  const {
+    draft,
+    setSelfie,
+    removeSelfie,
+    addPhoto,
+    removePhoto,
+    updateField,
+    persistBackendStep,
+    reloadBackendDraft,
+  } = useProject();
   const [sheet, setSheet] = useState(false);
   const [stepSaving, setStepSaving] = useState(false);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState('Photo preview');
   const isBackendTask = Boolean(draft.backendApplicationId);
-  const maxPhotos = isBackendTask ? 5 : 10;
+  const maxPhotos = isBackendTask ? 4 : 10;
   const backScreen = isBackendTask ? 'dimensions' : 'surroundings';
 
-  const take = async (mode: 'camera' | 'gallery') => {
+  const takeSelfieMedia = async () => {
+    try {
+      const asset = await captureSelfie();
+      if (asset) await setSelfie(asset);
+    } catch (err) {
+      alertDraftError(err);
+    }
+  };
+
+  const takeSitePhoto = async (mode: 'camera' | 'gallery') => {
     // Close the sheet first — iOS cannot present the picker over another Modal.
     setSheet(false);
     await new Promise((r) => setTimeout(r, 350));
     try {
-      // First photo is the engineer selfie.
       const asset =
         mode === 'camera'
-          ? draft.photos.length === 0
-            ? await captureSelfie()
-            : await capturePhoto({ facing: 'back', title: 'Take site photo' })
+          ? await capturePhoto({ facing: 'back', title: 'Take site photo' })
           : await pickPhoto();
       if (asset) await addPhoto(asset);
     } catch (err) {
       alertDraftError(err);
     }
   };
+
+  const totalPhotosCount = (draft.selfie ? 1 : 0) + draft.photos.length;
 
   return (
     <SurveyScaffold
@@ -1161,13 +1315,13 @@ export function PhotosScreen({ go }: { go: Go }) {
       }}
       step={4}
       total={isBackendTask ? 4 : 5}
-      badge={`${draft.photos.length} of ${maxPhotos}`}
+      badge={`${totalPhotosCount} uploaded`}
       footer={
         <FooterContinueBtn
           loading={stepSaving}
           disabled={
             stepSaving ||
-            draft.photos.length < 1 ||
+            !draft.selfie ||
             (isBackendTask && !draft.engineerComments.trim())
           }
           label="Continue"
@@ -1189,45 +1343,176 @@ export function PhotosScreen({ go }: { go: Go }) {
           }}
         />
       }
-          go={go}
+      go={go}
     >
+      {/* ── Card 1: Mandatory Engineer Selfie ── */}
       <SurveyCard>
         <WorkspaceHeader
-          icon={ImageIcon}
-          title={TERMS.sections.sitePhotoGallery}
-          subtitle="Captured on device"
+          icon={Camera}
+          title="Engineer selfie *"
+          subtitle="Mandatory — capture live selfie of engineer on site"
           stepLabel="STEP 04"
           iconBg={COLORS.primary}
         />
         <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
-          <HStack className="items-center justify-between">
-            <VStack style={{ gap: 2 }}>
-              <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}>
-                Uploaded assets
-              </Text>
-              <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}>
-                {draft.photos.length === 0
-                  ? 'Add selfie first'
-                  : `${draft.photos.length} photo${draft.photos.length === 1 ? '' : 's'} ready`}
-              </Text>
-            </VStack>
-            <Pressable
-              onPress={() => setSheet(true)}
-              disabled={draft.photos.length >= maxPhotos}
-              className="h-11 px-4 rounded-2xl flex-row items-center gap-1.5"
+          {draft.selfie ? (
+            /* Selfie Already Captured */
+            <Box
               style={{
-                backgroundColor: COLORS.primary,
-                opacity: draft.photos.length >= maxPhotos ? 0.5 : 1,
-                shadowColor: '#0F172A',
-                shadowOpacity: 0.12,
-                shadowRadius: 8,
-                shadowOffset: { width: 0, height: 3 },
+                borderRadius: 14,
+                backgroundColor: '#F8FAFC',
+                borderWidth: 1,
+                borderColor: '#E2E8F0',
+                padding: SPACE[3],
               }}
             >
-              <Plus size={16} color="#fff" strokeWidth={2.5} />
-              <Text className="text-xs font-extrabold text-white">Add</Text>
-            </Pressable>
-          </HStack>
+              <HStack style={{ alignItems: 'center', gap: SPACE[3] }}>
+                <Box
+                  style={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: 12,
+                    overflow: 'hidden',
+                    backgroundColor: '#0F172A',
+                  }}
+                >
+                  <Pressable
+                    onPress={() => {
+                      setPreviewTitle('Engineer selfie');
+                      setPreviewUri(draft.selfie!.uri);
+                    }}
+                    style={{ width: '100%', height: '100%' }}
+                  >
+                    <ApiMediaImage
+                      uri={draft.selfie.uri}
+                      style={{ width: '100%', height: '100%' }}
+                      resizeMode="cover"
+                    />
+                  </Pressable>
+                </Box>
+
+                <VStack style={{ flex: 1, gap: 4 }}>
+                  <HStack style={{ alignItems: 'center', gap: 6 }}>
+                    <CheckCircle2 size={16} color="#16A34A" />
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}>
+                      Selfie captured
+                    </Text>
+                  </HStack>
+                  <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: '#64748B' }}>
+                    Engineer verification photo ready
+                  </Text>
+                  <HStack style={{ gap: SPACE[2], marginTop: 2 }}>
+                    <Pressable
+                      onPress={() => void takeSelfieMedia()}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 8,
+                        backgroundColor: COLORS.primary,
+                      }}
+                    >
+                      <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#FFFFFF' }}>
+                        Retake Selfie
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => void removeSelfie()}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 8,
+                        backgroundColor: '#FEF2F2',
+                        borderWidth: 1,
+                        borderColor: '#FECACA',
+                      }}
+                    >
+                      <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#DC2626' }}>
+                        Delete
+                      </Text>
+                    </Pressable>
+                  </HStack>
+                </VStack>
+              </HStack>
+            </Box>
+          ) : (
+            /* Sleek Compact Selfie Empty State */
+            <Box
+              style={{
+                borderRadius: 14,
+                backgroundColor: '#F8FAFC',
+                borderWidth: 1,
+                borderColor: '#E2E8F0',
+                padding: SPACE[3],
+              }}
+            >
+              <HStack style={{ alignItems: 'center', justifyContent: 'space-between', gap: SPACE[3] }}>
+                <HStack style={{ alignItems: 'center', gap: SPACE[3], flex: 1 }}>
+                  <Box
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 12,
+                      backgroundColor: '#EFF6FF',
+                      borderWidth: 1,
+                      borderColor: '#BFDBFE',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Camera size={20} color={COLORS.primary} strokeWidth={2.2} />
+                  </Box>
+                  <VStack style={{ flex: 1, gap: 2 }}>
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}>
+                      Selfie photo required *
+                    </Text>
+                    <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: '#64748B' }}>
+                      Take a live engineer selfie
+                    </Text>
+                  </VStack>
+                </HStack>
+
+                <Pressable
+                  onPress={() => void takeSelfieMedia()}
+                  className="active:opacity-80 flex-row items-center gap-1.5 px-3.5 py-2.5 rounded-xl"
+                  style={{
+                    backgroundColor: COLORS.primary,
+                    shadowColor: '#0F172A',
+                    shadowOpacity: 0.1,
+                    shadowRadius: 6,
+                    shadowOffset: { width: 0, height: 2 },
+                  }}
+                >
+                  <Camera size={15} color="#FFFFFF" strokeWidth={2.4} />
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: '#FFFFFF' }}>
+                    Take Selfie
+                  </Text>
+                </Pressable>
+              </HStack>
+            </Box>
+          )}
+        </VStack>
+      </SurveyCard>
+
+      {/* ── Card 2: Site Photograph Gallery ── */}
+      <SurveyCard>
+        <WorkspaceHeader
+          icon={ImageIcon}
+          title={TERMS.sections.sitePhotoGallery}
+          subtitle="Captured on device · extra site photos"
+          stepLabel="STEP 04"
+          iconBg={COLORS.primary}
+        />
+        <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
+          <VStack style={{ gap: 2 }}>
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}>
+              Uploaded assets
+            </Text>
+            <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}>
+              {draft.photos.length === 0
+                ? 'No extra site photos'
+                : `${draft.photos.length} photo${draft.photos.length === 1 ? '' : 's'} ready (max ${maxPhotos})`}
+            </Text>
+          </VStack>
 
           <Box className="flex-row flex-wrap" style={{ gap: 10 }}>
             {draft.photos.map((p, i) => (
@@ -1246,9 +1531,7 @@ export function PhotosScreen({ go }: { go: Go }) {
               >
                 <Pressable
                   onPress={() => {
-                    setPreviewTitle(
-                      i === 0 ? 'Engineer selfie' : `Photo ${String(i + 1).padStart(2, '0')}`
-                    );
+                    setPreviewTitle(`Site Photo ${String(i + 1).padStart(2, '0')}`);
                     setPreviewUri(p.uri);
                   }}
                   className="w-full h-full"
@@ -1281,19 +1564,39 @@ export function PhotosScreen({ go }: { go: Go }) {
             {draft.photos.length < maxPhotos ? (
               <Pressable
                 onPress={() => setSheet(true)}
-                className="rounded-2xl items-center justify-center"
+                className="rounded-2xl items-center justify-center active:opacity-80"
                 style={{
                   width: '31%',
                   aspectRatio: 1,
-                  backgroundColor: COLORS.white,
-                  shadowColor: '#0F172A',
-                  shadowOffset: { width: 0, height: 3 },
-                  shadowOpacity: 0.08,
-                  shadowRadius: 8,
-                  elevation: 2,
+                  backgroundColor: '#EFF6FF',
+                  borderWidth: 1.5,
+                  borderColor: '#BFDBFE',
+                  borderStyle: 'dashed',
                 }}
               >
-                <Plus size={28} color={COLORS.ink} />
+                <VStack style={{ alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                  <Box
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 16,
+                      backgroundColor: COLORS.primary,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Plus size={18} color="#FFFFFF" strokeWidth={2.8} />
+                  </Box>
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 11,
+                      color: COLORS.primary,
+                    }}
+                  >
+                    Add Photo
+                  </Text>
+                </VStack>
               </Pressable>
             ) : null}
           </Box>
@@ -1361,21 +1664,21 @@ export function PhotosScreen({ go }: { go: Go }) {
         </SurveyCard>
       ) : null}
 
-      <AppSheet open={sheet} onClose={() => setSheet(false)} title="Add Photos">
+      <AppSheet open={sheet} onClose={() => setSheet(false)} title="Add Site Photo">
         <HStack space="md">
-          <Pressable onPress={() => take('camera')} className="flex-1 h-32 rounded-2xl overflow-hidden">
+          <Pressable onPress={() => takeSitePhoto('camera')} className="flex-1 h-32 rounded-2xl overflow-hidden">
             <LinearGradient
               colors={['#2563EB', '#3B82F6']}
               style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 }}
             >
               <Camera size={28} color="#fff" />
               <Text className="font-extrabold text-sm text-white">
-                {draft.photos.length === 0 ? 'Take Selfie' : 'Take Photo'}
+                Take Photo
               </Text>
             </LinearGradient>
           </Pressable>
           <Pressable
-            onPress={() => take('gallery')}
+            onPress={() => takeSitePhoto('gallery')}
             className="flex-1 h-32 rounded-2xl items-center justify-center gap-2"
             style={{ backgroundColor: '#F4F6FB' }}
           >
@@ -1384,9 +1687,7 @@ export function PhotosScreen({ go }: { go: Go }) {
           </Pressable>
         </HStack>
         <Text className="mt-4 text-[11px] text-muted-foreground text-center">
-          {draft.photos.length === 0
-            ? 'Selfie is required (front camera). Extra site photos are optional.'
-            : 'Selfie done. Extra site photos are optional — continue when ready.'}
+          Site photos are optional (up to 4 photos). Upload clear site views.
         </Text>
       </AppSheet>
     </SurveyScaffold>
