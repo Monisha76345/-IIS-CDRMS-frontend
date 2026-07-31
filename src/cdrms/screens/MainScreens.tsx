@@ -10,7 +10,6 @@ import {
   Clock,
   Edit3,
   FileText,
-  Filter,
   FolderOpen,
   HelpCircle,
   Layers,
@@ -55,6 +54,14 @@ import { useAuth } from '@/src/auth/AuthContext';
 import { displayName, homeScreenForRole, resolveAppRole } from '@/src/auth/roles';
 import { ApiError } from '@/src/api/client';
 import { fetchEngineerTasks, type MobileApplication } from '@/src/api/applications';
+import { NotificationBell } from '@/src/cdrms/components/NotificationBell';
+import { useNotifications } from '@/src/cdrms/hooks/useNotifications';
+import {
+  formatNotifTime,
+  navigateFromNotification,
+  notifIconConfig,
+  resolveNotificationAction,
+} from '@/src/cdrms/notifications/helpers';
 
 function mapTaskStatus(status: MobileApplication['status']) {
   if (status === 'submitted') return 'Submitted';
@@ -88,78 +95,6 @@ function mapTaskCard(app: MobileApplication) {
     live: true as const,
     apiTask: true as const,
   };
-}
-
-type DynNotif = {
-  id: string;
-  title: string;
-  body: string;
-  time: string;
-  type: 'success' | 'warning' | 'info';
-  unread: boolean;
-};
-
-function buildTaskNotifications(tasks: MobileApplication[]): DynNotif[] {
-  return tasks.map((t) => {
-    if (t.status === 'returned') {
-      return {
-        id: t.id,
-        title: 'Returned by CAO',
-        body: `${t.applicationNumber} · Site ${t.siteNo} needs corrections`,
-        time: t.zoneCode,
-        type: 'warning' as const,
-        unread: true,
-      };
-    }
-    if (t.status === 'verified') {
-      return {
-        id: t.id,
-        title: 'Verified by CAO',
-        body: `${t.applicationNumber} was approved`,
-        time: t.zoneCode,
-        type: 'success' as const,
-        unread: false,
-      };
-    }
-    if (t.status === 'rejected') {
-      return {
-        id: t.id,
-        title: 'Rejected by CAO',
-        body: `${t.applicationNumber} was rejected`,
-        time: t.zoneCode,
-        type: 'warning' as const,
-        unread: true,
-      };
-    }
-    if (t.status === 'submitted') {
-      return {
-        id: t.id,
-        title: 'Pending CAO review',
-        body: `${t.applicationNumber} submitted successfully`,
-        time: t.zoneCode,
-        type: 'info' as const,
-        unread: false,
-      };
-    }
-    if (t.status === 'in_progress') {
-      return {
-        id: t.id,
-        title: 'In progress',
-        body: `Continue field capture for ${t.applicationNumber}`,
-        time: t.zoneCode,
-        type: 'info' as const,
-        unread: true,
-      };
-    }
-    return {
-      id: t.id,
-      title: 'New assigned task',
-      body: `${t.applicationNumber} · Site ${t.siteNo} from ZC`,
-      time: t.zoneCode,
-      type: 'info' as const,
-      unread: t.status === 'assigned',
-    };
-  });
 }
 
 export function Dashboard({ go }: { go: Go }) {
@@ -345,6 +280,7 @@ export function Dashboard({ go }: { go: Go }) {
                 </VStack>
               </HStack>
               <HStack className="items-center gap-2">
+              <NotificationBell go={go} variant="header" />
               <Pressable
                 onPress={async () => {
                   await logout();
@@ -779,27 +715,70 @@ export function Dashboard({ go }: { go: Go }) {
 
 export function NotificationsScreen({ go }: { go: Go }) {
   const { accessToken, user } = useAuth();
+  const { openBackendTask } = useProject();
   const home = homeScreenForRole(user);
-  const [items, setItems] = useState<DynNotif[]>([]);
+  const role = resolveAppRole(user);
+  const [query, setQuery] = useState('');
+  const [markingAll, setMarkingAll] = useState(false);
+  const { items, unreadCount, loading, error, markOne, markAll } = useNotifications(accessToken);
 
-  useEffect(() => {
-    if (!accessToken) return;
-    fetchEngineerTasks(accessToken)
-      .then((tasks) => setItems(buildTaskNotifications(tasks)))
-      .catch(() => setItems([]));
-  }, [accessToken]);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const unread = items.filter((n) => !n.isRead);
+    if (!q) return unread;
+    return unread.filter(
+      (n) =>
+        n.title.toLowerCase().includes(q) ||
+        n.message.toLowerCase().includes(q) ||
+        (n.applicationNumber || '').toLowerCase().includes(q),
+    );
+  }, [items, query]);
 
-  const unread = items.filter((n) => n.unread).length;
+  const onMarkAll = async () => {
+    if (unreadCount === 0) return;
+    setMarkingAll(true);
+    try {
+      await markAll();
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : 'Failed to mark all as read';
+      Alert.alert('Notifications', msg);
+    } finally {
+      setMarkingAll(false);
+    }
+  };
+
+  const onOpenNotification = async (notif: (typeof items)[number]) => {
+    try {
+      if (!notif.isRead) {
+        await markOne(notif.id);
+      }
+    } catch {
+      // still navigate even if mark-read fails
+    }
+    const action = resolveNotificationAction(notif, role);
+    try {
+      await navigateFromNotification(action, go, openBackendTask);
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : 'Unable to open notification';
+      Alert.alert('Notification', msg);
+    }
+  };
 
   return (
     <ScreenShell>
       <AppHeader
         title="Notifications"
-        subtitle={unread ? `${unread} unread` : 'All caught up'}
+        subtitle={unreadCount ? `${unreadCount} unread` : 'All caught up'}
         go={go}
+        showNotifications={false}
         right={
-          <Pressable className="h-10 w-10 rounded-full bg-white/15 items-center justify-center">
-            <Filter size={16} color={COLORS.white} />
+          <Pressable
+            onPress={() => void onMarkAll()}
+            disabled={markingAll || unreadCount === 0}
+            className="active:opacity-85"
+            style={{ opacity: markingAll || unreadCount === 0 ? 0.45 : 1 }}
+          >
+            <Text className="text-[11px] font-bold text-white">Mark all read</Text>
           </Pressable>
         }
       />
@@ -813,64 +792,76 @@ export function NotificationsScreen({ go }: { go: Go }) {
             <TextInput
               placeholder="Search notifications"
               placeholderTextColor="#6B7289"
+              value={query}
+              onChangeText={setQuery}
               className="flex-1 text-sm text-foreground"
             />
           </HStack>
 
           <VStack className="mt-4" space="sm">
-            {items.length === 0 ? (
+            {loading && items.length === 0 ? (
               <Text className="text-[13px] mt-6 text-center" style={{ color: '#64748B' }}>
-                No task notifications yet.
+                Loading notifications…
+              </Text>
+            ) : error ? (
+              <Text className="text-[13px] mt-6 text-center" style={{ color: '#DC2626' }}>
+                {error}
+              </Text>
+            ) : filtered.length === 0 ? (
+              <Text className="text-[13px] mt-6 text-center" style={{ color: '#64748B' }}>
+                All caught up — no new notifications.
               </Text>
             ) : (
-              items.map((n) => {
-              const colorClass =
-                n.type === 'success'
-                  ? 'bg-success/10'
-                  : n.type === 'warning'
-                    ? 'bg-warning/15'
-                    : 'bg-primary/10';
-              const iconColor =
-                n.type === 'success'
-                  ? COLORS.success
-                  : n.type === 'warning'
-                    ? COLORS.warning
-                    : COLORS.primary;
-              const Icon =
-                n.type === 'success'
-                  ? CheckCircle2
-                  : n.type === 'warning'
-                    ? AlertTriangle
-                    : Bell;
+              filtered.map((n) => {
+              const { Icon, bg, color } = notifIconConfig(n.type);
 
               return (
+                <Pressable key={n.id} onPress={() => void onOpenNotification(n)} className="active:opacity-92">
                 <AppCard
-                  key={n.id}
-                  className={`p-4 ${n.unread ? '' : 'opacity-70'}`}
+                  className="p-4"
                 >
                   <HStack className="items-start gap-3">
-                    <IconBox className={colorClass}>
-                      <Icon size={20} color={iconColor} />
-                    </IconBox>
+                    <Box
+                      className="items-center justify-center rounded-full shrink-0"
+                      style={{ width: 40, height: 40, backgroundColor: bg }}
+                    >
+                      <Icon size={18} color={color} />
+                    </Box>
                     <VStack className="flex-1 min-w-0">
                       <HStack className="items-center justify-between gap-2">
                         <Text
                           className="font-semibold text-sm text-foreground flex-1"
-                          numberOfLines={1}
+                          numberOfLines={2}
                         >
                           {n.title}
                         </Text>
-                        <Text className="text-[11px] text-muted-foreground shrink-0">
-                          {n.time}
-                        </Text>
+                        {!n.isRead ? (
+                          <Pressable
+                            onPress={(e) => {
+                              e?.stopPropagation?.();
+                              void markOne(n.id);
+                            }}
+                            hitSlop={8}
+                            className="active:opacity-70 shrink-0"
+                          >
+                            <Text className="text-[10px] font-bold" style={{ color: COLORS.primary }}>
+                              Dismiss
+                            </Text>
+                          </Pressable>
+                        ) : null}
                       </HStack>
-                      <Text className="text-xs text-muted-foreground">{n.body}</Text>
+                      <Text className="text-xs text-muted-foreground mt-1">{n.message}</Text>
+                      <Text className="text-[11px] text-muted-foreground mt-1">
+                        {formatNotifTime(n.createdAt)}
+                        {n.applicationNumber ? ` · ${n.applicationNumber}` : ''}
+                      </Text>
                     </VStack>
-                    {n.unread ? (
+                    {!n.isRead ? (
                       <Box className="mt-2 h-2 w-2 rounded-full bg-primary shrink-0" />
                     ) : null}
                   </HStack>
                 </AppCard>
+                </Pressable>
               );
             })
             )}

@@ -33,6 +33,7 @@ import { useAuth } from '@/src/auth/AuthContext';
 import { COLORS, FONTS, GRADIENT_HEADER, GRADIENT_PRIMARY, SPACE, TYPE } from '@/src/cdrms/theme';
 import type { Go, NavTab, Screen } from '@/src/cdrms/types';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
+import { NotificationBell } from '@/src/cdrms/components/NotificationBell';
 
 /** Edge-pinned tab bar — soft U-notch cradles the center + */
 const BAR_H = 64;
@@ -88,6 +89,7 @@ export function AppHeader({
   subtitle,
   go,
   showLogout = true,
+  showNotifications = true,
 }: {
   title: string;
   onBack?: () => void;
@@ -96,6 +98,7 @@ export function AppHeader({
   subtitle?: string;
   go?: Go;
   showLogout?: boolean;
+  showNotifications?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const { logout, isAuthenticated } = useAuth();
@@ -145,10 +148,16 @@ export function AppHeader({
     </Pressable>
   ) : null;
 
+  const notifBell =
+    go && showNotifications ? (
+      <NotificationBell go={go} variant={gradient ? 'header' : 'plain'} />
+    ) : null;
+
   const rightSlot =
-    right || logoutBtn ? (
+    right || notifBell || logoutBtn ? (
       <HStack className="items-center gap-2">
         {right}
+        {notifBell}
         {logoutBtn}
       </HStack>
     ) : null;
