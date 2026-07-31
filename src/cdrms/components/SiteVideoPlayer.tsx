@@ -23,6 +23,8 @@ import { COLORS, GRADIENT_PRIMARY } from '@/src/cdrms/theme';
 type Props = {
   uri: string;
   durationLabel?: string;
+  /** When parent has no flex height, pass explicit height (e.g. 220). */
+  height?: number;
 };
 
 function formatClock(seconds: number) {
@@ -34,7 +36,7 @@ function formatClock(seconds: number) {
 }
 
 /** Custom walk-through player with mock-matched controls. */
-export function SiteVideoPlayer({ uri, durationLabel }: Props) {
+export function SiteVideoPlayer({ uri, durationLabel, height }: Props) {
   const { accessToken } = useAuth();
   const viewRef = useRef<VideoView>(null);
   const [trackWidth, setTrackWidth] = useState(0);
@@ -124,9 +126,13 @@ export function SiteVideoPlayer({ uri, durationLabel }: Props) {
     }
   };
 
+  const shellStyle = height
+    ? { width: '100%' as const, height, backgroundColor: '#000' }
+    : { flex: 1, backgroundColor: '#000' };
+
   if (loading) {
     return (
-      <Box className="flex-1 relative bg-black items-center justify-center">
+      <Box style={[shellStyle, { alignItems: 'center', justifyContent: 'center' }]}>
         <ActivityIndicator color="#fff" />
         <Text className="text-white/70 text-xs font-semibold mt-2">Loading video…</Text>
       </Box>
@@ -135,14 +141,14 @@ export function SiteVideoPlayer({ uri, durationLabel }: Props) {
 
   if (!safeUri || broken || error || !displayUri) {
     return (
-      <Box className="flex-1 relative bg-black items-center justify-center">
+      <Box style={[shellStyle, { alignItems: 'center', justifyContent: 'center' }]}>
         <Text className="text-white/80 text-sm font-semibold">Video unavailable</Text>
       </Box>
     );
   }
 
   return (
-    <Box className="flex-1 relative bg-black">
+    <Box style={shellStyle}>
       <VideoView
         ref={viewRef}
         style={{ width: '100%', height: '100%' }}

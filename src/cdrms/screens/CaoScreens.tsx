@@ -1,5 +1,6 @@
 import {
   CheckCircle2,
+  ChevronDown,
   ClipboardList,
   RefreshCw,
   RotateCcw,
@@ -35,18 +36,19 @@ import {
   ButtonLoader,
 } from '@/src/cdrms/components/primitives';
 import {
-  DetailRow,
   OfficeAppRow,
   StatusCountGrid,
   type StatusCountItem,
 } from '@/src/cdrms/components/StatusCountGrid';
-import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
-import { resolveBoundaryDims } from '@/src/cdrms/lib/resolveBoundaryDims';
+import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
 import { getSelectedOfficeAppId, setSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
 import { COLORS, FONTS } from '@/src/cdrms/theme';
 import type { Go } from '@/src/cdrms/types';
 
 type CaoTab = 'pending' | 'verified' | 'returned' | 'rejected' | 'all';
+type CaoDecision = 'approve' | 'sendback' | 'reject' | '';
+
+const CAO_REVIEW_STEPS = ['Application details', 'Approval'] as const;
 
 function addressLine(app: MobileApplication) {
   return [app.addressArea, app.addressBlock, app.addressPincode].filter(Boolean).join(', ');
@@ -317,10 +319,123 @@ export function CaoHomeScreen({ go }: { go: Go }) {
   );
 }
 
+function CaoReviewStepper({ step }: { step: number }) {
+  return (
+    <HStack className="items-center" style={{ gap: 8 }}>
+      {CAO_REVIEW_STEPS.map((label, idx) => {
+        const active = idx === step;
+        const done = idx < step;
+        return (
+          <HStack key={label} className="items-center" style={{ gap: 8, flex: idx === CAO_REVIEW_STEPS.length - 1 ? 0 : 1 }}>
+            <HStack className="items-center" style={{ gap: 6 }}>
+              <Box
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 999,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: active || done ? COLORS.primary : '#E2E8F0',
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 11,
+                    color: active || done ? '#FFFFFF' : '#64748B',
+                  }}
+                >
+                  {done ? '✓' : idx + 1}
+                </Text>
+              </Box>
+              <Text
+                style={{
+                  fontFamily: active ? FONTS.bold : FONTS.medium,
+                  fontSize: 12,
+                  color: active ? COLORS.primary : '#64748B',
+                }}
+              >
+                {label}
+              </Text>
+            </HStack>
+            {idx < CAO_REVIEW_STEPS.length - 1 ? (
+              <Box style={{ flex: 1, height: 2, backgroundColor: done ? COLORS.primary : '#E2E8F0' }} />
+            ) : null}
+          </HStack>
+        );
+      })}
+    </HStack>
+  );
+}
+
+function DecisionOption({
+  label,
+  hint,
+  Icon,
+  selected,
+  onPress,
+}: {
+  label: string;
+  hint: string;
+  Icon: typeof CheckCircle2;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={{
+        borderRadius: 14,
+        borderWidth: 1.5,
+        borderColor: selected ? COLORS.primary : '#E2E8F0',
+        backgroundColor: selected ? '#EFF6FF' : COLORS.white,
+        padding: 12,
+      }}
+    >
+      <HStack className="items-start" style={{ gap: 10 }}>
+        <Box
+          style={{
+            width: 18,
+            height: 18,
+            borderRadius: 999,
+            borderWidth: 2,
+            borderColor: selected ? COLORS.primary : '#CBD5E1',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: 2,
+          }}
+        >
+          {selected ? (
+            <Box
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 999,
+                backgroundColor: COLORS.primary,
+              }}
+            />
+          ) : null}
+        </Box>
+        <VStack style={{ flex: 1, gap: 2 }}>
+          <HStack className="items-center" style={{ gap: 6 }}>
+            <Icon size={15} color={COLORS.primary} strokeWidth={2.3} />
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}>{label}</Text>
+          </HStack>
+          <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: '#64748B' }}>{hint}</Text>
+        </VStack>
+      </HStack>
+    </Pressable>
+  );
+}
+
 export function CaoDetailScreen({ go }: { go: Go }) {
   const { accessToken, user } = useAuth();
   const isSuperAdmin = resolveAppRole(user) === 'super_admin';
   const [app, setApp] = useState<MobileApplication | null>(null);
+  const [step, setStep] = useState(0);
+  const [decision, setDecision] = useState<CaoDecision>('');
+  const [sendBackEngineerId, setSendBackEngineerId] = useState('');
+  const [engineerPickerOpen, setEngineerPickerOpen] = useState(false);
   const [remarks, setRemarks] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<'verify' | 'return' | 'reject' | null>(null);
@@ -342,22 +457,54 @@ export function CaoDetailScreen({ go }: { go: Go }) {
       .finally(() => setLoading(false));
   }, [accessToken]);
 
+  useEffect(() => {
+    if (decision !== 'sendback') {
+      setSendBackEngineerId('');
+      setEngineerPickerOpen(false);
+    }
+  }, [decision]);
+
   const canReview = !isSuperAdmin && app?.status === 'submitted';
+  const remarksOk = remarks.trim().length > 0;
+  const engineerLogin = app?.assignedEngineerLoginId?.trim() || null;
+  const engineerName = app?.assignedEngineerName?.trim() || 'Engineer';
+  const engineerSelectLabel = engineerLogin
+    ? `${engineerName} (${engineerLogin})`
+    : engineerName;
+  const sendBackOk =
+    remarksOk &&
+    Boolean(sendBackEngineerId) &&
+    sendBackEngineerId === app?.assignedEngineerUserId;
+
+  const commentsPlaceholder =
+    decision === 'approve'
+      ? 'Enter approval comments…'
+      : decision === 'sendback'
+        ? 'Explain what the engineer must correct…'
+        : decision === 'reject'
+          ? 'Enter rejection reason…'
+          : 'Select a decision first';
 
   const act = async (kind: 'verify' | 'return' | 'reject') => {
     if (!accessToken || !app) return;
-    if ((kind === 'return' || kind === 'reject') && !remarks.trim()) {
-      return Alert.alert('Remarks required', 'Please enter remarks for return/reject.');
+    if (!remarks.trim()) {
+      return Alert.alert('Comments required', 'Please enter comments before continuing.');
+    }
+    if (kind === 'return' && sendBackEngineerId !== app.assignedEngineerUserId) {
+      return Alert.alert(
+        'Select engineer',
+        'Select the assigned engineer to send the task back.',
+      );
     }
     setBusy(kind);
     try {
-      await caoDecideApplication(accessToken, app.id, kind, remarks.trim() || undefined);
+      await caoDecideApplication(accessToken, app.id, kind, remarks.trim());
       Alert.alert(
         'Done',
         kind === 'verify'
-          ? 'Application verified'
+          ? 'Application approved'
           : kind === 'return'
-            ? 'Returned to engineer'
+            ? 'Sent back to engineer'
             : 'Application rejected',
         [{ text: 'OK', onPress: () => go('cao_home') }],
       );
@@ -368,9 +515,24 @@ export function CaoDetailScreen({ go }: { go: Go }) {
     }
   };
 
+  const submitDisabled =
+    !!busy ||
+    !decision ||
+    (decision === 'approve' && !remarksOk) ||
+    (decision === 'sendback' && !sendBackOk) ||
+    (decision === 'reject' && !remarksOk);
+
   return (
     <ScreenShell className="bg-[#F8FAFC]">
-      <AppHeader title="Task review" onBack={() => go('cao_home')} gradient={false} go={go} />
+      <AppHeader
+        title={step === 0 ? 'Application details' : 'Approval'}
+        onBack={() => {
+          if (step > 0) setStep(0);
+          else go('cao_home');
+        }}
+        gradient={false}
+        go={go}
+      />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         {loading ? (
           <ScreenLoader text="Loading CAO task review…" />
@@ -389,7 +551,7 @@ export function CaoDetailScreen({ go }: { go: Go }) {
             </Text>
           </Box>
         ) : (
-          <VStack style={{ gap: 10 }}>
+          <VStack style={{ gap: 12 }}>
             {isSuperAdmin ? (
               <Box
                 style={{
@@ -489,210 +651,394 @@ export function CaoDetailScreen({ go }: { go: Go }) {
               </HStack>
             </Box>
 
-            <Box
-              style={{
-                backgroundColor: COLORS.white,
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                paddingHorizontal: 12,
-                paddingTop: 4,
-                paddingBottom: 2,
-                shadowColor: '#0F172A',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.06,
-                shadowRadius: 6,
-                elevation: 2,
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: FONTS.bold,
-                  fontSize: 13,
-                  color: COLORS.ink,
-                  paddingTop: 8,
-                  paddingBottom: 2,
-                }}
-              >
-                Site particulars
-              </Text>
-              <DetailRow label="Address" value={addressLine(app)} />
-              <DetailRow label="Occupancy" value={app.occupancy || '—'} />
-              <DetailRow label="Site area" value={app.totalSiteArea || '—'} />
-              <DetailRow label="Site type" value={app.siteDimensionType || '—'} />
-              <DetailRow label="Site dimension" value={app.siteDimension || '—'} />
-              <DetailRow
-                label="GPS"
-                value={
-                  app.latitude && app.longitude ? `${app.latitude}, ${app.longitude}` : '—'
-                }
-              />
-              <DetailRow label="Engineer comments" value={app.engineerComments || '—'} />
-            </Box>
+            <CaoReviewStepper step={step} />
 
-            <Box
-              style={{
-                backgroundColor: COLORS.white,
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                paddingHorizontal: 12,
-                paddingTop: 4,
-                paddingBottom: 2,
-                shadowColor: '#0F172A',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.06,
-                shadowRadius: 6,
-                elevation: 2,
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: FONTS.bold,
-                  fontSize: 13,
-                  color: COLORS.ink,
-                  paddingTop: 8,
-                  paddingBottom: 2,
-                }}
-              >
-                Schedules (around)
-              </Text>
-              <DetailRow label="North" value={app.scheduleNorth || '—'} />
-              <DetailRow label="South" value={app.scheduleSouth || '—'} />
-              <DetailRow label="West" value={app.scheduleWest || '—'} />
-              <DetailRow label="East" value={app.scheduleEast || '—'} />
-            </Box>
+            {step === 0 ? (
+              <>
+                <ApplicationRecordDetails app={app} />
 
-            {(() => {
-              const boundary = resolveBoundaryDims(app);
-              if (!boundary.dims) return null;
-              return (
-                <BoundariesDiagram
-                  north={boundary.dims.north}
-                  south={boundary.dims.south}
-                  east={boundary.dims.east}
-                  west={boundary.dims.west}
-                  odd={app.siteDimensionType === 'Odd'}
-                  siteNo={app.siteNo}
-                  totalArea={boundary.total}
-                  scheduleNorth={app.scheduleNorth}
-                  scheduleSouth={app.scheduleSouth}
-                  scheduleEast={app.scheduleEast}
-                  scheduleWest={app.scheduleWest}
-                />
-              );
-            })()}
-
-            <Box
-              style={{
-                backgroundColor: COLORS.white,
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                padding: 12,
-                shadowColor: '#0F172A',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.06,
-                shadowRadius: 6,
-                elevation: 2,
-              }}
-            >
-              <Text
+                {canReview ? (
+                  <Pressable
+                    onPress={() => setStep(1)}
+                    style={{
+                      height: 48,
+                      borderRadius: 14,
+                      backgroundColor: COLORS.primary,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#FFFFFF' }}>
+                      Next: Approval
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </>
+            ) : (
+              <Box
                 style={{
-                  fontFamily: FONTS.bold,
-                  fontSize: 13,
-                  color: COLORS.ink,
-                  marginBottom: 8,
-                }}
-              >
-                CAO remarks
-              </Text>
-              <TextInput
-                value={remarks}
-                onChangeText={setRemarks}
-                editable={canReview}
-                multiline
-                placeholder="Enter remarks (required for return/reject)"
-                placeholderTextColor="#94A3B8"
-                style={{
-                  minHeight: 80,
-                  borderRadius: 10,
+                  backgroundColor: COLORS.white,
+                  borderRadius: 18,
                   borderWidth: 1,
-                  borderColor: COLORS.border,
-                  backgroundColor: '#FAFBFC',
-                  padding: 10,
-                  textAlignVertical: 'top',
-                  fontFamily: FONTS.medium,
-                  fontSize: 13,
-                  color: COLORS.ink,
+                  borderColor: '#EEF2F7',
+                  overflow: 'hidden',
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.07,
+                  shadowRadius: 10,
+                  elevation: 3,
                 }}
-              />
-            </Box>
+              >
+                <Box
+                  style={{
+                    backgroundColor: '#EFF6FF',
+                    borderBottomWidth: 1,
+                    borderBottomColor: '#DBEAFE',
+                    paddingHorizontal: 14,
+                    paddingVertical: 12,
+                  }}
+                >
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.primary }}>
+                    Approval decision
+                  </Text>
+                </Box>
 
-            {canReview ? (
-              <VStack style={{ gap: 8 }}>
-                <Pressable
-                  onPress={() => void act('verify')}
-                  disabled={!!busy}
-                  style={{
-                    height: 44,
-                    borderRadius: 12,
-                    backgroundColor: '#059669',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: busy && busy !== 'verify' ? 0.5 : 1,
-                  }}
-                >
-                  {busy === 'verify' ? (
-                    <ButtonLoader color="#FFF" />
-                  ) : (
-                    <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#FFFFFF' }}>
-                      Verify & approve
+                <VStack style={{ padding: 14, gap: 14 }}>
+                  <VStack style={{ gap: 6 }}>
+                    <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: '#64748B' }}>
+                      APPLICATION NO
                     </Text>
-                  )}
-                </Pressable>
-                <Pressable
-                  onPress={() => void act('return')}
-                  disabled={!!busy}
-                  style={{
-                    height: 44,
-                    borderRadius: 12,
-                    backgroundColor: '#D97706',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: busy && busy !== 'return' ? 0.5 : 1,
-                  }}
-                >
-                  {busy === 'return' ? (
-                    <ButtonLoader color="#FFF" />
-                  ) : (
-                    <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#FFFFFF' }}>
-                      Return to engineer
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}>
+                      {app.applicationNumber}
                     </Text>
-                  )}
-                </Pressable>
-                <Pressable
-                  onPress={() => void act('reject')}
-                  disabled={!!busy}
-                  style={{
-                    height: 44,
-                    borderRadius: 12,
-                    backgroundColor: '#DC2626',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: busy && busy !== 'reject' ? 0.5 : 1,
-                  }}
-                >
-                  {busy === 'reject' ? (
-                    <ButtonLoader color="#FFF" />
-                  ) : (
-                    <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#FFFFFF' }}>
-                      Reject
+                  </VStack>
+                  <VStack style={{ gap: 6 }}>
+                    <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: '#64748B' }}>
+                      ENGINEER
                     </Text>
+                    <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.ink }}>
+                      {engineerSelectLabel}
+                    </Text>
+                  </VStack>
+
+                  {!canReview ? (
+                    <Box
+                      style={{
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: '#E2E8F0',
+                        backgroundColor: '#F8FAFC',
+                        padding: 12,
+                      }}
+                    >
+                      <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: '#64748B' }}>
+                        This application is not pending CAO review
+                        {app.caoRemarks ? `. Last remarks: ${app.caoRemarks}` : '.'}
+                      </Text>
+                    </Box>
+                  ) : (
+                    <>
+                      <VStack style={{ gap: 8 }}>
+                        <HStack className="items-center" style={{ gap: 3 }}>
+                          <Text
+                            style={{
+                              fontFamily: FONTS.bold,
+                              fontSize: 12,
+                              color: COLORS.ink,
+                              textTransform: 'uppercase',
+                              letterSpacing: 0.4,
+                            }}
+                          >
+                            Decision
+                          </Text>
+                          <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: '#DC2626' }}>
+                            *
+                          </Text>
+                        </HStack>
+                        <VStack style={{ gap: 8 }}>
+                          <DecisionOption
+                            label="Approve"
+                            hint="Verify & close"
+                            Icon={CheckCircle2}
+                            selected={decision === 'approve'}
+                            onPress={() => {
+                              setDecision('approve');
+                              setRemarks('');
+                            }}
+                          />
+                          <DecisionOption
+                            label="Send back"
+                            hint="Return to engineer"
+                            Icon={RotateCcw}
+                            selected={decision === 'sendback'}
+                            onPress={() => {
+                              setDecision('sendback');
+                              setRemarks('');
+                              setSendBackEngineerId('');
+                              setEngineerPickerOpen(false);
+                            }}
+                          />
+                          <DecisionOption
+                            label="Reject"
+                            hint="Close as rejected"
+                            Icon={XCircle}
+                            selected={decision === 'reject'}
+                            onPress={() => {
+                              setDecision('reject');
+                              setRemarks('');
+                            }}
+                          />
+                        </VStack>
+                      </VStack>
+
+                      {decision === 'sendback' ? (
+                        <VStack style={{ gap: 8 }}>
+                          <HStack className="items-center" style={{ gap: 3 }}>
+                            <Text
+                              style={{
+                                fontFamily: FONTS.bold,
+                                fontSize: 12,
+                                color: COLORS.ink,
+                                textTransform: 'uppercase',
+                                letterSpacing: 0.4,
+                              }}
+                            >
+                              Send back to engineer
+                            </Text>
+                            <Text
+                              style={{ fontFamily: FONTS.bold, fontSize: 12, color: '#DC2626' }}
+                            >
+                              *
+                            </Text>
+                          </HStack>
+                          <Pressable
+                            onPress={() => setEngineerPickerOpen((open) => !open)}
+                            style={{
+                              height: 44,
+                              borderRadius: 12,
+                              borderWidth: 1,
+                              borderColor: '#E2E8F0',
+                              backgroundColor: '#FFFFFF',
+                              paddingHorizontal: 12,
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                            }}
+                          >
+                            <Text
+                              style={{
+                                fontFamily: FONTS.medium,
+                                fontSize: 13,
+                                color: sendBackEngineerId ? COLORS.ink : '#94A3B8',
+                                flex: 1,
+                              }}
+                              numberOfLines={1}
+                            >
+                              {sendBackEngineerId ? engineerSelectLabel : 'Select'}
+                            </Text>
+                            <ChevronDown
+                              size={16}
+                              color="#64748B"
+                              style={{
+                                transform: [{ rotate: engineerPickerOpen ? '180deg' : '0deg' }],
+                              }}
+                            />
+                          </Pressable>
+                          {engineerPickerOpen ? (
+                            <Box
+                              style={{
+                                borderRadius: 12,
+                                borderWidth: 1,
+                                borderColor: '#E2E8F0',
+                                backgroundColor: '#FFFFFF',
+                                overflow: 'hidden',
+                              }}
+                            >
+                              <Pressable
+                                onPress={() => {
+                                  if (app.assignedEngineerUserId) {
+                                    setSendBackEngineerId(app.assignedEngineerUserId);
+                                  }
+                                  setEngineerPickerOpen(false);
+                                }}
+                                style={{
+                                  paddingHorizontal: 12,
+                                  paddingVertical: 12,
+                                  backgroundColor:
+                                    sendBackEngineerId === app.assignedEngineerUserId
+                                      ? '#EFF6FF'
+                                      : '#FFFFFF',
+                                }}
+                              >
+                                <HStack className="items-center justify-between">
+                                  <Text
+                                    style={{
+                                      fontFamily: FONTS.semibold,
+                                      fontSize: 13,
+                                      color: COLORS.ink,
+                                      flex: 1,
+                                    }}
+                                  >
+                                    {engineerSelectLabel}
+                                  </Text>
+                                  {sendBackEngineerId === app.assignedEngineerUserId ? (
+                                    <CheckCircle2 size={16} color={COLORS.primary} />
+                                  ) : null}
+                                </HStack>
+                              </Pressable>
+                            </Box>
+                          ) : null}
+                          {sendBackEngineerId ? (
+                            <Text
+                              style={{ fontFamily: FONTS.medium, fontSize: 11, color: '#64748B' }}
+                            >
+                              Task returns to {engineerSelectLabel} with status Send back.
+                            </Text>
+                          ) : null}
+                        </VStack>
+                      ) : null}
+
+                      {decision ? (
+                        <VStack style={{ gap: 8 }}>
+                          <HStack className="items-center" style={{ gap: 3 }}>
+                            <Text
+                              style={{
+                                fontFamily: FONTS.bold,
+                                fontSize: 12,
+                                color: COLORS.ink,
+                                textTransform: 'uppercase',
+                                letterSpacing: 0.4,
+                              }}
+                            >
+                              Comments
+                            </Text>
+                            <Text
+                              style={{ fontFamily: FONTS.bold, fontSize: 12, color: '#DC2626' }}
+                            >
+                              *
+                            </Text>
+                          </HStack>
+                          <TextInput
+                            value={remarks}
+                            onChangeText={setRemarks}
+                            multiline
+                            placeholder={commentsPlaceholder}
+                            placeholderTextColor="#94A3B8"
+                            style={{
+                              minHeight: 96,
+                              borderRadius: 12,
+                              borderWidth: 1,
+                              borderColor: '#E2E8F0',
+                              backgroundColor: '#F8FAFC',
+                              padding: 12,
+                              textAlignVertical: 'top',
+                              fontFamily: FONTS.medium,
+                              fontSize: 13,
+                              color: COLORS.ink,
+                            }}
+                          />
+                        </VStack>
+                      ) : null}
+
+                      {decision === 'approve' ? (
+                        <Pressable
+                          onPress={() => void act('verify')}
+                          disabled={submitDisabled}
+                          style={{
+                            height: 48,
+                            borderRadius: 14,
+                            backgroundColor: '#059669',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: submitDisabled ? 0.5 : 1,
+                          }}
+                        >
+                          {busy === 'verify' ? (
+                            <ButtonLoader color="#FFF" />
+                          ) : (
+                            <HStack className="items-center" style={{ gap: 6 }}>
+                              <CheckCircle2 size={16} color="#FFF" />
+                              <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#FFFFFF' }}>
+                                Approve
+                              </Text>
+                            </HStack>
+                          )}
+                        </Pressable>
+                      ) : null}
+
+                      {decision === 'sendback' ? (
+                        <Pressable
+                          onPress={() => void act('return')}
+                          disabled={submitDisabled}
+                          style={{
+                            height: 48,
+                            borderRadius: 14,
+                            backgroundColor: '#D97706',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: submitDisabled ? 0.5 : 1,
+                          }}
+                        >
+                          {busy === 'return' ? (
+                            <ButtonLoader color="#FFF" />
+                          ) : (
+                            <HStack className="items-center" style={{ gap: 6 }}>
+                              <RotateCcw size={16} color="#FFF" />
+                              <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#FFFFFF' }}>
+                                Send back
+                              </Text>
+                            </HStack>
+                          )}
+                        </Pressable>
+                      ) : null}
+
+                      {decision === 'reject' ? (
+                        <Pressable
+                          onPress={() => void act('reject')}
+                          disabled={submitDisabled}
+                          style={{
+                            height: 48,
+                            borderRadius: 14,
+                            backgroundColor: '#DC2626',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: submitDisabled ? 0.5 : 1,
+                          }}
+                        >
+                          {busy === 'reject' ? (
+                            <ButtonLoader color="#FFF" />
+                          ) : (
+                            <HStack className="items-center" style={{ gap: 6 }}>
+                              <XCircle size={16} color="#FFF" />
+                              <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#FFFFFF' }}>
+                                Reject
+                              </Text>
+                            </HStack>
+                          )}
+                        </Pressable>
+                      ) : null}
+                    </>
                   )}
-                </Pressable>
-              </VStack>
-            ) : null}
+
+                  <Pressable
+                    onPress={() => setStep(0)}
+                    style={{
+                      height: 44,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: '#E2E8F0',
+                      backgroundColor: '#FFFFFF',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.ink }}>
+                      ← Back to application details
+                    </Text>
+                  </Pressable>
+                </VStack>
+              </Box>
+            )}
           </VStack>
         )}
       </ScrollView>

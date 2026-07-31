@@ -8,6 +8,18 @@ export type MobileApplicationStatus =
   | 'returned'
   | 'rejected';
 
+export type ApplicationHistoryItem = {
+  id?: string;
+  taskName: string;
+  performedBy: string;
+  sentTo?: string | null;
+  startedOn?: string | null;
+  completedOn?: string | null;
+  comments?: string | null;
+  statusBefore?: string | null;
+  statusAfter?: string | null;
+};
+
 export type MobileApplication = {
   id: string;
   applicationNumber: string;
@@ -32,6 +44,7 @@ export type MobileApplication = {
   createdByZcName?: string | null;
   assignedEngineerName?: string | null;
   assignedEngineerUserId?: string;
+  assignedEngineerLoginId?: string | null;
   assignedCaoName?: string | null;
   engineerSiteDetails?: string | null;
   compass?: string | null;
@@ -49,7 +62,10 @@ export type MobileApplication = {
   schedulePhotoUrls?: Record<string, string> | null;
   videoUrl?: string | null;
   engineerComments?: string | null;
+  engineerSubmittedAt?: string | null;
   caoRemarks?: string | null;
+  caoReviewedAt?: string | null;
+  history?: ApplicationHistoryItem[] | null;
 };
 
 export type ApplicationAs = 'engineer' | 'zc' | 'cao';
