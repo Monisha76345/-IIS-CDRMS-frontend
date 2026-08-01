@@ -10,8 +10,9 @@ import {
   User,
   type LucideIcon,
 } from 'lucide-react-native';
-import React, { type ReactNode, forwardRef, useState } from 'react';
+import React, { type ReactNode, forwardRef, useRef, useState } from 'react';
 import {
+  Animated,
   Image,
   Modal,
   Platform,
@@ -20,6 +21,7 @@ import {
   View,
   type TextInputProps,
 } from 'react-native';
+import type { View as RNView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
@@ -31,7 +33,7 @@ import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/src/auth/AuthContext';
-import { resolveAppRole } from '@/src/auth/roles';
+import { resolveAppRole, displayName } from '@/src/auth/roles';
 import { COLORS, FONTS, GRADIENT_HEADER, GRADIENT_PRIMARY, SPACE, TYPE } from '@/src/cdrms/theme';
 import type { Go, NavTab, Screen } from '@/src/cdrms/types';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
@@ -83,6 +85,277 @@ export function GradientHeader({
   );
 }
 
+function ProfileMenu({
+  gradient,
+  userName,
+  roleName,
+  loginId,
+  photoUrl,
+  onLogout,
+}: {
+  gradient: boolean;
+  userName: string;
+  roleName?: string | null;
+  loginId?: string | null;
+  photoUrl?: string | null;
+  onLogout: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [dropTop, setDropTop] = useState(100);
+  const btnRef = useRef<RNView>(null);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(-10)).current;
+
+  const openMenu = () => {
+    btnRef.current?.measure((_fx, _fy, _w, h, _px, py) => {
+      setDropTop(py + h + 4);
+    });
+    setOpen(true);
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 300 }),
+    ]).start();
+  };
+
+  const closeMenu = (cb?: () => void) => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: -10, duration: 150, useNativeDriver: true }),
+    ]).start(() => {
+      setOpen(false);
+      cb?.();
+    });
+  };
+
+  const initials = userName
+    .split(' ')
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('');
+
+  const avatarContent = photoUrl ? (
+    <Image
+      source={{ uri: photoUrl }}
+      style={{ width: '100%', height: '100%', borderRadius: 999 }}
+      resizeMode="cover"
+    />
+  ) : (
+    <Text
+      style={{
+        fontFamily: FONTS.bold,
+        fontSize: 14,
+        color: gradient ? COLORS.white : COLORS.primaryDeep,
+        lineHeight: 18,
+      }}
+    >
+      {initials || '?'}
+    </Text>
+  );
+
+  const dropdownAvatarContent = photoUrl ? (
+    <Image
+      source={{ uri: photoUrl }}
+      style={{ width: '100%', height: '100%', borderRadius: 999 }}
+      resizeMode="cover"
+    />
+  ) : (
+    <Text style={{ fontFamily: FONTS.bold, fontSize: 18, color: '#FFFFFF' }}>
+      {initials || '?'}
+    </Text>
+  );
+
+  return (
+    <>
+      {/* Trigger avatar button */}
+      <Pressable
+        ref={btnRef as any}
+        onPress={openMenu}
+        accessibilityRole="button"
+        accessibilityLabel="Profile menu"
+        className="active:opacity-80"
+        style={{
+          height: 38,
+          width: 38,
+          borderRadius: 999,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: gradient ? 'rgba(255,255,255,0.22)' : COLORS.muted,
+          borderWidth: 1.5,
+          borderColor: gradient ? 'rgba(255,255,255,0.45)' : COLORS.border,
+          overflow: 'hidden',
+        }}
+      >
+        {avatarContent}
+      </Pressable>
+
+      <Modal transparent animationType="none" visible={open} onRequestClose={() => closeMenu()}>
+        {/* Full-screen backdrop to catch outside taps */}
+        <Pressable
+          style={{ flex: 1 }}
+          onPress={() => closeMenu()}
+          accessibilityRole="button"
+          accessibilityLabel="Close menu"
+        />
+
+        {/* Dropdown card */}
+        <Animated.View
+          style={[
+            {
+              position: 'absolute',
+              top: dropTop,
+              right: 12,
+              width: 232,
+              borderRadius: 20,
+              backgroundColor: '#FFFFFF',
+              shadowColor: '#1E3A5F',
+              shadowOffset: { width: 0, height: 12 },
+              shadowOpacity: 0.22,
+              shadowRadius: 24,
+              elevation: 18,
+              overflow: 'visible',
+            },
+            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+          ]}
+        >
+          {/* Caret arrow pointing up */}
+          <View
+            style={{
+              position: 'absolute',
+              top: -7,
+              right: 14,
+              width: 14,
+              height: 7,
+              overflow: 'visible',
+              zIndex: 10,
+            }}
+            pointerEvents="none"
+          >
+            <View
+              style={{
+                width: 0,
+                height: 0,
+                borderLeftWidth: 7,
+                borderRightWidth: 7,
+                borderBottomWidth: 7,
+                borderStyle: 'solid',
+                borderLeftColor: 'transparent',
+                borderRightColor: 'transparent',
+                borderBottomColor: '#4338CA',
+              }}
+            />
+          </View>
+
+          {/* Gradient profile header */}
+          <View style={{ borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden' }}>
+            <LinearGradient
+              colors={['#4338CA', '#6366F1']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 15 }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                {/* Avatar */}
+                <View
+                  style={{
+                    height: 50,
+                    width: 50,
+                    borderRadius: 999,
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 2,
+                    borderColor: 'rgba(255,255,255,0.55)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {dropdownAvatarContent}
+                </View>
+
+                {/* Name + role + loginId */}
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text
+                    style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#FFFFFF', lineHeight: 20 }}
+                    numberOfLines={1}
+                  >
+                    {userName}
+                  </Text>
+
+                  {roleName ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
+                      <View
+                        style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#4ADE80' }}
+                      />
+                      <Text
+                        style={{
+                          fontFamily: FONTS.medium ?? FONTS.regular,
+                          fontSize: 11,
+                          color: 'rgba(255,255,255,0.85)',
+                        }}
+                        numberOfLines={1}
+                      >
+                        {roleName}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {loginId ? (
+                    <Text
+                      style={{
+                        fontFamily: FONTS.regular,
+                        fontSize: 10,
+                        color: 'rgba(255,255,255,0.65)',
+                        marginTop: 2,
+                      }}
+                      numberOfLines={1}
+                    >
+                      ID: {loginId}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            </LinearGradient>
+          </View>
+
+          {/* Divider */}
+          <View style={{ height: 1, backgroundColor: '#F1F5F9' }} />
+
+          {/* Sign out row */}
+          <Pressable
+            onPress={() => closeMenu(onLogout)}
+            accessibilityRole="button"
+            accessibilityLabel="Sign out"
+            className="active:opacity-70"
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+              paddingHorizontal: 16,
+              paddingVertical: 14,
+              borderBottomLeftRadius: 20,
+              borderBottomRightRadius: 20,
+              backgroundColor: '#FFFFFF',
+            }}
+          >
+            <View
+              style={{
+                height: 34,
+                width: 34,
+                borderRadius: 10,
+                backgroundColor: '#FFF1F2',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <LogOut size={16} color="#EF4444" />
+            </View>
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#DC2626' }}>Sign out</Text>
+          </Pressable>
+        </Animated.View>
+      </Modal>
+    </>
+  );
+}
+
 export function AppHeader({
   title,
   onBack,
@@ -106,6 +379,7 @@ export function AppHeader({
   const { logout, isAuthenticated, user } = useAuth();
   const role = resolveAppRole(user);
   const isEngineerOrZc = role === 'engineer' || role === 'zc';
+  const isCao = role === 'cao';
   const canLogout = Boolean(showLogout && isAuthenticated && go);
 
   const onLogout = async () => {
@@ -113,44 +387,56 @@ export function AppHeader({
     go?.('login');
   };
 
-  const logoutBtn = canLogout ? (
-    <Pressable
-      onPress={() => void onLogout()}
-      accessibilityRole="button"
-      accessibilityLabel="Logout"
-      className="flex-row items-center gap-1.5 active:opacity-85"
-      style={
-        gradient
-          ? {
-              height: 36,
-              paddingHorizontal: 12,
-              borderRadius: 999,
-              backgroundColor: 'rgba(255,255,255,0.18)',
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.35)',
-            }
-          : {
-              height: 36,
-              paddingHorizontal: 12,
-              borderRadius: 999,
-              backgroundColor: '#FEF2F2',
-              borderWidth: 1,
-              borderColor: '#FECACA',
-            }
-      }
-    >
-      <LogOut size={14} color={gradient ? COLORS.white : COLORS.destructive} />
-      <Text
-        style={{
-          ...TYPE.caption,
-          fontFamily: FONTS.bold,
-          color: gradient ? '#FFFFFF' : COLORS.destructive,
-        }}
+  const userName = displayName(user);
+
+  const logoutBtn =
+    canLogout && isCao ? (
+      <ProfileMenu
+        gradient={gradient}
+        userName={userName}
+        roleName={user?.roleName}
+        loginId={user?.loginId}
+        photoUrl={user?.profilePhoto}
+        onLogout={() => void onLogout()}
+      />
+    ) : canLogout && !isCao ? (
+      <Pressable
+        onPress={() => void onLogout()}
+        accessibilityRole="button"
+        accessibilityLabel="Logout"
+        className="flex-row items-center gap-1.5 active:opacity-85"
+        style={
+          gradient
+            ? {
+                height: 36,
+                paddingHorizontal: 12,
+                borderRadius: 999,
+                backgroundColor: 'rgba(255,255,255,0.18)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.35)',
+              }
+            : {
+                height: 36,
+                paddingHorizontal: 12,
+                borderRadius: 999,
+                backgroundColor: '#FEF2F2',
+                borderWidth: 1,
+                borderColor: '#FECACA',
+              }
+        }
       >
-        Logout
-      </Text>
-    </Pressable>
-  ) : null;
+        <LogOut size={14} color={gradient ? COLORS.white : COLORS.destructive} />
+        <Text
+          style={{
+            ...TYPE.caption,
+            fontFamily: FONTS.bold,
+            color: gradient ? '#FFFFFF' : COLORS.destructive,
+          }}
+        >
+          Logout
+        </Text>
+      </Pressable>
+    ) : null;
 
   const notifBell =
     go && showNotifications && !isEngineerOrZc ? (
