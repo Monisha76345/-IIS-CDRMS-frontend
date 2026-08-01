@@ -37,9 +37,14 @@ export function NotificationBell({ go, variant = 'header' }: NotificationBellPro
   const { width } = useWindowDimensions();
   const { accessToken, user } = useAuth();
   const role = resolveAppRole(user);
+
   const { openBackendTask } = useProject();
   const [open, setOpen] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
+
+  if (role === 'engineer' || role === 'zc') {
+    return null;
+  }
 
   const {
     items,

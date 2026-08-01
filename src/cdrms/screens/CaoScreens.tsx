@@ -2,8 +2,10 @@ import {
   ClipboardList,
   Download,
   FileText,
+  Hourglass,
   RefreshCw,
   Search,
+  Send,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, TextInput } from 'react-native';
@@ -17,9 +19,11 @@ import { useAuth } from '@/src/auth/AuthContext';
 import { displayName } from '@/src/auth/roles';
 import { ApiError } from '@/src/api/client';
 import {
+  countZcBuckets,
   fetchApplication,
   fetchCaoApplications,
-  fetchCaoCounts,
+  formatApplicationDate,
+  normalizeApplicationStatus,
   type MobileApplication,
 } from '@/src/api/applications';
 import { ApplicationStatusBadge } from '@/src/cdrms/components/ApplicationStatusBadge';
@@ -50,11 +54,35 @@ function submittedApps(apps: MobileApplication[]) {
   return apps.filter((a) => a.status === 'submitted');
 }
 
+type CaoTab =
+  | 'all'
+  | 'assigned'
+  | 'in_progress'
+  | 'submitted';
+
+const CAO_STATUS_FILTERS: { key: CaoTab; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'assigned', label: 'Assigned' },
+  { key: 'in_progress', label: 'In progress' },
+  { key: 'submitted', label: 'Submitted' },
+];
+
+function caoAppDetailLines(app: MobileApplication) {
+  const village = app.addressArea || '—';
+  const taluka = app.addressBlock || '—';
+  const district = app.zoneCode || '—';
+  return [
+    `${village} (${taluka}, ${district})`,
+    `Sy. ${app.siteNo}`,
+    `Submitted ${formatApplicationDate(app.createdAt)}`,
+  ];
+}
+
 export function CaoHomeScreen({ go }: { go: Go }) {
   const { accessToken, user } = useAuth();
   const [apps, setApps] = useState<MobileApplication[]>([]);
-  const [submittedCount, setSubmittedCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<CaoTab>('all');
   const [q, setQ] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -63,18 +91,11 @@ export function CaoHomeScreen({ go }: { go: Go }) {
     setLoading(true);
     setError(null);
     try {
-      const [list, c] = await Promise.all([
-        fetchCaoApplications(accessToken),
-        fetchCaoCounts(accessToken).catch(() => null),
-      ]);
+      const list = await fetchCaoApplications(accessToken);
       setApps(list);
-      setSubmittedCount(
-        c?.pending ?? list.filter((a) => a.status === 'submitted').length,
-      );
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Failed to load tasks');
+      setError(e instanceof ApiError ? e.message : 'Failed to load applications');
       setApps([]);
-      setSubmittedCount(0);
     } finally {
       setLoading(false);
     }
@@ -84,19 +105,40 @@ export function CaoHomeScreen({ go }: { go: Go }) {
     void reload();
   }, [reload]);
 
+  const counts = useMemo(() => countZcBuckets(apps), [apps]);
+
   const countItems: StatusCountItem[] = [
     {
-      key: 'submitted',
-      label: 'Submitted',
-      count: submittedCount,
+      key: 'assigned',
+      label: 'Assigned',
+      count: counts.assigned,
       icon: ClipboardList,
       tint: '#2563EB',
       soft: '#DBEAFE',
     },
+    {
+      key: 'in_progress',
+      label: 'In progress',
+      count: counts.in_progress,
+      icon: Hourglass,
+      tint: '#7C3AED',
+      soft: '#EDE9FE',
+    },
+    {
+      key: 'submitted',
+      label: 'Submitted',
+      count: counts.submitted,
+      icon: Send,
+      tint: '#0EA5E9',
+      soft: '#E0F2FE',
+    },
   ];
 
   const filtered = useMemo(() => {
-    let items = submittedApps(apps);
+    let items = apps;
+    if (tab !== 'all') {
+      items = items.filter((a) => normalizeApplicationStatus(a.status) === tab);
+    }
     if (!q.trim()) return items;
     const needle = q.trim().toLowerCase();
     return items.filter(
@@ -106,149 +148,144 @@ export function CaoHomeScreen({ go }: { go: Go }) {
         (a.assignedEngineerName || '').toLowerCase().includes(needle) ||
         (a.zoneCode || '').toLowerCase().includes(needle),
     );
-  }, [apps, q]);
+  }, [apps, tab, q]);
+
+  const sectionLabel =
+    tab === 'all'
+      ? 'All applications'
+      : tab === 'assigned'
+        ? 'Assigned applications'
+        : tab === 'in_progress'
+          ? 'In progress applications'
+          : 'Submitted applications';
 
   return (
-    <ScreenShell className="bg-[#F8FAFC]">
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+    <ScreenShell className="bg-[#F3F4F6]">
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 120 }}
+        showsVerticalScrollIndicator={false}
+      >
         <AppHeader
-          title="CAO Tasks"
-          subtitle={`Welcome, ${displayName(user)} · view & download submissions`}
+          title="Zone Applications"
+          subtitle={`Welcome, ${displayName(user)}`}
           go={go}
         />
 
         <Box className="px-4 mt-4">
-          <HStack className="items-baseline justify-between" style={{ marginBottom: 12, gap: 8 }}>
-            <Text style={{ fontFamily: FONTS.bold, fontSize: 16, color: COLORS.ink }}>
-              Task overview
-            </Text>
-            <Text
-              style={{
-                flexShrink: 1,
-                fontFamily: FONTS.medium,
-                fontSize: 12,
-                color: COLORS.ink,
-                textAlign: 'right',
-              }}
-              numberOfLines={1}
-            >
-              {submittedCount} submitted
-            </Text>
+          <HStack className="items-center justify-between mb-3">
+            <VStack className="flex-1 min-w-0">
+              <Text className="text-[16px] font-bold" style={{ color: '#0F172A' }}>
+                Application overview
+              </Text>
+              <Text className="text-[12px] mt-0.5" style={{ color: '#94A3B8' }}>
+                {counts.total} total · tap a status to filter
+              </Text>
+            </VStack>
           </HStack>
 
           <StatusCountGrid
             items={countItems}
-            activeKey="submitted"
-            columns={2}
-            onSelect={() => {}}
+            activeKey={tab === 'all' ? '' : tab}
+            columns={3}
+            onSelect={(key) => setTab((prev) => (prev === key ? 'all' : (key as CaoTab)))}
           />
 
           <Box
             className="mt-4 flex-row items-center"
             style={{
-              backgroundColor: COLORS.white,
-              borderRadius: 12,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 14,
               borderWidth: 1,
-              borderColor: COLORS.border,
+              borderColor: '#E5E7EB',
               paddingHorizontal: 12,
               height: 44,
-              shadowColor: '#0F172A',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.06,
-              shadowRadius: 6,
-              elevation: 2,
             }}
           >
-            <Search size={16} color={COLORS.primary} />
+            <Search size={16} color="#94A3B8" />
             <TextInput
               value={q}
               onChangeText={setQ}
-              placeholder="Search application, site, engineer…"
+              placeholder="Search by application no, site, engineer…"
               placeholderTextColor="#94A3B8"
-              style={{
-                flex: 1,
-                marginLeft: 8,
-                fontFamily: FONTS.medium,
-                fontSize: 13,
-                color: COLORS.ink,
-              }}
+              style={{ flex: 1, marginLeft: 8, fontSize: 13, color: '#0F172A' }}
             />
           </Box>
 
-          <HStack className="items-center justify-between" style={{ marginTop: 20, marginBottom: 10 }}>
-            <Text style={{ fontFamily: FONTS.bold, fontSize: 15, color: COLORS.ink }}>
-              Submitted
-              {!loading ? ` · ${filtered.length}` : ''}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingTop: 12, paddingBottom: 4, gap: 8 }}
+          >
+            {CAO_STATUS_FILTERS.map((f) => {
+              const on = tab === f.key;
+              const count =
+                f.key === 'all'
+                  ? counts.total
+                  : counts[f.key as Exclude<CaoTab, 'all'>];
+              return (
+                <Pressable
+                  key={f.key}
+                  onPress={() => setTab(f.key)}
+                  style={{
+                    height: 36,
+                    paddingHorizontal: 14,
+                    borderRadius: 999,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: on ? COLORS.primary : COLORS.white,
+                    borderWidth: 1,
+                    borderColor: on ? COLORS.primary : COLORS.border,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 12,
+                      color: on ? '#FFFFFF' : COLORS.ink,
+                    }}
+                  >
+                    {f.label} · {count}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          <HStack className="items-center justify-between mt-4 mb-2">
+            <Text className="text-[15px] font-bold" style={{ color: '#0F172A' }}>
+              {sectionLabel}
             </Text>
-            <Pressable
-              onPress={() => void reload()}
-              accessibilityLabel="Refresh"
-              className="active:opacity-70"
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 10,
-                backgroundColor: COLORS.white,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <RefreshCw size={15} color={COLORS.primary} strokeWidth={2.4} />
+            <Pressable onPress={() => void reload()} className="active:opacity-70">
+              <Text className="text-[12px] font-semibold" style={{ color: COLORS.primary }}>
+                Refresh
+              </Text>
             </Pressable>
           </HStack>
 
           {loading ? (
             <ListLoader text="Loading CAO applications…" />
           ) : error ? (
-            <Box
-              style={{
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: '#FECACA',
-                backgroundColor: '#FEF2F2',
-                padding: 14,
-              }}
-            >
-              <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: '#DC2626' }}>
-                {error}
-              </Text>
-            </Box>
+            <Text className="text-[13px] mt-4" style={{ color: '#DC2626' }}>
+              {error}
+            </Text>
           ) : filtered.length === 0 ? (
-            <Box
-              style={{
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                backgroundColor: COLORS.white,
-                paddingVertical: 28,
-                paddingHorizontal: 16,
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}>
-                No submitted tasks
-              </Text>
-              <Text
-                style={{
-                  fontFamily: FONTS.medium,
-                  fontSize: 12,
-                  color: COLORS.ink,
-                  marginTop: 6,
-                  textAlign: 'center',
-                }}
-              >
-                Engineer submissions will appear here for view and download.
-              </Text>
-            </Box>
+            <Text className="text-[13px] mt-4" style={{ color: '#64748B' }}>
+              No applications found matching your criteria.
+            </Text>
           ) : (
             filtered.map((app) => (
               <OfficeAppRow
                 key={app.id}
                 title={app.applicationNumber}
-                subtitle={`Site ${app.siteNo} · Zone ${app.zoneCode}`}
-                meta={`${app.assignedEngineerName || '—'} · ${addressLine(app) || '—'}`}
+                subtitle={`Site #${app.siteNo} · Zone ${app.zoneCode}`}
+                detailLines={caoAppDetailLines(app)}
+                meta={app.assignedEngineerName || 'Assigned Engineer'}
+                metaSub={
+                  app.assignedEngineerLoginId ||
+                  app.assignedEngineerUserId ||
+                  undefined
+                }
                 status={app.status}
                 onPress={() => {
                   setSelectedOfficeAppId(app.id);
@@ -267,7 +304,6 @@ export function CaoHomeScreen({ go }: { go: Go }) {
         homeTarget="cao_home"
         appsTarget="cao_apps"
         hidePlus
-        hideAlerts
       />
     </ScreenShell>
   );

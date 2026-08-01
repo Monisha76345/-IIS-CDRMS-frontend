@@ -23,13 +23,7 @@ function asList<T>(payload: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
 
-export type MobileApplicationStatus =
-  | 'assigned'
-  | 'in_progress'
-  | 'submitted'
-  | 'verified'
-  | 'returned'
-  | 'rejected';
+
 
 export type ApplicationHistoryItem = {
   id?: string;
@@ -352,9 +346,6 @@ export function countZcBuckets(apps: MobileApplication[]) {
     in_progress: apps.filter((a) => normalizeApplicationStatus(a.status) === 'in_progress')
       .length,
     submitted: apps.filter((a) => normalizeApplicationStatus(a.status) === 'submitted').length,
-    verified: apps.filter((a) => normalizeApplicationStatus(a.status) === 'verified').length,
-    returned: apps.filter((a) => normalizeApplicationStatus(a.status) === 'returned').length,
-    rejected: apps.filter((a) => normalizeApplicationStatus(a.status) === 'rejected').length,
     total: apps.length,
   };
 }
@@ -414,13 +405,15 @@ export function submitEngineerApplication(
   });
 }
 
+export type MobileApplicationStatus =
+  | 'assigned'
+  | 'in_progress'
+  | 'submitted';
+
 export function applicationStatusLabel(status: MobileApplicationStatus) {
   if (status === 'assigned') return 'Assigned';
   if (status === 'in_progress') return 'In progress';
   if (status === 'submitted') return 'Submitted';
-  if (status === 'verified') return 'Verified';
-  if (status === 'returned') return 'Send back';
-  if (status === 'rejected') return 'Rejected';
   return status;
 }
 
@@ -471,10 +464,7 @@ export function normalizeApplicationStatus(
 
   if (raw === 'assigned') return 'assigned';
   if (raw === 'in_progress' || raw === 'inprogress') return 'in_progress';
-  if (raw === 'submitted' || raw === 'pending' || raw === 'pending_cao') return 'submitted';
-  if (raw === 'verified') return 'verified';
-  if (raw === 'returned' || raw === 'send_back' || raw === 'sendback') return 'returned';
-  if (raw === 'rejected') return 'rejected';
+  if (raw === 'submitted' || raw === 'pending' || raw === 'pending_cao' || raw === 'verified' || raw === 'returned' || raw === 'rejected') return 'submitted';
   return null;
 }
 

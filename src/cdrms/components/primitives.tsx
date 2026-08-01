@@ -31,6 +31,7 @@ import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/src/auth/AuthContext';
+import { resolveAppRole } from '@/src/auth/roles';
 import { COLORS, FONTS, GRADIENT_HEADER, GRADIENT_PRIMARY, SPACE, TYPE } from '@/src/cdrms/theme';
 import type { Go, NavTab, Screen } from '@/src/cdrms/types';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
@@ -102,7 +103,9 @@ export function AppHeader({
   showNotifications?: boolean;
 }) {
   const insets = useSafeAreaInsets();
-  const { logout, isAuthenticated } = useAuth();
+  const { logout, isAuthenticated, user } = useAuth();
+  const role = resolveAppRole(user);
+  const isEngineerOrZc = role === 'engineer' || role === 'zc';
   const canLogout = Boolean(showLogout && isAuthenticated && go);
 
   const onLogout = async () => {
@@ -150,7 +153,7 @@ export function AppHeader({
   ) : null;
 
   const notifBell =
-    go && showNotifications ? (
+    go && showNotifications && !isEngineerOrZc ? (
       <NotificationBell go={go} variant={gradient ? 'header' : 'plain'} />
     ) : null;
 
@@ -589,6 +592,11 @@ export function BottomNav({
     { k: 'home', label: 'Home', icon: Home, target: homeTarget },
     { k: 'apps', label: 'Apps', icon: FileText, target: appsTarget },
   ];
+  const { user } = useAuth();
+  const role = resolveAppRole(user);
+  const isEngineerOrZc = role === 'engineer' || role === 'zc';
+  const shouldHideAlerts = hideAlerts || isEngineerOrZc;
+
   const rightItems: Array<{
     k: NavTab;
     label: string;
@@ -596,13 +604,11 @@ export function BottomNav({
     target: Screen;
     badge?: number;
   }> = [
-    ...(hideAlerts
+    ...(shouldHideAlerts
       ? []
       : [{ k: 'notif' as const, label: 'Alerts', icon: Bell, target: 'notifications' as Screen }]),
     { k: 'profile', label: 'Profile', target: 'profile', icon: User },
   ];
-
-  const { user } = useAuth();
 
   const renderTab = (it: (typeof leftItems)[number]) => {
     const Icon = it.icon;

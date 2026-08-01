@@ -23,9 +23,6 @@ const STATUS_ICONS: Partial<Record<MobileApplicationStatus, LucideIcon>> = {
   assigned: UserCheck,
   in_progress: PlayCircle,
   submitted: Clock,
-  verified: CheckCircle2,
-  returned: RotateCcw,
-  rejected: XCircle,
 };
 
 /** Pill badge — matches web ApplicationStatusBadge labels & colors. */

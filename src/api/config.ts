@@ -2,8 +2,24 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 const API_PORT = 3700;
-/** Mac LAN IP for physical-device testing (update when your network IP changes). */
-const DEFAULT_DEV_LAN_IP = '172.27.6.89';
+/** Mac LAN IP fallback for physical-device testing. */
+const DEFAULT_DEV_LAN_IP = '10.41.142.16';
+
+/** Extracts active Metro bundler host IP dynamically when connected. */
+function getAutoDetectedLanIp(): string {
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    (Constants as unknown as { manifest2?: { extra?: { expoGo?: { debuggerHost?: string } } } })
+      ?.manifest2?.extra?.expoGo?.debuggerHost;
+
+  if (typeof hostUri === 'string' && hostUri.includes(':')) {
+    const ip = hostUri.split(':')[0].trim();
+    if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
+      return ip;
+    }
+  }
+  return DEFAULT_DEV_LAN_IP;
+}
 
 /** True for Android/iOS simulators and emulators — false on physical hardware. */
 function isSimulatorOrEmulator(): boolean {
@@ -24,15 +40,15 @@ function withApiPath(host: string) {
  *
  * - iOS Simulator / Expo web: localhost
  * - Android Emulator: 10.0.2.2 (maps to Mac localhost)
- * - Physical device: EXPO_PUBLIC_API_URL = http://<your-mac-lan-ip>:3700
+ * - Physical device: EXPO_PUBLIC_API_URL or auto-detected LAN IP
  */
 function resolveApiHost(): string {
   const envRaw = process.env.EXPO_PUBLIC_API_URL?.trim();
   const envHost = envRaw ? stripApiSuffix(envRaw) : null;
+  const lanIp = getAutoDetectedLanIp();
 
   if (Platform.OS === 'android') {
     if (isSimulatorOrEmulator()) {
-      // Emulator cannot use Mac LAN IP reliably — always use the host loopback alias.
       if (
         !envHost ||
         envHost.includes('localhost') ||
@@ -41,13 +57,12 @@ function resolveApiHost(): string {
       ) {
         return `http://10.0.2.2:${API_PORT}`;
       }
-      // Custom env URL on emulator (e.g. staging) — honour it.
       return envHost;
     }
 
-    // Physical Android phone — 10.0.2.2 never works; must use Mac LAN IP
+    // Physical Android phone
     if (envHost) return envHost;
-    return `http://${DEFAULT_DEV_LAN_IP}:${API_PORT}`;
+    return `http://${lanIp}:${API_PORT}`;
   }
 
   if (Platform.OS === 'ios' && isSimulatorOrEmulator()) {
@@ -59,18 +74,19 @@ function resolveApiHost(): string {
 
   // Physical iOS device or web
   if (envHost) return envHost;
-  return `http://${DEFAULT_DEV_LAN_IP}:${API_PORT}`;
+  return `http://${lanIp}:${API_PORT}`;
 }
 
 export const API_BASE_URL = withApiPath(resolveApiHost());
 
 /** Helpful for login / network error messages in dev. */
 export function apiConnectionHint(): string {
+  const activeIp = getAutoDetectedLanIp();
   if (Platform.OS === 'android' && !isSimulatorOrEmulator()) {
-    return `Physical device — set EXPO_PUBLIC_API_URL=http://${DEFAULT_DEV_LAN_IP}:${API_PORT} in .env, then restart Metro (npx expo start -c). Currently: ${API_BASE_URL}`;
+    return `Network request failed — cannot reach ${API_BASE_URL}. Ensure phone & Mac are on the same Wi-Fi network (Mac IP: ${activeIp}). Currently trying: ${API_BASE_URL}`;
   }
   if (Platform.OS === 'android' && isSimulatorOrEmulator()) {
     return `Android emulator — backend must run on Mac port ${API_PORT}. Using ${API_BASE_URL}`;
   }
-  return `Backend must run on port ${API_PORT}. Using ${API_BASE_URL}`;
+  return `Backend must run on port ${API_PORT}. Currently trying ${API_BASE_URL}`;
 }

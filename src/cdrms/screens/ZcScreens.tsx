@@ -66,19 +66,13 @@ type ZcTab =
   | 'all'
   | 'assigned'
   | 'in_progress'
-  | 'submitted'
-  | 'verified'
-  | 'returned'
-  | 'rejected';
+  | 'submitted';
 
 const ZC_STATUS_FILTERS: { key: ZcTab; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'assigned', label: 'Assigned' },
   { key: 'in_progress', label: 'In progress' },
   { key: 'submitted', label: 'Submitted' },
-  { key: 'verified', label: 'Verified' },
-  { key: 'returned', label: 'Returned' },
-  { key: 'rejected', label: 'Rejected' },
 ];
 
 function villageLine(app: MobileApplication) {
@@ -154,30 +148,6 @@ export function ZcHomeScreen({ go }: { go: Go }) {
       icon: Send,
       tint: '#0EA5E9',
       soft: '#E0F2FE',
-    },
-    {
-      key: 'verified',
-      label: 'Verified',
-      count: counts.verified,
-      icon: CheckCircle2,
-      tint: '#059669',
-      soft: '#D1FAE5',
-    },
-    {
-      key: 'returned',
-      label: 'Returned',
-      count: counts.returned,
-      icon: RotateCcw,
-      tint: '#D97706',
-      soft: '#FEF3C7',
-    },
-    {
-      key: 'rejected',
-      label: 'Rejected',
-      count: counts.rejected,
-      icon: XCircle,
-      tint: '#DC2626',
-      soft: '#FEE2E2',
     },
   ];
 

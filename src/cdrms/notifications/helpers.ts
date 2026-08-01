@@ -16,7 +16,7 @@ function applicationIdFromNotification(notif: AppNotification): string | null {
   const linkPath = notif.linkPath?.trim();
   if (linkPath) {
     const match = linkPath.match(
-      /\/(?:cao\/tasks|engineer\/tasks|admin\/applications)\/([^/]+)/,
+      /\/(?:cao\/tasks|cao\/applications|engineer\/tasks|admin\/applications)\/([^/]+)/,
     );
     if (match) return match[1];
   }

@@ -75,9 +75,6 @@ import {
 
 function mapTaskStatus(status: MobileApplication['status']) {
   if (status === 'submitted') return 'Submitted';
-  if (status === 'verified') return 'Verified';
-  if (status === 'returned') return 'Returned';
-  if (status === 'rejected') return 'Rejected';
   if (status === 'in_progress') return 'In progress';
   return 'Assigned';
 }
@@ -142,22 +139,18 @@ export function Dashboard({ go }: { go: Go }) {
   };
 
   const taskCards = tasks
-    .filter((t) => t.status === 'assigned' || t.status === 'in_progress' || t.status === 'returned')
+    .filter((t) => t.status === 'assigned' || t.status === 'in_progress')
     .slice(0, 5)
     .map(mapTaskCard);
   const recentCards = taskCards;
   const pending = tasks.filter(
-    (t) => t.status === 'assigned' || t.status === 'in_progress' || t.status === 'returned',
+    (t) => t.status === 'assigned' || t.status === 'in_progress',
   ).length;
   const submitted = tasks.filter((t) => t.status === 'submitted').length;
-  const verified = tasks.filter((t) => t.status === 'verified').length;
-  const returned = tasks.filter((t) => t.status === 'returned').length;
 
   const stats = [
     { label: 'Pending', value: pending, bg: '#EFF6FF', fg: '#2563EB', icon: FileText },
     { label: 'Submitted', value: submitted, bg: '#DBEAFE', fg: '#2563EB', icon: ClipboardCheck },
-    { label: 'Verified', value: verified, bg: '#D1FAE5', fg: '#059669', icon: CheckCircle2 },
-    { label: 'Returned', value: returned, bg: '#FFEDD5', fg: '#EA580C', icon: AlertTriangle },
   ];
 
   const actions: Array<{
@@ -298,7 +291,6 @@ export function Dashboard({ go }: { go: Go }) {
                 </VStack>
               </HStack>
               <HStack className="items-center gap-2">
-              <NotificationBell go={go} variant="header" />
               <Pressable
                 onPress={async () => {
                   await logout();

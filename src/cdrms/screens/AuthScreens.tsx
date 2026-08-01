@@ -420,8 +420,8 @@ export function LoginScreen({ go }: { go: Go }) {
           <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
             <View style={{ flexGrow: 1 }}>
               <GradientHeader rounded>
-                <Box className={`px-6 ${keyboardOpen ? 'pb-4' : 'pb-10'}`}>
-                  <HStack className="items-center justify-between pt-2">
+                <Box className={`px-6 ${keyboardOpen ? 'pb-4' : 'pb-8'}`}>
+                  <HStack className="items-center gap-3 pt-2">
                     <Box className="h-12 w-12 rounded-2xl bg-white border border-white/25 items-center justify-center overflow-hidden">
                       <Image
                         source={require('../../../assets/bda-logo.png')}
@@ -430,40 +430,15 @@ export function LoginScreen({ go }: { go: Go }) {
                         accessibilityLabel="BDA"
                       />
                     </Box>
-                    {!keyboardOpen ? (
-                      <Pressable className="bg-white/15 px-3 py-2 rounded-full border border-white/20">
-                        <Text className="text-xs font-semibold text-white">Need Help?</Text>
-                      </Pressable>
-                    ) : (
-                      <Text className="text-sm font-extrabold text-white">Welcome back</Text>
-                    )}
+                    <Text className="text-2xl font-extrabold text-white">
+                      Welcome
+                    </Text>
                   </HStack>
 
                   {!keyboardOpen ? (
-                    <>
-                      <VStack className="mt-8" space="xs">
-                        <Text className="text-3xl font-extrabold leading-tight text-white">
-                          Welcome back
-                        </Text>
-                        <Text className="mt-2 text-sm text-white/85">
-                          Sign in with your CDRMS Login ID to continue.
-                        </Text>
-                      </VStack>
-
-                      <HStack className="mt-6 items-center gap-3">
-                        <Box className="h-16 w-16 rounded-2xl bg-white/15 border border-white/25 items-center justify-center">
-                          <MapPinned size={32} color={COLORS.white} />
-                        </Box>
-                        <VStack>
-                          <Text className="text-xs font-semibold text-white">
-                            CDRMS Mobile
-                          </Text>
-                          <Text className="text-xs text-white/80">
-                            Secure Government Access · TLS 1.3
-                          </Text>
-                        </VStack>
-                      </HStack>
-                    </>
+                    <Text className="mt-3 text-sm text-white/85">
+                      Sign in with your CDRMS Login ID to continue.
+                    </Text>
                   ) : null}
                 </Box>
               </GradientHeader>
@@ -555,9 +530,6 @@ export function LoginScreen({ go }: { go: Go }) {
                     <HStack className="mt-4 items-center justify-between">
                       <Pressable>
                         <Text className="text-sm text-primary font-semibold">Forgot Login ID?</Text>
-                      </Pressable>
-                      <Pressable>
-                        <Text className="text-sm text-muted-foreground font-medium">Contact Admin</Text>
                       </Pressable>
                     </HStack>
 

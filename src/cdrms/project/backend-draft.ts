@@ -163,6 +163,6 @@ export function draftFromBackendApplication(app: MobileApplication): ProjectDraf
       : null,
     approachNotes: app.siteDimensionComment || '',
     caoRemarks: app.caoRemarks || null,
-    resubmitOfId: app.status === 'returned' ? app.id : null,
+    resubmitOfId: null,
   };
 }

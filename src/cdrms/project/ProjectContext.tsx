@@ -253,16 +253,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       if (app.assignedEngineerUserId && user?.id && app.assignedEngineerUserId !== user.id) {
         throw new ApiError(403, 'This task is assigned to another engineer');
       }
-      if (app.status === 'submitted' || app.status === 'verified' || app.status === 'rejected') {
-        throw new ApiError(
-          400,
-          app.status === 'submitted'
-            ? 'Task already submitted — waiting for CAO review'
-            : `Task is ${app.status}`,
-        );
+      if (app.status === 'submitted') {
+        throw new ApiError(400, 'Task already submitted');
       }
 
-      if (app.status === 'assigned' || app.status === 'returned') {
+      if (app.status === 'assigned') {
         try {
           app = await startApplicationTask(accessToken, id);
         } catch {
