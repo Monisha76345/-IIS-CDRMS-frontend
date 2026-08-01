@@ -1,4 +1,4 @@
-import { API_BASE_URL } from './config';
+import { API_BASE_URL, apiConnectionHint } from './config';
 
 export class ApiError extends Error {
   status: number;
@@ -38,7 +38,7 @@ export async function apiRequest<T>(
     throw new ApiError(
       0,
       /network request failed|failed to fetch/i.test(detail)
-        ? `Network request failed — cannot reach ${API_BASE_URL}. Same Wi‑Fi as Mac? Backend on :3700? Restart Metro after changing EXPO_PUBLIC_API_URL.`
+        ? `Network request failed — cannot reach ${API_BASE_URL}. ${apiConnectionHint()}`
         : detail,
     );
   }

@@ -57,11 +57,10 @@ import {
 import { parseCompassReading } from '@/src/cdrms/hooks/useCompass';
 import { useLiveLocation } from '@/src/cdrms/hooks/useDeviceLocation';
 import {
-  capturePhoto,
+  captureSitePhoto,
   captureSelfie,
   captureVideo,
   chooseVideoFile,
-  pickPhoto,
 } from '@/src/cdrms/hooks/useMediaCapture';
 import { isLiveVideoBlocked } from '@/src/cdrms/device/isVirtualDevice';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
@@ -944,7 +943,7 @@ export function BandiScreen({ go }: { go: Go }) {
       >
         <VStack space="md" className="pb-2">
           <Text className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">
-            Option 1: Upload Photo ({editing ? DIRECTION_META[editing].label : ''})
+            Take photo ({editing ? DIRECTION_META[editing].label : ''})
           </Text>
           <HStack space="md">
             <Pressable
@@ -953,7 +952,7 @@ export function BandiScreen({ go }: { go: Go }) {
                 const k = editing;
                 setEditing(null);
                 await new Promise((r) => setTimeout(r, 350));
-                const asset = await capturePhoto({ title: `Take ${DIRECTION_META[k].label} photo` });
+                const asset = await captureSitePhoto({ title: `Take ${DIRECTION_META[k].label} photo` });
                 if (asset) void setSurroundingPhoto(k, asset);
               }}
               className="flex-1 h-24 rounded-2xl overflow-hidden active:opacity-90"
@@ -965,22 +964,6 @@ export function BandiScreen({ go }: { go: Go }) {
                 <Camera size={24} color="#fff" />
                 <Text className="font-extrabold text-xs text-white">Take Photo</Text>
               </LinearGradient>
-            </Pressable>
-
-            <Pressable
-              onPress={async () => {
-                if (!editing) return;
-                const k = editing;
-                setEditing(null);
-                await new Promise((r) => setTimeout(r, 350));
-                const asset = await pickPhoto();
-                if (asset) void setSurroundingPhoto(k, asset);
-              }}
-              className="flex-1 h-24 rounded-2xl items-center justify-center gap-2 active:opacity-90"
-              style={{ backgroundColor: '#EFF6FF', borderWidth: 1.5, borderColor: '#BFDBFE' }}
-            >
-              <ImageIcon size={24} color="#2563EB" />
-              <Text className="font-extrabold text-xs text-foreground">From Gallery</Text>
             </Pressable>
           </HStack>
 
@@ -1056,17 +1039,13 @@ export function DirectionsScreen({ go }: { go: Go }) {
 
 export function SurroundingsScreen({ go }: { go: Go }) {
   const { draft, setSurroundingPhoto, updateField } = useProject();
-  const [picking, setPicking] = useState<Cardinal | null>(null);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState('Photo preview');
 
   const doneCount = CARDINALS.filter((k) => draft.surroundingPhotos[k]).length;
 
-  const takeFor = async (k: Cardinal, mode: 'camera' | 'gallery') => {
-    // Close the sheet first — iOS cannot present the picker over another Modal.
-    setPicking(null);
-    await new Promise((r) => setTimeout(r, 350));
-    const asset = mode === 'camera' ? await capturePhoto() : await pickPhoto();
+  const takeFor = async (k: Cardinal) => {
+    const asset = await captureSitePhoto({ title: `Take ${DIRECTION_META[k].label} photo` });
     if (asset) void setSurroundingPhoto(k, asset);
   };
 
@@ -1137,7 +1116,7 @@ export function SurroundingsScreen({ go }: { go: Go }) {
                   </Box>
                 ) : (
                   <Pressable
-                    onPress={() => setPicking(k)}
+                    onPress={() => void takeFor(k)}
                     className="flex-1 items-center justify-center"
                     style={{
                       backgroundColor: '#EFF6FF',
@@ -1210,35 +1189,6 @@ export function SurroundingsScreen({ go }: { go: Go }) {
         </VStack>
       </SurveyCard>
 
-      <AppSheet
-        open={picking != null}
-        onClose={() => setPicking(null)}
-        title={picking ? `Capture ${DIRECTION_META[picking].label}` : 'Capture'}
-      >
-        <HStack space="md">
-          <Pressable
-            onPress={() => picking && takeFor(picking, 'camera')}
-            className="flex-1 h-32 rounded-2xl overflow-hidden"
-          >
-            <LinearGradient
-              colors={['#2563EB', '#3B82F6']}
-              style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 }}
-            >
-              <Camera size={28} color="#fff" />
-              <Text className="font-extrabold text-sm text-white">Take Photo</Text>
-            </LinearGradient>
-          </Pressable>
-          <Pressable
-            onPress={() => picking && takeFor(picking, 'gallery')}
-            className="flex-1 h-32 rounded-2xl items-center justify-center gap-2"
-            style={{ backgroundColor: '#F4F6FB' }}
-          >
-            <ImageIcon size={28} color="#2563EB" />
-            <Text className="font-extrabold text-sm text-foreground">From Gallery</Text>
-          </Pressable>
-        </HStack>
-      </AppSheet>
-
       <ImagePreviewModal
         uri={previewUri}
         title={previewTitle}
@@ -1259,7 +1209,6 @@ export function PhotosScreen({ go }: { go: Go }) {
     persistBackendStep,
     reloadBackendDraft,
   } = useProject();
-  const [sheet, setSheet] = useState(false);
   const [stepSaving, setStepSaving] = useState(false);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState('Photo preview');
@@ -1276,15 +1225,9 @@ export function PhotosScreen({ go }: { go: Go }) {
     }
   };
 
-  const takeSitePhoto = async (mode: 'camera' | 'gallery') => {
-    // Close the sheet first — iOS cannot present the picker over another Modal.
-    setSheet(false);
-    await new Promise((r) => setTimeout(r, 350));
+  const takeSitePhoto = async () => {
     try {
-      const asset =
-        mode === 'camera'
-          ? await capturePhoto({ facing: 'back', title: 'Take site photo' })
-          : await pickPhoto();
+      const asset = await captureSitePhoto({ title: 'Take site photo' });
       if (asset) await addPhoto(asset);
     } catch (err) {
       alertDraftError(err);
@@ -1350,7 +1293,7 @@ export function PhotosScreen({ go }: { go: Go }) {
         <WorkspaceHeader
           icon={Camera}
           title="Engineer selfie *"
-          subtitle="Mandatory — capture live selfie of engineer on site"
+          subtitle="Mandatory — live front-camera selfie of engineer on site"
           stepLabel="STEP 04"
           iconBg={COLORS.primary}
         />
@@ -1466,7 +1409,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                       Selfie photo required *
                     </Text>
                     <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: '#64748B' }}>
-                      Take a live engineer selfie
+                      Take a live front-camera selfie
                     </Text>
                   </VStack>
                 </HStack>
@@ -1498,7 +1441,7 @@ export function PhotosScreen({ go }: { go: Go }) {
         <WorkspaceHeader
           icon={ImageIcon}
           title={TERMS.sections.sitePhotoGallery}
-          subtitle="Captured on device · extra site photos"
+          subtitle="Rear camera only · extra site photos"
           stepLabel="STEP 04"
           iconBg={COLORS.primary}
         />
@@ -1563,7 +1506,7 @@ export function PhotosScreen({ go }: { go: Go }) {
             ))}
             {draft.photos.length < maxPhotos ? (
               <Pressable
-                onPress={() => setSheet(true)}
+                onPress={() => void takeSitePhoto()}
                 className="rounded-2xl items-center justify-center active:opacity-80"
                 style={{
                   width: '31%',
@@ -1663,33 +1606,6 @@ export function PhotosScreen({ go }: { go: Go }) {
           </HStack>
         </SurveyCard>
       ) : null}
-
-      <AppSheet open={sheet} onClose={() => setSheet(false)} title="Add Site Photo">
-        <HStack space="md">
-          <Pressable onPress={() => takeSitePhoto('camera')} className="flex-1 h-32 rounded-2xl overflow-hidden">
-            <LinearGradient
-              colors={['#2563EB', '#3B82F6']}
-              style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 }}
-            >
-              <Camera size={28} color="#fff" />
-              <Text className="font-extrabold text-sm text-white">
-                Take Photo
-              </Text>
-            </LinearGradient>
-          </Pressable>
-          <Pressable
-            onPress={() => takeSitePhoto('gallery')}
-            className="flex-1 h-32 rounded-2xl items-center justify-center gap-2"
-            style={{ backgroundColor: '#F4F6FB' }}
-          >
-            <ImageIcon size={28} color="#2563EB" />
-            <Text className="font-extrabold text-sm text-foreground">From Gallery</Text>
-          </Pressable>
-        </HStack>
-        <Text className="mt-4 text-[11px] text-muted-foreground text-center">
-          Site photos are optional (up to 4 photos). Upload clear site views.
-        </Text>
-      </AppSheet>
     </SurveyScaffold>
   );
 }

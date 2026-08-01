@@ -10,7 +10,7 @@ import { VStack } from '@/components/ui/vstack';
 import { ImagePreviewModal } from '@/src/cdrms/components/ImagePreviewModal';
 import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
 import { SurveyCard, WorkspaceHeader } from '@/src/cdrms/components/SurveyLayout';
-import { capturePhoto, pickPhoto } from '@/src/cdrms/hooks/useMediaCapture';
+import { captureSitePhoto } from '@/src/cdrms/hooks/useMediaCapture';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
 import { DIRECTION_META, type Cardinal } from '@/src/cdrms/project/types';
@@ -35,37 +35,16 @@ export function SchedulesEditorCard({
   const [previewTitle, setPreviewTitle] = useState('Photo preview');
 
   const pickForSide = (k: Cardinal) => {
-    Alert.alert(`Upload ${DIRECTION_META[k].label} image`, 'Choose source', [
-      {
-        text: 'Camera',
-        onPress: () => {
-          void (async () => {
-            try {
-              const asset = await capturePhoto({
-                title: `Take ${DIRECTION_META[k].label} photo`,
-              });
-              if (asset) await setSurroundingPhoto(k, asset);
-            } catch (err) {
-              alertDraftError(err);
-            }
-          })();
-        },
-      },
-      {
-        text: 'Gallery',
-        onPress: () => {
-          void (async () => {
-            try {
-              const asset = await pickPhoto();
-              if (asset) await setSurroundingPhoto(k, asset);
-            } catch (err) {
-              alertDraftError(err);
-            }
-          })();
-        },
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    void (async () => {
+      try {
+        const asset = await captureSitePhoto({
+          title: `Take ${DIRECTION_META[k].label} photo`,
+        });
+        if (asset) await setSurroundingPhoto(k, asset);
+      } catch (err) {
+        alertDraftError(err);
+      }
+    })();
   };
 
   const removePhoto = (k: Cardinal) => {

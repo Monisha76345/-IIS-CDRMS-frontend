@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Dimensions } from 'react-native';
 import { Ruler } from 'lucide-react-native';
 import Svg, { G, Line, Polygon, Rect, Text as SvgText } from 'react-native-svg';
 
@@ -225,43 +226,14 @@ export function BoundariesDiagram({
 
   /** Same as web SiteBlueprintSvg */
   const ext = 13;
-  /** Extra horizontal room so W/E letter + Beside text don’t overlap. */
-  const labelPadX = 118;
-  const labelPadY = 88;
+  const dimReach = ext + 8;
+  /** Outward room for rotated Beside labels (symmetric around plot origin). */
+  const besideReach = 44;
 
   let vbMinX = -160;
   let vbMinY = -140;
   let vbW = 320;
   let vbH = 280;
-  if (edges.length > 0) {
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    for (const ed of edges) {
-      for (const p of [ed.p0, ed.p1]) {
-        minX = Math.min(minX, p.x);
-        minY = Math.min(minY, p.y);
-        maxX = Math.max(maxX, p.x);
-        maxY = Math.max(maxY, p.y);
-      }
-    }
-    // Also include dimension-line offset so arrows stay inside
-    minX -= ext + 8;
-    maxX += ext + 8;
-    minY -= ext + 8;
-    maxY += ext + 8;
-
-    const contentW = maxX - minX;
-    const contentH = maxY - minY;
-    vbW = Math.max(280, contentW + labelPadX * 2);
-    vbH = Math.max(250, contentH + labelPadY * 2);
-    // Force plot content centered in viewBox
-    const contentCx = (minX + maxX) / 2;
-    const contentCy = (minY + maxY) / 2;
-    vbMinX = contentCx - vbW / 2;
-    vbMinY = contentCy - vbH / 2;
-  }
 
   const plotHw = verts.length
     ? Math.max(...verts.map((p) => Math.abs(p.x)))
@@ -271,13 +243,41 @@ export function BoundariesDiagram({
     : 0;
   const poly = verts.map((p) => `${p.x},${p.y}`).join(' ');
 
-  /** Compass letters sit near the plot; Beside labels sit further out (no overlap). */
-  const westLetterX = -plotHw - 22;
-  const eastLetterX = plotHw + 22;
-  const westBesideX = vbMinX + 28;
-  const eastBesideX = vbMinX + vbW - 28;
-  const northBesideY = vbMinY + 24;
-  const southBesideY = vbMinY + vbH - 22;
+  /** Same outward gap for N/S and E/W compass letters (keeps letters off dimension numbers). */
+  const COMPASS_LETTER_OFFSET = 28;
+
+  if (edges.length > 0) {
+    // Plot is built around (0,0) — keep viewBox symmetric so the diagram stays centered in the card.
+    const halfW = plotHw + dimReach + COMPASS_LETTER_OFFSET + besideReach;
+    const halfH = plotHh + dimReach + COMPASS_LETTER_OFFSET + besideReach;
+    vbW = Math.max(240, halfW * 2);
+    vbH = Math.max(210, halfH * 2);
+    vbMinX = -vbW / 2;
+    vbMinY = -vbH / 2;
+  }
+
+  /** Compass letters sit outside the plot; Beside labels sit further out (plot-relative, symmetric). */
+  const westLetterX = -plotHw - COMPASS_LETTER_OFFSET;
+  const eastLetterX = plotHw + COMPASS_LETTER_OFFSET;
+  const westBesideX = -plotHw - dimReach - 34;
+  const eastBesideX = plotHw + dimReach + 34;
+  const northBesideY = -plotHh - dimReach - 30;
+  const southBesideY = plotHh + dimReach + 30;
+
+  /** Match viewBox aspect so RN SVG fills the frame and stays centered (not shifted right). */
+  const cardInnerWidth = Math.max(280, Dimensions.get('window').width - 72);
+  const viewAspect = vbW / vbH;
+  let diagramWidth = cardInnerWidth;
+  let diagramHeight = diagramWidth / viewAspect;
+  if (diagramHeight > 268) {
+    diagramHeight = 268;
+    diagramWidth = diagramHeight * viewAspect;
+  } else if (diagramHeight < 220) {
+    diagramHeight = 220;
+    diagramWidth = diagramHeight * viewAspect;
+  }
+  diagramWidth = Math.round(diagramWidth);
+  diagramHeight = Math.round(diagramHeight);
 
   function besidePos(letter: keyof typeof DIM_COLORS) {
     switch (letter) {
@@ -312,8 +312,8 @@ export function BoundariesDiagram({
       <HStack
         className="items-center justify-between"
         style={{
-          paddingHorizontal: 14,
-          paddingVertical: 12,
+          paddingHorizontal: 12,
+          paddingVertical: 9,
           borderBottomWidth: 1,
           borderBottomColor: COLORS.border,
           backgroundColor: '#FAFBFC',
@@ -374,7 +374,7 @@ export function BoundariesDiagram({
         </HStack>
       </HStack>
 
-      <Box style={{ paddingHorizontal: 12, paddingBottom: 12, paddingTop: 8 }}>
+      <Box style={{ paddingHorizontal: 10, paddingBottom: 8, paddingTop: 4 }}>
         {!hasAny || !plot ? (
           <Box
             style={{
@@ -399,27 +399,29 @@ export function BoundariesDiagram({
             </Text>
           </Box>
         ) : (
-          <VStack className="gap-2">
+          <VStack style={{ gap: 6 }}>
             <Box
-              className="w-full items-center justify-center overflow-hidden"
+              className="w-full overflow-hidden"
               style={{
+                alignItems: 'center',
+                justifyContent: 'center',
                 borderRadius: 12,
                 borderWidth: 1,
                 borderColor: COLORS.border,
                 backgroundColor: '#FAFBFC',
-                paddingVertical: 8,
+                paddingVertical: 2,
               }}
             >
               <Svg
-                width="100%"
-                height={340}
+                width={diagramWidth}
+                height={diagramHeight}
                 viewBox={`${vbMinX} ${vbMinY} ${vbW} ${vbH}`}
                 preserveAspectRatio="xMidYMid meet"
               >
                 {/* Compass — near plot; Beside labels sit further out */}
                 <SvgText
                   x={0}
-                  y={-plotHh - 28}
+                  y={-plotHh - COMPASS_LETTER_OFFSET}
                   textAnchor="middle"
                   alignmentBaseline="middle"
                   fill={DIM_COLORS.N}
@@ -441,7 +443,7 @@ export function BoundariesDiagram({
                 </SvgText>
                 <SvgText
                   x={0}
-                  y={plotHh + 28}
+                  y={plotHh + COMPASS_LETTER_OFFSET}
                   textAnchor="middle"
                   alignmentBaseline="middle"
                   fill={DIM_COLORS.S}
@@ -620,7 +622,7 @@ export function BoundariesDiagram({
                             <RoadGlyph
                               x={nb.cx}
                               y={nb.cy - 15}
-                              width={220}
+                              width={140}
                               height={14}
                             />
                           ) : null}
@@ -646,9 +648,8 @@ export function BoundariesDiagram({
             <HStack
               className="w-full flex-wrap justify-between"
               style={{
-                gap: 6,
-                paddingTop: 10,
-                marginTop: 4,
+                gap: 5,
+                paddingTop: 6,
                 borderTopWidth: 1,
                 borderTopColor: COLORS.border,
               }}
@@ -658,14 +659,14 @@ export function BoundariesDiagram({
                   key={dir}
                   className="items-center justify-center"
                   style={{
-                    minHeight: 30,
+                    minHeight: 26,
                     minWidth: '22%',
                     flex: 1,
-                    gap: 6,
-                    borderRadius: 10,
+                    gap: 5,
+                    borderRadius: 8,
                     backgroundColor: '#FAFBFC',
-                    paddingHorizontal: 6,
-                    paddingVertical: 5,
+                    paddingHorizontal: 5,
+                    paddingVertical: 4,
                     borderWidth: 1,
                     borderColor: COLORS.border,
                   }}
@@ -691,15 +692,15 @@ export function BoundariesDiagram({
             {area > 0 ? (
               <Box
                 style={{
-                  borderRadius: 14,
+                  borderRadius: 12,
                   backgroundColor: '#FEF3C7',
                   borderWidth: 1,
                   borderColor: '#FDE68A',
-                  paddingHorizontal: 12,
-                  paddingVertical: 10,
+                  paddingHorizontal: 10,
+                  paddingVertical: 7,
                 }}
               >
-                <HStack style={{ alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                <HStack style={{ alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
                   <VStack style={{ gap: 1 }}>
                     <Text style={{ fontFamily: FONTS.medium, fontSize: 10, color: '#92400E', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                       Total Area

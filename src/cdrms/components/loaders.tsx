@@ -78,9 +78,9 @@ export function getScreenLoaderConfig(screen: Screen): ScreenLoaderMeta {
       }
     case 'cao_approve':
       return {
-        title: 'CAO Approval',
-        subtitle: 'Loading application for review & decision…',
-        icon: ShieldCheck,
+        title: 'View Application',
+        subtitle: 'Loading application for view & PDF download…',
+        icon: FileCheck2,
         color: '#8B5CF6',
       }
     case 'dashboard':

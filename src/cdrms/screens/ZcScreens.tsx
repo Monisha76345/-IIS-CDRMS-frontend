@@ -75,7 +75,7 @@ const ZC_STATUS_FILTERS: { key: ZcTab; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'assigned', label: 'Assigned' },
   { key: 'in_progress', label: 'In progress' },
-  { key: 'submitted', label: 'Pending CAO' },
+  { key: 'submitted', label: 'Submitted' },
   { key: 'verified', label: 'Verified' },
   { key: 'returned', label: 'Returned' },
   { key: 'rejected', label: 'Rejected' },
@@ -149,7 +149,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
     },
     {
       key: 'submitted',
-      label: 'Pending CAO',
+      label: 'Submitted',
       count: counts.submitted,
       icon: Send,
       tint: '#0EA5E9',

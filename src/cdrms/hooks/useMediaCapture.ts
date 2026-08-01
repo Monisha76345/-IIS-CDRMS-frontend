@@ -105,6 +105,7 @@ async function pickPhotoFromLibrary(): Promise<MediaAsset | null> {
 async function captureWithSystemCamera(options?: {
   facing?: 'front' | 'back';
   title?: string;
+  lockFacing?: boolean;
 }): Promise<MediaAsset | null> {
   if (!(await ensureMediaCapturePermissions('photo'))) return null;
 
@@ -127,6 +128,7 @@ async function captureWithSystemCamera(options?: {
         mode: 'photo',
         facing: options?.facing ?? 'back',
         title: options?.title ?? 'Take photo',
+        lockFacing: options?.lockFacing ?? false,
       });
     } catch {
       Alert.alert(
@@ -148,6 +150,7 @@ async function captureWithSystemCamera(options?: {
 export async function capturePhoto(options?: {
   facing?: 'front' | 'back';
   title?: string;
+  lockFacing?: boolean;
 }): Promise<MediaAsset | null> {
   if (useDummyCapture()) {
     try {
@@ -164,9 +167,69 @@ export async function capturePhoto(options?: {
   return captureWithSystemCamera(options);
 }
 
-/** Engineer selfie — front camera on a real device. */
+/** Engineer selfie — front camera only (no rear flip). */
 export async function captureSelfie(): Promise<MediaAsset | null> {
-  return capturePhoto({ facing: 'front', title: 'Take selfie' });
+  if (useDummyCapture()) {
+    try {
+      return await createDummyImageAsset();
+    } catch {
+      // Fall through if sample asset fails
+    }
+  }
+
+  if (Platform.OS === 'ios' && Constants.isDevice === false) {
+    explainMacCameraOnce();
+  }
+
+  if (!(await ensureMediaCapturePermissions('photo'))) return null;
+
+  // Use in-app camera so rear camera / flip cannot be selected.
+  try {
+    return await openDeviceCamera({
+      mode: 'photo',
+      facing: 'front',
+      title: 'Take selfie',
+      lockFacing: true,
+    });
+  } catch {
+    return captureWithSystemCamera({
+      facing: 'front',
+      title: 'Take selfie',
+      lockFacing: true,
+    });
+  }
+}
+
+/** Site / schedule photos — rear camera only (no front flip). */
+export async function captureSitePhoto(options?: {
+  title?: string;
+}): Promise<MediaAsset | null> {
+  if (useDummyCapture()) {
+    try {
+      return await createDummyImageAsset();
+    } catch {
+      // Fall through if sample asset fails
+    }
+  }
+
+  if (!(await ensureMediaCapturePermissions('photo'))) return null;
+
+  const title = options?.title ?? 'Take site photo';
+
+  try {
+    return await openDeviceCamera({
+      mode: 'photo',
+      facing: 'back',
+      title,
+      lockFacing: true,
+    });
+  } catch {
+    return captureWithSystemCamera({
+      facing: 'back',
+      title,
+      lockFacing: true,
+    });
+  }
 }
 
 export async function pickPhoto(): Promise<MediaAsset | null> {

@@ -8,6 +8,8 @@ export type CameraCaptureRequest = {
   facing: CameraFacing;
   title: string;
   maxDurationSec?: number;
+  /** When true, front/rear cannot be switched (e.g. engineer selfie). */
+  lockFacing?: boolean;
   resolve: (asset: MediaAsset | null) => void;
 };
 
@@ -47,6 +49,7 @@ export function openDeviceCamera(options: {
   facing?: CameraFacing;
   title?: string;
   maxDurationSec?: number;
+  lockFacing?: boolean;
 }): Promise<MediaAsset | null> {
   if (pending) {
     pending.resolve(null);
@@ -61,6 +64,7 @@ export function openDeviceCamera(options: {
         options.title ??
         (options.mode === 'video' ? 'Record inspection video' : 'Take photo'),
       maxDurationSec: options.maxDurationSec ?? 120,
+      lockFacing: options.lockFacing ?? false,
       resolve: (asset) => {
         pending = null;
         notify();

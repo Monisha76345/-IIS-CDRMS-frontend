@@ -99,6 +99,8 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
   const [facing, setFacing] = useState<CameraFacing>(
     liveRecordAllowed() ? request.facing : 'back'
   );
+  const facingLocked = request.lockFacing === true;
+  const activeFacing: CameraFacing = facingLocked ? request.facing : facing;
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -160,7 +162,7 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
   };
 
   const flip = () => {
-    if (recording || busy) return;
+    if (facingLocked || recording || busy) return;
     setFacing((f) => (f === 'front' ? 'back' : 'front'));
     setMountKey((k) => k + 1);
   };
@@ -230,12 +232,13 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
 
   const takePhoto = async () => {
     if (busy) return;
+    const cameraFacing = activeFacing;
     if (isAndroidEmulator()) {
       setBusy(true);
       try {
         const result = await ImagePicker.launchCameraAsync({
           cameraType:
-            facing === 'front'
+            cameraFacing === 'front'
               ? ImagePicker.CameraType.front
               : ImagePicker.CameraType.back,
           quality: 0.75,
@@ -248,7 +251,7 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
         );
         return;
       } catch {
-        await resolveFromLibrary();
+        if (!facingLocked) await resolveFromLibrary();
         return;
       } finally {
         setBusy(false);
@@ -256,7 +259,7 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
     }
 
     if (!cameraRef.current) {
-      await resolveFromLibrary();
+      if (!facingLocked) await resolveFromLibrary();
       return;
     }
     setBusy(true);
@@ -266,7 +269,7 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
         shutterSound: false,
       });
       if (!picture?.uri) {
-        await resolveFromLibrary();
+        if (!facingLocked) await resolveFromLibrary();
         return;
       }
       closeDeviceCamera(
@@ -278,12 +281,14 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
     } catch (e) {
       const message = e instanceof Error ? e.message : '';
       if (isSimulatorRecordError(message) || /simulator|camera/i.test(message)) {
-        await resolveFromLibrary();
+        if (!facingLocked) await resolveFromLibrary();
         return;
       }
       Alert.alert('Camera', message || 'Could not take photo', [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Use Gallery', onPress: () => void resolveFromLibrary() },
+        ...(facingLocked
+          ? []
+          : [{ text: 'Use Gallery', onPress: () => void resolveFromLibrary() }]),
       ]);
     } finally {
       setBusy(false);
@@ -465,10 +470,10 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
       <View style={styles.root}>
         {cameraPermission?.granted && showCamera ? (
           <CameraView
-            key={`cam-${mountKey}-${facing}-${request.mode}`}
+            key={`cam-${mountKey}-${activeFacing}-${request.mode}`}
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
-            facing={facing}
+            facing={activeFacing}
             mode={request.mode === 'video' ? 'video' : 'picture'}
             mute={false}
             active
@@ -484,10 +489,14 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
               }
               Alert.alert(
                 'Camera unavailable',
-                `${err.message || 'Could not start camera.'}\n\nOn Simulator: I/O → Camera → select your MacBook camera, then try again. Or use Gallery.`,
+                facingLocked
+                  ? `${err.message || `Could not start ${request.facing === 'front' ? 'front' : 'rear'} camera.`}\n\nAllow Camera in Settings and try again.`
+                  : `${err.message || 'Could not start camera.'}\n\nOn Simulator: I/O → Camera → select your MacBook camera, then try again. Or use Gallery.`,
                 [
                   { text: 'Cancel', style: 'cancel' },
-                  { text: 'Use Gallery', onPress: () => void resolveFromLibrary() },
+                  ...(facingLocked
+                    ? []
+                    : [{ text: 'Use Gallery', onPress: () => void resolveFromLibrary() }]),
                 ]
               );
             }}
@@ -559,20 +568,28 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
             <VStack className="items-center flex-1 px-3">
               <Text className="text-white font-extrabold text-sm">{request.title}</Text>
               <Text className="text-white/75 text-[10px] mt-0.5 text-center">
-                {facing === 'front' ? 'Front camera' : 'Rear camera'} · Gallery fallback available
+                {facingLocked
+                  ? request.facing === 'front'
+                    ? 'Front camera only'
+                    : 'Rear camera only'
+                  : `${facing === 'front' ? 'Front camera' : 'Rear camera'} · Gallery fallback available`}
               </Text>
             </VStack>
-            <Pressable
-              onPress={flip}
-              disabled={recording || busy}
-              className="h-11 w-11 rounded-full items-center justify-center"
-              style={{
-                backgroundColor: 'rgba(255,255,255,0.18)',
-                opacity: recording || busy ? 0.4 : 1,
-              }}
-            >
-              <FlipHorizontal size={18} color="#fff" strokeWidth={2.3} />
-            </Pressable>
+            {facingLocked ? (
+              <Box style={{ width: 44 }} />
+            ) : (
+              <Pressable
+                onPress={flip}
+                disabled={recording || busy}
+                className="h-11 w-11 rounded-full items-center justify-center"
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.18)',
+                  opacity: recording || busy ? 0.4 : 1,
+                }}
+              >
+                <FlipHorizontal size={18} color="#fff" strokeWidth={2.3} />
+              </Pressable>
+            )}
           </HStack>
           {recording ? (
             <HStack className="items-center justify-center gap-2 mt-3">
@@ -596,15 +613,17 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
           style={[styles.bottomFade, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}
         >
           <HStack className="justify-center px-5 mb-4" style={{ gap: 10 }}>
-            <Pressable
-              onPress={() => void resolveFromLibrary()}
-              disabled={busy || recording}
-              className="flex-row items-center gap-2 px-3.5 h-10 rounded-full"
-              style={{ backgroundColor: 'rgba(255,255,255,0.16)' }}
-            >
-              <ImageIcon size={15} color="#fff" />
-              <Text className="text-white text-[12px] font-bold">Gallery</Text>
-            </Pressable>
+            {!facingLocked ? (
+              <Pressable
+                onPress={() => void resolveFromLibrary()}
+                disabled={busy || recording}
+                className="flex-row items-center gap-2 px-3.5 h-10 rounded-full"
+                style={{ backgroundColor: 'rgba(255,255,255,0.16)' }}
+              >
+                <ImageIcon size={15} color="#fff" />
+                <Text className="text-white text-[12px] font-bold">Gallery</Text>
+              </Pressable>
+            ) : null}
             {request.mode === 'video' ? (
               <Pressable
                 onPress={() => void resolveFromFiles()}

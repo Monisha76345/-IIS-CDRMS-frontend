@@ -417,7 +417,7 @@ export function submitEngineerApplication(
 export function applicationStatusLabel(status: MobileApplicationStatus) {
   if (status === 'assigned') return 'Assigned';
   if (status === 'in_progress') return 'In progress';
-  if (status === 'submitted') return 'Pending CAO';
+  if (status === 'submitted') return 'Submitted';
   if (status === 'verified') return 'Verified';
   if (status === 'returned') return 'Send back';
   if (status === 'rejected') return 'Rejected';
