@@ -420,30 +420,35 @@ export function LoginScreen({ go }: { go: Go }) {
           <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
             <View style={{ flexGrow: 1 }}>
               <GradientHeader rounded>
-                <Box className={`px-6 ${keyboardOpen ? 'pb-4' : 'pb-8'}`}>
-                  <HStack className="items-center gap-3 pt-2">
-                    <Box className="h-12 w-12 rounded-2xl bg-white border border-white/25 items-center justify-center overflow-hidden">
+                <Box className={`px-6 ${keyboardOpen ? 'pt-2 pb-6' : 'pt-4 pb-14'}`}>
+                  <HStack className="items-center gap-3.5">
+                    <Box className="h-13 w-13 rounded-2xl bg-white border border-white/30 items-center justify-center overflow-hidden shadow-md" style={{ width: 50, height: 50 }}>
                       <Image
                         source={require('../../../assets/bda-logo.png')}
-                        style={{ width: 42, height: 42 }}
+                        style={{ width: 44, height: 44 }}
                         resizeMode="contain"
-                        accessibilityLabel="BDA"
+                        accessibilityLabel="BDA Logo"
                       />
                     </Box>
-                    <Text className="text-2xl font-extrabold text-white">
-                      Welcome
-                    </Text>
+                    <VStack className="flex-1 min-w-0">
+                      <Text className="text-2xl font-black text-white tracking-tight">
+                        Welcome
+                      </Text>
+                      <Text className="text-[11px] font-bold text-white/80 uppercase tracking-widest">
+                        BDA CDRMS PORTAL
+                      </Text>
+                    </VStack>
                   </HStack>
 
                   {!keyboardOpen ? (
-                    <Text className="mt-3 text-sm text-white/85">
+                    <Text className="mt-4 text-sm font-medium text-white/90 leading-snug">
                       Sign in with your CDRMS Login ID to continue.
                     </Text>
                   ) : null}
                 </Box>
               </GradientHeader>
 
-              <Box className={`flex-1 px-5 pb-8 ${keyboardOpen ? '-mt-3' : '-mt-6'}`}>
+              <Box className={`flex-1 px-5 pb-8 ${keyboardOpen ? '-mt-3' : '-mt-8'}`}>
                 <AppCard>
                   <VStack space="md">
                     <Field
@@ -502,7 +507,7 @@ export function LoginScreen({ go }: { go: Go }) {
                     />
 
                     {error ? (
-                      <Text className="text-sm text-red-600">{error}</Text>
+                      <Text className="text-sm text-red-600 font-medium">{error}</Text>
                     ) : null}
 
                     <Checkbox
@@ -514,7 +519,7 @@ export function LoginScreen({ go }: { go: Go }) {
                       <CheckboxIndicator>
                         <CheckboxIcon as={CheckIcon} />
                       </CheckboxIndicator>
-                      <CheckboxLabel className="text-sm text-muted-foreground">
+                      <CheckboxLabel className="text-sm text-muted-foreground font-medium">
                         Remember this device
                       </CheckboxLabel>
                     </Checkbox>
@@ -526,17 +531,17 @@ export function LoginScreen({ go }: { go: Go }) {
                 </AppCard>
 
                 {!keyboardOpen ? (
-                  <>
-                    <HStack className="mt-4 items-center justify-between">
-                      <Pressable>
-                        <Text className="text-sm text-primary font-semibold">Forgot Login ID?</Text>
-                      </Pressable>
-                    </HStack>
+                  <VStack className="mt-6 items-center" space="md">
+                    <Pressable className="active:opacity-70 py-1">
+                      <Text className="text-sm text-primary font-bold">
+                        Forgot Login ID?
+                      </Text>
+                    </Pressable>
 
-                    <Text className="text-center text-[11px] text-muted-foreground mt-8">
+                    <Text className="text-center text-[11px] font-medium text-slate-400 mt-6">
                       {TERMS.app.copyright} · {TERMS.app.version}
                     </Text>
-                  </>
+                  </VStack>
                 ) : null}
               </Box>
             </View>
