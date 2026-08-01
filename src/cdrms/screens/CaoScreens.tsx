@@ -1,15 +1,13 @@
 import {
-  ClipboardList,
   Download,
   FileText,
-  Hourglass,
   Layers,
   RefreshCw,
   Search,
   Send,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, TextInput } from 'react-native';
+import { ActivityIndicator, Alert, Modal, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -47,6 +45,39 @@ import { COLORS, FONTS, GLASS, GRADIENT_PRIMARY, themeStatColors, gradientStops 
 import { useTheme } from '@/src/theme/ThemeContext';
 import type { Go } from '@/src/cdrms/types';
 
+function CaoDownloadOverlay({ visible }: { visible: boolean }) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: 'rgba(15, 23, 42, 0.45)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingHorizontal: 24,
+        }}
+      >
+        <View
+          style={{
+            minWidth: 180,
+            borderRadius: 16,
+            backgroundColor: COLORS.white,
+            paddingVertical: 22,
+            paddingHorizontal: 24,
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={{ fontFamily: FONTS.semibold, fontSize: 14, color: COLORS.ink }}>
+            Downloading PDF…
+          </Text>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 function addressLine(app: MobileApplication) {
   return [app.addressArea, app.addressBlock, app.addressPincode].filter(Boolean).join(', ');
 }
@@ -55,16 +86,10 @@ function submittedApps(apps: MobileApplication[]) {
   return apps.filter((a) => a.status === 'submitted');
 }
 
-type CaoTab =
-  | 'all'
-  | 'assigned'
-  | 'in_progress'
-  | 'submitted';
+type CaoTab = 'all' | 'submitted';
 
 const CAO_STATUS_FILTERS: { key: CaoTab; label: string }[] = [
   { key: 'all', label: 'All' },
-  { key: 'assigned', label: 'Assigned' },
-  { key: 'in_progress', label: 'In progress' },
   { key: 'submitted', label: 'Submitted' },
 ];
 
@@ -77,6 +102,7 @@ export function CaoHomeScreen({ go }: { go: Go }) {
   const [tab, setTab] = useState<CaoTab>('all');
   const [q, setQ] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   const reload = useCallback(async () => {
     if (!accessToken) return;
@@ -107,23 +133,26 @@ export function CaoHomeScreen({ go }: { go: Go }) {
 
   const handleDownloadApp = useCallback(
     async (app: MobileApplication) => {
-      if (!accessToken) return;
+      if (!accessToken || downloading) return;
+      setDownloading(true);
       try {
         const result = await downloadApplicationPdf(app, accessToken);
         Alert.alert('Download complete', result.message);
       } catch (e) {
         Alert.alert('Download failed', e instanceof Error ? e.message : 'Could not generate PDF');
+      } finally {
+        setDownloading(false);
       }
     },
-    [accessToken],
+    [accessToken, downloading],
   );
 
   const counts = useMemo(() => countZcBuckets(apps), [apps]);
 
   const filtered = useMemo(() => {
     let items = apps;
-    if (tab !== 'all') {
-      items = items.filter((a) => normalizeApplicationStatus(a.status) === tab);
+    if (tab === 'submitted') {
+      items = items.filter((a) => normalizeApplicationStatus(a.status) === 'submitted');
     }
     if (!q.trim()) return items;
     const needle = q.trim().toLowerCase();
@@ -136,29 +165,21 @@ export function CaoHomeScreen({ go }: { go: Go }) {
     );
   }, [apps, tab, q]);
 
-  const sectionLabel =
-    tab === 'all'
-      ? 'All applications'
-      : tab === 'assigned'
-        ? 'Assigned applications'
-        : tab === 'in_progress'
-          ? 'In progress applications'
-          : 'Submitted applications';
+  const sectionLabel = tab === 'submitted' ? 'Submitted applications' : 'All applications';
 
   const statColors = themeStatColors();
   const countItems = [
     { key: 'all', label: 'Total', count: counts.total, icon: Layers, ...statColors },
-    { key: 'assigned', label: 'Assigned', count: counts.assigned, icon: ClipboardList, ...statColors },
-    { key: 'in_progress', label: 'In progress', count: counts.in_progress, icon: Hourglass, ...statColors },
     { key: 'submitted', label: 'Submitted', count: counts.submitted, icon: Send, ...statColors },
   ];
 
   return (
     <ScreenShell className="bg-background">
+      <CaoDownloadOverlay visible={downloading} />
       <ScrollView
         key={themeId}
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: 120 }}
+        contentContainerStyle={{ paddingBottom: 96 }}
         showsVerticalScrollIndicator={false}
       >
         <AppHeader
@@ -169,12 +190,13 @@ export function CaoHomeScreen({ go }: { go: Go }) {
           go={go}
         />
 
-        <Box className="px-4 mt-4">
-          <HStack className="items-center justify-between mb-3">
-            <Text className="text-[16px] font-bold flex-1" style={{ color: COLORS.ink }}>
-              Application overview
-            </Text>
-          </HStack>
+        <Box className="px-4" style={{ marginTop: 10 }}>
+          <Text
+            className="text-[15px] font-bold"
+            style={{ color: COLORS.ink, marginBottom: 8 }}
+          >
+            Application overview
+          </Text>
 
           <StatusCountGrid
             items={countItems}
@@ -184,21 +206,21 @@ export function CaoHomeScreen({ go }: { go: Go }) {
           />
 
           <Box
-            className="mt-4 flex-row items-center"
+            className="mt-3 flex-row items-center"
             style={{
               backgroundColor: COLORS.white,
-              borderRadius: 14,
+              borderRadius: 12,
               borderWidth: 1,
               borderColor: COLORS.border,
-              paddingHorizontal: 12,
-              height: 44,
+              paddingHorizontal: 10,
+              height: 42,
             }}
           >
             <Search size={16} color={COLORS.slate} />
             <TextInput
               value={q}
               onChangeText={setQ}
-              placeholder="Search by application no, site, engineer…"
+              placeholder="Search application, site, engineer…"
               placeholderTextColor={COLORS.slate}
               style={{ flex: 1, marginLeft: 8, fontSize: 13, color: COLORS.ink }}
             />
@@ -207,21 +229,18 @@ export function CaoHomeScreen({ go }: { go: Go }) {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingTop: 12, paddingBottom: 4, gap: 8 }}
+            contentContainerStyle={{ paddingTop: 10, paddingBottom: 2, gap: 8 }}
           >
             {CAO_STATUS_FILTERS.map((f) => {
               const on = tab === f.key;
-              const count =
-                f.key === 'all'
-                  ? counts.total
-                  : counts[f.key as Exclude<CaoTab, 'all'>];
+              const count = f.key === 'all' ? counts.total : counts.submitted;
               return (
                 <Pressable
                   key={f.key}
                   onPress={() => setTab(f.key)}
                   style={{
-                    height: 36,
-                    paddingHorizontal: 14,
+                    height: 32,
+                    paddingHorizontal: 12,
                     borderRadius: 999,
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -244,8 +263,8 @@ export function CaoHomeScreen({ go }: { go: Go }) {
             })}
           </ScrollView>
 
-          <HStack className="items-center justify-between mt-4 mb-2">
-            <Text className="text-[15px] font-bold" style={{ color: COLORS.ink }}>
+          <HStack className="items-center justify-between" style={{ marginTop: 10, marginBottom: 6 }}>
+            <Text className="text-[14px] font-bold" style={{ color: COLORS.ink }}>
               {sectionLabel}
             </Text>
             <Pressable onPress={() => void reload()} className="active:opacity-70">
@@ -258,11 +277,11 @@ export function CaoHomeScreen({ go }: { go: Go }) {
           {loading ? (
             <ListLoader text="Loading CAO applications…" />
           ) : error ? (
-            <Text className="text-[13px] mt-4" style={{ color: COLORS.destructive }}>
+            <Text className="text-[13px]" style={{ color: COLORS.destructive, marginTop: 8 }}>
               {error}
             </Text>
           ) : filtered.length === 0 ? (
-            <Text className="text-[13px] mt-4" style={{ color: COLORS.slate }}>
+            <Text className="text-[13px]" style={{ color: COLORS.slate, marginTop: 8 }}>
               No applications found matching your criteria.
             </Text>
           ) : (
@@ -316,6 +335,7 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
   const [tab, setTab] = useState<CaoAppsFilter>('All');
   const [q, setQ] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   const reload = useCallback(async () => {
     if (!accessToken) return;
@@ -338,15 +358,18 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
 
   const handleDownloadApp = useCallback(
     async (app: MobileApplication) => {
-      if (!accessToken) return;
+      if (!accessToken || downloading) return;
+      setDownloading(true);
       try {
         const result = await downloadApplicationPdf(app, accessToken);
         Alert.alert('Download complete', result.message);
       } catch (e) {
         Alert.alert('Download failed', e instanceof Error ? e.message : 'Could not generate PDF');
+      } finally {
+        setDownloading(false);
       }
     },
-    [accessToken],
+    [accessToken, downloading],
   );
 
   const filtered = useMemo(() => {
@@ -369,6 +392,7 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-[#F8FAFC]">
+      <CaoDownloadOverlay visible={downloading} />
       <AppHeader
         title="Applications"
         subtitle={`${submittedApps(apps).length} submitted · view & download only`}
@@ -568,7 +592,7 @@ export function CaoDetailScreen({ go }: { go: Go }) {
   }, [accessToken]);
 
   const handleDownload = async () => {
-    if (!app || !accessToken) return;
+    if (!app || !accessToken || downloading) return;
     setDownloading(true);
     try {
       const result = await downloadApplicationPdf(app, accessToken);
@@ -582,6 +606,7 @@ export function CaoDetailScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-background">
+      <CaoDownloadOverlay visible={downloading} />
       <AppHeader
         title="View Application"
         subtitle={app?.applicationNumber || 'Application details'}

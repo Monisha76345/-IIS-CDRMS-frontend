@@ -436,12 +436,12 @@ export function AppHeader({
 
   const titleBlock = (onGradient: boolean) =>
     welcome ? (
-      <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
+      <VStack className="flex-1 min-w-0" style={{ gap: isCompactOfficeNav ? 1 : 3 }}>
         <Text
           style={{
             fontFamily: FONTS.bold,
-            fontSize: 22,
-            lineHeight: 28,
+            fontSize: isCompactOfficeNav ? 20 : 22,
+            lineHeight: isCompactOfficeNav ? 24 : 28,
             letterSpacing: -0.3,
             color: onGradient ? COLORS.white : COLORS.ink,
           }}
@@ -453,8 +453,8 @@ export function AppHeader({
           <Text
             style={{
               fontFamily: FONTS.semibold,
-              fontSize: 14,
-              lineHeight: 18,
+              fontSize: isCompactOfficeNav ? 13 : 14,
+              lineHeight: isCompactOfficeNav ? 16 : 18,
               letterSpacing: 0.1,
               color: onGradient ? 'rgba(255,255,255,0.88)' : COLORS.slate,
             }}
@@ -490,6 +490,54 @@ export function AppHeader({
         ) : null}
       </VStack>
     );
+
+  const initials =
+    userName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase() || '')
+      .join('') || 'U';
+
+  const welcomeAvatar =
+    welcome && go ? (
+      <Pressable
+        onPress={() => go('profile')}
+        className="active:opacity-85 items-center justify-center overflow-hidden"
+        style={{
+          width: isCompactOfficeNav ? 42 : 52,
+          height: isCompactOfficeNav ? 42 : 52,
+          borderRadius: isCompactOfficeNav ? 21 : 26,
+          backgroundColor: 'rgba(255,255,255,0.95)',
+          shadowColor: GLASS.shadow,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.2,
+          shadowRadius: 8,
+          elevation: 4,
+        }}
+      >
+        {user?.profilePhoto ? (
+          <Image
+            source={{ uri: user.profilePhoto }}
+            style={{
+              width: isCompactOfficeNav ? 42 : 52,
+              height: isCompactOfficeNav ? 42 : 52,
+            }}
+            resizeMode="cover"
+          />
+        ) : (
+          <Text
+            style={{
+              fontFamily: FONTS.bold,
+              fontSize: isCompactOfficeNav ? 14 : 16,
+              color: COLORS.primary,
+            }}
+          >
+            {initials}
+          </Text>
+        )}
+      </Pressable>
+    ) : null;
 
   const logoutBtn = canLogout ? (
     <ProfileMenu
@@ -561,14 +609,11 @@ export function AppHeader({
       <Box
         style={{
           paddingHorizontal: SPACE.gutter,
-          paddingBottom: compact ? SPACE[3] : SPACE[6],
+          paddingBottom: welcome && isCompactOfficeNav ? SPACE[3] : welcome ? SPACE[4] : SPACE[6],
         }}
       >
-        <HStack
-          className="items-center justify-between"
-          style={{ paddingTop: SPACE[1], gap: SPACE[3] }}
-        >
-          <HStack className="items-center flex-1 min-w-0" style={{ gap: SPACE[3] }}>
+        <HStack className="items-center justify-between" style={{ paddingTop: SPACE[1], gap: SPACE[3] }}>
+          <HStack className="items-center flex-1 min-w-0" style={{ gap: welcome && isCompactOfficeNav ? SPACE[2] : SPACE[3] }}>
             {onBack ? (
               <Pressable
                 onPress={onBack}
@@ -589,32 +634,8 @@ export function AppHeader({
           </HStack>
           {rightSlot}
         </HStack>
-        {welcome ? (
-          <HStack className="items-center flex-wrap" style={{ marginTop: SPACE[4], gap: 6 }}>
-            {zoneLabel ? (
-              <>
-                <MapPin size={13} color="rgba(255,255,255,0.85)" />
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontFamily: FONTS.semibold,
-                    color: 'rgba(255,255,255,0.88)',
-                  }}
-                  numberOfLines={1}
-                >
-                  {zoneLabel}
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontFamily: FONTS.medium,
-                    color: 'rgba(255,255,255,0.45)',
-                  }}
-                >
-                  ·
-                </Text>
-              </>
-            ) : null}
+        {welcome && !isCompactOfficeNav ? (
+          <HStack className="items-center" style={{ marginTop: SPACE[4], gap: 6 }}>
             <Clock size={13} color="rgba(255,255,255,0.85)" />
             <Text
               style={{

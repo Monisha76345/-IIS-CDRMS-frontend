@@ -435,33 +435,20 @@ export function LoginScreen({ go }: { go: Go }) {
             top: 0,
             left: 0,
             right: 0,
-            height: '46%',
+            height: 220,
           }}
         />
         <Box
           pointerEvents="none"
           style={{
             position: 'absolute',
-            top: -60,
-            right: -40,
-            width: 200,
-            height: 200,
+            top: -48,
+            right: -36,
+            width: 140,
+            height: 140,
             borderRadius: 999,
             borderWidth: 1.5,
-            borderColor: 'rgba(255,255,255,0.14)',
-          }}
-        />
-        <Box
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            top: 40,
-            right: 24,
-            width: 120,
-            height: 120,
-            borderRadius: 999,
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.1)',
+            borderColor: 'rgba(255,255,255,0.12)',
           }}
         />
 
@@ -472,46 +459,46 @@ export function LoginScreen({ go }: { go: Go }) {
           keyboardDismissMode="on-drag"
           contentContainerStyle={{
             flexGrow: 1,
-            justifyContent: keyboardOpen ? 'flex-start' : 'center',
-            paddingHorizontal: 22,
-            paddingTop: insets.top + (keyboardOpen ? 12 : 8),
-            paddingBottom: Math.max(insets.bottom, 16) + (keyboardOpen ? 16 : 56),
+            justifyContent: 'flex-start',
+            paddingHorizontal: 16,
+            paddingTop: insets.top + 12,
+            paddingBottom: Math.max(insets.bottom, 12) + 12,
           }}
           showsVerticalScrollIndicator={false}
         >
           <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
             <View>
-              <HStack className="items-center" style={{ gap: 14, marginBottom: 18 }}>
+              <HStack className="items-center" style={{ gap: 12, marginBottom: 10 }}>
                 <Box
                   className="items-center justify-center overflow-hidden"
                   style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 18,
+                    width: 48,
+                    height: 48,
+                    borderRadius: 14,
                     backgroundColor: COLORS.white,
                     borderWidth: 1,
                     borderColor: 'rgba(255,255,255,0.45)',
                     shadowColor: '#0F172A',
-                    shadowOffset: { width: 0, height: 8 },
-                    shadowOpacity: 0.18,
-                    shadowRadius: 14,
-                    elevation: 6,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.14,
+                    shadowRadius: 8,
+                    elevation: 4,
                   }}
                 >
                   <Image
                     source={require('../../../assets/bda-logo.png')}
-                    style={{ width: 46, height: 46 }}
+                    style={{ width: 38, height: 38 }}
                     resizeMode="contain"
                     accessibilityLabel="BDA Logo"
                   />
                 </Box>
-                <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
+                <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
                   <Text
                     style={{
-                      fontSize: 26,
-                      lineHeight: 32,
+                      fontSize: 22,
+                      lineHeight: 26,
                       fontWeight: '800',
-                      letterSpacing: -0.4,
+                      letterSpacing: -0.3,
                       color: COLORS.white,
                     }}
                   >
@@ -521,9 +508,9 @@ export function LoginScreen({ go }: { go: Go }) {
                     style={{
                       fontSize: 11,
                       fontWeight: '700',
-                      letterSpacing: 1.4,
+                      letterSpacing: 1.1,
                       textTransform: 'uppercase',
-                      color: 'rgba(255,255,255,0.82)',
+                      color: 'rgba(255,255,255,0.85)',
                     }}
                   >
                     BDA CDRMS Portal
@@ -534,33 +521,35 @@ export function LoginScreen({ go }: { go: Go }) {
               {!keyboardOpen ? (
                 <Text
                   style={{
-                    marginBottom: 18,
-                    fontSize: 14,
-                    lineHeight: 20,
+                    marginBottom: 12,
+                    fontSize: 13,
+                    lineHeight: 18,
                     fontWeight: '500',
-                    color: 'rgba(255,255,255,0.9)',
+                    color: 'rgba(255,255,255,0.92)',
                   }}
                 >
                   Sign in with your CDRMS Login ID to continue.
                 </Text>
-              ) : null}
+              ) : (
+                <Box style={{ height: 8 }} />
+              )}
 
               <Box
                 style={{
                   backgroundColor: COLORS.white,
-                  borderRadius: 24,
-                  paddingHorizontal: 18,
-                  paddingVertical: 20,
+                  borderRadius: 16,
+                  paddingHorizontal: 14,
+                  paddingVertical: 14,
                   borderWidth: 1,
                   borderColor: COLORS.border,
                   shadowColor: '#0F172A',
-                  shadowOffset: { width: 0, height: 14 },
-                  shadowOpacity: 0.14,
-                  shadowRadius: 24,
-                  elevation: 8,
+                  shadowOffset: { width: 0, height: 8 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 16,
+                  elevation: 5,
                 }}
               >
-                <VStack space="md">
+                <VStack style={{ gap: 12 }}>
                   <Field
                     label="Login ID / Email"
                     icon={User}
@@ -624,7 +613,6 @@ export function LoginScreen({ go }: { go: Go }) {
                     value="remember"
                     isChecked={remember}
                     onChange={(v) => setRemember(!!v)}
-                    className="mt-1"
                   >
                     <CheckboxIndicator>
                       <CheckboxIcon as={CheckIcon} />
@@ -640,10 +628,13 @@ export function LoginScreen({ go }: { go: Go }) {
                 </VStack>
               </Box>
 
-              <Pressable className="active:opacity-70 items-center" style={{ marginTop: 18, paddingVertical: 6 }}>
+              <Pressable
+                className="active:opacity-70 items-center"
+                style={{ marginTop: 12, paddingVertical: 4 }}
+              >
                 <Text
                   style={{
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: '700',
                     color: COLORS.primary,
                   }}
@@ -651,34 +642,23 @@ export function LoginScreen({ go }: { go: Go }) {
                   Forgot Login ID?
                 </Text>
               </Pressable>
+
+              {!keyboardOpen ? (
+                <Text
+                  style={{
+                    marginTop: 20,
+                    textAlign: 'center',
+                    fontSize: 11,
+                    fontWeight: '500',
+                    color: COLORS.slate,
+                  }}
+                >
+                  {TERMS.app.copyright} · {TERMS.app.version}
+                </Text>
+              ) : null}
             </View>
           </TouchableWithoutFeedback>
         </ScrollView>
-
-        {!keyboardOpen ? (
-          <Box
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: Math.max(insets.bottom, 10) + 4,
-              alignItems: 'center',
-              paddingHorizontal: 24,
-            }}
-          >
-            <Text
-              style={{
-                textAlign: 'center',
-                fontSize: 11,
-                fontWeight: '500',
-                color: COLORS.slate,
-              }}
-            >
-              {TERMS.app.copyright} · {TERMS.app.version}
-            </Text>
-          </Box>
-        ) : null}
       </KeyboardAvoidingView>
     </ScreenShell>
   );

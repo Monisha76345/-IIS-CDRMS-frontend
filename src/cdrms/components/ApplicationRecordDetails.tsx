@@ -1,13 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { Linking } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
   Building2,
-  Camera,
-  Compass,
   Eye,
-  Film,
-  MessageSquare,
   Ruler,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -17,16 +12,15 @@ import { HStack } from '@/components/ui/hstack';
 import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import { type MobileApplication } from '@/src/api/applications';
-import { ApplicationStatusBadge } from '@/src/cdrms/components/ApplicationStatusBadge';
+import { type MobileApplication, applicationStatusLabel } from '@/src/api/applications';
 import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
 import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
-import { FrostedGlass, GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
+import { GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
 import { GpsSiteCard } from '@/src/cdrms/components/GpsSiteCard';
 import { ImagePreviewModal } from '@/src/cdrms/components/ImagePreviewModal';
 import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
 import { resolveBoundaryDims } from '@/src/cdrms/lib/resolveBoundaryDims';
-import { COLORS, FONTS, GLASS, GRADIENT_PRIMARY, SPACE, gradientStops } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GLASS, SPACE } from '@/src/cdrms/theme';
 
 function SectionCard({
   title,
@@ -244,63 +238,55 @@ function MediaThumb({
   );
 }
 
-function ApplicationSummaryCard({ app }: { app: MobileApplication }) {
+function formatSubmittedDateTime(iso?: string | null): string {
+  if (!iso?.trim()) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString(undefined, {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
+function SectionLabel({ children }: { children: string }) {
   return (
-    <Box style={{ marginHorizontal: SPACE.gutter }}>
-      <FrostedGlass borderRadius={20} padding={0} fill={GLASS.cardSolid}>
-        <LinearGradient
-          colors={gradientStops(GRADIENT_PRIMARY)}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={{ height: 4 }}
-        />
-        <VStack style={{ padding: SPACE[4], gap: SPACE[2] }}>
-          <HStack className="items-center justify-between" style={{ gap: 8 }}>
-            <Text
-              style={{ flex: 1, fontFamily: FONTS.bold, fontSize: 16, color: COLORS.ink }}
-              numberOfLines={1}
-            >
-              {app.applicationNumber}
-            </Text>
-            <ApplicationStatusBadge status={app.status} size="md" />
-          </HStack>
-          <HStack className="items-center" style={{ gap: 8, flexWrap: 'wrap' }}>
-            <Text style={{ fontFamily: FONTS.semibold, fontSize: 12, color: COLORS.ink }}>
-              Site no: {app.siteNo || '—'}
-            </Text>
-            <HStack className="items-center" style={{ gap: 4 }}>
-              <Text style={{ fontFamily: FONTS.semibold, fontSize: 12, color: COLORS.ink }}>
-                Zone:
-              </Text>
-              <Box
-                style={{
-                  backgroundColor: GLASS.tintBlue,
-                  borderRadius: 8,
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  borderWidth: 1,
-                  borderColor: `${COLORS.primary}40`,
-                }}
-              >
-                <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: COLORS.primary }}>
-                  {app.zoneCode || '—'}
-                </Text>
-              </Box>
-            </HStack>
-          </HStack>
-          <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.slate }} numberOfLines={1}>
-            Engineer: {app.assignedEngineerName || '—'}
-          </Text>
-        </VStack>
-      </FrostedGlass>
-    </Box>
+    <Text
+      style={{
+        fontFamily: FONTS.bold,
+        fontSize: 11,
+        color: COLORS.primaryDeep,
+        textTransform: 'uppercase',
+        letterSpacing: 0.4,
+        marginTop: 10,
+        marginBottom: 4,
+      }}
+    >
+      {children}
+    </Text>
   );
 }
 
-function ZcDetailsBlock({ app, siteType }: { app: MobileApplication; siteType: string }) {
-  const hasComments = Boolean(app.siteDimensionComment?.trim());
+function ZcDetailsCard({
+  app,
+  siteType,
+  diagram,
+}: {
+  app: MobileApplication;
+  siteType: string;
+  diagram?: ReactNode;
+}) {
   return (
-    <SectionCard title="ZC application details" subtitle="Site particulars from ZC" icon={Building2}>
+    <SectionCard title="ZC details" subtitle="Submitted by Zonal Commissioner" icon={Building2}>
+      <InfoPairRow
+        leftLabel="Application no"
+        leftValue={app.applicationNumber}
+        rightLabel="Status"
+        rightValue={applicationStatusLabel(app.status) || String(app.status || '—')}
+      />
       <InfoPairRow
         leftLabel="Site no"
         leftValue={app.siteNo}
@@ -310,29 +296,29 @@ function ZcDetailsBlock({ app, siteType }: { app: MobileApplication; siteType: s
       <InfoPairRow
         leftLabel="Site dimension"
         leftValue={app.siteDimension || '—'}
-        rightLabel="Pincode"
-        rightValue={app.addressPincode || '—'}
+        rightLabel="Zone"
+        rightValue={app.zoneCode || '—'}
       />
       <InfoPairRow
         leftLabel="Area"
         leftValue={app.addressArea || '—'}
         rightLabel="Block"
         rightValue={app.addressBlock || '—'}
-        last={!app.createdByZcName && !hasComments}
       />
-      {app.createdByZcName ? (
-        <InfoRow label="Created by ZC" value={app.createdByZcName} last={!hasComments} />
-      ) : null}
-      {hasComments ? (
-        <InfoRow label="ZC comments" value={app.siteDimensionComment!} last />
-      ) : null}
-    </SectionCard>
-  );
-}
+      <InfoPairRow
+        leftLabel="Pincode"
+        leftValue={app.addressPincode || '—'}
+        rightLabel="Assigned CAO"
+        rightValue={app.assignedCaoName || '—'}
+      />
+      <InfoPairRow
+        leftLabel="Created by ZC"
+        leftValue={app.createdByZcName || '—'}
+        rightLabel="ZC submitted"
+        rightValue={formatSubmittedDateTime(app.createdAt)}
+      />
 
-function SchedulesBlock({ app }: { app: MobileApplication }) {
-  return (
-    <SectionCard title="Site Schedules" subtitle="North · South · East · West" icon={Compass}>
+      <SectionLabel>Schedules</SectionLabel>
       <InfoPairRow
         leftLabel="North"
         leftValue={app.scheduleNorth || '—'}
@@ -344,8 +330,18 @@ function SchedulesBlock({ app }: { app: MobileApplication }) {
         leftValue={app.scheduleWest || '—'}
         rightLabel="East"
         rightValue={app.scheduleEast || '—'}
-        last
+        last={!app.siteDimensionComment?.trim() && !diagram}
       />
+
+      {app.siteDimensionComment?.trim() ? (
+        <InfoRow
+          label="ZC comments"
+          value={app.siteDimensionComment}
+          last={!diagram}
+        />
+      ) : null}
+
+      {diagram ? <Box style={{ marginTop: 8 }}>{diagram}</Box> : null}
     </SectionCard>
   );
 }
@@ -366,17 +362,6 @@ export function ApplicationRecordDetails({
   const hasGps = Boolean(app.latitude && app.longitude);
   const boundary = resolveBoundaryDims(app);
 
-  const hasEngineerCapture = Boolean(
-    app.engineerSubmittedAt ||
-      app.engineerSiteDetails ||
-      app.selfieUrl ||
-      (app.photoUrls && app.photoUrls.some(Boolean)) ||
-      app.videoUrl ||
-      app.dimNorth ||
-      app.compass ||
-      hasGps,
-  );
-
   const photos = (app.photoUrls || []).filter((u) => Boolean(u?.trim()));
   const rawSchedule = app.schedulePhotoUrls || {};
   const schedulePhotos: Record<string, string> = {
@@ -385,6 +370,25 @@ export function ApplicationRecordDetails({
     E: rawSchedule.E || rawSchedule.e || '',
     W: rawSchedule.W || rawSchedule.w || '',
   };
+
+  const hasEngineerCapture = Boolean(
+    app.engineerSubmittedAt ||
+      app.engineerSiteDetails ||
+      app.selfieUrl ||
+      photos.length > 0 ||
+      app.videoUrl ||
+      app.dimNorth ||
+      app.compass ||
+      hasGps ||
+      app.engineerScheduleNotes?.N ||
+      app.engineerScheduleNotes?.S ||
+      app.engineerScheduleNotes?.E ||
+      app.engineerScheduleNotes?.W ||
+      schedulePhotos.N ||
+      schedulePhotos.S ||
+      schedulePhotos.E ||
+      schedulePhotos.W,
+  );
 
   const gpsFix = hasGps
     ? {
@@ -396,10 +400,19 @@ export function ApplicationRecordDetails({
       }
     : null;
 
-  // Diagram only — schedules are shown in Site Schedules card (no duplicate).
-  const boundariesBlock = boundary.dims ? (
-    <Box style={{ marginHorizontal: SPACE.gutter }}>
-      <BoundariesDiagram
+  const engNotes = app.engineerScheduleNotes || {};
+  const roadFlags = app.scheduleRoadFlags || {};
+  const scheduleNote = (k: 'N' | 'S' | 'E' | 'W') => {
+    const note = engNotes[k]?.trim() || '';
+    const road = Boolean(roadFlags[k]);
+    if (!note && !road) return '—';
+    if (note && road) return `${note} · Road`;
+    if (road) return 'Road';
+    return note;
+  };
+
+  const diagramNode = boundary.dims ? (
+    <BoundariesDiagram
       north={boundary.dims.north}
       south={boundary.dims.south}
       east={boundary.dims.east}
@@ -407,11 +420,32 @@ export function ApplicationRecordDetails({
       odd={siteType === 'Odd'}
       siteNo={app.siteNo}
       totalArea={boundary.total}
-      />
-    </Box>
+      scheduleNorth={
+        boundary.source === 'engineer'
+          ? engNotes.N || app.scheduleNorth
+          : app.scheduleNorth
+      }
+      scheduleSouth={
+        boundary.source === 'engineer'
+          ? engNotes.S || app.scheduleSouth
+          : app.scheduleSouth
+      }
+      scheduleEast={
+        boundary.source === 'engineer'
+          ? engNotes.E || app.scheduleEast
+          : app.scheduleEast
+      }
+      scheduleWest={
+        boundary.source === 'engineer'
+          ? engNotes.W || app.scheduleWest
+          : app.scheduleWest
+      }
+    />
   ) : null;
 
-  const hasCompassBlock = Boolean(app.compass || app.occupancy || hasGps);
+  const zcDiagram = boundary.source !== 'engineer' ? diagramNode : null;
+  const engineerDiagram = boundary.source === 'engineer' ? diagramNode : null;
+
   const hasMedia =
     app.selfieUrl ||
     photos.length > 0 ||
@@ -420,19 +454,14 @@ export function ApplicationRecordDetails({
     schedulePhotos.E ||
     schedulePhotos.W;
 
-  const coreBlocks = (
-    <>
-      <ApplicationSummaryCard app={app} />
-      <ZcDetailsBlock app={app} siteType={siteType} />
-      <SchedulesBlock app={app} />
-      {boundariesBlock}
-    </>
+  const zcCard = (
+    <ZcDetailsCard app={app} siteType={siteType} diagram={zcDiagram} />
   );
 
   if (!showEmptyEngineer && !hasEngineerCapture) {
     return (
-        <VStack style={{ gap: 12 }}>
-        {coreBlocks}
+      <VStack style={{ gap: 12 }}>
+        {zcCard}
         <ImagePreviewModal
           uri={preview?.uri ?? null}
           title={preview?.title}
@@ -443,232 +472,249 @@ export function ApplicationRecordDetails({
   }
 
   return (
-      <VStack style={{ gap: 12 }}>
-      {coreBlocks}
+    <VStack style={{ gap: 12 }}>
+      {zcCard}
 
-      {app.engineerSiteDetails ? (
-        <SectionCard title="Site details" subtitle="Engineer field notes" icon={Building2}>
-          <Text
-            style={{
-              fontFamily: FONTS.semibold,
-              fontSize: 13,
-              color: COLORS.ink,
-              lineHeight: 18,
-            }}
-          >
-            {app.engineerSiteDetails}
-          </Text>
-        </SectionCard>
-      ) : null}
+      <SectionCard title="Engineer details" subtitle="Submitted by field engineer" icon={Ruler}>
+        <InfoPairRow
+          leftLabel="Assigned engineer"
+          leftValue={app.assignedEngineerName || '—'}
+          rightLabel="Engineer submitted"
+          rightValue={formatSubmittedDateTime(app.engineerSubmittedAt)}
+        />
 
-      {hasCompassBlock ? (
-        <SectionCard title="Compass & GPS" subtitle="Orientation and location" icon={Compass}>
-          <InfoPairRow
-            leftLabel="Compass"
-            leftValue={app.compass || '—'}
-            rightLabel="Occupancy"
-            rightValue={app.occupancy || '—'}
-            last={app.occupancy !== 'Occupied' && !hasGps}
-          />
-          {app.occupancy === 'Occupied' ? (
-            <InfoRow
-              label="Occupancy reason"
-              value={app.occupancyReason || '—'}
-              last={!hasGps}
+        {app.engineerSiteDetails ? (
+          <>
+            <SectionLabel>Site details</SectionLabel>
+            <InfoRow label="Verification notes" value={app.engineerSiteDetails} />
+          </>
+        ) : null}
+
+        <SectionLabel>Schedules</SectionLabel>
+        <InfoPairRow
+          leftLabel="North"
+          leftValue={scheduleNote('N')}
+          rightLabel="South"
+          rightValue={scheduleNote('S')}
+        />
+        <InfoPairRow
+          leftLabel="West"
+          leftValue={scheduleNote('W')}
+          rightLabel="East"
+          rightValue={scheduleNote('E')}
+        />
+        <InfoPairRow
+          leftLabel="Road N"
+          leftValue={roadFlags.N ? 'Yes' : 'No'}
+          rightLabel="Road S"
+          rightValue={roadFlags.S ? 'Yes' : 'No'}
+        />
+        <InfoPairRow
+          leftLabel="Road W"
+          leftValue={roadFlags.W ? 'Yes' : 'No'}
+          rightLabel="Road E"
+          rightValue={roadFlags.E ? 'Yes' : 'No'}
+        />
+
+        <SectionLabel>Compass & GPS</SectionLabel>
+        <InfoPairRow
+          leftLabel="Compass"
+          leftValue={app.compass || '—'}
+          rightLabel="Occupancy"
+          rightValue={app.occupancy || '—'}
+          last={app.occupancy !== 'Occupied' && !hasGps}
+        />
+        {app.occupancy === 'Occupied' ? (
+          <InfoRow label="Occupancy reason" value={app.occupancyReason || '—'} last={!hasGps} />
+        ) : null}
+        {hasGps ? (
+          <>
+            <InfoRow label="GPS location" value={`${app.latitude}, ${app.longitude}`} last={!gpsFix} />
+            {gpsFix ? (
+              <Box style={{ borderRadius: 12, overflow: 'hidden', marginTop: 6 }}>
+                <GpsSiteCard
+                  height={200}
+                  variant="inset"
+                  gps={gpsFix}
+                  syNo={app.siteNo}
+                  villageLabel={app.addressArea}
+                  layoutName={app.addressBlock || app.zoneCode}
+                  liveMap
+                  allowMapGestures
+                />
+              </Box>
+            ) : null}
+            <Pressable
+              onPress={() => {
+                void Linking.openURL(
+                  `https://maps.google.com/?q=${app.latitude},${app.longitude}`,
+                );
+              }}
+              style={{
+                marginTop: 8,
+                paddingVertical: 9,
+                paddingHorizontal: 11,
+                borderRadius: 10,
+                backgroundColor: GLASS.tintBlue,
+                borderWidth: 1,
+                borderColor: `${COLORS.primary}40`,
+              }}
+            >
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.primary }}>
+                Open in Google Maps →
+              </Text>
+            </Pressable>
+          </>
+        ) : null}
+
+        {engineerDiagram ? (
+          <>
+            <SectionLabel>Dimensions</SectionLabel>
+            <Box style={{ marginTop: 4 }}>{engineerDiagram}</Box>
+          </>
+        ) : null}
+
+        {!engineerDiagram && boundary.source === 'engineer' ? (
+          <>
+            <SectionLabel>Dimensions</SectionLabel>
+            <InfoPairRow
+              leftLabel="Dim N"
+              leftValue={app.dimNorth != null && app.dimNorth !== '' ? String(app.dimNorth) : '—'}
+              rightLabel="Dim S"
+              rightValue={app.dimSouth != null && app.dimSouth !== '' ? String(app.dimSouth) : '—'}
             />
-          ) : null}
-          {hasGps ? (
-            <>
-              <InfoRow
-                label="GPS location"
-                value={`${app.latitude}, ${app.longitude}`}
-                last={!gpsFix}
-              />
-              {gpsFix ? (
-                <Box style={{ borderRadius: 12, overflow: 'hidden', marginTop: 6 }}>
-                  <GpsSiteCard
-                    height={200}
-                    variant="inset"
-                    gps={gpsFix}
-                    syNo={app.siteNo}
-                    villageLabel={app.addressArea}
-                    layoutName={app.addressBlock || app.zoneCode}
-                    liveMap
-                    allowMapGestures
-                  />
+            <InfoPairRow
+              leftLabel="Dim E"
+              leftValue={app.dimEast != null && app.dimEast !== '' ? String(app.dimEast) : '—'}
+              rightLabel="Dim W"
+              rightValue={app.dimWest != null && app.dimWest !== '' ? String(app.dimWest) : '—'}
+              last={!app.totalSiteArea}
+            />
+            {app.totalSiteArea ? (
+              <InfoRow label="Total site area" value={app.totalSiteArea} last />
+            ) : null}
+          </>
+        ) : null}
+
+        {hasMedia ? (
+          <>
+            <SectionLabel>Photos</SectionLabel>
+            <VStack style={{ gap: 12 }}>
+              {app.selfieUrl ? (
+                <Box>
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 10,
+                      color: COLORS.slate,
+                      marginBottom: 6,
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.4,
+                    }}
+                  >
+                    Selfie
+                  </Text>
+                  <HStack className="flex-wrap" style={{ gap: 6 }}>
+                    <MediaThumb
+                      label="Selfie"
+                      uri={app.selfieUrl}
+                      onView={() => setPreview({ uri: app.selfieUrl!, title: 'Selfie' })}
+                    />
+                  </HStack>
                 </Box>
               ) : null}
-              <Pressable
-                onPress={() => {
-                  void Linking.openURL(
-                    `https://maps.google.com/?q=${app.latitude},${app.longitude}`,
-                  );
-                }}
-                style={{
-                  marginTop: 8,
-                  paddingVertical: 9,
-                  paddingHorizontal: 11,
-                  borderRadius: 10,
-                  backgroundColor: GLASS.tintBlue,
-                  borderWidth: 1,
-                  borderColor: `${COLORS.primary}40`,
-                }}
-              >
-                <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.primary }}>
-                  Open in Google Maps →
-                </Text>
-              </Pressable>
-            </>
-          ) : null}
-        </SectionCard>
-      ) : null}
 
-      {/* Dimensions only when no diagram (diagram already shows N/S/E/W). */}
-      {boundary.source === 'engineer' && !boundariesBlock ? (
-        <SectionCard title="Dimensions" subtitle="Site boundary measurements" icon={Ruler}>
-          <InfoPairRow
-            leftLabel="Dim N"
-            leftValue={app.dimNorth != null && app.dimNorth !== '' ? String(app.dimNorth) : '—'}
-            rightLabel="Dim S"
-            rightValue={app.dimSouth != null && app.dimSouth !== '' ? String(app.dimSouth) : '—'}
-          />
-          <InfoPairRow
-            leftLabel="Dim E"
-            leftValue={app.dimEast != null && app.dimEast !== '' ? String(app.dimEast) : '—'}
-            rightLabel="Dim W"
-            rightValue={app.dimWest != null && app.dimWest !== '' ? String(app.dimWest) : '—'}
-            last={!app.totalSiteArea}
-          />
-          {app.totalSiteArea ? (
-            <InfoRow label="Total site area" value={app.totalSiteArea} last />
-          ) : null}
-        </SectionCard>
-      ) : null}
-
-      {hasMedia ? (
-        <SectionCard title="Photos" subtitle="Selfie, site & schedule captures" icon={Camera}>
-            <VStack style={{ gap: 12 }}>
-            {app.selfieUrl ? (
-              <Box>
-                <Text
-                  style={{
-                    fontFamily: FONTS.bold,
-                    fontSize: 10,
-                    color: COLORS.slate,
-                    marginBottom: 6,
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.4,
-                  }}
-                >
-                  Selfie
-                </Text>
-                <HStack className="flex-wrap" style={{ gap: 6 }}>
-                  <MediaThumb
-                    label="Selfie"
-                    uri={app.selfieUrl}
-                    onView={() => setPreview({ uri: app.selfieUrl!, title: 'Selfie' })}
-                  />
-                </HStack>
-              </Box>
-            ) : null}
-
-            {photos.length > 0 ? (
-              <Box>
-                <Text
-                  style={{
-                    fontFamily: FONTS.bold,
-                    fontSize: 10,
-                    color: COLORS.slate,
-                    marginBottom: 6,
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.4,
-                  }}
-                >
-                  Site photos
-                </Text>
-                <HStack className="flex-wrap" style={{ gap: 6 }}>
-                  {photos.map((url, i) => (
-                    <MediaThumb
-                      key={`photo-${i}-${url}`}
-                      label={`Photo ${i + 1}`}
-                      uri={url}
-                      onView={() => setPreview({ uri: url, title: `Site photo ${i + 1}` })}
-                    />
-                  ))}
-                </HStack>
-              </Box>
-            ) : null}
-
-            {schedulePhotos.N || schedulePhotos.S || schedulePhotos.E || schedulePhotos.W ? (
-              <Box>
-                <Text
-                  style={{
-                    fontFamily: FONTS.bold,
-                    fontSize: 10,
-                    color: COLORS.slate,
-                    marginBottom: 6,
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.4,
-                  }}
-                >
-                  Schedule photos
-                </Text>
-                <HStack className="flex-wrap" style={{ gap: 6 }}>
-                  {(
-                    [
-                      ['N', 'North'],
-                      ['S', 'South'],
-                      ['E', 'East'],
-                      ['W', 'West'],
-                    ] as const
-                  ).map(([key, label]) =>
-                    schedulePhotos[key] ? (
+              {photos.length > 0 ? (
+                <Box>
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 10,
+                      color: COLORS.slate,
+                      marginBottom: 6,
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.4,
+                    }}
+                  >
+                    Site photos
+                  </Text>
+                  <HStack className="flex-wrap" style={{ gap: 6 }}>
+                    {photos.map((url, i) => (
                       <MediaThumb
-                        key={key}
-                        label={label}
-                        uri={schedulePhotos[key]}
-                        onView={() =>
-                          setPreview({ uri: schedulePhotos[key], title: `${label} photo` })
-                        }
+                        key={`photo-${i}-${url}`}
+                        label={`Photo ${i + 1}`}
+                        uri={url}
+                        onView={() => setPreview({ uri: url, title: `Site photo ${i + 1}` })}
                       />
-                    ) : null,
-                  )}
-                </HStack>
-              </Box>
-            ) : null}
-          </VStack>
-        </SectionCard>
-      ) : null}
+                    ))}
+                  </HStack>
+                </Box>
+              ) : null}
 
-      {app.videoUrl ? (
-        <SectionCard title="Site Video" subtitle="Walk-through recording" icon={Film}>
-          <Box
-            style={{
-              borderRadius: 12,
-              overflow: 'hidden',
-              aspectRatio: 16 / 9,
-              backgroundColor: COLORS.ink,
-            }}
-          >
-            <SiteVideoPlayer uri={app.videoUrl} />
-          </Box>
-        </SectionCard>
-      ) : null}
+              {schedulePhotos.N || schedulePhotos.S || schedulePhotos.E || schedulePhotos.W ? (
+                <Box>
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 10,
+                      color: COLORS.slate,
+                      marginBottom: 6,
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.4,
+                    }}
+                  >
+                    Schedule photos
+                  </Text>
+                  <HStack className="flex-wrap" style={{ gap: 6 }}>
+                    {(
+                      [
+                        ['N', 'North'],
+                        ['S', 'South'],
+                        ['E', 'East'],
+                        ['W', 'West'],
+                      ] as const
+                    ).map(([key, label]) =>
+                      schedulePhotos[key] ? (
+                        <MediaThumb
+                          key={key}
+                          label={label}
+                          uri={schedulePhotos[key]}
+                          onView={() =>
+                            setPreview({ uri: schedulePhotos[key], title: `${label} photo` })
+                          }
+                        />
+                      ) : null,
+                    )}
+                  </HStack>
+                </Box>
+              ) : null}
+            </VStack>
+          </>
+        ) : null}
 
-      {app.engineerComments ? (
-        <SectionCard title="Comments" subtitle="Engineer remarks" icon={MessageSquare}>
-          <Text
-            style={{
-              fontFamily: FONTS.semibold,
-              fontSize: 13,
-              color: COLORS.ink,
-              lineHeight: 18,
-            }}
-          >
-            {app.engineerComments}
-          </Text>
-        </SectionCard>
-      ) : null}
+        {app.videoUrl ? (
+          <>
+            <SectionLabel>Site video</SectionLabel>
+            <Box
+              style={{
+                borderRadius: 12,
+                overflow: 'hidden',
+                aspectRatio: 16 / 9,
+                backgroundColor: COLORS.ink,
+              }}
+            >
+              <SiteVideoPlayer uri={app.videoUrl} />
+            </Box>
+          </>
+        ) : null}
+
+        {app.engineerComments ? (
+          <>
+            <SectionLabel>Comments</SectionLabel>
+            <InfoRow label="Engineer remarks" value={app.engineerComments} last />
+          </>
+        ) : null}
+      </SectionCard>
 
       <ImagePreviewModal
         uri={preview?.uri ?? null}

@@ -47,12 +47,12 @@ export function StatusCountGrid({
               className="active:opacity-90"
               style={{
                 borderRadius: 12,
-                paddingVertical: 10,
+                paddingVertical: 8,
                 paddingHorizontal: 10,
                 backgroundColor: active ? item.tint : COLORS.white,
                 borderWidth: 1,
                 borderColor: active ? item.tint : COLORS.border,
-                minHeight: 62,
+                minHeight: 56,
                 justifyContent: 'center',
                 shadowColor: GLASS.shadow,
                 shadowOffset: { width: 0, height: 2 },
