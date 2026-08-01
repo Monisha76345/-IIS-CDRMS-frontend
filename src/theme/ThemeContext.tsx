@@ -3,6 +3,7 @@ import {
   use,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -14,7 +15,9 @@ import { apiRequest } from '@/src/api/client';
 import { useAuth } from '@/src/auth/AuthContext';
 import {
   applyTheme,
+  applyAuthTheme,
   currentThemeId,
+  DEFAULT_THEME_ID,
   normalizeThemeId,
   THEME_OPTIONS,
   type ThemeId,
@@ -58,16 +61,26 @@ function activateTheme(id: ThemeId) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const { user, accessToken, updateSessionUser } = useAuth();
+  const { user, accessToken, updateSessionUser, isAuthenticated } = useAuth();
   const [themeId, setThemeId] = useState<ThemeId>(currentThemeId);
   const [themeReady, setThemeReady] = useState(false);
 
+  useLayoutEffect(() => {
+    if (!isAuthenticated) {
+      applyAuthTheme();
+      setThemeId(DEFAULT_THEME_ID);
+      setThemeReady(true);
+    }
+  }, [isAuthenticated]);
+
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     let cancelled = false;
     void (async () => {
       const cached = await readThemeLocal();
       const fromUser = normalizeThemeId(user?.themePreference);
-      const next = user?.themePreference ? fromUser : (cached ?? fromUser);
+      const next = user?.themePreference ? fromUser : (cached ?? DEFAULT_THEME_ID);
       if (!cancelled) {
         activateTheme(next);
         setThemeId(next);
@@ -77,16 +90,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  useEffect(() => {
-    if (!user?.themePreference) return;
-    const next = normalizeThemeId(user.themePreference);
-    if (next === themeId) return;
-    activateTheme(next);
-    setThemeId(next);
-    void saveThemeLocal(next);
-  }, [user?.themePreference, themeId]);
+  }, [isAuthenticated, user?.themePreference]);
 
   const setTheme = useCallback(
     async (id: ThemeId) => {

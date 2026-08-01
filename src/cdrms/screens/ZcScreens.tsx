@@ -421,7 +421,7 @@ function Field({
   );
 }
 
-function FormCard({
+function PlainSectionCard({
   title,
   subtitle,
   icon: Icon,
@@ -756,7 +756,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
             </Box>
           ) : (
             <VStack style={{ gap: 12 }}>
-              <FormCard title="Site details" subtitle="Site no, type & dimension" icon={Ruler}>
+              <PlainSectionCard title="Site details" subtitle="Site no, type & dimension" icon={Ruler}>
                 <HStack style={{ gap: 8, marginBottom: 10 }}>
                   <Field
                     label="Site no"
@@ -1009,9 +1009,9 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     </Pressable>
                   </HStack>
                 ) : null}
-              </FormCard>
+              </PlainSectionCard>
 
-              <FormCard title="Address" subtitle="Area, block & pincode" icon={MapPin}>
+              <PlainSectionCard title="Address" subtitle="Area, block & pincode" icon={MapPin}>
                 <HStack style={{ gap: 8, marginBottom: 10 }}>
                   <Field
                     label="Area"
@@ -1048,9 +1048,9 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     style={{ flex: 1 }}
                   />
                 </HStack>
-              </FormCard>
+              </PlainSectionCard>
 
-              <FormCard title="Site Schedules" subtitle="North · South · East · West" icon={Compass}>
+              <PlainSectionCard title="Site Schedules" subtitle="North · South · East · West" icon={Compass}>
                 <HStack style={{ gap: 8, marginBottom: 10 }}>
                   <Field
                     label="North"
@@ -1086,9 +1086,9 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     style={{ flex: 1 }}
                   />
                 </HStack>
-              </FormCard>
+              </PlainSectionCard>
 
-              <FormCard title="Assign engineer" subtitle="Field engineer in your zone" icon={UserCheck}>
+              <PlainSectionCard title="Assign engineer" subtitle="Field engineer in your zone" icon={UserCheck}>
                 <Pressable
                   onPress={() => {
                     if (engineers.length === 0) return;
@@ -1179,7 +1179,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     No engineers with an active post mapping in this zone.
                   </Text>
                 ) : null}
-              </FormCard>
+              </PlainSectionCard>
 
               <HStack style={{ gap: 10, marginHorizontal: SPACE.gutter, marginTop: 4 }}>
                 <Pressable

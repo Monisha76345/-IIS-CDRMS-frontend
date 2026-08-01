@@ -19,7 +19,7 @@ import {
   ShieldCheck,
   User,
 } from 'lucide-react-native';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Alert,
   ActivityIndicator,
@@ -97,6 +97,8 @@ import {
 import {
   COLORS,
   GLASS,
+  applyAuthTheme,
+  AUTH_GRADIENT_HEADER,
   GRADIENT_HEADER,
   GRADIENT_MESH,
   GRADIENT_PRIMARY,
@@ -116,6 +118,10 @@ const OTP_TTL_SEC = 60;
 export function SplashScreen({ go }: { go: Go }) {
   const insets = useSafeAreaInsets();
   const { isAuthenticated, user } = useAuth();
+
+  useLayoutEffect(() => {
+    applyAuthTheme();
+  }, []);
 
   const navigateAfterSplash = useCallback(() => {
     if (isAuthenticated && user) {
@@ -208,7 +214,7 @@ export function SplashScreen({ go }: { go: Go }) {
     <ScreenShell>
       <Animated.View style={[{ flex: 1 }, screenStyle]}>
         <LinearGradient
-          colors={gradientStops(GRADIENT_HEADER)}
+          colors={gradientStops(AUTH_GRADIENT_HEADER)}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ flex: 1, paddingTop: insets.top, paddingBottom: insets.bottom }}
@@ -363,6 +369,10 @@ export function SplashScreen({ go }: { go: Go }) {
 export function LoginScreen({ go }: { go: Go }) {
   const { login } = useAuth();
   const insets = useSafeAreaInsets();
+
+  useLayoutEffect(() => {
+    applyAuthTheme();
+  }, []);
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -437,7 +447,7 @@ export function LoginScreen({ go }: { go: Go }) {
         >
           <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
             <View style={{ flexGrow: 1 }}>
-              <GradientHeader rounded>
+              <GradientHeader rounded colors={AUTH_GRADIENT_HEADER}>
                 <Box className={`px-6 ${keyboardOpen ? 'pt-2 pb-6' : 'pt-4 pb-14'}`}>
                   <HStack className="items-center gap-3.5">
                     <Box className="h-13 w-13 rounded-2xl bg-white border border-white/30 items-center justify-center overflow-hidden shadow-md" style={{ width: 50, height: 50 }}>

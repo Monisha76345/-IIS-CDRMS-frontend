@@ -7,7 +7,8 @@ import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import { COLORS, FONTS, GLASS, GRADIENT_CARD_HEADER, GRADIENT_MESH, SPACE, gradientStops } from '@/src/cdrms/theme';
+import { COLORS, BLUE_SHADES, FONTS, GLASS, GRADIENT_CARD_HEADER, GRADIENT_MESH, SPACE, gradientStops } from '@/src/cdrms/theme';
+import { useTheme } from '@/src/theme/ThemeContext';
 
 type FrostedProps = {
   children: ReactNode;
@@ -185,6 +186,71 @@ export function GlassHeaderBadge({ children }: { children: ReactNode }) {
   );
 }
 
+/** Rich mesh gradient + theme orbs — shared by app header and glass section headers. */
+export function PremiumGradientBackground({
+  colors = GRADIENT_CARD_HEADER,
+}: {
+  colors?: readonly string[] | string[];
+}) {
+  const { themeId } = useTheme();
+
+  return (
+    <Box key={themeId} pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <LinearGradient
+        colors={gradientStops(colors)}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <Box
+        style={{
+          position: 'absolute',
+          top: -28,
+          right: -20,
+          width: 110,
+          height: 110,
+          borderRadius: 999,
+          backgroundColor: `${BLUE_SHADES.cyan}40`,
+        }}
+      />
+      <Box
+        style={{
+          position: 'absolute',
+          bottom: -35,
+          left: -25,
+          width: 100,
+          height: 100,
+          borderRadius: 999,
+          backgroundColor: `${COLORS.primaryDeep}45`,
+        }}
+      />
+      <Box
+        style={{
+          position: 'absolute',
+          top: 20,
+          left: '42%',
+          width: 70,
+          height: 70,
+          borderRadius: 999,
+          backgroundColor: `${BLUE_SHADES.indigo}30`,
+        }}
+      />
+      <LinearGradient
+        colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.06)', 'rgba(255,255,255,0)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0.8 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <LinearGradient
+        colors={['rgba(0,0,0,0)', 'rgba(15,23,42,0.1)']}
+        start={{ x: 0.5, y: 0.4 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+    </Box>
+  );
+}
+
 /** Blue mesh-shader card header — cyan → blue gradient + soft orbs */
 export function GlassCardHeader({
   title,
@@ -199,62 +265,7 @@ export function GlassCardHeader({
 }) {
   return (
     <Box style={{ overflow: 'hidden' }}>
-      <LinearGradient
-        colors={gradientStops(GRADIENT_CARD_HEADER)}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <Box
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          top: -28,
-          right: -20,
-          width: 110,
-          height: 110,
-          borderRadius: 999,
-          backgroundColor: 'rgba(34,211,238,0.2)',
-        }}
-      />
-      <Box
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          bottom: -35,
-          left: -25,
-          width: 100,
-          height: 100,
-          borderRadius: 999,
-          backgroundColor: 'rgba(29,78,216,0.25)',
-        }}
-      />
-      <Box
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          top: 20,
-          left: '42%',
-          width: 70,
-          height: 70,
-          borderRadius: 999,
-          backgroundColor: 'rgba(99,102,241,0.14)',
-        }}
-      />
-      <LinearGradient
-        pointerEvents="none"
-        colors={['rgba(255,255,255,0.16)', 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0.8 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <LinearGradient
-        pointerEvents="none"
-        colors={['rgba(0,0,0,0)', 'rgba(15,23,42,0.12)']}
-        start={{ x: 0.5, y: 0.4 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
+      <PremiumGradientBackground />
       <HStack
         style={{
           alignItems: 'center',
@@ -274,7 +285,7 @@ export function GlassCardHeader({
             backgroundColor: 'rgba(255,255,255,0.14)',
             borderWidth: 1,
             borderColor: 'rgba(255,255,255,0.3)',
-            shadowColor: '#0EA5E9',
+            shadowColor: COLORS.primaryGlow,
             shadowOffset: { width: 0, height: 3 },
             shadowOpacity: 0.18,
             shadowRadius: 6,

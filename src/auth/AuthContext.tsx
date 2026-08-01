@@ -12,8 +12,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import { apiRequest, ApiError } from '@/src/api/client';
 import { isMobileAllowedRole } from '@/src/auth/roles';
-import { applyTheme, normalizeThemeId } from '@/src/cdrms/theme';
-import { applyUniwindTheme } from '@/src/theme/applyUniwindTheme';
+import { applyAuthTheme } from '@/src/cdrms/theme';
 
 const TOKEN_KEY = 'cdrms_access_token';
 const USER_KEY = 'cdrms_auth_user';
@@ -86,9 +85,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setUser((prev) => {
                   const merged = { ...prev, ...p };
                   void saveItem(USER_KEY, JSON.stringify(merged));
-                  const themeId = normalizeThemeId(merged.themePreference);
-                  applyTheme(themeId);
-                  applyUniwindTheme(themeId);
                   return merged;
                 });
               }
@@ -126,9 +122,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
       }
       const nextUser = res.user ?? {};
-      const themeId = normalizeThemeId(nextUser.themePreference);
-      applyTheme(themeId);
-      applyUniwindTheme(themeId);
       await saveItem(TOKEN_KEY, res.accessToken);
       await saveItem(USER_KEY, JSON.stringify(nextUser));
       setAccessToken(res.accessToken);
@@ -141,6 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    applyAuthTheme();
     try {
       if (accessToken) {
         await apiRequest('/auth/logout', {

@@ -10,6 +10,7 @@ import {
   type ThemeId,
   type ThemePreset,
 } from '@/src/cdrms/themePresets';
+import { applyUniwindTheme } from '@/src/theme/applyUniwindTheme';
 
 export type { ThemeId } from '@/src/cdrms/themePresets';
 export {
@@ -189,3 +190,13 @@ function rebuildType() {
 
 // Ensure defaults are applied at module load
 applyTheme(DEFAULT_THEME_ID);
+
+/** Fixed blue gradients for splash/login — never follow user theme. */
+export const AUTH_GRADIENT_HEADER = ['#1E3A8A', '#1D4ED8', '#3B82F6'] as const;
+export const AUTH_GRADIENT_PRIMARY = ['#1E3A8A', '#2563EB'] as const;
+
+/** Reset to default blue (sync) — call on logout and pre-auth screens. */
+export function applyAuthTheme() {
+  applyTheme(DEFAULT_THEME_ID);
+  applyUniwindTheme(DEFAULT_THEME_ID);
+}

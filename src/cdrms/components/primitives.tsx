@@ -34,7 +34,8 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/src/auth/AuthContext';
 import { resolveAppRole, displayName } from '@/src/auth/roles';
-import { COLORS, FONTS, GLASS, GRADIENT_HEADER, GRADIENT_PRIMARY, SPACE, TYPE, gradientStops } from '@/src/cdrms/theme';
+import { PremiumGradientBackground } from '@/src/cdrms/components/GlassSurface';
+import { COLORS, FONTS, GLASS, GRADIENT_CARD_HEADER, GRADIENT_HEADER, GRADIENT_PRIMARY, SPACE, TYPE, gradientStops } from '@/src/cdrms/theme';
 import type { Go, NavTab, Screen } from '@/src/cdrms/types';
 import { useTheme } from '@/src/theme/ThemeContext';
 import { NotificationBell } from '@/src/cdrms/components/NotificationBell';
@@ -64,26 +65,36 @@ export function GradientHeader({
   children,
   className = '',
   rounded = true,
+  colors,
 }: {
   children: ReactNode;
   className?: string;
   rounded?: boolean;
+  /** Override gradient — use AUTH_GRADIENT_HEADER on login/splash. */
+  colors?: readonly [string, string, ...string[]] | readonly string[];
 }) {
   const insets = useSafeAreaInsets();
+  const { themeId } = useTheme();
+  const gradientColors = colors ?? GRADIENT_CARD_HEADER;
+  const bottomRadius = rounded ? SPACE.radiusLg : 0;
+
   return (
-    <LinearGradient
-      colors={gradientStops(GRADIENT_HEADER)}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
+    <Box
+      key={themeId}
       style={{
-        paddingTop: insets.top + SPACE[2],
-        borderBottomLeftRadius: rounded ? SPACE.radiusLg : 0,
-        borderBottomRightRadius: rounded ? SPACE.radiusLg : 0,
+        overflow: 'hidden',
+        borderBottomLeftRadius: bottomRadius,
+        borderBottomRightRadius: bottomRadius,
       }}
-      className={className}
     >
-      {children}
-    </LinearGradient>
+      <PremiumGradientBackground colors={gradientColors} />
+      <Box
+        style={{ paddingTop: insets.top + SPACE[2], zIndex: 1 }}
+        className={className}
+      >
+        {children}
+      </Box>
+    </Box>
   );
 }
 
