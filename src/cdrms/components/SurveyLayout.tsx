@@ -225,7 +225,7 @@ export function SurveyHero({
           </Box>
         ) : null}
 
-        <HStack className="items-center" style={{ zIndex: 2, gap: SPACE[3] }}>
+        <HStack className="items-start" style={{ zIndex: 2, gap: SPACE[3] }}>
           <Pressable
             onPress={onBack}
             hitSlop={10}
@@ -237,6 +237,7 @@ export function SurveyHero({
               backgroundColor: 'rgba(255,255,255,0.16)',
               borderWidth: 1,
               borderColor: 'rgba(255,255,255,0.28)',
+              marginTop: 2,
             }}
           >
             <ArrowLeft size={18} color="#FFFFFF" strokeWidth={2.3} />
@@ -260,10 +261,10 @@ export function SurveyHero({
                 style={{
                   fontFamily: FONTS.medium,
                   fontSize: 12,
-                  lineHeight: 16,
+                  lineHeight: 17,
                   color: 'rgba(255,255,255,0.82)',
                 }}
-                numberOfLines={1}
+                numberOfLines={3}
               >
                 {underTitle}
               </Text>
@@ -286,6 +287,7 @@ export function SurveyHero({
                 backgroundColor: 'rgba(255,255,255,0.14)',
                 borderWidth: 1,
                 borderColor: 'rgba(255,255,255,0.26)',
+                marginTop: 2,
               }}
             >
               <LogOut size={16} color="#FFFFFF" strokeWidth={2.2} />
@@ -631,13 +633,13 @@ export function WorkspaceHeader({
   icon: Icon,
   title,
   subtitle,
-  stepLabel,
+  badge,
   iconBg = COLORS.primary,
 }: {
   icon: LucideIcon;
   title: string;
   subtitle: string;
-  stepLabel?: string;
+  badge?: string;
   iconBg?: string;
 }) {
   return (
@@ -648,7 +650,7 @@ export function WorkspaceHeader({
         paddingBottom: SPACE[3],
       }}
     >
-      <HStack className="items-center" style={{ gap: SPACE[3] }}>
+      <HStack className="items-start" style={{ gap: SPACE[3] }}>
         <Box
           className="items-center justify-center"
           style={{
@@ -656,30 +658,36 @@ export function WorkspaceHeader({
             height: 44,
             borderRadius: 12,
             backgroundColor: iconBg,
+            marginTop: 2,
           }}
         >
           <Icon size={18} color="#fff" strokeWidth={2.3} />
         </Box>
-        <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
+        <VStack className="flex-1 min-w-0" style={{ gap: 3, paddingRight: badge ? SPACE[1] : 0 }}>
           {typeof title === 'string' && title.includes('*') ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-              <Text style={{ ...TYPE.title, color: COLORS.ink }} numberOfLines={1}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', flexWrap: 'wrap', gap: 3 }}>
+              <Text
+                style={{ ...TYPE.title, color: COLORS.ink, flexShrink: 1 }}
+                numberOfLines={2}
+              >
                 {title.replace(/\s*\*\s*/g, '')}
               </Text>
-              <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#DC2626' }}>*</Text>
+              <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#DC2626', lineHeight: 22 }}>*</Text>
             </View>
           ) : (
-            <Text style={{ ...TYPE.title, color: COLORS.ink }} numberOfLines={1}>
+            <Text style={{ ...TYPE.title, color: COLORS.ink }} numberOfLines={2}>
               {title}
             </Text>
           )}
-          <Text style={{ ...TYPE.caption, color: COLORS.ink }} numberOfLines={2}>
+          <Text style={{ ...TYPE.caption, color: COLORS.ink }} numberOfLines={3}>
             {subtitle}
           </Text>
         </VStack>
-        {stepLabel ? (
+        {badge ? (
           <Box
             style={{
+              flexShrink: 0,
+              marginTop: 2,
               paddingHorizontal: SPACE[2],
               paddingVertical: SPACE[1],
               borderRadius: 8,
@@ -698,7 +706,7 @@ export function WorkspaceHeader({
                 color: COLORS.ink,
               }}
             >
-              {stepLabel}
+              {badge}
             </Text>
           </Box>
         ) : null}

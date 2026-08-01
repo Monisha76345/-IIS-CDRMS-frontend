@@ -1,6 +1,6 @@
 import { Camera, Check, MapPinned, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, TextInput } from 'react-native';
+import { Alert, Platform, TextInput } from 'react-native';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -75,7 +75,6 @@ export function SchedulesEditorCard({
         icon={MapPinned}
         title={title}
         subtitle={subtitle}
-        stepLabel="STEP 02"
         iconBg={COLORS.primary}
       />
 
@@ -107,7 +106,7 @@ export function SchedulesEditorCard({
                 elevation: 2,
               }}
             >
-              <Box style={{ width: 56, justifyContent: 'center' }}>
+              <Box style={{ width: 50, justifyContent: 'center', flexShrink: 0 }}>
                 <Text
                   numberOfLines={1}
                   style={{
@@ -123,7 +122,7 @@ export function SchedulesEditorCard({
                   style={{
                     fontFamily: FONTS.medium,
                     fontSize: 10,
-                    color: COLORS.ink,
+                    color: COLORS.slate,
                     marginTop: 1,
                   }}
                 >
@@ -133,7 +132,7 @@ export function SchedulesEditorCard({
 
               <Pressable
                 onPress={() => setRoadFlag(k, !isRoad)}
-                className="active:opacity-80"
+                className="active:opacity-80 shrink-0"
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -177,30 +176,30 @@ export function SchedulesEditorCard({
               <TextInput
                 value={note}
                 onChangeText={(t) => setDirection(k, t)}
-                placeholder="Note…"
+                placeholder={isRoad ? 'Width' : `${DIRECTION_META[k].label} by`}
                 placeholderTextColor="#94A3B8"
+                underlineColorAndroid="transparent"
+                autoCorrect={false}
                 style={{
-                  flexGrow: 1,
-                  flexShrink: 1,
-                  flexBasis: 72,
-                  maxWidth: 96,
-                  minWidth: 64,
-                  height: 32,
+                  flex: 1,
+                  minWidth: 80,
+                  height: 36,
                   borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
                   backgroundColor: COLORS.white,
-                  paddingHorizontal: 8,
-                  fontFamily: FONTS.semibold,
+                  paddingHorizontal: 10,
+                  paddingVertical: Platform.OS === 'android' ? 0 : 8,
                   fontSize: 12,
+                  fontFamily: FONTS.medium,
                   color: COLORS.ink,
-                  shadowColor: '#0F172A',
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.06,
-                  shadowRadius: 4,
-                  elevation: 1,
+                  ...(Platform.OS === 'android'
+                    ? { textAlignVertical: 'center', includeFontPadding: false }
+                    : null),
                 }}
               />
 
-              <Box style={{ position: 'relative', marginLeft: 'auto' }}>
+              <Box style={{ position: 'relative', marginLeft: 'auto', flexShrink: 0 }}>
                 <Pressable
                   onPress={() => {
                     if (photo) {
@@ -216,8 +215,8 @@ export function SchedulesEditorCard({
                   disabled={isClearing}
                   className="active:opacity-85 overflow-hidden"
                   style={{
-                    width: 72,
-                    height: 52,
+                    width: 56,
+                    height: 44,
                     borderRadius: 10,
                     backgroundColor: COLORS.white,
                     alignItems: 'center',
@@ -258,7 +257,7 @@ export function SchedulesEditorCard({
                       </Box>
                     </Box>
                   ) : (
-                    <Camera size={22} color={COLORS.ink} />
+                    <Camera size={20} color={COLORS.ink} />
                   )}
                 </Pressable>
                 {photo ? (

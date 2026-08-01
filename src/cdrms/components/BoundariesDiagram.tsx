@@ -228,7 +228,9 @@ export function BoundariesDiagram({
   const ext = 13;
   const dimReach = ext + 8;
   /** Outward room for rotated Beside labels (symmetric around plot origin). */
-  const besideReach = 44;
+  const besideReach = 48;
+  /** Extra gap below N / above S compass letters before beside + road labels. */
+  const besideLabelGap = 44;
 
   let vbMinX = -160;
   let vbMinY = -140;
@@ -261,8 +263,8 @@ export function BoundariesDiagram({
   const eastLetterX = plotHw + COMPASS_LETTER_OFFSET;
   const westBesideX = -plotHw - dimReach - 34;
   const eastBesideX = plotHw + dimReach + 34;
-  const northBesideY = -plotHh - dimReach - 30;
-  const southBesideY = plotHh + dimReach + 30;
+  const northBesideY = -plotHh - dimReach - besideLabelGap;
+  const southBesideY = plotHh + dimReach + besideLabelGap;
 
   /** Match viewBox aspect so RN SVG fills the frame and stays centered (not shifted right). */
   const cardInnerWidth = Math.max(280, Dimensions.get('window').width - 72);
@@ -621,14 +623,28 @@ export function BoundariesDiagram({
                           {isRoad ? (
                             <RoadGlyph
                               x={nb.cx}
-                              y={nb.cy - 15}
+                              y={
+                                ed.letter === 'S'
+                                  ? nb.cy + 6
+                                  : ed.letter === 'N'
+                                    ? nb.cy - 6
+                                    : nb.cy - 15
+                              }
                               width={140}
                               height={14}
                             />
                           ) : null}
                           <SvgText
                             x={nb.cx}
-                            y={isRoad ? nb.cy + 9 : nb.cy}
+                            y={
+                              isRoad
+                                ? ed.letter === 'S'
+                                  ? nb.cy + 24
+                                  : ed.letter === 'N'
+                                    ? nb.cy - 24
+                                    : nb.cy + 9
+                                : nb.cy
+                            }
                             textAnchor="middle"
                             alignmentBaseline="middle"
                             fill={color}

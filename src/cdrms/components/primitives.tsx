@@ -282,6 +282,7 @@ export function AppBtn({
   className = '',
   disabled,
   icon: Icon,
+  compact,
 }: {
   children: ReactNode;
   onPress?: () => void;
@@ -289,6 +290,7 @@ export function AppBtn({
   className?: string;
   disabled?: boolean;
   icon?: LucideIcon;
+  compact?: boolean;
 }) {
   if (variant === 'primary') {
     return (
@@ -316,11 +318,25 @@ export function AppBtn({
             alignItems: 'center',
             justifyContent: 'center',
             gap: SPACE[2],
-            paddingHorizontal: SPACE[4],
+            paddingHorizontal: compact ? SPACE[2] : SPACE[4],
           }}
         >
           {Icon ? <Icon size={18} color={COLORS.white} strokeWidth={2.5} /> : null}
-          <Text style={{ ...TYPE.button, color: COLORS.white }}>{children}</Text>
+          <Text
+            numberOfLines={compact ? 1 : undefined}
+            allowFontScaling={compact ? false : true}
+            adjustsFontSizeToFit={compact ? true : undefined}
+            minimumFontScale={compact ? 0.82 : undefined}
+            style={{
+              ...TYPE.button,
+              color: COLORS.white,
+              textAlign: 'center',
+              flexShrink: 1,
+              ...(compact ? { fontSize: 11, letterSpacing: 0, lineHeight: 14 } : null),
+            }}
+          >
+            {children}
+          </Text>
         </LinearGradient>
       </Pressable>
     );

@@ -294,7 +294,6 @@ export function BandiScreen({ go }: { go: Go }) {
               ? `Live ${draft.compassReading} · turn phone to update`
               : 'Hold phone flat — live sensor on real device'
           }
-          stepLabel="STEP 02"
           iconBg={COLORS.primary}
         />
 
@@ -315,7 +314,6 @@ export function BandiScreen({ go }: { go: Go }) {
                   ? 'Live GPS locked · location & coordinates captured'
                   : 'Device location required'
               }
-              stepLabel="STEP 02"
               iconBg={COLORS.primary}
             />
             <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
@@ -449,7 +447,6 @@ export function BandiScreen({ go }: { go: Go }) {
               icon={Building2}
               title="Occupancy"
               subtitle="Select the current occupancy status of the site"
-              stepLabel="STEP 02"
               iconBg={COLORS.primary}
             />
             <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
@@ -1069,7 +1066,6 @@ export function SurroundingsScreen({ go }: { go: Go }) {
           icon={Camera}
           title={TERMS.sections.directionalPhotos}
           subtitle="North · South · East · West"
-          stepLabel="STEP 03"
           iconBg="#2563EB"
         />
         <Box className="px-4 pb-5 flex-row flex-wrap justify-between" style={{ gap: 12 }}>
@@ -1294,7 +1290,6 @@ export function PhotosScreen({ go }: { go: Go }) {
           icon={Camera}
           title="Engineer selfie *"
           subtitle="Mandatory — live front-camera selfie of engineer on site"
-          stepLabel="STEP 04"
           iconBg={COLORS.primary}
         />
         <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
@@ -1388,35 +1383,31 @@ export function PhotosScreen({ go }: { go: Go }) {
                 padding: SPACE[3],
               }}
             >
-              <HStack style={{ alignItems: 'center', justifyContent: 'space-between', gap: SPACE[3] }}>
-                <HStack style={{ alignItems: 'center', gap: SPACE[3], flex: 1 }}>
-                  <Box
+              <HStack style={{ alignItems: 'flex-start', justifyContent: 'space-between', gap: SPACE[3] }}>
+                <VStack style={{ flex: 1, minWidth: 0, gap: 2, paddingTop: 2 }}>
+                  <Text
+                    numberOfLines={1}
+                    style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}
+                  >
+                    Selfie photo required{' '}
+                    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#DC2626' }}>*</Text>
+                  </Text>
+                  <Text
                     style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 12,
-                      backgroundColor: '#EFF6FF',
-                      borderWidth: 1,
-                      borderColor: '#BFDBFE',
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                      fontFamily: FONTS.medium,
+                      fontSize: 11,
+                      color: '#64748B',
+                      lineHeight: 16,
+                      flexShrink: 1,
                     }}
                   >
-                    <Camera size={20} color={COLORS.primary} strokeWidth={2.2} />
-                  </Box>
-                  <VStack style={{ flex: 1, gap: 2 }}>
-                    <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}>
-                      Selfie photo required *
-                    </Text>
-                    <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: '#64748B' }}>
-                      Take a live front-camera selfie
-                    </Text>
-                  </VStack>
-                </HStack>
+                    Take a live front-camera selfie
+                  </Text>
+                </VStack>
 
                 <Pressable
                   onPress={() => void takeSelfieMedia()}
-                  className="active:opacity-80 flex-row items-center gap-1.5 px-3.5 py-2.5 rounded-xl"
+                  className="active:opacity-80 flex-row items-center gap-1.5 px-3.5 py-2.5 rounded-xl shrink-0"
                   style={{
                     backgroundColor: COLORS.primary,
                     shadowColor: '#0F172A',
@@ -1440,28 +1431,50 @@ export function PhotosScreen({ go }: { go: Go }) {
       <SurveyCard>
         <WorkspaceHeader
           icon={ImageIcon}
-          title={TERMS.sections.sitePhotoGallery}
-          subtitle="Rear camera only · extra site photos"
-          stepLabel="STEP 04"
+          title="Site photos"
+          subtitle="Rear camera only · optional extra site photos (max 4)"
           iconBg={COLORS.primary}
         />
         <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
-          <VStack style={{ gap: 2 }}>
-            <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}>
-              Uploaded assets
-            </Text>
-            <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}>
-              {draft.photos.length === 0
-                ? 'No extra site photos'
-                : `${draft.photos.length} photo${draft.photos.length === 1 ? '' : 's'} ready (max ${maxPhotos})`}
-            </Text>
-          </VStack>
+          <HStack style={{ alignItems: 'flex-start', justifyContent: 'space-between', gap: SPACE[3] }}>
+            <VStack style={{ flex: 1, minWidth: 0, gap: 4 }}>
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}>
+                Uploaded site photos
+              </Text>
+              <Text
+                style={{ fontFamily: FONTS.medium, fontSize: 12, color: '#64748B', lineHeight: 17 }}
+              >
+                {draft.photos.length === 0
+                  ? 'No extra site photos yet'
+                  : `${draft.photos.length} photo${draft.photos.length === 1 ? '' : 's'} ready (max ${maxPhotos})`}
+              </Text>
+            </VStack>
+            {draft.photos.length < maxPhotos ? (
+              <Pressable
+                onPress={() => void takeSitePhoto()}
+                className="active:opacity-80 flex-row items-center"
+                style={{
+                  flexShrink: 0,
+                  gap: 6,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 10,
+                  backgroundColor: COLORS.primary,
+                }}
+              >
+                <Plus size={14} color="#FFFFFF" strokeWidth={2.8} />
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: '#FFFFFF' }}>
+                  Add Photo
+                </Text>
+              </Pressable>
+            ) : null}
+          </HStack>
 
           <Box className="flex-row flex-wrap" style={{ gap: 10 }}>
             {draft.photos.map((p, i) => (
               <Box
                 key={p.id}
-                className="rounded-2xl overflow-hidden"
+                className="rounded-2xl overflow-hidden relative"
                 style={{
                   width: '31%',
                   aspectRatio: 1,
@@ -1504,43 +1517,32 @@ export function PhotosScreen({ go }: { go: Go }) {
                 </Box>
               </Box>
             ))}
-            {draft.photos.length < maxPhotos ? (
-              <Pressable
-                onPress={() => void takeSitePhoto()}
-                className="rounded-2xl items-center justify-center active:opacity-80"
+            {draft.photos.length === 0 ? (
+              <Box
+                className="items-center justify-center rounded-2xl"
                 style={{
-                  width: '31%',
-                  aspectRatio: 1,
-                  backgroundColor: '#EFF6FF',
-                  borderWidth: 1.5,
-                  borderColor: '#BFDBFE',
+                  width: '100%',
+                  minHeight: 88,
+                  backgroundColor: '#F8FAFC',
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
                   borderStyle: 'dashed',
+                  paddingVertical: SPACE[4],
+                  paddingHorizontal: SPACE[3],
                 }}
               >
-                <VStack style={{ alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                  <Box
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 16,
-                      backgroundColor: COLORS.primary,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Plus size={18} color="#FFFFFF" strokeWidth={2.8} />
-                  </Box>
-                  <Text
-                    style={{
-                      fontFamily: FONTS.bold,
-                      fontSize: 11,
-                      color: COLORS.primary,
-                    }}
-                  >
-                    Add Photo
-                  </Text>
-                </VStack>
-              </Pressable>
+                <Text
+                  style={{
+                    fontFamily: FONTS.medium,
+                    fontSize: 12,
+                    color: '#64748B',
+                    textAlign: 'center',
+                    lineHeight: 18,
+                  }}
+                >
+                  Tap Add Photo to upload optional site images
+                </Text>
+              </Box>
             ) : null}
           </Box>
         </VStack>
@@ -1556,7 +1558,8 @@ export function PhotosScreen({ go }: { go: Go }) {
         <SurveyCard>
           <VStack style={{ paddingHorizontal: SPACE[4], paddingVertical: SPACE[4], gap: SPACE[2] }}>
             <Text style={{ fontFamily: FONTS.bold, fontSize: 15, color: COLORS.ink }}>
-              Engineer comments *
+              Engineer comments{' '}
+              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#DC2626' }}>*</Text>
             </Text>
             <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}>
               Required — same as web Step 4 before submit
@@ -1722,7 +1725,6 @@ export function VideoScreen({ go }: { go: Go }) {
           icon={Camera}
           title={TERMS.sections.walkthroughVideo}
           subtitle="HD recording · on device"
-          stepLabel={isBackendTask ? 'STEP 04' : 'STEP 05'}
           iconBg={COLORS.primary}
         />
         <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
@@ -1822,11 +1824,11 @@ export function VideoScreen({ go }: { go: Go }) {
         </VStack>
       </SurveyCard>
 
-      <HStack className="mx-4" space="md">
+      <HStack className="mx-4 items-stretch" space="md">
         <Pressable
           onPress={record}
           disabled={busy !== null}
-          className="flex-1 h-[68px] rounded-2xl overflow-hidden active:opacity-90"
+          className="flex-1 min-h-[68px] rounded-2xl overflow-hidden active:opacity-90"
           style={{
             shadowColor: '#2563EB',
             shadowOffset: { width: 0, height: 8 },
@@ -1844,12 +1846,13 @@ export function VideoScreen({ go }: { go: Go }) {
               flex: 1,
               flexDirection: 'row',
               alignItems: 'center',
-              paddingHorizontal: 14,
-              gap: 10,
+              paddingHorizontal: 12,
+              paddingVertical: 12,
+              gap: 8,
             }}
           >
             <Box
-              className="items-center justify-center"
+              className="items-center justify-center shrink-0"
               style={{
                 width: 38,
                 height: 38,
@@ -1859,7 +1862,10 @@ export function VideoScreen({ go }: { go: Go }) {
             >
               <Camera size={18} color="#fff" strokeWidth={2.3} />
             </Box>
-            <Text className="flex-1 font-extrabold text-white text-[13px]">
+            <Text
+              className="flex-1 font-extrabold text-white text-[12px] shrink"
+              style={{ lineHeight: 16, flexShrink: 1 }}
+            >
               {busy === 'record'
                 ? 'Opening…'
                 : videoPickOnly
@@ -1873,7 +1879,7 @@ export function VideoScreen({ go }: { go: Go }) {
         <Pressable
           onPress={choose}
           disabled={busy !== null}
-          className="flex-1 h-[68px] rounded-2xl flex-row items-center px-3.5 gap-2.5 active:opacity-90"
+          className="flex-1 min-h-[68px] rounded-2xl flex-row items-center px-3 gap-2.5 active:opacity-90"
           style={{
             backgroundColor: '#FFFFFF',
             borderWidth: 1.5,
@@ -1883,10 +1889,11 @@ export function VideoScreen({ go }: { go: Go }) {
             shadowOpacity: 0.06,
             shadowRadius: 12,
             elevation: 2,
+            paddingVertical: 12,
           }}
         >
           <Box
-            className="items-center justify-center"
+            className="items-center justify-center shrink-0"
             style={{
               width: 38,
               height: 38,
@@ -1896,7 +1903,10 @@ export function VideoScreen({ go }: { go: Go }) {
           >
             <Film size={18} color={COLORS.primary} strokeWidth={2.3} />
           </Box>
-          <Text className="flex-1 font-extrabold text-foreground text-[13px]">
+          <Text
+            className="flex-1 font-extrabold text-foreground text-[12px] shrink"
+            style={{ lineHeight: 16, flexShrink: 1 }}
+          >
             {busy === 'choose' ? 'Opening…' : 'Choose File'}
           </Text>
           <ChevronRight size={18} color={COLORS.primary} strokeWidth={2.4} />
