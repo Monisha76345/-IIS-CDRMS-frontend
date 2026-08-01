@@ -1362,20 +1362,14 @@ export function PhotosScreen({ go }: { go: Go }) {
             title="Selfie *"
             subtitle=""
             badge={
-              <GlassHeaderBadge>
-                {draft.selfie ? (
-                  <>
-                    <CheckCircle2 size={10} color="#FFFFFF" strokeWidth={2.5} />
-                    <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
-                      Done
-                    </Text>
-                  </>
-                ) : (
+              draft.selfie ? (
+                <GlassHeaderBadge>
+                  <CheckCircle2 size={10} color="#FFFFFF" strokeWidth={2.5} />
                   <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
-                    Required
+                    Done
                   </Text>
-                )}
-              </GlassHeaderBadge>
+                </GlassHeaderBadge>
+              ) : undefined
             }
           >
             {draft.selfie ? (
@@ -1594,11 +1588,13 @@ export function PhotosScreen({ go }: { go: Go }) {
             title="Engineer comments *"
             subtitle=""
             badge={
-              <GlassHeaderBadge>
-                <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
-                  {draft.engineerComments.trim() ? 'Done' : 'Required'}
-                </Text>
-              </GlassHeaderBadge>
+              draft.engineerComments.trim() ? (
+                <GlassHeaderBadge>
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
+                    Done
+                  </Text>
+                </GlassHeaderBadge>
+              ) : undefined
             }
           >
             <Box
@@ -1619,7 +1615,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                 <TextareaInput
                   value={draft.engineerComments}
                   onChangeText={(t) => updateField('engineerComments', t)}
-                  placeholder="Enter field remarks / comments…"
+                  placeholder="width (eg:10ft)"
                 />
               </Textarea>
             </Box>

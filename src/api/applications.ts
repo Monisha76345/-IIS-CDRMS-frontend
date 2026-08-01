@@ -466,34 +466,62 @@ function hasEngineerDimensions(app: MobileApplication): boolean {
   return Boolean(ed.N?.trim() && ed.S?.trim() && ed.E?.trim() && ed.W?.trim());
 }
 
+/** Marker saved when engineer taps Continue on ZC details (step 1). */
+export const ENGINEER_SITE_STEP_ACK = 'reviewed';
+
+export function engineerFacingStepDone(app: MobileApplication): boolean {
+  return Boolean(app.compass?.trim() && app.latitude?.trim() && app.longitude?.trim());
+}
+
+export function engineerDimsStepDone(app: MobileApplication): boolean {
+  return hasEngineerDimensions(app);
+}
+
+export function engineerMediaStepDone(app: MobileApplication): boolean {
+  return Boolean(app.selfieUrl?.trim());
+}
+
 /**
- * Field-capture progress for engineer dashboard (4-step Continue Open Task flow).
- * Uses list-payload fields: compass/GPS, dimensions, selfie, submit.
+ * Step 1 is done only after Continue on ZC details (persisted site ack),
+ * or when a later step already has saved data (resume / legacy drafts).
+ */
+export function engineerSiteStepDone(app: MobileApplication): boolean {
+  return (
+    Boolean(app.engineerSiteDetails?.trim()) ||
+    engineerFacingStepDone(app) ||
+    engineerDimsStepDone(app) ||
+    engineerMediaStepDone(app)
+  );
+}
+
+/**
+ * Resume screen for edit / continue — first incomplete step in the 4-step flow.
+ */
+export function engineerResumeScreen(
+  app: MobileApplication,
+): 'project' | 'bandi' | 'dimensions' | 'photos' {
+  if (!engineerSiteStepDone(app)) return 'project';
+  if (!engineerFacingStepDone(app)) return 'bandi';
+  if (!engineerDimsStepDone(app)) return 'dimensions';
+  return 'photos';
+}
+
+/**
+ * Progress increases only after each Continue (saved step data), not on open.
+ * Caps at 75% until the task is fully submitted (then 100%).
  */
 export function engineerTaskProgressPercent(app: MobileApplication): number {
   const status = normalizeApplicationStatus(app.status) ?? app.status;
   if (status === 'submitted' || Boolean(app.engineerSubmittedAt?.trim())) return 100;
 
   let completed = 0;
+  if (engineerSiteStepDone(app)) completed += 1;
+  if (engineerFacingStepDone(app)) completed += 1;
+  if (engineerDimsStepDone(app)) completed += 1;
+  if (engineerMediaStepDone(app)) completed += 1;
 
-  const started =
-    status === 'in_progress' ||
-    Boolean(app.compass?.trim()) ||
-    Boolean(app.latitude?.trim()) ||
-    Boolean(app.longitude?.trim()) ||
-    hasEngineerDimensions(app) ||
-    Boolean(app.selfieUrl?.trim());
-  if (started) completed += 1;
-
-  if (app.compass?.trim() && app.latitude?.trim() && app.longitude?.trim()) {
-    completed += 1;
-  }
-
-  if (hasEngineerDimensions(app)) completed += 1;
-
-  if (app.selfieUrl?.trim()) completed += 1;
-
-  return Math.round((completed / 4) * 100);
+  // Never show 100% before submit — media Continue alone stays at 75%.
+  return Math.min(75, Math.round((completed / 4) * 100));
 }
 
 export type ApplicationStatusTone = {

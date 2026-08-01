@@ -8,6 +8,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import type { AppNotification } from '@/src/api/notifications';
+import { engineerResumeScreen, type MobileApplication } from '@/src/api/applications';
 import type { Go } from '@/src/cdrms/types';
 import type { AppRole } from '@/src/auth/roles';
 import { setSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
@@ -87,11 +88,11 @@ export function resolveNotificationAction(
 export async function navigateFromNotification(
   action: NotificationNavAction,
   go: Go,
-  openBackendTask?: (id: string) => Promise<void>,
+  openBackendTask?: (id: string) => Promise<MobileApplication>,
 ) {
   if (action.kind === 'task' && openBackendTask) {
-    await openBackendTask(action.applicationId);
-    go('project');
+    const app = await openBackendTask(action.applicationId);
+    go(engineerResumeScreen(app));
     return;
   }
   if (action.kind === 'cao_detail') {

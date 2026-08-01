@@ -263,6 +263,9 @@ export function GlassCardHeader({
   icon: LucideIcon;
   badge?: ReactNode;
 }) {
+  const required = title.trimEnd().endsWith('*');
+  const label = required ? title.replace(/\s*\*\s*$/, '') : title;
+
   return (
     <Box style={{ overflow: 'hidden' }}>
       <PremiumGradientBackground />
@@ -295,19 +298,33 @@ export function GlassCardHeader({
           <Icon size={17} color="#FFFFFF" strokeWidth={2} />
         </Box>
         <VStack style={{ flex: 1, gap: 1 }}>
-          <Text
-            style={{
-              fontFamily: FONTS.bold,
-              fontSize: 15,
-              color: '#FFFFFF',
-              letterSpacing: -0.2,
-              textShadowColor: 'rgba(15,23,42,0.25)',
-              textShadowOffset: { width: 0, height: 1 },
-              textShadowRadius: 3,
-            }}
-          >
-            {title}
-          </Text>
+          <HStack style={{ alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <Text
+              style={{
+                fontFamily: FONTS.bold,
+                fontSize: 15,
+                color: '#FFFFFF',
+                letterSpacing: -0.2,
+                textShadowColor: 'rgba(15,23,42,0.25)',
+                textShadowOffset: { width: 0, height: 1 },
+                textShadowRadius: 3,
+              }}
+            >
+              {label}
+            </Text>
+            {required ? (
+              <Text
+                style={{
+                  fontFamily: FONTS.bold,
+                  fontSize: 15,
+                  color: '#F87171',
+                  letterSpacing: -0.2,
+                }}
+              >
+                *
+              </Text>
+            ) : null}
+          </HStack>
           {subtitle ? (
             <Text
               style={{
