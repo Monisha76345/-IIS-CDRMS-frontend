@@ -115,6 +115,19 @@ const OTP_TTL_SEC = 60;
 
 export function SplashScreen({ go }: { go: Go }) {
   const insets = useSafeAreaInsets();
+  const { isAuthenticated, user } = useAuth();
+
+  const navigateAfterSplash = useCallback(() => {
+    if (isAuthenticated && user) {
+      if (needsGeoValidation(user)) {
+        go('permission');
+      } else {
+        go(homeScreenForRole(user));
+      }
+      return;
+    }
+    go('login');
+  }, [go, isAuthenticated, user]);
 
   const logoScale = useSharedValue(0.55);
   const logoOpacity = useSharedValue(0);
@@ -152,12 +165,12 @@ export function SplashScreen({ go }: { go: Go }) {
 
     const leave = setTimeout(() => {
       screenOpacity.value = withTiming(0, { duration: 380, easing: Easing.in(Easing.cubic) }, (finished) => {
-        if (finished) runOnJS(go)('login');
+        if (finished) runOnJS(navigateAfterSplash)();
       });
     }, SPLASH_HOLD_MS);
 
     return () => clearTimeout(leave);
-  }, [go, logoOpacity, logoScale, orbDrift, progress, ring, screenOpacity]);
+  }, [go, logoOpacity, logoScale, navigateAfterSplash, orbDrift, progress, ring, screenOpacity]);
 
   const logoStyle = useAnimatedStyle(() => ({
     opacity: logoOpacity.value,

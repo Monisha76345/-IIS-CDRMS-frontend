@@ -1,7 +1,9 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Box } from '@/components/ui/box';
 import { ProjectProvider } from '@/src/cdrms/project/ProjectContext';
+import { useAuth } from '@/src/auth/AuthContext';
+import { homeScreenForRole, needsGeoValidation } from '@/src/auth/roles';
 import {
   GeoScreen,
   LoginScreen,
@@ -45,7 +47,6 @@ import {
   ZcHomeScreen,
 } from '@/src/cdrms/screens/ZcScreens';
 import type { Go, Screen } from '@/src/cdrms/types';
-import React, { useEffect } from 'react';
 import { ScreenLoader, getScreenLoaderConfig } from '@/src/cdrms/components/primitives';
 
 function ScreenTransitionWrapper({
@@ -92,11 +93,23 @@ function ScreenTransitionWrapper({
 }
 
 export function CdrmsApp() {
+  const { isAuthenticated, user } = useAuth();
   const [screen, setScreen] = useState<Screen>('splash');
+  const skipSplashRef = useRef(false);
 
   const go: Go = useCallback((s) => {
+    skipSplashRef.current = true;
     setScreen(s);
   }, []);
+
+  // Keep session alive if the tree remounts (e.g. theme/fonts) while logged in.
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    if (screen !== 'splash' && screen !== 'login') return;
+    if (skipSplashRef.current) return;
+    const target = needsGeoValidation(user) ? 'permission' : homeScreenForRole(user);
+    setScreen(target);
+  }, [isAuthenticated, user, screen]);
 
   const rendered = useMemo(() => {
     switch (screen) {

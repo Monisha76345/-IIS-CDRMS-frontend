@@ -10,6 +10,7 @@ import {
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, TextInput } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Pressable } from '@/components/ui/pressable';
@@ -41,7 +42,7 @@ import {
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
 import { getCaoReturnScreen, getSelectedOfficeAppId, setCaoReturnScreen, setSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
 import { downloadApplicationPdf } from '@/src/cdrms/lib/downloadApplicationPdf';
-import { COLORS, FONTS, GLASS, themeStatColors } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GLASS, GRADIENT_PRIMARY, themeStatColors, gradientStops } from '@/src/cdrms/theme';
 import { useTheme } from '@/src/theme/ThemeContext';
 import type { Go } from '@/src/cdrms/types';
 
@@ -533,6 +534,7 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
 }
 
 export function CaoDetailScreen({ go }: { go: Go }) {
+  const { themeId } = useTheme();
   const { accessToken } = useAuth();
   const [app, setApp] = useState<MobileApplication | null>(null);
   const [loading, setLoading] = useState(true);
@@ -567,59 +569,78 @@ export function CaoDetailScreen({ go }: { go: Go }) {
   };
 
   return (
-    <ScreenShell className="bg-white">
+    <ScreenShell className="bg-background">
       <AppHeader
         title="View Application"
+        subtitle={app?.applicationNumber || 'Application details'}
         onBack={() => go(backTarget)}
-        gradient={false}
+        gradient
         go={go}
         showNotifications={false}
-        showLogout={false}
       />
-      <ScrollView contentContainerStyle={{ padding: 10, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        key={themeId}
+        contentContainerStyle={{ paddingTop: 12, paddingBottom: 40, gap: 12 }}
+        showsVerticalScrollIndicator={false}
+      >
         {loading ? (
           <ScreenLoader text="Loading application details…" />
         ) : error || !app ? (
           <Box
+            className="mx-4 rounded-2xl border px-4 py-6"
             style={{
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: '#FECACA',
-              backgroundColor: '#FEF2F2',
-              padding: 14,
+              borderColor: `${COLORS.destructive}40`,
+              backgroundColor: `${COLORS.destructive}0D`,
             }}
           >
-            <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: '#DC2626' }}>
+            <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: COLORS.destructive, textAlign: 'center' }}>
               {error || 'Not found'}
             </Text>
           </Box>
         ) : (
-          <VStack style={{ gap: 10 }}>
+          <VStack style={{ gap: 12 }}>
             <ApplicationRecordDetails app={app} />
 
-            <Pressable
-              onPress={() => void handleDownload()}
-              disabled={downloading}
-              style={{
-                height: 46,
-                borderRadius: 12,
-                backgroundColor: COLORS.primary,
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: downloading ? 0.7 : 1,
-              }}
-            >
-              {downloading ? (
-                <ButtonLoader color="#FFF" />
-              ) : (
-                <HStack className="items-center" style={{ gap: 6 }}>
-                  <Download size={16} color="#FFFFFF" />
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#FFFFFF' }}>
-                    Download PDF
-                  </Text>
-                </HStack>
-              )}
-            </Pressable>
+            <Box style={{ marginHorizontal: 16 }}>
+              <Pressable
+                onPress={() => void handleDownload()}
+                disabled={downloading}
+                className="overflow-hidden active:opacity-90"
+                style={{
+                  borderRadius: 14,
+                  opacity: downloading ? 0.7 : 1,
+                  shadowColor: COLORS.primary,
+                  shadowOffset: { width: 0, height: 8 },
+                  shadowOpacity: 0.24,
+                  shadowRadius: 12,
+                  elevation: 4,
+                }}
+              >
+                <LinearGradient
+                  colors={gradientStops(GRADIENT_PRIMARY)}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{
+                    height: 48,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                  }}
+                >
+                  {downloading ? (
+                    <ButtonLoader color={COLORS.white} />
+                  ) : (
+                    <>
+                      <Download size={16} color={COLORS.white} />
+                      <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.white }}>
+                        Download PDF
+                      </Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </Pressable>
+            </Box>
           </VStack>
         )}
       </ScrollView>

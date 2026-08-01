@@ -383,6 +383,8 @@ export function AppHeader({
   const { logout, isAuthenticated, user } = useAuth();
   const role = resolveAppRole(user);
   const isEngineerOrZc = role === 'engineer' || role === 'zc';
+  const isCompactOfficeNav =
+    role === 'zc' || role === 'cao' || role === 'super_admin';
   const canLogout = Boolean(showLogout && isAuthenticated && go);
 
   const onLogout = async () => {
@@ -408,7 +410,7 @@ export function AppHeader({
   ) : null;
 
   const notifBell =
-    go && showNotifications && !isEngineerOrZc ? (
+    go && showNotifications && !(isCompactOfficeNav || isEngineerOrZc) ? (
       <NotificationBell go={go} variant={gradient ? 'header' : 'plain'} />
     ) : null;
 
@@ -855,6 +857,13 @@ export function BottomNav({
     onNav('project');
   };
 
+  const { user } = useAuth();
+  const role = resolveAppRole(user);
+  const isEngineerOrZc = role === 'engineer' || role === 'zc';
+  const isCompactOfficeNav =
+    role === 'zc' || role === 'cao' || role === 'super_admin';
+  const shouldHideAlerts = hideAlerts || isEngineerOrZc || isCompactOfficeNav;
+
   const leftItems: Array<{
     k: NavTab;
     label: string;
@@ -863,12 +872,10 @@ export function BottomNav({
     badge?: number;
   }> = [
     { k: 'home', label: 'Home', icon: Home, target: homeTarget },
-    { k: 'apps', label: 'Apps', icon: FileText, target: appsTarget },
+    ...(isCompactOfficeNav
+      ? []
+      : [{ k: 'apps' as const, label: 'Apps', icon: FileText, target: appsTarget }]),
   ];
-  const { user } = useAuth();
-  const role = resolveAppRole(user);
-  const isEngineerOrZc = role === 'engineer' || role === 'zc';
-  const shouldHideAlerts = hideAlerts || isEngineerOrZc;
 
   const rightItems: Array<{
     k: NavTab;

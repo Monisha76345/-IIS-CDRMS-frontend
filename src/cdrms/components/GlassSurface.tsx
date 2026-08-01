@@ -7,7 +7,7 @@ import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import { COLORS, FONTS, GLASS, GRADIENT_CARD_HEADER, GRADIENT_MESH, SPACE } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GLASS, GRADIENT_CARD_HEADER, GRADIENT_MESH, SPACE, gradientStops } from '@/src/cdrms/theme';
 
 type FrostedProps = {
   children: ReactNode;
@@ -108,7 +108,7 @@ export function GlassSurface({ children, style, padding = SPACE[3] }: GlassSurfa
 
 export function GlassIcon({
   icon: Icon,
-  color = '#2563EB',
+  color = COLORS.primary,
   size = 15,
 }: {
   icon: LucideIcon;
@@ -200,7 +200,7 @@ export function GlassCardHeader({
   return (
     <Box style={{ overflow: 'hidden' }}>
       <LinearGradient
-        colors={[...GRADIENT_CARD_HEADER]}
+        colors={gradientStops(GRADIENT_CARD_HEADER)}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
