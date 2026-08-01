@@ -83,9 +83,6 @@ export type MobileApplication = {
   videoUrl?: string | null;
   engineerComments?: string | null;
   engineerSubmittedAt?: string | null;
-  caoRemarks?: string | null;
-  caoReviewedAt?: string | null;
-  history?: ApplicationHistoryItem[] | null;
 };
 
 export type ApplicationAs = 'engineer' | 'zc' | 'cao';
@@ -265,9 +262,6 @@ function normalizeApplication(raw: Record<string, unknown>): MobileApplication {
     engineerComments: raw.engineerComments != null ? String(raw.engineerComments) : null,
     engineerSubmittedAt:
       raw.engineerSubmittedAt != null ? String(raw.engineerSubmittedAt) : null,
-    caoRemarks: raw.caoRemarks != null ? String(raw.caoRemarks) : null,
-    caoReviewedAt: raw.caoReviewedAt != null ? String(raw.caoReviewedAt) : null,
-    history: normalizeHistory(raw.history),
     createdAt: raw.createdAt != null ? String(raw.createdAt) : null,
     updatedAt: raw.updatedAt != null ? String(raw.updatedAt) : null,
   };

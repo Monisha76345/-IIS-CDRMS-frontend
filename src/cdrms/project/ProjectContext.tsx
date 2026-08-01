@@ -54,7 +54,6 @@ type ProjectField = Exclude<
   | 'photos'
   | 'video'
   | 'resubmitOfId'
-  | 'caoRemarks'
   | 'backendApplicationId'
   | 'applicationNumber'
 >;
@@ -228,7 +227,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
               ]
             : [],
           resubmitOfId: submitted.applicationId,
-          caoRemarks: null,
         });
         setSelectedApplicationId(null);
         return true;
@@ -941,7 +939,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       submittedAt: submitted.submittedAt,
       updatedAt: Date.now(),
       resubmitOfId: null,
-      caoRemarks: null,
     }));
 
     return submitted;

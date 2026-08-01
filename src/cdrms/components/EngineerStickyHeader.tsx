@@ -116,36 +116,7 @@ export function EngineerStickyHeader() {
           </HStack>
         </VStack>
 
-        {draft.caoRemarks ? (
-          <Box
-            style={{
-              borderRadius: 12,
-              backgroundColor: COLORS.white,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              borderWidth: 1,
-              borderColor: COLORS.border,
-              shadowColor: '#0F172A',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.06,
-              shadowRadius: 6,
-              elevation: 2,
-            }}
-          >
-            <Text style={{ ...TYPE.label, color: COLORS.ink }}>CAO remarks</Text>
-            <Text
-              style={{
-                fontFamily: FONTS.medium,
-                fontSize: 13,
-                color: COLORS.ink,
-                marginTop: 4,
-                lineHeight: 18,
-              }}
-            >
-              {draft.caoRemarks}
-            </Text>
-          </Box>
-        ) : null}
+
       </VStack>
     </SurveyCard>
   );

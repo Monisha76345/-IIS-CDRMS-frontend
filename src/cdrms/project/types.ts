@@ -83,7 +83,6 @@ export type ProjectDraft = {
   video: MediaAsset | null;
   /** When editing a returned app for resubmit. */
   resubmitOfId: string | null;
-  caoRemarks: string | null;
 };
 
 /** Snapshot kept after submit for history / success screens. */
@@ -198,7 +197,6 @@ export function createEmptyDraft(): ProjectDraft {
     selfie: null,
     video: null,
     resubmitOfId: null,
-    caoRemarks: null,
   };
 }
 

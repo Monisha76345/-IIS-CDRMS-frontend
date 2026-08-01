@@ -162,7 +162,6 @@ export function draftFromBackendApplication(app: MobileApplication): ProjectDraf
       ? remoteAsset(app.videoUrl, 'video', `video-${app.id}`, now)
       : null,
     approachNotes: app.siteDimensionComment || '',
-    caoRemarks: app.caoRemarks || null,
     resubmitOfId: null,
   };
 }

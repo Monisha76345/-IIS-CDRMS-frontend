@@ -350,24 +350,7 @@ export function ProjectScreen({ go }: { go: Go }) {
       }
           go={go}
     >
-      {draft.caoRemarks ? (
-        <Box
-          className="mx-4 p-4"
-          style={{
-            backgroundColor: '#FFFBEB',
-            borderRadius: 18,
-            borderWidth: 1,
-            borderColor: '#FCD34D',
-          }}
-        >
-          <Text className="text-[11px] font-extrabold uppercase tracking-wider" style={{ color: '#B45309' }}>
-            {TERMS.workflow.fixCaoRemarks}
-          </Text>
-          <Text className="text-[13px] mt-1.5 leading-5" style={{ color: '#78350F' }}>
-            {draft.caoRemarks}
-          </Text>
-        </Box>
-      ) : null}
+
 
       {showLoader ? (
         <SiteLoadingCards />

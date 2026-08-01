@@ -340,7 +340,6 @@ export function draftFromApplicationRecord(app: ApplicationRecord) {
         )
       : null,
     resubmitOfId: app.id,
-    caoRemarks: app.remarks ?? null,
   };
 }
 
