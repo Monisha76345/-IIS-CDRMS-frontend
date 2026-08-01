@@ -217,13 +217,9 @@ export function SurveyHero({
   variant?: 'default' | 'premium';
 }) {
   const insets = useSafeAreaInsets();
-  const steps = stepsForTotal(total);
   const isPremium = variant === 'premium';
-  const stepLine =
-    step != null
-      ? `Step ${step} of ${total} · ${steps[step - 1]?.title ?? 'Survey'}`
-      : undefined;
-  const underTitle = subtitle || stepLine;
+  const displayTitle = step != null ? `Step ${step} - ${title}` : title;
+  const underTitle = subtitle;
 
   return (
     <Box>
@@ -309,7 +305,7 @@ export function SurveyHero({
               }}
               numberOfLines={1}
             >
-              {title}
+              {displayTitle}
             </Text>
             {underTitle ? (
               <Text
@@ -362,7 +358,7 @@ function CompactSurveyHeader({
   go?: Go;
 }) {
   const insets = useSafeAreaInsets();
-  const steps = stepsForTotal(total);
+  const displayTitle = step != null ? `Step ${step} - ${title}` : title;
 
   return (
     <Box
@@ -406,13 +402,8 @@ function CompactSurveyHeader({
           </Pressable>
           <VStack className="flex-1 min-w-0">
             <Text className="text-white text-[14px] font-bold" numberOfLines={1}>
-              {title}
+              {displayTitle}
             </Text>
-            {step ? (
-              <Text className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.88)' }}>
-                Step {step} of {total} · {steps[step - 1]?.title ?? 'Survey'}
-              </Text>
-            ) : null}
           </VStack>
         </HStack>
       </LinearGradient>

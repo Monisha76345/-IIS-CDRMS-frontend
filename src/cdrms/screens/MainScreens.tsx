@@ -76,6 +76,7 @@ import {
   fetchApplication,
   fetchEngineerTasks,
   fetchMyZoneMeta,
+  engineerResumeScreen,
   engineerTaskProgressPercent,
   type MobileApplication,
 } from '@/src/api/applications';
@@ -194,8 +195,8 @@ export function Dashboard({ go }: { go: Go }) {
   const openAssignedTask = async (id: string) => {
     setOpeningId(id);
     try {
-      await openBackendTask(id);
-      go('project');
+      const app = await openBackendTask(id);
+      go(engineerResumeScreen(app));
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Unable to open task';
       Alert.alert('Task', msg);
@@ -209,6 +210,8 @@ export function Dashboard({ go }: { go: Go }) {
   const submittedTasks = allApps.filter(
     (t) => t.status === 'submitted' || Boolean(t.engineerSubmittedAt?.trim()),
   );
+  /** All tasks = open work only (assigned + in progress). */
+  const openTasks = [...assignedTasks, ...inProgressTasks];
 
   const filteredApps =
     recentFilter === 'assigned'
@@ -217,7 +220,7 @@ export function Dashboard({ go }: { go: Go }) {
         ? inProgressTasks
         : recentFilter === 'submitted'
           ? submittedTasks
-          : allApps;
+          : openTasks;
 
   const recentCards = filteredApps.slice(0, 12).map(mapTaskCard);
 
@@ -232,7 +235,7 @@ export function Dashboard({ go }: { go: Go }) {
     {
       id: 'all',
       label: 'All tasks',
-      value: allApps.length,
+      value: openTasks.length,
       bg: GLASS.tintBlue,
       fg: COLORS.primary,
       icon: Layers,
@@ -288,7 +291,7 @@ export function Dashboard({ go }: { go: Go }) {
         ? 'No in-progress tasks yet.'
         : recentFilter === 'submitted'
           ? 'No submitted applications yet.'
-          : 'No applications yet. When a Zonal Commissioner creates an application for you, it will appear here.';
+          : 'No open tasks. Assigned and in-progress applications will appear here.';
 
   return (
     <ScreenShell className="bg-background">
@@ -574,9 +577,6 @@ export function Dashboard({ go }: { go: Go }) {
                         <Text className="text-[10px] font-bold" style={{ color: COLORS.primary }}>
                           {pct}%
                         </Text>
-                      </HStack>
-
-                      <HStack className="items-center justify-end" style={{ gap: 8, marginTop: 10 }}>
                         {a.status === 'Submitted' ? (
                           <Box
                             className="items-center justify-center"
@@ -1067,8 +1067,8 @@ export function HistoryScreen({ go }: { go: Go }) {
     if (openingId) return;
     setOpeningId(id);
     try {
-      await openBackendTask(id);
-      go('project');
+      const app = await openBackendTask(id);
+      go(engineerResumeScreen(app));
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Unable to open task';
       Alert.alert('Task', msg);

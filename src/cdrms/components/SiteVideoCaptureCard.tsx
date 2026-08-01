@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { Camera, CheckCircle2, Trash2, Video } from 'lucide-react-native';
+import { CheckCircle2, Trash2, Video } from 'lucide-react-native';
 import { useState } from 'react';
 
 import { Box } from '@/components/ui/box';
@@ -9,11 +9,10 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { GlassHeaderBadge, GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
 import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
-import { isLiveVideoBlocked } from '@/src/cdrms/device/isVirtualDevice';
 import { captureVideo } from '@/src/cdrms/hooks/useMediaCapture';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
-import { COLORS, FONTS, GRADIENT_PRIMARY, GRADIENT_VIDEO, SPACE, gradientStops } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GRADIENT_VIDEO, SPACE, gradientStops } from '@/src/cdrms/theme';
 
 function formatDuration(ms?: number | null) {
   if (ms == null || ms <= 0) return 'Video';
@@ -27,7 +26,6 @@ function formatDuration(ms?: number | null) {
 export function SiteVideoCaptureCard() {
   const { draft, setVideo } = useProject();
   const [busy, setBusy] = useState(false);
-  const videoPickOnly = isLiveVideoBlocked();
 
   const recordedLabel = draft.video
     ? new Date(draft.video.createdAt).toLocaleString(undefined, {
@@ -62,20 +60,14 @@ export function SiteVideoCaptureCard() {
           : 'Record a site video (max 50 MB)'
       }
       badge={
-        <GlassHeaderBadge>
-          {draft.video ? (
-            <>
-              <CheckCircle2 size={10} color="#FFFFFF" strokeWidth={2.5} />
-              <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
-                Ready
-              </Text>
-            </>
-          ) : (
+        draft.video ? (
+          <GlassHeaderBadge>
+            <CheckCircle2 size={10} color="#FFFFFF" strokeWidth={2.5} />
             <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
-              Required
+              Ready
             </Text>
-          )}
-        </GlassHeaderBadge>
+          </GlassHeaderBadge>
+        ) : undefined
       }
     >
       <VStack style={{ gap: SPACE[2] }}>
@@ -98,39 +90,48 @@ export function SiteVideoCaptureCard() {
               durationLabel={formatDuration(draft.video.durationMs)}
             />
           ) : (
-            <LinearGradient
-              colors={gradientStops(GRADIENT_VIDEO)}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            <Pressable
+              onPress={() => void record()}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel="Record site walk-through video"
+              className="active:opacity-90"
+              style={{ flex: 1, opacity: busy ? 0.7 : 1 }}
             >
-              <Box
-                style={{
-                  height: 56,
-                  width: 56,
-                  borderRadius: 999,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: 'rgba(255,255,255,0.18)',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255,255,255,0.35)',
-                }}
+              <LinearGradient
+                colors={gradientStops(GRADIENT_VIDEO)}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 }}
               >
-                <Video size={24} color="#fff" strokeWidth={2.2} />
-              </Box>
-              <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: '#FFFFFF' }}>
-                No video yet
-              </Text>
-              <Text
-                style={{
-                  fontFamily: FONTS.medium,
-                  fontSize: 11,
-                  color: 'rgba(255,255,255,0.75)',
-                }}
-              >
-                Record video below
-              </Text>
-            </LinearGradient>
+                <Box
+                  style={{
+                    height: 56,
+                    width: 56,
+                    borderRadius: 999,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: 'rgba(255,255,255,0.18)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.35)',
+                  }}
+                >
+                  <Video size={24} color="#fff" strokeWidth={2.2} />
+                </Box>
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: '#FFFFFF' }}>
+                  {busy ? 'Opening…' : 'No video yet'}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: FONTS.medium,
+                    fontSize: 11,
+                    color: 'rgba(255,255,255,0.75)',
+                  }}
+                >
+                  Tap to record
+                </Text>
+              </LinearGradient>
+            </Pressable>
           )}
         </Box>
 
@@ -161,35 +162,6 @@ export function SiteVideoCaptureCard() {
             </Pressable>
           </HStack>
         ) : null}
-
-        <Pressable
-          onPress={record}
-          disabled={busy}
-          className="active:opacity-90"
-          style={{
-            borderRadius: 12,
-            overflow: 'hidden',
-            opacity: busy ? 0.55 : 1,
-          }}
-        >
-          <LinearGradient
-            colors={gradientStops(GRADIENT_PRIMARY)}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingHorizontal: 12,
-              paddingVertical: 12,
-              gap: 8,
-            }}
-          >
-            <Camera size={16} color="#fff" strokeWidth={2.3} />
-            <Text style={{ flex: 1, fontFamily: FONTS.bold, fontSize: 11, color: '#FFFFFF' }}>
-              {busy ? 'Opening…' : videoPickOnly ? 'Pick Video' : 'Record Video'}
-            </Text>
-          </LinearGradient>
-        </Pressable>
       </VStack>
     </GlassSectionCard>
   );

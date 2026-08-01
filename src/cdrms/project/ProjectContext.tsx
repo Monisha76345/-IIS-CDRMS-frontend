@@ -10,11 +10,13 @@ import {
 import { useAuth } from '@/src/auth/AuthContext';
 import { ApiError } from '@/src/api/client';
 import {
+  ENGINEER_SITE_STEP_ACK,
   fetchApplication,
   saveEngineerDraft,
   startApplicationTask,
   submitEngineerApplication,
   type EngineerDraftInput,
+  type MobileApplication,
 } from '@/src/api/applications';
 import { deleteMobileMedia, uploadMobileMedia } from '@/src/api/object-store';
 import {
@@ -70,7 +72,7 @@ type ProjectContextValue = {
   /** Load returned/rejected app data into draft for editing and resubmit. */
   loadApplicationForEdit: (id: string) => boolean;
   /** Open a ZC-assigned backend task (fetch + start + seed draft). */
-  openBackendTask: (id: string) => Promise<void>;
+  openBackendTask: (id: string) => Promise<MobileApplication>;
   /** Re-fetch GET /applications/:id and reseed local draft. */
   reloadBackendDraft: () => Promise<void>;
   /** Persist current step (or schedules) via PATCH /applications/:id/draft. */
@@ -266,6 +268,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
       setSelectedApplicationId(null);
       setDraft(draftFromBackendApplication(app));
+      return app;
     },
     [accessToken, user],
   );
@@ -283,7 +286,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       const body: EngineerDraftInput = {};
 
       if (step === 'site') {
-        body.engineerSiteDetails = draft.siteDetails.trim();
+        // Persist an ack so progress / resume only advance after Continue — not on open.
+        body.engineerSiteDetails = draft.siteDetails.trim() || ENGINEER_SITE_STEP_ACK;
       }
 
       if (step === 'schedules' || step === 'compass') {
@@ -794,7 +798,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       const compass =
         draft.compassReading.trim() ||
         (draft.bandiVerified ? 'Verified on site' : '42° NE');
-      const siteDetails = draft.siteDetails.trim();
+      const siteDetails = draft.siteDetails.trim() || ENGINEER_SITE_STEP_ACK;
       const comments = draft.engineerComments.trim();
 
       const selfieUrl = await resolveMediaUrl({
