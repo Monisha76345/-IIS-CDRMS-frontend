@@ -18,7 +18,6 @@ import {
   Lock,
   LogOut,
   Mail,
-  MapPin,
   MapPinned,
   MoreVertical,
   Phone,
@@ -31,7 +30,6 @@ import {
   Upload,
   User,
   UserCheck,
-  XCircle,
   type LucideIcon,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
@@ -64,9 +62,10 @@ import {
   GLASS,
   GRADIENT_HEADER,
   GRADIENT_PRIMARY,
-  HEADER_ON_GRADIENT,
+  SPACE,
   gradientStops,
 } from '@/src/cdrms/theme';
+import { GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
 import { ThemeToggleButton } from '@/src/cdrms/components/ThemePicker';
 import { useTheme } from '@/src/theme/ThemeContext';
 import { TERMS } from '@/src/cdrms/terminology';
@@ -74,7 +73,14 @@ import type { Go, Screen } from '@/src/cdrms/types';
 import { useAuth } from '@/src/auth/AuthContext';
 import { displayName, homeScreenForRole, resolveAppRole } from '@/src/auth/roles';
 import { ApiError } from '@/src/api/client';
-import { fetchEngineerTasks, type MobileApplication } from '@/src/api/applications';
+import {
+  fetchApplication,
+  fetchEngineerTasks,
+  engineerTaskProgressPercent,
+  isOpenEngineerTask,
+  type MobileApplication,
+} from '@/src/api/applications';
+import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
 import { NotificationBell } from '@/src/cdrms/components/NotificationBell';
 import { useNotifications } from '@/src/cdrms/hooks/useNotifications';
 import {
@@ -83,6 +89,15 @@ import {
   notifIconConfig,
   resolveNotificationAction,
 } from '@/src/cdrms/notifications/helpers';
+import {
+  getSelectedOfficeAppId,
+  setSelectedOfficeAppId,
+  setEngineerAppsFilter,
+  consumeEngineerAppsFilter,
+  setEngineerAppsReturn,
+  consumeEngineerAppsReturn,
+} from '@/src/cdrms/officeSelection';
+import { ensureCameraPermission } from '@/src/cdrms/mediaPermission';
 
 function mapTaskStatus(status: MobileApplication['status']) {
   if (status === 'submitted') return 'Submitted';
@@ -110,6 +125,7 @@ function mapTaskCard(app: MobileApplication) {
     date: app.zoneCode,
     village: [app.addressArea, app.addressBlock].filter(Boolean).join(', ') || '—',
     image: taskCoverImage(app),
+    progress: engineerTaskProgressPercent(app),
     live: true as const,
     apiTask: true as const,
   };
@@ -138,7 +154,11 @@ export function Dashboard({ go }: { go: Go }) {
   const { openBackendTask } = useProject();
   const { accessToken, user, logout } = useAuth();
   const [tasks, setTasks] = useState<MobileApplication[]>([]);
+  const [submittedTotal, setSubmittedTotal] = useState(0);
+  const [loadingTasks, setLoadingTasks] = useState(true);
   const [openingId, setOpeningId] = useState<string | null>(null);
+  /** Home Recent Activity + quick-action highlight. */
+  const [recentFilter, setRecentFilter] = useState<'all' | 'in_progress'>('all');
 
   useEffect(() => {
     const roleHome = homeScreenForRole(user);
@@ -148,10 +168,30 @@ export function Dashboard({ go }: { go: Go }) {
   }, [user, go]);
 
   useEffect(() => {
-    if (!accessToken) return;
-    fetchEngineerTasks(accessToken)
-      .then(setTasks)
-      .catch(() => setTasks([]));
+    if (!accessToken) {
+      setTasks([]);
+      setSubmittedTotal(0);
+      setLoadingTasks(false);
+      return;
+    }
+    setLoadingTasks(true);
+    // Load full assignment history once: open work for the home task list,
+    // submitted total = all submissions so far (not only open queue).
+    fetchEngineerTasks(accessToken, 'all')
+      .then((all) => {
+        setTasks(all.filter(isOpenEngineerTask));
+        setSubmittedTotal(
+          all.filter(
+            (t) =>
+              t.status === 'submitted' || Boolean(t.engineerSubmittedAt?.trim()),
+          ).length,
+        );
+      })
+      .catch(() => {
+        setTasks([]);
+        setSubmittedTotal(0);
+      })
+      .finally(() => setLoadingTasks(false));
   }, [accessToken]);
 
   const openAssignedTask = async (id: string) => {
@@ -167,66 +207,84 @@ export function Dashboard({ go }: { go: Go }) {
     }
   };
 
-  const taskCards = tasks
-    .filter((t) => t.status === 'assigned' || t.status === 'in_progress')
-    .slice(0, 5)
-    .map(mapTaskCard);
-  const recentCards = taskCards;
-  const pending = tasks.filter(
-    (t) => t.status === 'assigned' || t.status === 'in_progress',
-  ).length;
-  const submitted = tasks.filter((t) => t.status === 'submitted').length;
+  const openAppsWithFilter = (filter: string) => {
+    setEngineerAppsFilter(filter);
+    setEngineerAppsReturn('dashboard');
+    go('history');
+  };
+
+  const inProgressTasks = tasks.filter((t) => t.status === 'in_progress');
+  const recentSource = recentFilter === 'in_progress' ? inProgressTasks : tasks;
+  const recentCards = recentSource.slice(0, 8).map(mapTaskCard);
+  const assigned = tasks.filter((t) => t.status === 'assigned').length;
+  const inProgress = inProgressTasks.length;
+  const totalTasks = tasks.length;
 
   const stats = [
-    { label: 'Pending', value: pending, bg: GLASS.tintBlue, fg: COLORS.primary, icon: FileText },
-    { label: 'Submitted', value: submitted, bg: GLASS.tintSky, fg: COLORS.primary, icon: ClipboardCheck },
+    {
+      label: 'Assigned',
+      filter: 'Assigned',
+      value: assigned,
+      bg: GLASS.tintBlue,
+      fg: COLORS.primary,
+      icon: FileText,
+    },
+    {
+      label: 'In progress',
+      filter: 'In progress',
+      value: inProgress,
+      bg: '#FFFBEB',
+      fg: '#B45309',
+      icon: Edit3,
+    },
+    {
+      label: 'Submitted',
+      filter: 'Submitted',
+      value: submittedTotal,
+      bg: GLASS.tintSky,
+      fg: COLORS.primary,
+      icon: ClipboardCheck,
+    },
   ];
 
   const actions: Array<{
+    id: 'all' | 'in_progress';
     icon: typeof ClipboardCheck;
     watermark: typeof ClipboardCheck;
     label: string;
     desc: string;
-    to: Screen;
-    primary?: boolean;
-    iconBg: string;
-    iconColor: string;
-    watermarkColor: string;
-    onPress?: () => void;
   }> = [
     {
+      id: 'all',
       icon: ClipboardCheck,
       watermark: ClipboardCheck,
-      label: 'My assigned tasks',
-      desc: pending > 0 ? `${pending} awaiting field capture` : 'No open tasks yet',
-      to: 'history',
-      primary: true,
-      iconBg: 'rgba(255,255,255,0.22)',
-      iconColor: COLORS.white,
-      watermarkColor: 'rgba(255,255,255,0.22)',
+      label: 'All tasks',
+      desc: loadingTasks
+        ? 'Loading…'
+        : totalTasks > 0
+          ? `${totalTasks} application${totalTasks === 1 ? '' : 's'}`
+          : 'No tasks yet',
     },
     {
+      id: 'in_progress',
       icon: Edit3,
       watermark: FileText,
       label: 'Continue open task',
-      desc: taskCards[0] ? taskCards[0].project : 'Open a task from My Tasks',
-      to: 'project',
-      iconBg: GLASS.tintBlue,
-      iconColor: COLORS.primary,
-      watermarkColor: `${COLORS.primary}24`,
-      onPress: () => {
-        if (taskCards[0]) void openAssignedTask(taskCards[0].id);
-        else go('history');
-      },
+      desc: loadingTasks
+        ? 'Loading…'
+        : inProgress > 0
+          ? `${inProgress} in progress`
+          : 'No in-progress tasks',
     },
   ];
 
   const progressFor = (status: string) => {
-    if (status === 'Verified' || status === 'Approved') return 100;
-    if (status === 'Submitted') return 60;
-    if (status === 'Returned') return 40;
-    if (status === 'Draft') return 20;
-    return 30;
+    if (status === 'Verified' || status === 'Approved' || status === 'Submitted') return 100;
+    if (status === 'In progress') return 50;
+    if (status === 'Returned') return 75;
+    if (status === 'Draft') return 10;
+    if (status === 'Assigned') return 0;
+    return 0;
   };
 
   return (
@@ -311,11 +369,29 @@ export function Dashboard({ go }: { go: Go }) {
                     </Text>
                   )}
                 </Pressable>
-                <VStack className="flex-1 min-w-0">
-                  <Text className="text-[12px]" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                    Welcome back,
+                <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 22,
+                      lineHeight: 28,
+                      letterSpacing: -0.3,
+                      color: COLORS.white,
+                    }}
+                    numberOfLines={1}
+                  >
+                    Welcome
                   </Text>
-                  <Text className="font-bold text-[17px] text-white" numberOfLines={1}>
+                  <Text
+                    style={{
+                      fontFamily: FONTS.semibold,
+                      fontSize: 14,
+                      lineHeight: 18,
+                      letterSpacing: 0.1,
+                      color: 'rgba(255,255,255,0.88)',
+                    }}
+                    numberOfLines={1}
+                  >
                     {displayName(user)}
                   </Text>
                 </VStack>
@@ -348,127 +424,58 @@ export function Dashboard({ go }: { go: Go }) {
                   year: 'numeric',
                 })}
               </Text>
-              <Text className="text-[11px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                ·
-              </Text>
-              <MapPin size={13} color="rgba(255,255,255,0.85)" />
-              <Text className="text-[11px] flex-1" style={{ color: 'rgba(255,255,255,0.88)' }} numberOfLines={1}>
-                {tasks[0]
-                  ? `Zone ${tasks[0].zoneCode}${tasks[0].addressArea ? ` · ${tasks[0].addressArea}` : ''}`
-                  : 'Assigned zone tasks'}
-              </Text>
             </HStack>
-
-            <Pressable
-              onPress={() => go('history')}
-              className="active:opacity-95"
-            >
-            <LinearGradient
-              colors={gradientStops(GRADIENT_HEADER)}
-              locations={[0, 0.45, 1]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{
-                marginTop: 14,
-                borderRadius: 16,
-                paddingVertical: 12,
-                paddingHorizontal: 14,
-                overflow: 'hidden',
-                borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.28)',
-              }}
-            >
-              <HStack className="items-center justify-between" style={{ gap: 12 }}>
-                <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
-                  <Text
-                    style={{
-                      fontFamily: FONTS.medium,
-                      fontSize: 11,
-                      color: HEADER_ON_GRADIENT.soft,
-                    }}
-                  >
-                    Today&apos;s Applications
-                  </Text>
-                  <HStack className="items-baseline" style={{ gap: 6 }}>
-                    <Text
-                      style={{
-                        fontFamily: FONTS.bold,
-                        fontSize: 22,
-                        lineHeight: 26,
-                        color: COLORS.white,
-                      }}
-                    >
-                      {pending}
-                    </Text>
-                    <Text
-                      style={{
-                        fontFamily: FONTS.medium,
-                        fontSize: 13,
-                        color: HEADER_ON_GRADIENT.soft,
-                      }}
-                    >
-                      open tasks
-                    </Text>
-                  </HStack>
-                </VStack>
-                <Box
-                  className="items-center justify-center"
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 16,
-                    backgroundColor: 'rgba(255,255,255,0.2)',
-                  }}
-                >
-                  <ChevronRight size={16} color={COLORS.white} strokeWidth={2.6} />
-                </Box>
-              </HStack>
-            </LinearGradient>
-            </Pressable>
           </Box>
         </LinearGradient>
 
-        {/* Stats card overlapping header */}
+        {/* Status counts — three small cards */}
         <Box className="px-4" style={{ marginTop: -28 }}>
-          <Box
-            style={{
-              backgroundColor: COLORS.white,
-              borderRadius: 28,
-              paddingVertical: 16,
-              paddingHorizontal: 10,
-              shadowColor: COLORS.primaryDeep,
-              shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: 0.1,
-              shadowRadius: 20,
-              elevation: 6,
-            }}
-          >
-            <HStack className="justify-between">
-              {stats.map((s) => {
-                const Icon = s.icon;
-                return (
-                  <Pressable
-                    key={s.label}
-                    onPress={() => go('history')}
-                    className="flex-1 items-center active:opacity-80"
+          <HStack style={{ gap: 10 }}>
+            {stats.map((s) => {
+              const Icon = s.icon;
+              return (
+                <Pressable
+                  key={s.label}
+                  onPress={() => openAppsWithFilter(s.filter)}
+                  className="flex-1 active:opacity-90"
+                  style={{
+                    backgroundColor: COLORS.white,
+                    borderRadius: 18,
+                    paddingVertical: 14,
+                    paddingHorizontal: 6,
+                    alignItems: 'center',
+                    shadowColor: COLORS.primaryDeep,
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 14,
+                    elevation: 5,
+                    borderWidth: 1,
+                    borderColor: COLORS.border,
+                  }}
+                >
+                  <Box
+                    className="items-center justify-center rounded-full"
+                    style={{ width: 40, height: 40, backgroundColor: s.bg }}
                   >
-                    <Box
-                      className="items-center justify-center rounded-full"
-                      style={{ width: 44, height: 44, backgroundColor: s.bg }}
-                    >
-                      <Icon size={18} color={s.fg} strokeWidth={2.3} />
-                    </Box>
-                    <Text className="mt-2 text-[18px] font-extrabold" style={{ color: COLORS.ink }}>
-                      {s.value}
-                    </Text>
-                    <Text className="text-[11px] font-semibold" style={{ color: COLORS.slate }}>
-                      {s.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </HStack>
-          </Box>
+                    <Icon size={17} color={s.fg} strokeWidth={2.3} />
+                  </Box>
+                  <Text
+                    className="mt-2 text-[18px] font-extrabold"
+                    style={{ color: COLORS.ink }}
+                  >
+                    {loadingTasks ? '—' : s.value}
+                  </Text>
+                  <Text
+                    className="text-[10px] font-semibold text-center"
+                    style={{ color: COLORS.slate, marginTop: 2 }}
+                    numberOfLines={1}
+                  >
+                    {s.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </HStack>
         </Box>
 
         {/* Quick Actions */}
@@ -481,6 +488,7 @@ export function Dashboard({ go }: { go: Go }) {
             {actions.map((a) => {
               const Icon = a.icon;
               const Watermark = a.watermark;
+              const selected = recentFilter === a.id;
               const watermark = (
                 <Box
                   pointerEvents="none"
@@ -492,18 +500,19 @@ export function Dashboard({ go }: { go: Go }) {
                     transform: [{ rotate: '12deg' }],
                   }}
                 >
-                  <Watermark size={42} color={a.watermarkColor} strokeWidth={1.4} />
+                  <Watermark
+                    size={42}
+                    color={selected ? 'rgba(255,255,255,0.22)' : `${COLORS.primary}24`}
+                    strokeWidth={1.4}
+                  />
                 </Box>
               );
 
-              if (a.primary) {
+              if (selected) {
                 return (
                   <Pressable
-                    key={a.label}
-                    onPress={() => {
-                      if (a.onPress) a.onPress();
-                      else go(a.to);
-                    }}
+                    key={a.id}
+                    onPress={() => setRecentFilter(a.id)}
                     className="overflow-hidden active:opacity-90"
                     style={{
                       width: '47.5%',
@@ -528,11 +537,11 @@ export function Dashboard({ go }: { go: Go }) {
                           width: 40,
                           height: 40,
                           borderRadius: 14,
-                          backgroundColor: a.iconBg,
+                          backgroundColor: 'rgba(255,255,255,0.22)',
                           zIndex: 1,
                         }}
                       >
-                        <Icon size={20} color={a.iconColor} strokeWidth={2.4} />
+                        <Icon size={20} color={COLORS.white} strokeWidth={2.4} />
                       </Box>
                       <Text className="mt-5 font-bold text-[13px] text-white" style={{ zIndex: 1 }}>
                         {a.label}
@@ -561,11 +570,8 @@ export function Dashboard({ go }: { go: Go }) {
 
               return (
                 <Pressable
-                  key={a.label}
-                  onPress={() => {
-                    if (a.onPress) a.onPress();
-                    else go(a.to);
-                  }}
+                  key={a.id}
+                  onPress={() => setRecentFilter(a.id)}
                   className="overflow-hidden active:opacity-90"
                   style={{
                     width: '47.5%',
@@ -587,11 +593,11 @@ export function Dashboard({ go }: { go: Go }) {
                       width: 40,
                       height: 40,
                       borderRadius: 14,
-                      backgroundColor: a.iconBg,
+                      backgroundColor: GLASS.tintBlue,
                       zIndex: 1,
                     }}
                   >
-                    <Icon size={18} color={a.iconColor} strokeWidth={2.3} />
+                    <Icon size={18} color={COLORS.primary} strokeWidth={2.3} />
                   </Box>
                   <Text
                     className="mt-5 font-bold text-[13px]"
@@ -627,23 +633,14 @@ export function Dashboard({ go }: { go: Go }) {
 
         {/* Recent Activity */}
         <Box className="px-4 mt-6">
-          <HStack className="items-center justify-between mb-3">
-            <Text className="text-[16px] font-bold" style={{ color: COLORS.ink }}>
-              Recent Activity
-            </Text>
-            <Pressable
-              onPress={() => go('history')}
-              className="flex-row items-center active:opacity-70"
-            >
-              <Text className="text-[12px] font-semibold" style={{ color: COLORS.primary }}>
-                See all
-              </Text>
-              <ChevronRight size={13} color={COLORS.primary} />
-            </Pressable>
-          </HStack>
+          <Text className="text-[16px] font-bold mb-3" style={{ color: COLORS.ink }}>
+            {recentFilter === 'in_progress' ? 'In progress' : 'Recent Activity'}
+          </Text>
 
           <VStack space="sm">
-            {recentCards.length === 0 ? (
+            {loadingTasks ? (
+              <ListLoader count={3} />
+            ) : recentCards.length === 0 ? (
               <Box
                 className="rounded-2xl border border-dashed px-4 py-8"
                 style={{
@@ -652,13 +649,15 @@ export function Dashboard({ go }: { go: Go }) {
                 }}
               >
                 <Text className="text-center text-sm" style={{ color: COLORS.slate }}>
-                  No assigned tasks yet. When a Zonal Commissioner creates an application for you,
-                  it will appear here.
+                  {recentFilter === 'in_progress'
+                    ? 'No in-progress tasks yet.'
+                    : 'No assigned tasks yet. When a Zonal Commissioner creates an application for you, it will appear here.'}
                 </Text>
               </Box>
             ) : (
               recentCards.map((a) => {
-              const pct = progressFor(a.status);
+              const pct =
+                typeof a.progress === 'number' ? a.progress : progressFor(a.status);
               return (
                 <Pressable
                   key={a.id}
@@ -925,11 +924,12 @@ export function NotificationsScreen({ go }: { go: Go }) {
 
 const APP_FILTERS: Array<{ key: string; label: string; icon: LucideIcon }> = [
   { key: 'All', label: 'All', icon: Layers },
-  { key: 'Draft', label: 'Draft', icon: FileText },
+  { key: 'Assigned', label: 'Assigned', icon: FileText },
+  { key: 'In progress', label: 'In progress', icon: Edit3 },
   { key: 'Submitted', label: 'Submitted', icon: Send },
+  { key: 'Draft', label: 'Draft', icon: FolderOpen },
   { key: 'Returned', label: 'Returned', icon: Undo2 },
   { key: 'Verified', label: 'Verified', icon: CheckCircle2 },
-  { key: 'Rejected', label: 'Rejected', icon: XCircle },
 ];
 
 function ApplicationThumb({ uri }: { uri: string | null }) {
@@ -1048,12 +1048,17 @@ function ApplicationListCard({
                     </HStack>
                   ) : null}
                 </HStack>
-                <HStack className="items-center" style={{ gap: 2 }}>
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.primary }}>
-                    Open
-                  </Text>
-                  <ChevronRight size={14} color={COLORS.primary} strokeWidth={2.6} />
-                </HStack>
+                <Box
+                  className="items-center justify-center"
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 10,
+                    backgroundColor: COLORS.primary,
+                  }}
+                >
+                  <Eye size={15} color={COLORS.white} strokeWidth={2.4} />
+                </Box>
               </HStack>
             </VStack>
           </HStack>
@@ -1065,12 +1070,12 @@ function ApplicationListCard({
 
 export function HistoryScreen({ go }: { go: Go }) {
   const { themeId } = useTheme();
-  const { applications, draft, openApplication, statusOverrides, openBackendTask } = useProject();
+  const { applications, draft, openApplication } = useProject();
   const { accessToken } = useAuth();
-  const [tab, setTab] = useState('All');
+  const [tab, setTab] = useState(() => consumeEngineerAppsFilter() || 'All');
+  const [backTarget] = useState(() => consumeEngineerAppsReturn());
   const [apiTasks, setApiTasks] = useState<MobileApplication[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
-  const [openingId, setOpeningId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!accessToken) {
@@ -1078,28 +1083,22 @@ export function HistoryScreen({ go }: { go: Go }) {
       return;
     }
     setLoadingTasks(true);
-    fetchEngineerTasks(accessToken)
+    // Applications tab: full list including submitted / completed.
+    fetchEngineerTasks(accessToken, 'all')
       .then(setApiTasks)
       .catch(() => setApiTasks([]))
       .finally(() => setLoadingTasks(false));
   }, [accessToken]);
 
-  const openDetails = async (id: string, status: string, live: boolean, apiTask?: boolean) => {
+  const viewApplication = (id: string, status: string, live: boolean, apiTask?: boolean) => {
     if (apiTask) {
-      setOpeningId(id);
-      try {
-        await openBackendTask(id);
-        go('project');
-      } catch (e) {
-        const msg = e instanceof ApiError ? e.message : 'Unable to open task';
-        Alert.alert('Task', msg);
-      } finally {
-        setOpeningId(null);
-      }
+      setSelectedOfficeAppId(id);
+      go('engineer_detail');
       return;
     }
     if (status === 'Draft' && live) {
-      go('project');
+      openApplication(id);
+      go('details');
       return;
     }
     openApplication(id);
@@ -1191,8 +1190,13 @@ export function HistoryScreen({ go }: { go: Go }) {
     <ScreenShell className="bg-background">
       <AppHeader
         title="Applications"
-        subtitle={`${filtered.length} task${filtered.length === 1 ? '' : 's'} · assigned & submitted`}
+        subtitle={
+          loadingTasks
+            ? 'Loading…'
+            : `${filtered.length} application${filtered.length === 1 ? '' : 's'}`
+        }
         go={go}
+        onBack={backTarget ? () => go(backTarget) : undefined}
       />
 
       <Box style={{ backgroundColor: COLORS.soft }}>
@@ -1212,9 +1216,11 @@ export function HistoryScreen({ go }: { go: Go }) {
             const Icon = f.icon;
             const on = tab === f.key;
             const count =
-              f.key === 'All'
-                ? liveApps.length
-                : liveApps.filter((a) => a.status === f.key).length;
+              loadingTasks
+                ? null
+                : f.key === 'All'
+                  ? liveApps.length
+                  : liveApps.filter((a) => a.status === f.key).length;
             return (
               <Pressable
                 key={f.key}
@@ -1260,7 +1266,7 @@ export function HistoryScreen({ go }: { go: Go }) {
                   }}
                 >
                   <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: COLORS.ink }}>
-                    {count}
+                    {count == null ? '—' : count}
                   </Text>
                 </Box>
               </Pressable>
@@ -1329,23 +1335,90 @@ export function HistoryScreen({ go }: { go: Go }) {
                 Nothing in this category yet.
               </Text>
             </Box>
-          ) : null}
-
-          {filtered.map((a) => (
-            <ApplicationListCard
-              key={`${a.id}-${a.status}`}
-              project={a.project}
-              siteNo={'siteNo' in a ? a.siteNo : ''}
-              status={a.status}
-              village={a.village}
-              date={a.date}
-              image={a.image}
-              onPress={() => openDetails(a.id, a.status, a.live, a.apiTask)}
-            />
-          ))}
+          ) : (
+            filtered.map((a) => (
+              <ApplicationListCard
+                key={`${a.id}-${a.status}`}
+                project={a.project}
+                siteNo={'siteNo' in a ? a.siteNo : ''}
+                status={a.status}
+                village={a.village}
+                date={a.date}
+                image={a.image}
+                onPress={() => viewApplication(a.id, a.status, a.live, a.apiTask)}
+              />
+            ))
+          )}
         </VStack>
       </ScrollView>
       <BottomNav active="apps" onNav={go} hidePlus hideAlerts />
+    </ScreenShell>
+  );
+}
+
+export function EngineerDetailScreen({ go }: { go: Go }) {
+  const { themeId } = useTheme();
+  const { accessToken } = useAuth();
+  const appId = getSelectedOfficeAppId();
+  const [app, setApp] = useState<MobileApplication | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!accessToken || !appId) {
+      setError('No application selected');
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    fetchApplication(accessToken, appId)
+      .then(setApp)
+      .catch((e) => setError(e instanceof ApiError ? e.message : 'Not found'))
+      .finally(() => setLoading(false));
+  }, [accessToken, appId]);
+
+  return (
+    <ScreenShell className="bg-background">
+      <AppHeader
+        title="View Application"
+        subtitle={app?.applicationNumber || 'Application details'}
+        onBack={() => go('history')}
+        gradient
+        go={go}
+        showNotifications={false}
+        showLogout={false}
+      />
+      <ScrollView
+        key={themeId}
+        contentContainerStyle={{ paddingTop: 12, paddingBottom: 40, gap: 12 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {loading ? (
+          <ScreenLoader text="Loading application details…" />
+        ) : error || !app ? (
+          <Box
+            className="mx-4 rounded-2xl border px-4 py-6"
+            style={{
+              borderColor: `${COLORS.destructive}40`,
+              backgroundColor: `${COLORS.destructive}0D`,
+            }}
+          >
+            <Text
+              style={{
+                color: COLORS.destructive,
+                fontFamily: FONTS.medium,
+                fontSize: 13,
+                textAlign: 'center',
+              }}
+            >
+              {error || 'Not found'}
+            </Text>
+          </Box>
+        ) : (
+          <ApplicationRecordDetails app={app} showEmptyEngineer={false} />
+        )}
+      </ScrollView>
     </ScreenShell>
   );
 }
@@ -1366,8 +1439,54 @@ export function ProfileScreen({ go }: { go: Go }) {
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [savingPhoto, setSavingPhoto] = useState(false);
 
-  const handlePickPhoto = async () => {
+  const applyPickedAsset = async (asset: ImagePicker.ImagePickerAsset) => {
+    setSavingPhoto(true);
     try {
+      const photoData = asset.base64
+        ? `data:image/jpeg;base64,${asset.base64}`
+        : asset.uri;
+      await updateProfilePhoto(photoData);
+      Alert.alert('Profile Photo', 'Profile photo updated successfully!');
+    } finally {
+      setSavingPhoto(false);
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    try {
+      const allowed = await ensureCameraPermission();
+      if (!allowed) return;
+
+      const res = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.4,
+        base64: true,
+        cameraType: ImagePicker.CameraType.front,
+      });
+
+      if (!res.canceled && res.assets[0]) {
+        await applyPickedAsset(res.assets[0]);
+      }
+    } catch (err) {
+      setSavingPhoto(false);
+      const msg = err instanceof Error ? err.message : 'Unable to take profile photo';
+      Alert.alert('Camera', msg);
+    }
+  };
+
+  const handlePickFromGallery = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert(
+          'Photos permission needed',
+          'Allow photo library access in Settings so you can upload a profile photo.',
+        );
+        return;
+      }
+
       const res = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -1377,20 +1496,21 @@ export function ProfileScreen({ go }: { go: Go }) {
       });
 
       if (!res.canceled && res.assets[0]) {
-        setSavingPhoto(true);
-        const asset = res.assets[0];
-        const photoData = asset.base64
-          ? `data:image/jpeg;base64,${asset.base64}`
-          : asset.uri;
-        await updateProfilePhoto(photoData);
-        setSavingPhoto(false);
-        Alert.alert('Profile Photo', 'Profile photo updated successfully!');
+        await applyPickedAsset(res.assets[0]);
       }
     } catch (err) {
       setSavingPhoto(false);
       const msg = err instanceof Error ? err.message : 'Unable to update profile photo';
-      Alert.alert('Photo', msg);
+      Alert.alert('Gallery', msg);
     }
+  };
+
+  const showPhotoSourceOptions = () => {
+    Alert.alert('Profile photo', 'Choose how to set your photo', [
+      { text: 'Take photo', onPress: () => void handleTakePhoto() },
+      { text: 'Upload from gallery', onPress: () => void handlePickFromGallery() },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const handleDeletePhoto = () => {
@@ -1420,10 +1540,13 @@ export function ProfileScreen({ go }: { go: Go }) {
   };
 
   const u = (user || {}) as any;
-  const name = user?.name?.trim() || (appRole === 'zc' ? 'Ramesh Kumar (ZC)' : appRole === 'cao' ? 'Monisha s' : 'Field Engineer');
+  const name =
+    user?.name?.trim() ||
+    (appRole === 'zc' ? 'Ramesh Kumar (ZC)' : appRole === 'cao' ? 'Monisha s' : 'Field Engineer');
   const nameParts = name.split(/\s+/).filter(Boolean);
   const firstName = nameParts[0] || 'Monisha';
   const lastName = nameParts.slice(1).join(' ') || 's';
+  const initials = `${firstName[0]?.toUpperCase() || ''}${lastName[0]?.toUpperCase() || ''}` || 'U';
   const loginId = user?.loginId || 'CDRMS00007';
   const rawRoleTitle: string =
     u.roleName ||
@@ -1440,29 +1563,13 @@ export function ProfileScreen({ go }: { go: Go }) {
     .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join(' ');
 
-  const portalLabel =
-    appRole === 'zc'
-      ? 'CDRMS Zonal Commissioner'
-      : appRole === 'cao'
-        ? 'CDRMS CAO'
-        : appRole === 'super_admin'
-          ? 'CDRMS Administrator'
-          : 'CDRMS Field Engineer';
-
   const zone = u.zoneCode || (appRole === 'zc' ? 'SOUTH' : 'EAST');
   const email = user?.email || 'monimonisha4379@gmail.com';
   const phone = u.phone || u.mobileNumber || '7019726060';
-
-  const personalFields = [
-    { label: 'NAME', value: name },
-    { label: 'ROLE NAME', value: roleTitle, icon: Building2 },
-    { label: 'EMAIL ADDRESS', value: email, icon: Mail },
-    { label: 'MOBILE NUMBER', value: phone, icon: Phone },
-    { label: 'GENDER', value: u.gender || 'female' },
-    { label: 'DEPARTMENT', value: u.department || 'bda' },
-    { label: 'DISTRICT / STATE', value: u.districtState || 'Belagavi, Karnataka', icon: MapPin },
-    { label: 'OFFICE ADDRESS', value: u.officeAddress || 'Maddur,Mandya', icon: Building2 },
-  ];
+  const gender = u.gender || 'female';
+  const department = u.department || 'bda';
+  const districtState = u.districtState || 'Belagavi, Karnataka';
+  const officeAddress = u.officeAddress || 'Maddur,Mandya';
 
   return (
     <ScreenShell className="bg-background">
@@ -1475,191 +1582,236 @@ export function ProfileScreen({ go }: { go: Go }) {
       <ScrollView
         key={themeId}
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16, paddingTop: 16 }}
+        contentContainerStyle={{ paddingBottom: 100, paddingTop: 12, gap: 12 }}
         showsVerticalScrollIndicator={false}
       >
-        <VStack space="md">
-          {/* Top Officer Header Card */}
-          <Box
-            className="p-5 rounded-2xl border"
-            style={{
-              backgroundColor: COLORS.white,
-              borderColor: COLORS.border,
-              shadowColor: GLASS.shadow,
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.06,
-              shadowRadius: 12,
-              elevation: 2,
-            }}
-          >
-            <VStack space="md">
-              <HStack className="items-center gap-4">
-                {/* Avatar with Camera Badge */}
-                <Pressable onPress={() => void handlePickPhoto()} className="relative active:opacity-90">
-                  <Box
-                    className="items-center justify-center rounded-full overflow-hidden"
-                    style={{
-                      width: 72,
-                      height: 72,
-                      backgroundColor: COLORS.primary,
-                    }}
-                  >
-                    {profilePhoto ? (
-                      <Image source={{ uri: profilePhoto }} className="h-full w-full" resizeMode="cover" />
-                    ) : (
-                      <Text className="font-bold text-2xl text-white">
-                        {firstName[0]?.toUpperCase()}
-                        {lastName[0]?.toUpperCase()}
-                      </Text>
-                    )}
-                  </Box>
-                  <Box
-                    className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full items-center justify-center border-2 border-white"
-                    style={{ backgroundColor: COLORS.primary }}
-                  >
-                    <Camera size={13} color={COLORS.white} strokeWidth={2.4} />
-                  </Box>
+        <GlassSectionCard
+          title="Profile photo"
+          subtitle={profilePhoto ? 'Uploaded' : 'Add a photo'}
+          icon={Camera}
+          bodyStyle={{ paddingHorizontal: SPACE[3], paddingVertical: SPACE[2], gap: SPACE[2] }}
+        >
+          <HStack style={{ alignItems: 'center', gap: 12 }}>
+            <Box style={{ position: 'relative' }}>
+              <Pressable
+                onPress={() => {
+                  if (profilePhoto) setPreviewModalOpen(true);
+                  else showPhotoSourceOptions();
+                }}
+                disabled={savingPhoto}
+                className="active:opacity-90"
+              >
+                <Box
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 28,
+                    overflow: 'hidden',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: COLORS.primary,
+                  }}
+                >
+                  {profilePhoto ? (
+                    <Image
+                      source={{ uri: profilePhoto }}
+                      style={{ width: '100%', height: '100%' }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 18, color: COLORS.white }}>
+                      {initials}
+                    </Text>
+                  )}
+                </Box>
+              </Pressable>
+              {profilePhoto ? (
+                <Pressable
+                  onPress={handleDeletePhoto}
+                  disabled={savingPhoto}
+                  accessibilityLabel="Delete photo"
+                  className="active:opacity-85"
+                  style={{
+                    position: 'absolute',
+                    right: -2,
+                    bottom: -2,
+                    width: 26,
+                    height: 26,
+                    borderRadius: 13,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: COLORS.destructive,
+                    borderWidth: 2,
+                    borderColor: COLORS.white,
+                    opacity: savingPhoto ? 0.6 : 1,
+                  }}
+                >
+                  <Trash2 size={12} color={COLORS.white} strokeWidth={2.4} />
                 </Pressable>
-
-                {/* Name, Status & Info */}
-                <VStack space="xs" className="flex-1 min-w-0">
-                  <HStack className="items-center gap-2 flex-wrap">
-                    <Text className="text-lg font-extrabold" style={{ color: COLORS.ink }} numberOfLines={1}>
-                      {name}
-                    </Text>
-                    <Box
-                      className="flex-row items-center gap-1 px-2.5 py-0.5 rounded-full border"
-                      style={{
-                        backgroundColor: `${COLORS.success}14`,
-                        borderColor: `${COLORS.success}40`,
-                      }}
-                    >
-                      <CheckCircle2 size={11} color={COLORS.success} strokeWidth={2.5} />
-                      <Text className="text-[11px] font-bold" style={{ color: COLORS.success }}>
-                        Active
-                      </Text>
-                    </Box>
-                  </HStack>
-
-                  <Text className="text-xs font-semibold" style={{ color: COLORS.slate }}>
-                    {roleTitle} · {zone}
+              ) : (
+                <Box
+                  pointerEvents="none"
+                  style={{
+                    position: 'absolute',
+                    right: -2,
+                    bottom: -2,
+                    width: 26,
+                    height: 26,
+                    borderRadius: 13,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: COLORS.primary,
+                    borderWidth: 2,
+                    borderColor: COLORS.white,
+                  }}
+                >
+                  <Camera size={12} color={COLORS.white} strokeWidth={2.4} />
+                </Box>
+              )}
+            </Box>
+            <VStack style={{ flex: 1, gap: 2, minWidth: 0 }}>
+              <HStack style={{ alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <Text
+                  style={{ fontFamily: FONTS.bold, fontSize: 15, color: COLORS.ink }}
+                  numberOfLines={1}
+                >
+                  {name}
+                </Text>
+                <Box
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 3,
+                    paddingHorizontal: 7,
+                    paddingVertical: 2,
+                    borderRadius: 999,
+                    backgroundColor: `${COLORS.success}14`,
+                    borderWidth: 1,
+                    borderColor: `${COLORS.success}40`,
+                  }}
+                >
+                  <CheckCircle2 size={10} color={COLORS.success} strokeWidth={2.5} />
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: COLORS.success }}>
+                    Active
                   </Text>
-
-                  <Text className="text-[11px] font-mono" style={{ color: COLORS.slate }}>
-                    Login ID:{' '}
-                    <Text className="font-semibold" style={{ color: COLORS.ink }}>
-                      {loginId}
-                    </Text>
-                  </Text>
-                </VStack>
+                </Box>
               </HStack>
-
-              {/* Photo Actions: Upload OR (View + Delete) */}
-              <HStack className="items-center gap-2 pt-1">
-                {profilePhoto ? (
-                  <>
-                    <Pressable
-                      onPress={() => setPreviewModalOpen(true)}
-                      className="flex-1 flex-row items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 active:bg-slate-100"
-                    >
-                      <Eye size={14} color={COLORS.primary} strokeWidth={2.2} />
-                      <Text className="text-xs font-bold text-slate-800">View Photo</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={handleDeletePhoto}
-                      className="flex-1 flex-row items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-red-200 bg-red-50 active:bg-red-100"
-                    >
-                      <Trash2 size={14} color={COLORS.destructive} strokeWidth={2.2} />
-                      <Text className="text-xs font-bold text-red-600">Delete Photo</Text>
-                    </Pressable>
-                  </>
-                ) : (
-                  <Pressable
-                    onPress={() => void handlePickPhoto()}
-                    className="flex-1 flex-row items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 active:bg-slate-100"
-                  >
-                    <Upload size={14} color={COLORS.primary} strokeWidth={2.2} />
-                    <Text className="text-xs font-bold text-slate-800">Upload Photo</Text>
-                  </Pressable>
-                )}
-              </HStack>
+              <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.slate }} numberOfLines={1}>
+                {roleTitle} · {zone}
+              </Text>
+              <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: COLORS.ink }} numberOfLines={1}>
+                Login ID: {loginId}
+              </Text>
             </VStack>
-          </Box>
+          </HStack>
 
-          {/* Personal Information Section */}
-          <Box
-            className="p-5 rounded-2xl border"
-            style={{
-              backgroundColor: COLORS.white,
-              borderColor: COLORS.border,
-              shadowColor: GLASS.shadow,
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.06,
-              shadowRadius: 12,
-              elevation: 2,
-            }}
-          >
-            <HStack className="items-center gap-2 mb-4">
-              <User size={18} color={COLORS.primary} strokeWidth={2.4} />
-              <Text className="text-base font-extrabold text-slate-900">Personal Information</Text>
+          {!profilePhoto ? (
+            <HStack style={{ gap: 8 }}>
+              <Pressable
+                onPress={() => void handleTakePhoto()}
+                disabled={savingPhoto}
+                className="flex-1 active:opacity-85"
+                style={{
+                  height: 36,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  backgroundColor: COLORS.white,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  opacity: savingPhoto ? 0.6 : 1,
+                }}
+              >
+                <Camera size={14} color={COLORS.primary} strokeWidth={2.2} />
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.ink }}>
+                  {savingPhoto ? 'Saving…' : 'Take photo'}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => void handlePickFromGallery()}
+                disabled={savingPhoto}
+                className="flex-1 active:opacity-85"
+                style={{
+                  height: 36,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  backgroundColor: COLORS.white,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  opacity: savingPhoto ? 0.6 : 1,
+                }}
+              >
+                <Upload size={14} color={COLORS.primary} strokeWidth={2.2} />
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.ink }}>
+                  {savingPhoto ? 'Saving…' : 'Gallery'}
+                </Text>
+              </Pressable>
             </HStack>
+          ) : null}
+        </GlassSectionCard>
 
-            <VStack space="sm">
-              {personalFields.map((field) => {
-                const Icon = field.icon;
-                return (
-                  <Box
-                    key={field.label}
-                    className="p-3.5 rounded-xl border border-slate-100 bg-slate-50/70"
-                  >
-                    <Text className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                      {field.label}
-                    </Text>
-                    <HStack className="items-center gap-2">
-                      {Icon && <Icon size={14} color={COLORS.primary} strokeWidth={2.2} />}
-                      <Text className="text-sm font-bold text-slate-900">{field.value}</Text>
-                    </HStack>
-                  </Box>
-                );
-              })}
+        <GlassSectionCard
+          title="Personal Information"
+          subtitle="Officer details"
+          icon={User}
+          bodyStyle={{ paddingHorizontal: SPACE[3], paddingVertical: SPACE[2], gap: 0 }}
+        >
+          <ProfilePairRow leftLabel="Name" leftValue={name} rightLabel="Role" rightValue={roleTitle} />
+          <ProfilePairRow leftLabel="Email" leftValue={email} rightLabel="Mobile" rightValue={phone} />
+          <ProfilePairRow
+            leftLabel="Gender"
+            leftValue={gender}
+            rightLabel="Department"
+            rightValue={department}
+          />
+          <ProfilePairRow
+            leftLabel="District / State"
+            leftValue={districtState}
+            rightLabel="Assigned zone"
+            rightValue={zone}
+          />
+          <ProfilePairRow
+            leftLabel="Office address"
+            leftValue={officeAddress}
+            rightLabel="Mapping status"
+            rightValue="Active"
+            last
+          />
+        </GlassSectionCard>
 
-              {/* Side-by-side Row Container for ASSIGNED ZONE & MAPPING STATUS */}
-              <HStack className="gap-3 mt-1">
-                <Box className="flex-1 p-3.5 rounded-xl border border-slate-100 bg-slate-50/70">
-                  <Text className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                    ASSIGNED ZONE
-                  </Text>
-                  <Text className="text-sm font-bold text-slate-900">{zone}</Text>
-                </Box>
-                <Box className="flex-1 p-3.5 rounded-xl border border-slate-100 bg-slate-50/70">
-                  <Text className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                    MAPPING STATUS
-                  </Text>
-                  <HStack className="items-center gap-1.5 self-start px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200">
-                    <CheckCircle2 size={12} color={COLORS.success} strokeWidth={2.5} />
-                    <Text className="text-[11px] font-bold text-emerald-700">ACTIVE</Text>
-                  </HStack>
-                </Box>
-              </HStack>
-            </VStack>
-          </Box>
-
-          {/* Logout Action */}
+        <Box style={{ marginHorizontal: SPACE.gutter }}>
           <Pressable
             onPress={async () => {
               await logout();
               go('login');
             }}
-            className="w-full h-13 rounded-2xl bg-red-50 border border-red-200 flex-row items-center justify-center gap-2 active:opacity-90"
+            className="active:opacity-90"
+            style={{
+              height: 44,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: `${COLORS.destructive}40`,
+              backgroundColor: `${COLORS.destructive}0D`,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+            }}
           >
-            <LogOut size={18} color={COLORS.destructive} strokeWidth={2.2} />
-            <Text className="font-bold text-red-600 text-sm">Logout Officer Account</Text>
+            <LogOut size={16} color={COLORS.destructive} strokeWidth={2.2} />
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.destructive }}>
+              Logout
+            </Text>
           </Pressable>
-        </VStack>
+        </Box>
       </ScrollView>
 
-      {/* Full-screen Photo Preview Modal */}
-      {previewModalOpen && profilePhoto && (
+      {previewModalOpen && profilePhoto ? (
         <Modal
           visible={previewModalOpen}
           transparent
@@ -1672,7 +1824,7 @@ export function ProfileScreen({ go }: { go: Go }) {
           >
             <Box className="w-full max-w-sm bg-white rounded-2xl p-4 overflow-hidden">
               <HStack className="justify-between items-center pb-3 mb-3 border-b border-slate-100">
-                <Text className="font-extrabold text-base text-slate-900">Profile Photo Preview</Text>
+                <Text className="font-extrabold text-base text-slate-900">Profile Photo</Text>
                 <Pressable onPress={() => setPreviewModalOpen(false)} className="p-1">
                   <Text className="text-slate-400 font-bold text-base">✕</Text>
                 </Pressable>
@@ -1685,7 +1837,7 @@ export function ProfileScreen({ go }: { go: Go }) {
             </Box>
           </Pressable>
         </Modal>
-      )}
+      ) : null}
 
       <BottomNav
         active="profile"
@@ -1697,5 +1849,79 @@ export function ProfileScreen({ go }: { go: Go }) {
         onPlus={appRole === 'zc' ? () => go('zc_create') : undefined}
       />
     </ScreenShell>
+  );
+}
+
+function ProfilePairRow({
+  leftLabel,
+  leftValue,
+  rightLabel,
+  rightValue,
+  last,
+}: {
+  leftLabel: string;
+  leftValue: string;
+  rightLabel: string;
+  rightValue: string;
+  last?: boolean;
+}) {
+  return (
+    <HStack
+      style={{
+        paddingVertical: 7,
+        borderBottomWidth: last ? 0 : 1,
+        borderBottomColor: GLASS.divider,
+        gap: 10,
+      }}
+    >
+      <Box style={{ flex: 1 }}>
+        <Text
+          style={{
+            fontFamily: FONTS.medium,
+            fontSize: 10,
+            color: COLORS.slate,
+            textTransform: 'uppercase',
+            letterSpacing: 0.3,
+          }}
+        >
+          {leftLabel}
+        </Text>
+        <Text
+          style={{
+            fontFamily: FONTS.semibold,
+            fontSize: 13,
+            color: COLORS.ink,
+            marginTop: 2,
+            lineHeight: 17,
+          }}
+        >
+          {leftValue || '—'}
+        </Text>
+      </Box>
+      <Box style={{ flex: 1 }}>
+        <Text
+          style={{
+            fontFamily: FONTS.medium,
+            fontSize: 10,
+            color: COLORS.slate,
+            textTransform: 'uppercase',
+            letterSpacing: 0.3,
+          }}
+        >
+          {rightLabel}
+        </Text>
+        <Text
+          style={{
+            fontFamily: FONTS.semibold,
+            fontSize: 13,
+            color: COLORS.ink,
+            marginTop: 2,
+            lineHeight: 17,
+          }}
+        >
+          {rightValue || '—'}
+        </Text>
+      </Box>
+    </HStack>
   );
 }

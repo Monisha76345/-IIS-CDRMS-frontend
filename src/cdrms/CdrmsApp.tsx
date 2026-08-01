@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Box } from '@/components/ui/box';
 import { ProjectProvider } from '@/src/cdrms/project/ProjectContext';
 import { useAuth } from '@/src/auth/AuthContext';
-import { homeScreenForRole, needsGeoValidation } from '@/src/auth/roles';
 import {
   GeoScreen,
   LoginScreen,
@@ -14,6 +13,7 @@ import {
 import { ApplicationDetailsScreen } from '@/src/cdrms/screens/ApplicationDetailsScreen';
 import {
   Dashboard,
+  EngineerDetailScreen,
   HistoryScreen,
   NotificationsScreen,
   ProfileScreen,
@@ -47,7 +47,7 @@ import {
   ZcHomeScreen,
 } from '@/src/cdrms/screens/ZcScreens';
 import type { Go, Screen } from '@/src/cdrms/types';
-import { ScreenLoader, getScreenLoaderConfig } from '@/src/cdrms/components/primitives';
+import { ScreenLoader } from '@/src/cdrms/components/primitives';
 
 function ScreenTransitionWrapper({
   screen,
@@ -57,7 +57,6 @@ function ScreenTransitionWrapper({
   children: React.ReactNode;
 }) {
   const [transitioning, setTransitioning] = useState(false);
-  const meta = useMemo(() => getScreenLoaderConfig(screen), [screen]);
   const isAuthScreen =
     screen === 'splash' ||
     screen === 'login' ||
@@ -78,38 +77,27 @@ function ScreenTransitionWrapper({
   }, [screen, isAuthScreen]);
 
   if (transitioning && !isAuthScreen) {
-    return (
-      <ScreenLoader
-        title={meta.title}
-        subtitle={meta.subtitle}
-        icon={meta.icon}
-        color={meta.color}
-        fullScreen
-      />
-    );
+    return <ScreenLoader fullScreen />;
   }
 
   return <>{children}</>;
 }
 
 export function CdrmsApp() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [screen, setScreen] = useState<Screen>('splash');
-  const skipSplashRef = useRef(false);
 
   const go: Go = useCallback((s) => {
-    skipSplashRef.current = true;
     setScreen(s);
   }, []);
 
-  // Keep session alive if the tree remounts (e.g. theme/fonts) while logged in.
+  // If session is cleared while on an app / gate screen, return to login.
+  // Never keep the user on permission/geo without an active login.
   useEffect(() => {
-    if (!isAuthenticated || !user) return;
-    if (screen !== 'splash' && screen !== 'login') return;
-    if (skipSplashRef.current) return;
-    const target = needsGeoValidation(user) ? 'permission' : homeScreenForRole(user);
-    setScreen(target);
-  }, [isAuthenticated, user, screen]);
+    if (isAuthenticated) return;
+    if (screen === 'splash' || screen === 'login' || screen === 'otp') return;
+    setScreen('login');
+  }, [isAuthenticated, screen]);
 
   const rendered = useMemo(() => {
     switch (screen) {
@@ -165,6 +153,8 @@ export function CdrmsApp() {
         return <NotificationsScreen go={go} />;
       case 'history':
         return <HistoryScreen go={go} />;
+      case 'engineer_detail':
+        return <EngineerDetailScreen go={go} />;
       case 'details':
         return <ApplicationDetailsScreen go={go} />;
       case 'returned':

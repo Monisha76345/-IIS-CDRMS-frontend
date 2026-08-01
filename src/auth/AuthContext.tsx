@@ -76,26 +76,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           readItem(TOKEN_KEY),
           readItem(USER_KEY),
         ]);
-        if (token) {
-          setAccessToken(token);
-          // Sync fresh profile data from backend on launch if token present
-          apiRequest<AuthUser>('/auth/profile', { token })
-            .then((p) => {
-              if (p && (p.id || p.email)) {
-                setUser((prev) => {
-                  const merged = { ...prev, ...p };
-                  void saveItem(USER_KEY, JSON.stringify(merged));
-                  return merged;
-                });
-              }
-            })
-            .catch(() => {
-              /* fallback to cached user */
-            });
+
+        if (!token) {
+          if (rawUser) await deleteItem(USER_KEY);
+          setAccessToken(null);
+          setUser(null);
+          return;
         }
-        if (rawUser) setUser(JSON.parse(rawUser) as AuthUser);
+
+        // Validate token before restoring session (expired / invalid → login).
+        try {
+          const profile = await apiRequest<AuthUser>('/auth/profile', { token });
+          if (!profile || !(profile.id || profile.email || profile.loginId)) {
+            throw new Error('Invalid profile');
+          }
+          const cached = rawUser ? (JSON.parse(rawUser) as AuthUser) : {};
+          const merged = { ...cached, ...profile };
+          setAccessToken(token);
+          setUser(merged);
+          void saveItem(USER_KEY, JSON.stringify(merged));
+        } catch (err) {
+          const authRejected =
+            err instanceof ApiError && (err.status === 401 || err.status === 403);
+          const transient =
+            err instanceof ApiError && !authRejected && Boolean(rawUser);
+
+          if (transient) {
+            // Network/5xx with cached user — keep until proven invalid.
+            setAccessToken(token);
+            setUser(JSON.parse(rawUser!) as AuthUser);
+            return;
+          }
+
+          await deleteItem(TOKEN_KEY);
+          await deleteItem(USER_KEY);
+          setAccessToken(null);
+          setUser(null);
+        }
       } catch {
-        // ignore corrupt session
+        setAccessToken(null);
+        setUser(null);
       } finally {
         setHydrated(true);
       }

@@ -292,13 +292,33 @@ function normalizeApplication(raw: Record<string, unknown>): MobileApplication {
   };
 }
 
-async function fetchApplicationList(token: string, as: ApplicationAs) {
-  const raw = await apiRequest<unknown>(`/applications?as=${as}`, { token });
+async function fetchApplicationList(
+  token: string,
+  as: ApplicationAs,
+  queue: 'open' | 'all' = 'all',
+) {
+  const qs = new URLSearchParams({ as });
+  if (queue === 'open') qs.set('queue', 'open');
+  const raw = await apiRequest<unknown>(`/applications?${qs.toString()}`, { token });
   return asList<Record<string, unknown>>(raw).map(normalizeApplication);
 }
 
-export function fetchEngineerTasks(token: string) {
-  return fetchApplicationList(token, 'engineer');
+/** Active engineer work only (assigned / in progress). Submitted tasks are excluded. */
+export function isOpenEngineerTask(app: MobileApplication): boolean {
+  if (app.engineerSubmittedAt?.trim()) return false;
+  const status = normalizeApplicationStatus(app.status) ?? app.status;
+  return status === 'assigned' || status === 'in_progress';
+}
+
+/**
+ * Engineer applications.
+ * - `open` → home task list (hides submitted)
+ * - `all` → Applications tab (full history for assigned engineer)
+ */
+export function fetchEngineerTasks(token: string, queue: 'open' | 'all' = 'open') {
+  return fetchApplicationList(token, 'engineer', queue).then((apps) =>
+    queue === 'open' ? apps.filter(isOpenEngineerTask) : apps,
+  );
 }
 
 export function fetchZcApplications(token: string) {
@@ -434,6 +454,46 @@ export function applicationStatusLabel(status: MobileApplicationStatus) {
   if (status === 'in_progress') return 'In progress';
   if (status === 'submitted') return 'Submitted';
   return status;
+}
+
+function hasEngineerDimensions(app: MobileApplication): boolean {
+  const flat = [app.dimNorth, app.dimSouth, app.dimEast, app.dimWest].every((d) =>
+    Boolean(d?.trim()),
+  );
+  if (flat) return true;
+  const ed = app.engineerDimensions;
+  if (!ed) return false;
+  return Boolean(ed.N?.trim() && ed.S?.trim() && ed.E?.trim() && ed.W?.trim());
+}
+
+/**
+ * Field-capture progress for engineer dashboard (4-step Continue Open Task flow).
+ * Uses list-payload fields: compass/GPS, dimensions, selfie, submit.
+ */
+export function engineerTaskProgressPercent(app: MobileApplication): number {
+  const status = normalizeApplicationStatus(app.status) ?? app.status;
+  if (status === 'submitted' || Boolean(app.engineerSubmittedAt?.trim())) return 100;
+
+  let completed = 0;
+
+  const started =
+    status === 'in_progress' ||
+    Boolean(app.compass?.trim()) ||
+    Boolean(app.latitude?.trim()) ||
+    Boolean(app.longitude?.trim()) ||
+    hasEngineerDimensions(app) ||
+    Boolean(app.selfieUrl?.trim());
+  if (started) completed += 1;
+
+  if (app.compass?.trim() && app.latitude?.trim() && app.longitude?.trim()) {
+    completed += 1;
+  }
+
+  if (hasEngineerDimensions(app)) completed += 1;
+
+  if (app.selfieUrl?.trim()) completed += 1;
+
+  return Math.round((completed / 4) * 100);
 }
 
 export type ApplicationStatusTone = {

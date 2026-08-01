@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Bell,
   Check,
+  Clock,
   FileText,
   Home,
   LogOut,
@@ -380,6 +381,7 @@ export function AppHeader({
   go,
   showLogout = true,
   showNotifications = true,
+  welcome = false,
 }: {
   title: string;
   onBack?: () => void;
@@ -389,6 +391,8 @@ export function AppHeader({
   go?: Go;
   showLogout?: boolean;
   showNotifications?: boolean;
+  /** Home greeting: larger “Welcome” + smaller name on the next line. */
+  welcome?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const { logout, isAuthenticated, user } = useAuth();
@@ -404,6 +408,110 @@ export function AppHeader({
   };
 
   const userName = displayName(user);
+  const welcomeTitle = welcome ? 'Welcome' : title;
+  const welcomeSubtitle = welcome ? subtitle || userName : subtitle;
+
+  const titleBlock = (onGradient: boolean) =>
+    welcome ? (
+      <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
+        <Text
+          style={{
+            fontFamily: FONTS.bold,
+            fontSize: 22,
+            lineHeight: 28,
+            letterSpacing: -0.3,
+            color: onGradient ? COLORS.white : COLORS.ink,
+          }}
+          numberOfLines={1}
+        >
+          {welcomeTitle}
+        </Text>
+        {welcomeSubtitle ? (
+          <Text
+            style={{
+              fontFamily: FONTS.semibold,
+              fontSize: 14,
+              lineHeight: 18,
+              letterSpacing: 0.1,
+              color: onGradient ? 'rgba(255,255,255,0.88)' : COLORS.slate,
+            }}
+            numberOfLines={1}
+          >
+            {welcomeSubtitle}
+          </Text>
+        ) : null}
+      </VStack>
+    ) : (
+      <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
+        <Text
+          style={
+            onGradient
+              ? { ...TYPE.screen, color: COLORS.white, fontFamily: FONTS.bold }
+              : TYPE.screen
+          }
+          numberOfLines={1}
+        >
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text
+            style={
+              onGradient
+                ? { ...TYPE.caption, color: 'rgba(255,255,255,0.82)' }
+                : TYPE.caption
+            }
+            numberOfLines={2}
+          >
+            {subtitle}
+          </Text>
+        ) : null}
+      </VStack>
+    );
+
+  const initials =
+    userName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase() || '')
+      .join('') || 'U';
+
+  const welcomeAvatar =
+    welcome && go ? (
+      <Pressable
+        onPress={() => go('profile')}
+        className="active:opacity-85 items-center justify-center overflow-hidden"
+        style={{
+          width: 52,
+          height: 52,
+          borderRadius: 26,
+          backgroundColor: 'rgba(255,255,255,0.95)',
+          shadowColor: GLASS.shadow,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.2,
+          shadowRadius: 8,
+          elevation: 4,
+        }}
+      >
+        {user?.profilePhoto ? (
+          <Image
+            source={{ uri: user.profilePhoto }}
+            style={{ width: 52, height: 52 }}
+            resizeMode="cover"
+          />
+        ) : (
+          <Text
+            style={{
+              fontFamily: FONTS.bold,
+              fontSize: 16,
+              color: COLORS.primary,
+            }}
+          >
+            {initials}
+          </Text>
+        )}
+      </Pressable>
+    ) : null;
 
   const logoutBtn = canLogout ? (
     <ProfileMenu
@@ -452,16 +560,7 @@ export function AppHeader({
                 <ArrowLeft size={20} color={COLORS.primaryDeep} />
               </Pressable>
             ) : null}
-            <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
-              <Text style={TYPE.screen} numberOfLines={1}>
-                {title}
-              </Text>
-              {subtitle ? (
-                <Text style={TYPE.caption} numberOfLines={2}>
-                  {subtitle}
-                </Text>
-              ) : null}
-            </VStack>
+            {titleBlock(false)}
           </HStack>
           {rightSlot}
         </HStack>
@@ -490,25 +589,31 @@ export function AppHeader({
                 <ArrowLeft size={20} color={COLORS.white} />
               </Pressable>
             ) : null}
-            <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
-              <Text
-                style={{ ...TYPE.screen, color: COLORS.white, fontFamily: FONTS.bold }}
-                numberOfLines={1}
-              >
-                {title}
-              </Text>
-              {subtitle ? (
-                <Text
-                  style={{ ...TYPE.caption, color: 'rgba(255,255,255,0.82)' }}
-                  numberOfLines={2}
-                >
-                  {subtitle}
-                </Text>
-              ) : null}
-            </VStack>
+            {welcomeAvatar}
+            {titleBlock(true)}
           </HStack>
           {rightSlot}
         </HStack>
+        {welcome ? (
+          <HStack className="items-center" style={{ marginTop: SPACE[4], gap: 6 }}>
+            <Clock size={13} color="rgba(255,255,255,0.85)" />
+            <Text
+              style={{
+                fontSize: 11,
+                fontFamily: FONTS.medium,
+                color: 'rgba(255,255,255,0.88)',
+              }}
+              numberOfLines={1}
+            >
+              {new Date().toLocaleDateString(undefined, {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })}
+            </Text>
+          </HStack>
+        ) : null}
       </Box>
     </GradientHeader>
   );
@@ -904,7 +1009,15 @@ export function BottomNav({
   const renderTab = (it: (typeof leftItems)[number]) => {
     const Icon = it.icon;
     const on = active === it.k;
-    const isProfileWithPhoto = it.k === 'profile' && Boolean(user?.profilePhoto);
+    const isProfileTab = it.k === 'profile';
+    const profilePhoto = user?.profilePhoto?.trim() || null;
+    const profileInitials =
+      displayName(user)
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((p) => p[0]?.toUpperCase() || '')
+        .join('') || 'U';
     return (
       <Pressable
         key={it.k}
@@ -916,18 +1029,38 @@ export function BottomNav({
         style={{ height: BAR_H }}
       >
         <Box className="items-center justify-center relative" style={{ height: 28, width: 44 }}>
-          {isProfileWithPhoto ? (
+          {isProfileTab ? (
             <Box
               style={{
-                width: 24,
-                height: 24,
-                borderRadius: 12,
+                width: 26,
+                height: 26,
+                borderRadius: 13,
                 overflow: 'hidden',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: profilePhoto ? COLORS.muted : COLORS.primary,
                 borderWidth: on ? 2 : 1,
                 borderColor: on ? COLORS.primary : COLORS.slate,
               }}
             >
-              <Image source={{ uri: user!.profilePhoto! }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+              {profilePhoto ? (
+                <Image
+                  source={{ uri: profilePhoto }}
+                  style={{ width: '100%', height: '100%' }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 10,
+                    color: COLORS.white,
+                    lineHeight: 12,
+                  }}
+                >
+                  {profileInitials}
+                </Text>
+              )}
             </Box>
           ) : (
             <Icon

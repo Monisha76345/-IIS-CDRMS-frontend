@@ -1,6 +1,10 @@
 /** Selected office application id for ZC/CAO detail screens (screen-machine style). */
 let selectedOfficeAppId: string | null = null;
 let caoReturnScreen: 'cao_home' | 'cao_apps' = 'cao_home';
+/** Engineer Applications list filter (consumed once on HistoryScreen mount). */
+let engineerAppsFilter: string | null = null;
+/** Where Applications back should return (e.g. dashboard). */
+let engineerAppsReturn: 'dashboard' | null = null;
 
 export function setSelectedOfficeAppId(id: string | null) {
   selectedOfficeAppId = id;
@@ -16,4 +20,24 @@ export function setCaoReturnScreen(screen: 'cao_home' | 'cao_apps') {
 
 export function getCaoReturnScreen() {
   return caoReturnScreen;
+}
+
+export function setEngineerAppsFilter(filter: string | null) {
+  engineerAppsFilter = filter;
+}
+
+export function consumeEngineerAppsFilter() {
+  const next = engineerAppsFilter;
+  engineerAppsFilter = null;
+  return next;
+}
+
+export function setEngineerAppsReturn(screen: 'dashboard' | null) {
+  engineerAppsReturn = screen;
+}
+
+export function consumeEngineerAppsReturn() {
+  const next = engineerAppsReturn;
+  engineerAppsReturn = null;
+  return next;
 }

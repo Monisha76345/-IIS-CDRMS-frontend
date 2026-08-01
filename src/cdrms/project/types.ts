@@ -89,6 +89,8 @@ export type ProjectDraft = {
 export type SubmittedApplication = {
   id: string;
   applicationId: string;
+  /** Backend UUID when submitted from a ZC-assigned task. */
+  backendApplicationId?: string | null;
   projectName: string;
   khatedarName: string;
   surveyNo: string;

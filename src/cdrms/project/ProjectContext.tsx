@@ -144,6 +144,7 @@ function toSubmitted(draft: ProjectDraft, applicationId: string): SubmittedAppli
   return {
     id: draft.id,
     applicationId,
+    backendApplicationId: draft.backendApplicationId || null,
     projectName: draft.projectName.trim() || draft.applicationNumber || 'Untitled project',
     khatedarName: draft.khatedarName.trim() || draft.createdByZcName || '—',
     surveyNo: draft.surveyNo.trim() || draft.siteNo || '—',

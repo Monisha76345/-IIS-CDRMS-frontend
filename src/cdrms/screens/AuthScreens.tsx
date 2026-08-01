@@ -71,7 +71,6 @@ import {
   AppCard,
   AppHeader,
   Field,
-  GradientHeader,
   IconBox,
   ScreenShell,
   ScreenLoader,
@@ -99,7 +98,6 @@ import {
   GLASS,
   applyAuthTheme,
   AUTH_GRADIENT_HEADER,
-  GRADIENT_HEADER,
   GRADIENT_MESH,
   GRADIENT_PRIMARY,
   gradientStops,
@@ -117,23 +115,15 @@ const OTP_TTL_SEC = 60;
 
 export function SplashScreen({ go }: { go: Go }) {
   const insets = useSafeAreaInsets();
-  const { isAuthenticated, user } = useAuth();
 
   useLayoutEffect(() => {
     applyAuthTheme();
   }, []);
 
   const navigateAfterSplash = useCallback(() => {
-    if (isAuthenticated && user) {
-      if (needsGeoValidation(user)) {
-        go('permission');
-      } else {
-        go(homeScreenForRole(user));
-      }
-      return;
-    }
+    // Always show login after splash — do not auto-enter permission/home from a saved session.
     go('login');
-  }, [go, isAuthenticated, user]);
+  }, [go]);
 
   const logoScale = useSharedValue(0.55);
   const logoOpacity = useSharedValue(0);
@@ -428,12 +418,53 @@ export function LoginScreen({ go }: { go: Go }) {
   }
 
   return (
-    <ScreenShell>
+    <ScreenShell className="bg-background">
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
       >
+        <LinearGradient
+          pointerEvents="none"
+          colors={gradientStops(AUTH_GRADIENT_HEADER)}
+          locations={[0, 0.55, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '46%',
+          }}
+        />
+        <Box
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: -60,
+            right: -40,
+            width: 200,
+            height: 200,
+            borderRadius: 999,
+            borderWidth: 1.5,
+            borderColor: 'rgba(255,255,255,0.14)',
+          }}
+        />
+        <Box
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: 40,
+            right: 24,
+            width: 120,
+            height: 120,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.1)',
+          }}
+        />
+
         <ScrollView
           ref={scrollRef}
           className="flex-1"
@@ -441,140 +472,213 @@ export function LoginScreen({ go }: { go: Go }) {
           keyboardDismissMode="on-drag"
           contentContainerStyle={{
             flexGrow: 1,
-            paddingBottom: keyboardOpen ? 24 : 8,
+            justifyContent: keyboardOpen ? 'flex-start' : 'center',
+            paddingHorizontal: 22,
+            paddingTop: insets.top + (keyboardOpen ? 12 : 8),
+            paddingBottom: Math.max(insets.bottom, 16) + (keyboardOpen ? 16 : 56),
           }}
           showsVerticalScrollIndicator={false}
         >
           <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-            <View style={{ flexGrow: 1 }}>
-              <GradientHeader rounded colors={AUTH_GRADIENT_HEADER}>
-                <Box className={`px-6 ${keyboardOpen ? 'pt-2 pb-6' : 'pt-4 pb-14'}`}>
-                  <HStack className="items-center gap-3.5">
-                    <Box className="h-13 w-13 rounded-2xl bg-white border border-white/30 items-center justify-center overflow-hidden shadow-md" style={{ width: 50, height: 50 }}>
-                      <Image
-                        source={require('../../../assets/bda-logo.png')}
-                        style={{ width: 44, height: 44 }}
-                        resizeMode="contain"
-                        accessibilityLabel="BDA Logo"
-                      />
-                    </Box>
-                    <VStack className="flex-1 min-w-0">
-                      <Text className="text-2xl font-black text-white tracking-tight">
-                        Welcome
-                      </Text>
-                      <Text className="text-[11px] font-bold text-white/80 uppercase tracking-widest">
-                        BDA CDRMS PORTAL
-                      </Text>
-                    </VStack>
-                  </HStack>
-
-                  {!keyboardOpen ? (
-                    <Text className="mt-4 text-sm font-medium text-white/90 leading-snug">
-                      Sign in with your CDRMS Login ID to continue.
-                    </Text>
-                  ) : null}
+            <View>
+              <HStack className="items-center" style={{ gap: 14, marginBottom: 18 }}>
+                <Box
+                  className="items-center justify-center overflow-hidden"
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 18,
+                    backgroundColor: COLORS.white,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.45)',
+                    shadowColor: '#0F172A',
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.18,
+                    shadowRadius: 14,
+                    elevation: 6,
+                  }}
+                >
+                  <Image
+                    source={require('../../../assets/bda-logo.png')}
+                    style={{ width: 46, height: 46 }}
+                    resizeMode="contain"
+                    accessibilityLabel="BDA Logo"
+                  />
                 </Box>
-              </GradientHeader>
+                <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
+                  <Text
+                    style={{
+                      fontSize: 26,
+                      lineHeight: 32,
+                      fontWeight: '800',
+                      letterSpacing: -0.4,
+                      color: COLORS.white,
+                    }}
+                  >
+                    Welcome
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontWeight: '700',
+                      letterSpacing: 1.4,
+                      textTransform: 'uppercase',
+                      color: 'rgba(255,255,255,0.82)',
+                    }}
+                  >
+                    BDA CDRMS Portal
+                  </Text>
+                </VStack>
+              </HStack>
 
-              <Box className={`flex-1 px-5 pb-8 ${keyboardOpen ? '-mt-3' : '-mt-8'}`}>
-                <AppCard>
-                  <VStack space="md">
-                    <Field
-                      label="Login ID / Email"
-                      icon={User}
-                      value={loginId}
-                      onChangeText={setLoginId}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      autoComplete="off"
-                      textContentType="none"
-                      importantForAutofill="no"
-                      placeholder="Enter login ID or email"
-                      showCheck={false}
-                      returnKeyType="next"
-                      submitBehavior="submit"
-                      blurOnSubmit={false}
-                      onSubmitEditing={() => passwordRef.current?.focus()}
-                    />
-                    <Field
-                      ref={passwordRef}
-                      label="Password"
-                      icon={Lock}
-                      value={password}
-                      onChangeText={setPassword}
-                      secureTextEntry={!showPassword}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      autoComplete="off"
-                      textContentType="oneTimeCode"
-                      importantForAutofill="no"
-                      passwordRules=""
-                      placeholder="Enter password"
-                      showCheck={false}
-                      returnKeyType="go"
-                      submitBehavior="blurAndSubmit"
-                      blurOnSubmit
-                      onSubmitEditing={() => {
-                        void onSecureLogin();
-                      }}
-                      endAdornment={
-                        <Pressable
-                          onPress={() => setShowPassword((v) => !v)}
-                          hitSlop={10}
-                          accessibilityRole="button"
-                          accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-                          className="h-9 w-9 items-center justify-center rounded-full active:opacity-70"
-                        >
-                          {showPassword ? (
-                            <EyeOff size={18} color="#64748B" />
-                          ) : (
-                            <Eye size={18} color="#64748B" />
-                          )}
-                        </Pressable>
-                      }
-                    />
+              {!keyboardOpen ? (
+                <Text
+                  style={{
+                    marginBottom: 18,
+                    fontSize: 14,
+                    lineHeight: 20,
+                    fontWeight: '500',
+                    color: 'rgba(255,255,255,0.9)',
+                  }}
+                >
+                  Sign in with your CDRMS Login ID to continue.
+                </Text>
+              ) : null}
 
-                    {error ? (
-                      <Text className="text-sm text-red-600 font-medium">{error}</Text>
-                    ) : null}
+              <Box
+                style={{
+                  backgroundColor: COLORS.white,
+                  borderRadius: 24,
+                  paddingHorizontal: 18,
+                  paddingVertical: 20,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 14 },
+                  shadowOpacity: 0.14,
+                  shadowRadius: 24,
+                  elevation: 8,
+                }}
+              >
+                <VStack space="md">
+                  <Field
+                    label="Login ID / Email"
+                    icon={User}
+                    value={loginId}
+                    onChangeText={setLoginId}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="off"
+                    textContentType="none"
+                    importantForAutofill="no"
+                    placeholder="Enter login ID or email"
+                    showCheck={false}
+                    returnKeyType="next"
+                    submitBehavior="submit"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => passwordRef.current?.focus()}
+                  />
+                  <Field
+                    ref={passwordRef}
+                    label="Password"
+                    icon={Lock}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="off"
+                    textContentType="oneTimeCode"
+                    importantForAutofill="no"
+                    passwordRules=""
+                    placeholder="Enter password"
+                    showCheck={false}
+                    returnKeyType="go"
+                    submitBehavior="blurAndSubmit"
+                    blurOnSubmit
+                    onSubmitEditing={() => {
+                      void onSecureLogin();
+                    }}
+                    endAdornment={
+                      <Pressable
+                        onPress={() => setShowPassword((v) => !v)}
+                        hitSlop={10}
+                        accessibilityRole="button"
+                        accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                        className="h-9 w-9 items-center justify-center rounded-full active:opacity-70"
+                      >
+                        {showPassword ? (
+                          <EyeOff size={18} color="#64748B" />
+                        ) : (
+                          <Eye size={18} color="#64748B" />
+                        )}
+                      </Pressable>
+                    }
+                  />
 
-                    <Checkbox
-                      value="remember"
-                      isChecked={remember}
-                      onChange={(v) => setRemember(!!v)}
-                      className="mt-1"
-                    >
-                      <CheckboxIndicator>
-                        <CheckboxIcon as={CheckIcon} />
-                      </CheckboxIndicator>
-                      <CheckboxLabel className="text-sm text-muted-foreground font-medium">
-                        Remember this device
-                      </CheckboxLabel>
-                    </Checkbox>
+                  {error ? (
+                    <Text className="text-sm text-red-600 font-medium">{error}</Text>
+                  ) : null}
 
-                    <AppBtn onPress={onSecureLogin} icon={Lock} disabled={loading}>
-                      {loading ? 'Signing in…' : 'Secure Login'}
-                    </AppBtn>
-                  </VStack>
-                </AppCard>
+                  <Checkbox
+                    value="remember"
+                    isChecked={remember}
+                    onChange={(v) => setRemember(!!v)}
+                    className="mt-1"
+                  >
+                    <CheckboxIndicator>
+                      <CheckboxIcon as={CheckIcon} />
+                    </CheckboxIndicator>
+                    <CheckboxLabel className="text-sm text-muted-foreground font-medium">
+                      Remember this device
+                    </CheckboxLabel>
+                  </Checkbox>
 
-                {!keyboardOpen ? (
-                  <VStack className="mt-6 items-center" space="md">
-                    <Pressable className="active:opacity-70 py-1">
-                      <Text className="text-sm text-primary font-bold">
-                        Forgot Login ID?
-                      </Text>
-                    </Pressable>
-
-                    <Text className="text-center text-[11px] font-medium text-slate-400 mt-6">
-                      {TERMS.app.copyright} · {TERMS.app.version}
-                    </Text>
-                  </VStack>
-                ) : null}
+                  <AppBtn onPress={onSecureLogin} icon={Lock} disabled={loading}>
+                    {loading ? 'Signing in…' : 'Secure Login'}
+                  </AppBtn>
+                </VStack>
               </Box>
+
+              <Pressable className="active:opacity-70 items-center" style={{ marginTop: 18, paddingVertical: 6 }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '700',
+                    color: COLORS.primary,
+                  }}
+                >
+                  Forgot Login ID?
+                </Text>
+              </Pressable>
             </View>
           </TouchableWithoutFeedback>
         </ScrollView>
+
+        {!keyboardOpen ? (
+          <Box
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: Math.max(insets.bottom, 10) + 4,
+              alignItems: 'center',
+              paddingHorizontal: 24,
+            }}
+          >
+            <Text
+              style={{
+                textAlign: 'center',
+                fontSize: 11,
+                fontWeight: '500',
+                color: COLORS.slate,
+              }}
+            >
+              {TERMS.app.copyright} · {TERMS.app.version}
+            </Text>
+          </Box>
+        ) : null}
       </KeyboardAvoidingView>
     </ScreenShell>
   );
@@ -1492,7 +1596,6 @@ export function GeoScreen({ go }: { go: Go }) {
   const { user } = useAuth();
   const { refresh, loading: geoBusy } = useDeviceLocation();
 
-  const [outsideSimulated, setOutsideSimulated] = useState(false);
   const [scanning, setScanning] = useState(true);
   const [locationResult, setLocationResult] = useState<LocationResult | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -1562,7 +1665,7 @@ export function GeoScreen({ go }: { go: Go }) {
       : 0;
 
   const outside =
-    outsideSimulated || (hasLocation && fenceAnchor ? realDistFt > FENCE_RADIUS_FT : false);
+    hasLocation && fenceAnchor ? realDistFt > FENCE_RADIUS_FT : false;
 
   useEffect(() => {
     verifyBadge.value = withSpring(outside ? 0 : 1, { damping: 12, stiffness: 170 });
@@ -1589,16 +1692,11 @@ export function GeoScreen({ go }: { go: Go }) {
               : 'Acquiring GPS — please wait…'
           }
           onBack={() => go('login')}
-          showLogout={false}
+          go={go}
         />
         <Box className="flex-1 items-center justify-center px-8" style={{ marginTop: -24 }}>
           {isBusy || !locationError ? (
-            <ScreenLoader
-              title="Geo Location Validation"
-              text="Acquiring GPS coordinates…"
-              icon={MapPin}
-              color="#2563EB"
-            />
+            <ScreenLoader color="#2563EB" />
           ) : (
             <VStack className="items-center w-full" style={{ gap: 14 }}>
               <IconBox size="lg" className="bg-destructive/15">
@@ -1619,9 +1717,6 @@ export function GeoScreen({ go }: { go: Go }) {
                   {isBusy ? 'Retrying…' : 'Retry GPS'}
                 </AppBtn>
               </Box>
-              <Pressable onPress={() => go('login')} className="py-2.5 items-center">
-                <Text className="text-sm text-destructive font-semibold">Logout</Text>
-              </Pressable>
             </VStack>
           )}
         </Box>
@@ -1655,7 +1750,7 @@ export function GeoScreen({ go }: { go: Go }) {
           title={TERMS.permissions.geoValidation}
           subtitle={isBusy ? 'Scanning jurisdiction…' : TERMS.permissions.geoValidationSubtitle}
           onBack={() => go('login')}
-          showLogout={false}
+          go={go}
         />
 
         <Box className="flex-1 -mt-6 pb-10">
@@ -1891,7 +1986,6 @@ export function GeoScreen({ go }: { go: Go }) {
                       <AppBtn
                         variant="outline"
                         onPress={() => {
-                          setOutsideSimulated(false);
                           void performFetchLocation();
                         }}
                         icon={RefreshCw}
@@ -1905,7 +1999,6 @@ export function GeoScreen({ go }: { go: Go }) {
                         variant="outline"
                         icon={Navigation}
                         onPress={() => {
-                          setOutsideSimulated(false);
                           void performFetchLocation();
                         }}
                         disabled={isBusy}
@@ -1923,9 +2016,6 @@ export function GeoScreen({ go }: { go: Go }) {
                       {isBusy ? 'Validating location…' : 'Continue anyway'}
                     </AppBtn>
                   </Box>
-                  <Pressable onPress={() => go('login')} className="mt-2 py-2.5 items-center">
-                    <Text className="text-sm text-destructive font-semibold">Logout</Text>
-                  </Pressable>
                 </AppCard>
               </Animated.View>
             ) : (
@@ -1939,15 +2029,6 @@ export function GeoScreen({ go }: { go: Go }) {
                     {isBusy ? 'Validating location…' : 'Continue'}
                   </AppBtn>
                 </Animated.View>
-                <Pressable
-                  onPress={() => setOutsideSimulated((prev) => !prev)}
-                  className="py-2.5 items-center active:opacity-70"
-                  disabled={isBusy}
-                >
-                  <Text className="text-xs text-muted-foreground font-medium">
-                    {outsideSimulated ? 'Reset: inside geo-fence' : 'Simulate: outside geo-fence'}
-                  </Text>
-                </Pressable>
               </VStack>
             )}
           </Animated.View>

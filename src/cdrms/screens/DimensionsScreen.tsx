@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Compass, Ruler } from 'lucide-react-native';
+import { Ruler } from 'lucide-react-native';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -7,13 +7,11 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
 import { GlassHeaderBadge, GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
-import { LiveCompassDial } from '@/src/cdrms/components/LiveCompassDial';
 import { Field } from '@/src/cdrms/components/primitives';
 import {
   SurveyScaffold,
   FooterContinueBtn,
 } from '@/src/cdrms/components/SurveyLayout';
-import { parseCompassReading } from '@/src/cdrms/hooks/useCompass';
 import { siteDimensionToFormDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
@@ -123,8 +121,6 @@ export function DimensionsScreen({ go }: { go: Go }) {
   const [stepSaving, setStepSaving] = useState(false);
   const clearedZcSeed = useRef(false);
 
-  const compassFace = parseCompassReading(draft.compassReading)?.face ?? null;
-
   useEffect(() => {
     if (!isBackendTask || clearedZcSeed.current) return;
     const zc = siteDimensionToFormDims(draft.siteDimensionMaster);
@@ -193,7 +189,7 @@ export function DimensionsScreen({ go }: { go: Go }) {
 
   return (
     <SurveyScaffold
-      title="Step 3 — Dimensions"
+      title="Site Dimension Sketch"
       subtitle="N / S / E / W · live plot updates"
       surface="premium"
       onBack={() => {
@@ -232,29 +228,8 @@ export function DimensionsScreen({ go }: { go: Go }) {
       go={go}
     >
       <GlassSectionCard
-        icon={Compass}
-        title="Facing direction"
-        subtitle={
-          compassFace
-            ? `Live ${draft.compassReading} · turn phone to update`
-            : 'Hold phone flat — live sensor on real device'
-        }
-        badge={
-          compassFace ? (
-            <GlassHeaderBadge>
-              <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
-                {compassFace}
-              </Text>
-            </GlassHeaderBadge>
-          ) : undefined
-        }
-      >
-        <LiveCompassDial />
-      </GlassSectionCard>
-
-      <GlassSectionCard
         icon={Ruler}
-        title="Site dimensions *"
+        title="Site Dimension Sketch *"
         subtitle={
           dimsReady
             ? `Live plot · ${liveSiteDimension}`

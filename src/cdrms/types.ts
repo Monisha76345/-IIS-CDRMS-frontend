@@ -25,6 +25,7 @@ export type Screen =
   | 'success'
   | 'notifications'
   | 'history'
+  | 'engineer_detail'
   | 'details'
   | 'returned'
   | 'profile'

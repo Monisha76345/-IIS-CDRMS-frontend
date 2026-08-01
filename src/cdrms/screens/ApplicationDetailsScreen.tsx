@@ -244,7 +244,7 @@ export function ApplicationDetailsScreen({ go }: { go: Go }) {
   if (isLoading) {
     return (
       <ScreenShell className="bg-[#F3F4F6]">
-        <AppHeader title="Application" subtitle="Loading details…" onBack={back} go={go} />
+        <AppHeader title="Application" subtitle="Loading details…" onBack={back} go={go} showLogout={false} showNotifications={false} />
         <ScreenLoader text="Fetching application record particulars…" minHeight={320} />
       </ScreenShell>
     );
@@ -253,7 +253,7 @@ export function ApplicationDetailsScreen({ go }: { go: Go }) {
   if (!detail) {
     return (
       <ScreenShell className="bg-[#F3F4F6]">
-        <AppHeader title="Application" subtitle="Not found" onBack={back} go={go} />
+        <AppHeader title="Application" subtitle="Not found" onBack={back} go={go} showLogout={false} showNotifications={false} />
         <VStack className="flex-1 items-center justify-center px-8">
           <Text className="font-bold text-foreground">Application not found</Text>
           <Box className="mt-4 w-full">
@@ -266,7 +266,7 @@ export function ApplicationDetailsScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-[#F3F4F6]">
-      <AppHeader title="Project details" subtitle={detail.id} onBack={back} go={go} />
+      <AppHeader title="Project details" subtitle={detail.id} onBack={back} go={go} showLogout={false} showNotifications={false} />
 
       <ScrollView
         className="flex-1"

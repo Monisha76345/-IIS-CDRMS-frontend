@@ -308,15 +308,17 @@ export function GlassCardHeader({
           >
             {title}
           </Text>
-          <Text
-            style={{
-              fontFamily: FONTS.medium,
-              fontSize: 11,
-              color: 'rgba(255,255,255,0.9)',
-            }}
-          >
-            {subtitle}
-          </Text>
+          {subtitle ? (
+            <Text
+              style={{
+                fontFamily: FONTS.medium,
+                fontSize: 11,
+                color: 'rgba(255,255,255,0.9)',
+              }}
+            >
+              {subtitle}
+            </Text>
+          ) : null}
         </VStack>
         {badge ?? null}
       </HStack>

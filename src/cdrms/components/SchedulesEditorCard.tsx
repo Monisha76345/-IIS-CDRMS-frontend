@@ -64,16 +64,11 @@ export function SchedulesEditorCard() {
   };
 
   const photoCount = CARDINALS.filter((k) => Boolean(draft.surroundingPhotos[k])).length;
-  const allPhotosReady = photoCount === CARDINALS.length;
 
   return (
     <GlassSectionCard
-      title="Site schedules *"
-      subtitle={
-        allPhotosReady
-          ? 'All 4 sides · road · note · photo complete'
-          : `${photoCount}/4 photos · add every side before continuing`
-      }
+      title="Site Schedules *"
+      subtitle="Check the box if road exists and upload image"
       icon={MapPinned}
       badge={
         <GlassHeaderBadge>

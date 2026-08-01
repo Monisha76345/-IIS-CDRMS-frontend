@@ -226,11 +226,11 @@ export function BandiScreen({ go }: { go: Go }) {
   return (
     <SurveyScaffold
       title={
-        isBackendTask ? 'Step 2 — Compass & schedule' : TERMS.workflow.checkBandi
+        isBackendTask ? 'Site facing direction' : TERMS.workflow.checkBandi
       }
       subtitle={
         isBackendTask
-          ? 'Compass, GPS, occupancy & schedule photos'
+          ? 'Compass, GPS, occupancy & site schedules'
           : TERMS.workflow.checkBandiSubtitle
       }
       surface={isBackendTask ? 'premium' : 'default'}
@@ -292,7 +292,7 @@ export function BandiScreen({ go }: { go: Go }) {
       {isBackendTask ? (
         <GlassSectionCard
           icon={Compass}
-          title="Facing direction *"
+          title="Site facing direction *"
           subtitle={
             compassFace
               ? `Live ${draft.compassReading} · turn phone to update`
@@ -334,13 +334,7 @@ export function BandiScreen({ go }: { go: Go }) {
           <GlassSectionCard
             icon={MapPin}
             title="Live GPS & coordinates *"
-            subtitle={
-              mapGps
-                ? `${coords?.lat ?? mapGps.latitude.toFixed(4)}, ${coords?.lng ?? mapGps.longitude.toFixed(4)}`
-                : geoBusy
-                  ? 'Acquiring device location…'
-                  : 'Allow location · tap refresh if needed'
-            }
+            subtitle=""
             badge={
               mapGps ? (
                 <GlassHeaderBadge>
@@ -1289,10 +1283,10 @@ export function PhotosScreen({ go }: { go: Go }) {
   return (
     <SurveyScaffold
       key={themeId}
-      title={isBackendTask ? 'Step 4 — Media & submit' : 'Upload Photographs'}
+      title={isBackendTask ? 'Media & submit' : 'Upload Photographs'}
       subtitle={
         isBackendTask
-          ? 'Selfie mandatory · extra site photos optional · then video required'
+          ? 'Selfie · site photos · comments · then video'
           : TERMS.workflow.photosSubtitle
       }
       surface={isBackendTask ? 'premium' : 'default'}
@@ -1344,12 +1338,8 @@ export function PhotosScreen({ go }: { go: Go }) {
         <>
           <GlassSectionCard
             icon={Camera}
-            title="Engineer selfie *"
-            subtitle={
-              draft.selfie
-                ? 'Verification photo captured · tap to retake'
-                : 'Mandatory front-camera selfie on site'
-            }
+            title="Selfie *"
+            subtitle=""
             badge={
               <GlassHeaderBadge>
                 {draft.selfie ? (
@@ -1410,9 +1400,6 @@ export function PhotosScreen({ go }: { go: Go }) {
                     <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}>
                       Selfie captured
                     </Text>
-                    <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: COLORS.slate }}>
-                      Engineer verification photo ready
-                    </Text>
                     <HStack style={{ gap: SPACE[2], marginTop: 2 }}>
                       <Pressable
                         onPress={() => void takeSelfieMedia()}
@@ -1453,7 +1440,9 @@ export function PhotosScreen({ go }: { go: Go }) {
                   backgroundColor: GLASS.surfaceSolid,
                   borderWidth: 1,
                   borderColor: GLASS.border,
-                  padding: SPACE[2],
+                  padding: SPACE[3],
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   shadowColor: '#0F172A',
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.08,
@@ -1461,38 +1450,25 @@ export function PhotosScreen({ go }: { go: Go }) {
                   elevation: 2,
                 }}
               >
-                <HStack style={{ alignItems: 'center', justifyContent: 'space-between', gap: SPACE[2] }}>
-                  <VStack style={{ flex: 1, gap: 2 }}>
-                    <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}>
-                      Take a live selfie
-                    </Text>
-                    <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: COLORS.slate, lineHeight: 16 }}>
-                      Front camera · engineer on site
-                    </Text>
-                  </VStack>
-                  <Pressable
-                    onPress={() => void takeSelfieMedia()}
-                    className="active:opacity-80 flex-row items-center gap-1.5 shrink-0"
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 8,
-                      borderRadius: 10,
-                      backgroundColor: COLORS.primary,
-                    }}
-                  >
-                    <Camera size={14} color="#FFFFFF" strokeWidth={2.4} />
-                    <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#FFFFFF' }}>
-                      Take Selfie
-                    </Text>
-                  </Pressable>
-                </HStack>
+                <Pressable
+                  onPress={() => void takeSelfieMedia()}
+                  className="active:opacity-80 items-center justify-center"
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 32,
+                    backgroundColor: COLORS.primary,
+                  }}
+                >
+                  <Camera size={26} color="#FFFFFF" strokeWidth={2.2} />
+                </Pressable>
               </Box>
             )}
           </GlassSectionCard>
 
           <GlassSectionCard
             icon={ImageIcon}
-            title="Site photos"
+            title="Site Photograph"
             subtitle={
               draft.photos.length === 0
                 ? 'Optional extra site images · rear camera'
@@ -1595,11 +1571,7 @@ export function PhotosScreen({ go }: { go: Go }) {
           <GlassSectionCard
             icon={MessageSquareText}
             title="Engineer comments *"
-            subtitle={
-              draft.engineerComments.trim()
-                ? 'Field remarks captured'
-                : 'Required before continuing to video'
-            }
+            subtitle=""
             badge={
               <GlassHeaderBadge>
                 <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
@@ -1723,7 +1695,6 @@ export function PhotosScreen({ go }: { go: Go }) {
               </HStack>
             </Box>
           ) : (
-            /* Sleek Compact Selfie Empty State */
             <Box
               style={{
                 borderRadius: 14,
@@ -1731,57 +1702,32 @@ export function PhotosScreen({ go }: { go: Go }) {
                 borderWidth: 1,
                 borderColor: '#E2E8F0',
                 padding: SPACE[3],
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
-              <HStack style={{ alignItems: 'flex-start', justifyContent: 'space-between', gap: SPACE[3] }}>
-                <VStack style={{ flex: 1, minWidth: 0, gap: 2, paddingTop: 2 }}>
-                  <Text
-                    numberOfLines={1}
-                    style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}
-                  >
-                    Selfie photo required{' '}
-                    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#DC2626' }}>*</Text>
-                  </Text>
-                  <Text
-                    style={{
-                      fontFamily: FONTS.medium,
-                      fontSize: 11,
-                      color: '#64748B',
-                      lineHeight: 16,
-                      flexShrink: 1,
-                    }}
-                  >
-                    Take a live front-camera selfie
-                  </Text>
-                </VStack>
-
-                <Pressable
-                  onPress={() => void takeSelfieMedia()}
-                  className="active:opacity-80 flex-row items-center gap-1.5 px-3.5 py-2.5 rounded-xl shrink-0"
-                  style={{
-                    backgroundColor: COLORS.primary,
-                    shadowColor: '#0F172A',
-                    shadowOpacity: 0.1,
-                    shadowRadius: 6,
-                    shadowOffset: { width: 0, height: 2 },
-                  }}
-                >
-                  <Camera size={15} color="#FFFFFF" strokeWidth={2.4} />
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: '#FFFFFF' }}>
-                    Take Selfie
-                  </Text>
-                </Pressable>
-              </HStack>
+              <Pressable
+                onPress={() => void takeSelfieMedia()}
+                className="active:opacity-80 items-center justify-center"
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 32,
+                  backgroundColor: COLORS.primary,
+                }}
+              >
+                <Camera size={26} color="#FFFFFF" strokeWidth={2.2} />
+              </Pressable>
             </Box>
           )}
         </VStack>
       </SurveyCard>
 
-      {/* ── Card 2: Site Photograph Gallery ── */}
+      {/* ── Card 2: Site Photograph ── */}
       <SurveyCard>
         <WorkspaceHeader
           icon={ImageIcon}
-          title="Site photos"
+          title="Site Photograph"
           subtitle="Rear camera only · optional extra site photos (max 4)"
           iconBg={COLORS.primary}
         />
@@ -1999,7 +1945,7 @@ export function VideoScreen({ go }: { go: Go }) {
   return (
     <SurveyScaffold
       key={themeId}
-      title={isBackendTask ? 'Step 4 — Media & submit' : 'Upload Inspection Video'}
+      title={isBackendTask ? 'Media & submit' : 'Upload Inspection Video'}
       subtitle={
         isBackendTask
           ? 'Site video required before validation'

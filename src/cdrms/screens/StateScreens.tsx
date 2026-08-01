@@ -53,6 +53,7 @@ import { ReviewSchedulesPanel } from '@/src/cdrms/components/ReviewSchedulesPane
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { formatCoords, type Cardinal } from '@/src/cdrms/project/types';
 import { validateDraft, validationSummary } from '@/src/cdrms/project/validation';
+import { setSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
 import { COLORS, FONTS, GLASS, GRADIENT_SUBTLE, SPACE } from '@/src/cdrms/theme';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go } from '@/src/cdrms/types';
@@ -1047,9 +1048,26 @@ export function ReviewScreen({ go }: { go: Go }) {
 }
 
 export function SuccessScreen({ go }: { go: Go }) {
-  const { lastSubmitted, draft, startNewProject } = useProject();
+  const { lastSubmitted, draft, startNewProject, openApplication } = useProject();
   const appId = lastSubmitted?.applicationId || draft.applicationId || draft.id;
   const submittedAt = lastSubmitted?.submittedAt || draft.submittedAt;
+  const backendId =
+    draft.backendApplicationId || lastSubmitted?.backendApplicationId || null;
+
+  const viewSubmittedApplication = () => {
+    if (backendId) {
+      setSelectedOfficeAppId(backendId);
+      go('engineer_detail');
+      return;
+    }
+    const localId = lastSubmitted?.id || draft.id;
+    if (localId) {
+      openApplication(localId);
+      go('details');
+      return;
+    }
+    go('history');
+  };
 
   return (
     <ScreenShell>
@@ -1093,8 +1111,8 @@ export function SuccessScreen({ go }: { go: Go }) {
             >
               Back to Dashboard
             </AppBtn>
-            <AppBtn variant="outline" onPress={() => go('history')}>
-              View Applications
+            <AppBtn variant="outline" onPress={viewSubmittedApplication}>
+              View Application
             </AppBtn>
           </VStack>
         </VStack>

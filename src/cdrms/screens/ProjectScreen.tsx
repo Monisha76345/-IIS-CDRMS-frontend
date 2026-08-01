@@ -282,7 +282,7 @@ export function ProjectScreen({ go }: { go: Go }) {
     <SurveyScaffold
       title={
         isBackendTask
-          ? 'Step 1 — ZC details'
+          ? 'ZC details'
           : isResubmit
             ? TERMS.workflow.fixResubmit
             : TERMS.workflow.newApplication

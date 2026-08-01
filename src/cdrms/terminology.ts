@@ -63,7 +63,7 @@ export const TERMS = {
     boundaryDirections: 'Boundary Directions',
     directionalPhotos: 'Directional Photographs',
     nearbyContext: 'Adjacent Site Context',
-    sitePhotoGallery: 'Site Photograph Gallery',
+    sitePhotoGallery: 'Site Photograph',
     walkthroughVideo: 'Site Inspection Video',
     media: 'Photographs & Video',
     approachDetails: 'Approach Road Particulars',
@@ -190,15 +190,15 @@ export const ENGINEER_SURVEY_STEPS: SurveyStep[] = [
     icon: Building2,
   },
   {
-    label: 'Compass',
-    short: 'Compass',
-    title: 'Compass & schedule',
+    label: 'Facing',
+    short: 'Facing',
+    title: 'Site facing direction',
     icon: Compass,
   },
   {
     label: 'Dimensions',
     short: 'Dims',
-    title: 'Dimensions',
+    title: 'Site Dimension Sketch',
     icon: Ruler,
   },
   {

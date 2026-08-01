@@ -93,7 +93,6 @@ export function ZcHomeScreen({ go }: { go: Go }) {
   const { themeId } = useTheme();
   const { accessToken, user } = useAuth();
   const [apps, setApps] = useState<MobileApplication[]>([]);
-  const [zone, setZone] = useState<MyZoneMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<ZcTab>('all');
   const [q, setQ] = useState('');
@@ -104,12 +103,8 @@ export function ZcHomeScreen({ go }: { go: Go }) {
     setLoading(true);
     setError(null);
     try {
-      const [list, meta] = await Promise.all([
-        fetchZcApplications(accessToken),
-        fetchMyZoneMeta(accessToken).catch(() => null),
-      ]);
+      const list = await fetchZcApplications(accessToken);
       setApps(list);
-      setZone(meta);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to load applications');
       setApps([]);
@@ -191,12 +186,9 @@ export function ZcHomeScreen({ go }: { go: Go }) {
         showsVerticalScrollIndicator={false}
       >
         <AppHeader
-          title="Zone Applications"
-          subtitle={
-            zone
-              ? `Zone ${zone.zoneCode} · ${zone.zoneName} · Series ZC-${zone.zoneCode}-AUC-####`
-              : `Welcome, ${displayName(user)}`
-          }
+          title="Welcome"
+          subtitle={displayName(user)}
+          welcome
           go={go}
         />
 
@@ -425,11 +417,13 @@ function PlainSectionCard({
   title,
   subtitle,
   icon: Icon,
+  required,
   children,
 }: {
   title: string;
   subtitle?: string;
   icon: LucideIcon;
+  required?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -489,6 +483,9 @@ function PlainSectionCard({
               numberOfLines={1}
             >
               {title}
+              {required ? (
+                <Text style={{ color: COLORS.destructive, fontFamily: FONTS.bold }}> *</Text>
+              ) : null}
             </Text>
             {subtitle ? (
               <Text
@@ -672,7 +669,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
       return Alert.alert('Validation', 'Comment is required for Odd site type');
     }
     if (!String(form.assignedEngineerUserId || '').trim()) {
-      return Alert.alert('Validation', 'Tap an engineer to assign the task');
+      return Alert.alert('Validation', 'Assign engineer is required');
     }
 
     setSaving(true);
@@ -711,6 +708,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
         gradient={false}
         go={go}
         showNotifications={false}
+        showLogout={false}
       />
       {/*
         iOS: light padding avoidance.
@@ -1088,7 +1086,12 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                 </HStack>
               </PlainSectionCard>
 
-              <PlainSectionCard title="Assign engineer" subtitle="Field engineer in your zone" icon={UserCheck}>
+              <PlainSectionCard
+                title="Assign engineer"
+                subtitle="Required · field engineer in your zone"
+                icon={UserCheck}
+                required
+              >
                 <Pressable
                   onPress={() => {
                     if (engineers.length === 0) return;
@@ -1100,7 +1103,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     height: 40,
                     borderRadius: 12,
                     borderWidth: 1,
-                    borderColor: COLORS.border,
+                    borderColor: form.assignedEngineerUserId ? COLORS.border : `${COLORS.destructive}55`,
                     backgroundColor: COLORS.white,
                     paddingHorizontal: 12,
                     flexDirection: 'row',
@@ -1121,7 +1124,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                       ? `${selectedEngineer.name}${selectedEngineer.postName ? ` · ${selectedEngineer.postName}` : ''}`
                       : engineers.length === 0
                         ? 'No engineers in this zone'
-                        : 'Select engineer'}
+                        : 'Select engineer *'}
                   </Text>
                   <ChevronDown size={16} color={COLORS.slate} />
                 </Pressable>
@@ -1268,6 +1271,7 @@ export function ZcDetailScreen({ go }: { go: Go }) {
         gradient
         go={go}
         showNotifications={false}
+        showLogout={false}
       />
       <ScrollView
         key={themeId}

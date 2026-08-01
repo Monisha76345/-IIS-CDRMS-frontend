@@ -65,9 +65,19 @@ export function EngineerStickyHeader() {
           backgroundColor: GLASS.cardSolid,
         }}
       >
-        <HStack style={{ flexWrap: 'wrap', gap: 6 }}>
-          <Chip icon={Hash} label={refId} primary />
-          {draft.zoneCode ? <Chip label={draft.zoneCode} /> : null}
+        <HStack style={{ gap: SPACE[2] }}>
+          <StatBlock
+            icon={Hash}
+            label="Application number"
+            value={refId}
+            color={COLORS.primary}
+          />
+          <StatBlock
+            icon={MapPinned}
+            label="Zone"
+            value={draft.zoneCode?.trim() || '—'}
+            color="#0891B2"
+          />
         </HStack>
 
         <GlassSurface padding={SPACE[2]}>
@@ -108,7 +118,7 @@ export function EngineerStickyHeader() {
 
         <VStack style={{ gap: SPACE[2] }}>
           <Text style={{ ...TYPE.label, color: COLORS.slate, fontSize: 10, letterSpacing: 0.8 }}>
-            Schedules around site
+            Site Schedules
           </Text>
           <HStack style={{ flexWrap: 'wrap', gap: 6 }}>
             {CARDINALS.map(({ k, label, color }) => (
@@ -124,43 +134,6 @@ export function EngineerStickyHeader() {
         </VStack>
       </VStack>
     </GlassCard>
-  );
-}
-
-function Chip({
-  icon: Icon,
-  label,
-  primary = false,
-}: {
-  icon?: typeof Hash;
-  label: string;
-  primary?: boolean;
-}) {
-  return (
-    <HStack
-      style={{
-        alignItems: 'center',
-        gap: 4,
-        paddingHorizontal: 9,
-        paddingVertical: 4,
-        borderRadius: 999,
-        backgroundColor: primary ? GLASS.tintBlue : GLASS.surface,
-        borderWidth: 1,
-        borderColor: primary ? '#BFDBFE' : GLASS.borderSoft,
-      }}
-    >
-      {Icon ? <Icon size={11} color={COLORS.primary} strokeWidth={2.3} /> : null}
-      <Text
-        style={{
-          fontFamily: FONTS.bold,
-          fontSize: 12,
-          color: primary ? '#1D4ED8' : COLORS.ink,
-        }}
-        numberOfLines={1}
-      >
-        {label}
-      </Text>
-    </HStack>
   );
 }
 

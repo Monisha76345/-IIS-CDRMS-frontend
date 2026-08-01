@@ -152,8 +152,9 @@ export function CaoHomeScreen({ go }: { go: Go }) {
         showsVerticalScrollIndicator={false}
       >
         <AppHeader
-          title="Zone Applications"
-          subtitle={`Welcome, ${displayName(user)}`}
+          title="Welcome"
+          subtitle={displayName(user)}
+          welcome
           go={go}
         />
 
@@ -577,6 +578,7 @@ export function CaoDetailScreen({ go }: { go: Go }) {
         gradient
         go={go}
         showNotifications={false}
+        showLogout={false}
       />
       <ScrollView
         key={themeId}
