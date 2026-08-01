@@ -294,6 +294,7 @@ export function ProjectScreen({ go }: { go: Go }) {
             ? TERMS.workflow.fixResubmitSubtitle
             : TERMS.workflow.newApplicationSubtitle
       }
+      surface={isBackendTask ? 'premium' : 'default'}
       onBack={() => {
         void (async () => {
           if (isBackendTask) {

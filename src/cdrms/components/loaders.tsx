@@ -88,63 +88,63 @@ export function getScreenLoaderConfig(screen: Screen): ScreenLoaderMeta {
         title: 'Field Engineer Workspace',
         subtitle: 'Syncing assigned projects & site tasks…',
         icon: LayoutDashboard,
-        color: '#2563EB',
+        color: COLORS.primary,
       }
     case 'project':
       return {
         title: 'Project Workspace',
         subtitle: 'Loading site details & GPS location…',
         icon: Building2,
-        color: '#2563EB',
+        color: COLORS.primary,
       }
     case 'bandi':
       return {
         title: 'Site Boundaries',
         subtitle: 'Loading north, south, east, west boundaries…',
         icon: MapPin,
-        color: '#2563EB',
+        color: COLORS.primary,
       }
     case 'dimensions':
       return {
         title: 'Site Dimensions',
         subtitle: 'Loading dimension calculations & road width…',
         icon: Ruler,
-        color: '#2563EB',
+        color: COLORS.primary,
       }
     case 'directions':
       return {
         title: 'Site Directions',
         subtitle: 'Loading directional coordinates…',
         icon: Compass,
-        color: '#2563EB',
+        color: COLORS.primary,
       }
     case 'surroundings':
       return {
         title: 'Surrounding Details',
         subtitle: 'Loading nearby roads & building particulars…',
         icon: Building2,
-        color: '#2563EB',
+        color: COLORS.primary,
       }
     case 'photos':
       return {
         title: 'Site Photos',
         subtitle: 'Loading captured site images…',
         icon: Camera,
-        color: '#2563EB',
+        color: COLORS.primary,
       }
     case 'video':
       return {
         title: 'Site Video',
         subtitle: 'Loading recorded site walkthrough…',
         icon: Camera,
-        color: '#2563EB',
+        color: COLORS.primary,
       }
     case 'draft':
       return {
         title: 'Survey Drafts',
         subtitle: 'Loading offline draft surveys…',
         icon: FileText,
-        color: '#2563EB',
+        color: COLORS.primary,
       }
     case 'validate':
     case 'review':
@@ -187,7 +187,7 @@ export function getScreenLoaderConfig(screen: Screen): ScreenLoaderMeta {
         title: 'Geo Location Validation',
         subtitle: 'Acquiring GPS coordinates…',
         icon: MapPin,
-        color: '#2563EB',
+        color: COLORS.primary,
       }
     case 'login':
     case 'otp':
@@ -196,7 +196,7 @@ export function getScreenLoaderConfig(screen: Screen): ScreenLoaderMeta {
         title: 'Authentication',
         subtitle: 'Verifying authority credentials…',
         icon: ShieldCheck,
-        color: '#2563EB',
+        color: COLORS.primary,
       }
     default:
       return {

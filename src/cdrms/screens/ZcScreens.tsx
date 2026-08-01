@@ -56,7 +56,8 @@ import {
   type StatusCountItem,
 } from '@/src/cdrms/components/StatusCountGrid';
 import { setSelectedOfficeAppId, getSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
-import { COLORS, FONTS } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GLASS, themeStatColors } from '@/src/cdrms/theme';
+import { useTheme } from '@/src/theme/ThemeContext';
 import type { Go } from '@/src/cdrms/types';
 
 type ZcTab =
@@ -80,6 +81,7 @@ function villageLine(app: MobileApplication) {
 }
 
 export function ZcHomeScreen({ go }: { go: Go }) {
+  const { themeId } = useTheme();
   const { accessToken, user } = useAuth();
   const [apps, setApps] = useState<MobileApplication[]>([]);
   const [zone, setZone] = useState<MyZoneMeta | null>(null);
@@ -113,38 +115,35 @@ export function ZcHomeScreen({ go }: { go: Go }) {
 
   const counts = useMemo(() => countZcBuckets(apps), [apps]);
 
+  const statColors = themeStatColors();
   const countItems: StatusCountItem[] = [
     {
       key: 'all',
       label: 'Total',
       count: counts.total,
       icon: Layers,
-      tint: '#2563EB',
-      soft: '#DBEAFE',
+      ...statColors,
     },
     {
       key: 'assigned',
       label: 'Assigned',
       count: counts.assigned,
       icon: ClipboardList,
-      tint: '#2563EB',
-      soft: '#DBEAFE',
+      ...statColors,
     },
     {
       key: 'in_progress',
       label: 'In progress',
       count: counts.in_progress,
       icon: Hourglass,
-      tint: '#2563EB',
-      soft: '#DBEAFE',
+      ...statColors,
     },
     {
       key: 'submitted',
       label: 'Submitted',
       count: counts.submitted,
       icon: Send,
-      tint: '#2563EB',
-      soft: '#DBEAFE',
+      ...statColors,
     },
   ];
 
@@ -175,8 +174,9 @@ export function ZcHomeScreen({ go }: { go: Go }) {
   };
 
   return (
-    <ScreenShell className="bg-[#F3F4F6]">
+    <ScreenShell className="bg-background">
       <ScrollView
+        key={themeId}
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
@@ -193,7 +193,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
 
         <Box className="px-4 mt-4">
           <HStack className="items-center justify-between mb-3">
-            <Text className="text-[16px] font-bold flex-1" style={{ color: '#0F172A' }}>
+            <Text className="text-[16px] font-bold flex-1" style={{ color: COLORS.ink }}>
               Application overview
             </Text>
             <Pressable
@@ -206,7 +206,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
                 paddingVertical: 10,
               }}
             >
-              <FilePlus2 size={15} color="#FFFFFF" />
+              <FilePlus2 size={15} color={COLORS.white} />
               <Text className="text-[12px] font-bold text-white">Create</Text>
             </Pressable>
           </HStack>
@@ -221,21 +221,21 @@ export function ZcHomeScreen({ go }: { go: Go }) {
           <Box
             className="mt-4 flex-row items-center"
             style={{
-              backgroundColor: '#FFFFFF',
+              backgroundColor: COLORS.white,
               borderRadius: 14,
               borderWidth: 1,
-              borderColor: '#E5E7EB',
+              borderColor: COLORS.border,
               paddingHorizontal: 12,
               height: 44,
             }}
           >
-            <Search size={16} color="#94A3B8" />
+            <Search size={16} color={COLORS.slate} />
             <TextInput
               value={q}
               onChangeText={setQ}
               placeholder="Search by application no, site, engineer…"
-              placeholderTextColor="#94A3B8"
-              style={{ flex: 1, marginLeft: 8, fontSize: 13, color: '#0F172A' }}
+              placeholderTextColor={COLORS.slate}
+              style={{ flex: 1, marginLeft: 8, fontSize: 13, color: COLORS.ink }}
             />
           </Box>
 
@@ -269,7 +269,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
                     style={{
                       fontFamily: FONTS.bold,
                       fontSize: 12,
-                      color: on ? '#FFFFFF' : COLORS.ink,
+                      color: on ? COLORS.white : COLORS.ink,
                     }}
                   >
                     {f.label} · {count}
@@ -280,7 +280,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
           </ScrollView>
 
           <HStack className="items-center justify-between mt-4 mb-2">
-            <Text className="text-[15px] font-bold" style={{ color: '#0F172A' }}>
+            <Text className="text-[15px] font-bold" style={{ color: COLORS.ink }}>
               {sectionLabel}
             </Text>
             <Pressable onPress={() => void reload()} className="active:opacity-70">
@@ -293,7 +293,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
           {loading ? (
             <ListLoader text="Loading ZC applications…" />
           ) : error ? (
-            <Text className="text-[13px] mt-4" style={{ color: '#DC2626' }}>
+            <Text className="text-[13px] mt-4" style={{ color: COLORS.destructive }}>
               {error}
             </Text>
           ) : filtered.length === 0 ? (

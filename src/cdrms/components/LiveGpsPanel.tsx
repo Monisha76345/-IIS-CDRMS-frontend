@@ -6,9 +6,10 @@ import { HStack } from '@/components/ui/hstack';
 import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
+import { FrostedGlass } from '@/src/cdrms/components/GlassSurface';
 import type { GeoAddress } from '@/src/cdrms/hooks/useDeviceLocation';
 import type { GpsFix } from '@/src/cdrms/project/types';
-import { COLORS, FONTS, SPACE, TYPE } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GLASS, SPACE, TYPE } from '@/src/cdrms/theme';
 
 type LiveGpsPanelProps = {
   gps: GpsFix | null;
@@ -23,10 +24,11 @@ type LiveGpsPanelProps = {
   mapHeight?: number;
   title?: string | null;
   hideTitleHeader?: boolean;
+  variant?: 'default' | 'premium';
 };
 
 /**
- * Live phone GPS — white shadow tile + black text (Step 1 alignment).
+ * Live phone GPS — default tile or premium frosted panel (compass step).
  */
 export function LiveGpsPanel({
   gps,
@@ -34,12 +36,11 @@ export function LiveGpsPanel({
   loading = false,
   error,
   onRefresh,
-  syNo,
-  siteNo,
-  layoutName,
   title = 'Live location',
   hideTitleHeader = false,
+  variant = 'default',
 }: LiveGpsPanelProps) {
+  const isPremium = variant === 'premium';
   const hasFix = gps?.latitude != null && gps?.longitude != null;
   const placeLabel =
     address?.displayName?.trim() ||
@@ -55,148 +56,180 @@ export function LiveGpsPanel({
 
   const showOuterHeader = !hideTitleHeader && Boolean(title);
 
-  return (
-    <VStack style={{ gap: SPACE[2] }}>
-      {showOuterHeader ? (
-        <HStack className="items-center justify-between" style={{ minHeight: 32 }}>
-          <Text style={{ ...TYPE.label, color: COLORS.ink }}>{title}</Text>
-          <Pressable
-            onPress={onRefresh}
-            accessibilityLabel="Refresh live location"
-            className="active:opacity-80"
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 10,
-              backgroundColor: COLORS.white,
-              alignItems: 'center',
-              justifyContent: 'center',
+  const refreshBtn = (
+    <Pressable
+      onPress={onRefresh}
+      accessibilityLabel="Refresh live location"
+      className="active:opacity-80"
+      style={{
+        width: 30,
+        height: 30,
+        borderRadius: 8,
+        backgroundColor: isPremium ? GLASS.tintBlue : COLORS.white,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: isPremium ? '#BFDBFE' : COLORS.border,
+        ...(isPremium
+          ? {}
+          : {
               shadowColor: '#0F172A',
               shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.08,
               shadowRadius: 6,
               elevation: 2,
-            }}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color={COLORS.ink} />
-            ) : (
-              <RefreshCw size={15} color={COLORS.ink} strokeWidth={2.4} />
-            )}
-          </Pressable>
-        </HStack>
-      ) : null}
+            }),
+      }}
+    >
+      {loading ? (
+        <ActivityIndicator size="small" color={isPremium ? COLORS.primary : COLORS.ink} />
+      ) : (
+        <RefreshCw
+          size={14}
+          color={isPremium ? COLORS.primary : COLORS.ink}
+          strokeWidth={2.4}
+        />
+      )}
+    </Pressable>
+  );
 
+  const panelBody = (
+    <HStack className="items-start" style={{ gap: SPACE[2] }}>
       <Box
         style={{
-          borderRadius: 12,
-          backgroundColor: COLORS.white,
-          paddingHorizontal: 12,
-          paddingVertical: 11,
-          borderWidth: 1,
-          borderColor: COLORS.border,
-          shadowColor: '#0F172A',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.06,
-          shadowRadius: 6,
-          elevation: 2,
-        }}
-      >
-        <HStack className="items-center" style={{ gap: SPACE[2] }}>
-          <Box
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 10,
-              backgroundColor: COLORS.white,
-              alignItems: 'center',
-              justifyContent: 'center',
-              shadowColor: '#0F172A',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.08,
-              shadowRadius: 6,
-              elevation: 2,
-            }}
-          >
-            <MapPin size={18} color={COLORS.primary} strokeWidth={2.4} />
-          </Box>
-
-          <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
-            <HStack className="items-center" style={{ gap: SPACE[2] }}>
-              <Box
-                style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: 4,
-                  backgroundColor: hasFix ? COLORS.success : COLORS.warning,
-                }}
-              />
-              <Text
-                style={{
-                  ...TYPE.caption,
-                  fontFamily: FONTS.bold,
-                  color: COLORS.ink,
-                }}
-              >
-                {hasFix
-                  ? 'LIVE LOCATION'
-                  : loading
-                    ? 'Finding location…'
-                    : error || 'Waiting for location'}
-              </Text>
-              {accuracyLabel ? (
-                <Text style={{ ...TYPE.caption, fontFamily: FONTS.semibold, color: COLORS.ink }}>
-                  {accuracyLabel}
-                </Text>
-              ) : null}
-            </HStack>
-
-            <Text
-              style={{ ...TYPE.bodyStrong, fontSize: 13, color: COLORS.ink }}
-              numberOfLines={2}
-            >
-              {placeLabel ||
-                (hasFix ? 'Your current location' : 'Allow Location on this phone')}
-            </Text>
-
-            {areaLine ? (
-              <Text style={{ ...TYPE.caption, color: COLORS.ink }} numberOfLines={1}>
-                {areaLine}
-                {pinCode ? ` · ${pinCode}` : ''}
-              </Text>
-            ) : null}
-          </VStack>
-
-          {!showOuterHeader ? (
-            <Pressable
-              onPress={onRefresh}
-              accessibilityLabel="Refresh live location"
-              className="active:opacity-80"
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 10,
-                backgroundColor: COLORS.white,
-                alignItems: 'center',
-                justifyContent: 'center',
+          width: 32,
+          height: 32,
+          borderRadius: 9,
+          backgroundColor: isPremium ? GLASS.tintBlue : COLORS.white,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: isPremium ? 1 : 0,
+          borderColor: '#BFDBFE',
+          ...(isPremium
+            ? {}
+            : {
                 shadowColor: '#0F172A',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.08,
                 shadowRadius: 6,
                 elevation: 2,
-                borderWidth: 1,
-                borderColor: COLORS.border,
+              }),
+        }}
+      >
+        <MapPin size={16} color={COLORS.primary} strokeWidth={2.4} />
+      </Box>
+
+      <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
+        <HStack className="items-center" style={{ gap: SPACE[2] }}>
+          <Box
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: 3,
+              backgroundColor: hasFix ? COLORS.success : COLORS.warning,
+            }}
+          />
+          <Text
+            style={{
+              ...TYPE.caption,
+              fontFamily: FONTS.bold,
+              color: COLORS.ink,
+              fontSize: isPremium ? 10 : undefined,
+            }}
+          >
+            {hasFix
+              ? 'LIVE LOCATION'
+              : loading
+                ? 'Finding location…'
+                : error || 'Waiting for location'}
+          </Text>
+          {accuracyLabel ? (
+            <Text
+              style={{
+                ...TYPE.caption,
+                fontFamily: FONTS.semibold,
+                color: isPremium ? COLORS.slate : COLORS.ink,
+                fontSize: isPremium ? 10 : undefined,
               }}
             >
-              {loading ? (
-                <ActivityIndicator size="small" color={COLORS.ink} />
-              ) : (
-                <RefreshCw size={15} color={COLORS.ink} strokeWidth={2.4} />
-              )}
-            </Pressable>
+              {accuracyLabel}
+            </Text>
           ) : null}
         </HStack>
-      </Box>
+
+        <Text
+          style={{
+            ...TYPE.bodyStrong,
+            fontSize: isPremium ? 12 : 13,
+            color: COLORS.ink,
+            lineHeight: isPremium ? 17 : 18,
+            flexShrink: 1,
+          }}
+        >
+          {placeLabel ||
+            (hasFix ? 'Your current location' : 'Allow Location on this phone')}
+        </Text>
+
+        {areaLine ? (
+          <Text
+            style={{
+              ...TYPE.caption,
+              color: COLORS.slate,
+              fontSize: isPremium ? 11 : undefined,
+              lineHeight: isPremium ? 16 : 18,
+              flexShrink: 1,
+            }}
+          >
+            {areaLine}
+            {pinCode ? ` · ${pinCode}` : ''}
+          </Text>
+        ) : null}
+      </VStack>
+
+      {!showOuterHeader ? (
+        <Box style={{ marginTop: 2 }}>{refreshBtn}</Box>
+      ) : null}
+    </HStack>
+  );
+
+  return (
+    <VStack style={{ gap: SPACE[2] }}>
+      {showOuterHeader ? (
+        <HStack className="items-center justify-between" style={{ minHeight: 32 }}>
+          <Text style={{ ...TYPE.label, color: COLORS.ink }}>{title}</Text>
+          {refreshBtn}
+        </HStack>
+      ) : null}
+
+      {isPremium ? (
+        <FrostedGlass
+          borderRadius={12}
+          padding={SPACE[2]}
+          fill={GLASS.surfaceSolid}
+          sheen={false}
+          style={{ borderTopWidth: 2, borderTopColor: COLORS.primary }}
+        >
+          {panelBody}
+        </FrostedGlass>
+      ) : (
+        <Box
+          style={{
+            borderRadius: 12,
+            backgroundColor: COLORS.white,
+            paddingHorizontal: 12,
+            paddingVertical: 11,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            shadowColor: '#0F172A',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.06,
+            shadowRadius: 6,
+            elevation: 2,
+          }}
+        >
+          {panelBody}
+        </Box>
+      )}
     </VStack>
   );
 }

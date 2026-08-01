@@ -25,7 +25,8 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { ScreenShell } from '@/src/cdrms/components/primitives';
 import { ENGINEER_SURVEY_STEPS, SURVEY_STEPS } from '@/src/cdrms/terminology';
-import { COLORS, FONTS, GRADIENT_HEADER, GRADIENT_PRIMARY, SPACE, TYPE } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GRADIENT_HEADER, GRADIENT_PRIMARY, GLASS, SPACE, TYPE, gradientStops } from '@/src/cdrms/theme';
+import { GlassMeshOrbs } from '@/src/cdrms/components/GlassSurface';
 import type { Go } from '@/src/cdrms/types';
 
 function stepsForTotal(total: number) {
@@ -33,32 +34,72 @@ function stepsForTotal(total: number) {
 }
 
 const COMPACT_SCROLL_THRESHOLD = 64;
+/** Sticky bar: top pad (8) + continue btn (44) */
+const STICKY_FOOTER_HEIGHT = 52;
+const FOOTER_SCROLL_BUFFER = 4;
 
 /** Icon + label step tabs — sits in the rounded white sheet under the hero. */
-export function StepRail({ step, total = 5 }: { step: number; total?: number }) {
+export function StepRail({
+  step,
+  total = 5,
+  variant = 'default',
+}: {
+  step: number;
+  total?: number;
+  variant?: 'default' | 'premium';
+}) {
   const steps = stepsForTotal(total);
+  const isPremium = variant === 'premium';
+
   return (
     <Box
       style={{
-        backgroundColor: COLORS.white,
+        backgroundColor: isPremium ? GLASS.card : COLORS.white,
         borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
+        borderBottomColor: isPremium ? GLASS.borderSoft : COLORS.border,
         paddingHorizontal: SPACE[2],
-        paddingTop: SPACE[3],
+        paddingTop: SPACE[2],
       }}
     >
       <HStack className="items-stretch justify-between">
         {steps.map((item, i) => {
           const active = i === step - 1;
           const Icon = item.icon;
+          const done = i < step - 1;
+
           return (
             <Box key={item.label} className="flex-1 items-center" style={{ position: 'relative' }}>
-              <VStack className="items-center" style={{ paddingBottom: SPACE[3], gap: 4 }}>
-                <Icon
-                  size={16}
-                  color={active ? COLORS.primary : COLORS.slate}
-                  strokeWidth={active ? 2.4 : 2}
-                />
+              <VStack className="items-center" style={{ paddingBottom: SPACE[2], gap: 4 }}>
+                <Box
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 10,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: active
+                      ? 'rgba(37,99,235,0.12)'
+                      : done && isPremium
+                        ? 'rgba(22,163,74,0.1)'
+                        : isPremium
+                          ? 'rgba(255,255,255,0.4)'
+                          : 'transparent',
+                    borderWidth: isPremium || active ? 1 : 0,
+                    borderColor: active
+                      ? 'rgba(37,99,235,0.25)'
+                      : isPremium
+                        ? GLASS.borderSoft
+                        : 'transparent',
+                  }}
+                >
+                  <Icon
+                    size={16}
+                    color={
+                      active ? COLORS.primary : done && isPremium ? COLORS.success : COLORS.slate
+                    }
+                    strokeWidth={active ? 2.4 : 2}
+                  />
+                </Box>
                 <Text
                   numberOfLines={1}
                   style={{
@@ -77,8 +118,8 @@ export function StepRail({ step, total = 5 }: { step: number; total?: number }) 
                   style={{
                     position: 'absolute',
                     bottom: 0,
-                    left: '18%',
-                    right: '18%',
+                    left: '15%',
+                    right: '15%',
                     height: 3,
                     borderRadius: 999,
                     backgroundColor: COLORS.primary,
@@ -161,6 +202,8 @@ export function SurveyHero({
   showSteps = true,
   total = 5,
   watermark,
+  go,
+  variant = 'default',
 }: {
   title: string;
   subtitle?: string;
@@ -171,9 +214,11 @@ export function SurveyHero({
   total?: number;
   watermark?: 'compass';
   go?: Go;
+  variant?: 'default' | 'premium';
 }) {
   const insets = useSafeAreaInsets();
   const steps = stepsForTotal(total);
+  const isPremium = variant === 'premium';
   const stepLine =
     step != null
       ? `Step ${step} of ${total} · ${steps[step - 1]?.title ?? 'Survey'}`
@@ -183,7 +228,7 @@ export function SurveyHero({
   return (
     <Box>
       <LinearGradient
-        colors={[...GRADIENT_HEADER]}
+        colors={gradientStops(GRADIENT_HEADER)}
         locations={[0, 0.55, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -206,6 +251,20 @@ export function SurveyHero({
             backgroundColor: 'rgba(255,255,255,0.08)',
           }}
         />
+        {isPremium ? (
+          <Box
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              bottom: -20,
+              left: -30,
+              width: 100,
+              height: 100,
+              borderRadius: 999,
+              backgroundColor: 'rgba(255,255,255,0.06)',
+            }}
+          />
+        ) : null}
 
         {watermark === 'compass' ? (
           <Box
@@ -275,11 +334,14 @@ export function SurveyHero({
             marginTop: -18,
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
-            backgroundColor: '#FFFFFF',
+            backgroundColor: isPremium ? GLASS.card : '#FFFFFF',
             overflow: 'hidden',
+            borderWidth: isPremium ? 1 : 0,
+            borderBottomWidth: 0,
+            borderColor: GLASS.border,
           }}
         >
-          <StepRail step={step} total={total} />
+          <StepRail step={step} total={total} variant={isPremium ? 'premium' : 'default'} />
         </Box>
       ) : null}
     </Box>
@@ -316,7 +378,7 @@ function CompactSurveyHeader({
       pointerEvents="box-none"
     >
       <LinearGradient
-        colors={[GRADIENT_HEADER[0], GRADIENT_HEADER[1]]}
+        colors={gradientStops(GRADIENT_HEADER)}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
@@ -361,21 +423,23 @@ function CompactSurveyHeader({
 export function StickyBar({
   children,
   compactBottom = false,
+  variant = 'default',
 }: {
   children: ReactNode;
-  /** Drop home-indicator padding when keyboard is open — avoids a large gap above the keyboard. */
   compactBottom?: boolean;
+  variant?: 'default' | 'premium';
 }) {
   const insets = useSafeAreaInsets();
+
   return (
     <Box
       style={{
         paddingHorizontal: SPACE.gutter,
         paddingTop: SPACE[2],
         paddingBottom: compactBottom ? 2 : Math.max(insets.bottom, SPACE[3]),
-        backgroundColor: COLORS.soft,
+        backgroundColor: variant === 'premium' ? GLASS.card : COLORS.white,
         borderTopWidth: 1,
-        borderTopColor: COLORS.border,
+        borderTopColor: variant === 'premium' ? GLASS.border : COLORS.border,
       }}
     >
       {children}
@@ -406,7 +470,7 @@ export function FooterContinueBtn({
         borderRadius: 12,
         overflow: 'hidden',
         opacity: blocked ? 0.45 : 1,
-        shadowColor: '#2563EB',
+        shadowColor: COLORS.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
         shadowRadius: 8,
@@ -414,7 +478,7 @@ export function FooterContinueBtn({
       }}
     >
       <LinearGradient
-        colors={[...GRADIENT_PRIMARY]}
+        colors={gradientStops(GRADIENT_PRIMARY)}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
@@ -436,7 +500,7 @@ export function FooterContinueBtn({
         >
           {loading ? 'Saving…' : label}
         </Text>
-        {!loading ? <ArrowRight size={16} color="#fff" strokeWidth={2.5} /> : null}
+        {!loading ? <ArrowRight size={16} color={COLORS.white} strokeWidth={2.5} /> : null}
       </LinearGradient>
     </Pressable>
   );
@@ -453,6 +517,8 @@ export function SurveyScaffold({
   watermark,
   children,
   footer,
+  go,
+  surface = 'default',
 }: {
   title: string;
   subtitle: string;
@@ -465,11 +531,14 @@ export function SurveyScaffold({
   children: ReactNode;
   footer?: ReactNode;
   go?: Go;
+  /** Cleaner engineer flow styling */
+  surface?: 'default' | 'premium';
 }) {
   const insets = useSafeAreaInsets();
   const [compact, setCompact] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const keyboardOpenRef = useRef(false);
+  const isPremium = surface === 'premium';
 
   useEffect(() => {
     // keyboardWill* fires before layout settles — freeze compact header early.
@@ -532,8 +601,10 @@ export function SurveyScaffold({
         <ScrollView
           className="flex-1"
           contentContainerStyle={{
-            paddingBottom: 40 + insets.bottom,
-            flexGrow: 1,
+            paddingBottom: footer
+              ? STICKY_FOOTER_HEIGHT + Math.max(insets.bottom, SPACE[2]) + FOOTER_SCROLL_BUFFER
+              : 24 + insets.bottom,
+            ...(!footer ? { flexGrow: 1 } : {}),
           }}
           showsVerticalScrollIndicator={false}
           // "handled" = taps on TextInput keep keyboard; taps on empty space dismiss.
@@ -544,7 +615,7 @@ export function SurveyScaffold({
           onScroll={onScroll}
         >
           <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-            <View style={{ flexGrow: 1 }}>
+            <View>
               <SurveyHero
                 title={title}
                 subtitle={subtitle}
@@ -554,10 +625,33 @@ export function SurveyScaffold({
                 badge={badge ?? 'Auto-saved'}
                 showSteps={showSteps}
                 watermark={watermark}
+                go={go}
+                variant={isPremium ? 'premium' : 'default'}
               />
 
-              <Box style={{ gap: SPACE[4], paddingTop: SPACE[4], backgroundColor: COLORS.soft }}>
-                {children}
+              <Box
+                style={{
+                  gap: isPremium ? SPACE[2] : SPACE[4],
+                  paddingTop: isPremium ? SPACE[2] : SPACE[4],
+                  position: 'relative',
+                }}
+              >
+                {isPremium ? (
+                  <Box
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                    }}
+                  >
+                    <GlassMeshOrbs />
+                  </Box>
+                ) : null}
+                <Box style={{ gap: isPremium ? SPACE[2] : SPACE[4], backgroundColor: isPremium ? 'transparent' : COLORS.soft }}>
+                  {children}
+                </Box>
               </Box>
             </View>
           </TouchableWithoutFeedback>
@@ -566,7 +660,9 @@ export function SurveyScaffold({
         {footer ? (
           <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
             <View>
-              <StickyBar compactBottom={keyboardOpen}>{footer}</StickyBar>
+              <StickyBar compactBottom={keyboardOpen} variant={isPremium ? 'premium' : 'default'}>
+                {footer}
+              </StickyBar>
             </View>
           </TouchableWithoutFeedback>
         ) : null}

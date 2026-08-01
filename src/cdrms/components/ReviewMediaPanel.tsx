@@ -1,5 +1,5 @@
-import { Camera, UserRound } from 'lucide-react-native';
-import { useState } from 'react';
+import { Camera, UserRound, Video } from 'lucide-react-native';
+import { useState, type ReactNode } from 'react';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -10,7 +10,7 @@ import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
 import { ImagePreviewModal } from '@/src/cdrms/components/ImagePreviewModal';
 import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
-import { COLORS, FONTS, SPACE } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GLASS, SPACE } from '@/src/cdrms/theme';
 
 function formatDuration(ms?: number | null) {
   if (ms == null || ms <= 0) return null;
@@ -20,24 +20,81 @@ function formatDuration(ms?: number | null) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+function MediaBlock({
+  title,
+  icon: Icon,
+  variant,
+  children,
+}: {
+  title: string;
+  icon: typeof UserRound;
+  variant: 'default' | 'premium';
+  children: ReactNode;
+}) {
+  const isPremium = variant === 'premium';
+
+  return (
+    <VStack style={{ gap: SPACE[2] }}>
+      <HStack className="items-center" style={{ gap: SPACE[2] }}>
+        <Box
+          style={
+            isPremium
+              ? {
+                  width: 28,
+                  height: 28,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: GLASS.tintBlue,
+                  borderWidth: 1,
+                  borderColor: '#BFDBFE',
+                }
+              : undefined
+          }
+        >
+          <Icon size={isPremium ? 14 : 16} color={COLORS.primary} strokeWidth={2.3} />
+        </Box>
+        <Text style={{ fontFamily: FONTS.bold, fontSize: isPremium ? 12 : 13, color: COLORS.ink }}>
+          {title}
+        </Text>
+      </HStack>
+      <Box
+        style={
+          isPremium
+            ? {
+                borderRadius: 12,
+                backgroundColor: GLASS.surfaceSolid,
+                borderWidth: 1,
+                borderColor: GLASS.border,
+                padding: SPACE[2],
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.06,
+                shadowRadius: 8,
+                elevation: 2,
+              }
+            : undefined
+        }
+      >
+        {children}
+      </Box>
+    </VStack>
+  );
+}
+
 /** Read-only selfie, site photos & video — same assets as Step 4 fill screens. */
-export function ReviewMediaPanel() {
+export function ReviewMediaPanel({ variant = 'default' }: { variant?: 'default' | 'premium' }) {
   const { draft } = useProject();
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState('Photo preview');
 
   const videoDuration = draft.video ? formatDuration(draft.video.durationMs) : null;
+  const isPremium = variant === 'premium';
 
   return (
     <>
-      <VStack style={{ gap: SPACE[4] }}>
-        <VStack style={{ gap: SPACE[2] }}>
-          <HStack className="items-center" style={{ gap: SPACE[2] }}>
-            <UserRound size={16} color={COLORS.primary} strokeWidth={2.3} />
-            <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}>
-              Selfie
-            </Text>
-          </HStack>
+      <VStack style={{ gap: isPremium ? SPACE[2] : SPACE[4] }}>
+        <MediaBlock title="Selfie" icon={UserRound} variant={variant}>
           {draft.selfie ? (
             <Pressable
               onPress={() => {
@@ -46,11 +103,11 @@ export function ReviewMediaPanel() {
               }}
               className="overflow-hidden active:opacity-90"
               style={{
-                width: 112,
-                height: 112,
-                borderRadius: 16,
+                width: isPremium ? 96 : 112,
+                height: isPremium ? 96 : 112,
+                borderRadius: isPremium ? 12 : 16,
                 borderWidth: 1,
-                borderColor: COLORS.border,
+                borderColor: isPremium ? GLASS.border : COLORS.border,
               }}
             >
               <ApiMediaImage
@@ -64,27 +121,21 @@ export function ReviewMediaPanel() {
               No selfie captured
             </Text>
           )}
-        </VStack>
+        </MediaBlock>
 
-        <VStack style={{ gap: SPACE[2] }}>
-          <HStack className="items-center" style={{ gap: SPACE[2] }}>
-            <Camera size={16} color={COLORS.primary} strokeWidth={2.3} />
-            <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}>
-              Site photos
-            </Text>
-          </HStack>
+        <MediaBlock title="Site photos" icon={Camera} variant={variant}>
           {draft.photos.length > 0 ? (
-            <Box className="flex-row flex-wrap" style={{ gap: 10 }}>
+            <Box className="flex-row flex-wrap" style={{ gap: 8 }}>
               {draft.photos.map((p, i) => (
                 <Box
                   key={p.id}
                   style={{
                     width: '31%',
                     aspectRatio: 1,
-                    borderRadius: 14,
+                    borderRadius: isPremium ? 10 : 14,
                     overflow: 'hidden',
                     borderWidth: 1,
-                    borderColor: COLORS.border,
+                    borderColor: isPremium ? GLASS.border : COLORS.border,
                   }}
                 >
                   <Pressable
@@ -116,21 +167,18 @@ export function ReviewMediaPanel() {
               No extra site photos
             </Text>
           )}
-        </VStack>
+        </MediaBlock>
 
-        <VStack style={{ gap: SPACE[2] }}>
-          <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}>
-            Site video
-          </Text>
+        <MediaBlock title="Site video" icon={Video} variant={variant}>
           {draft.video ? (
             <Box
               className="overflow-hidden"
               style={{
-                borderRadius: 16,
+                borderRadius: isPremium ? 12 : 16,
                 aspectRatio: 16 / 9,
                 backgroundColor: '#0F172A',
                 borderWidth: 1,
-                borderColor: COLORS.border,
+                borderColor: isPremium ? GLASS.border : COLORS.border,
               }}
             >
               <SiteVideoPlayer
@@ -144,7 +192,7 @@ export function ReviewMediaPanel() {
               No video captured
             </Text>
           )}
-        </VStack>
+        </MediaBlock>
       </VStack>
 
       <ImagePreviewModal

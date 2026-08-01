@@ -12,6 +12,8 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import { apiRequest, ApiError } from '@/src/api/client';
 import { isMobileAllowedRole } from '@/src/auth/roles';
+import { applyTheme, normalizeThemeId } from '@/src/cdrms/theme';
+import { applyUniwindTheme } from '@/src/theme/applyUniwindTheme';
 
 const TOKEN_KEY = 'cdrms_access_token';
 const USER_KEY = 'cdrms_auth_user';
@@ -25,6 +27,7 @@ export type AuthUser = {
   role?: string;
   roleName?: string;
   profilePhoto?: string | null;
+  themePreference?: string;
 };
 
 type AuthContextValue = {
@@ -34,6 +37,7 @@ type AuthContextValue = {
   login: (loginIdOrEmail: string, password: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
   updateProfilePhoto: (photoUriOrBase64: string | null) => Promise<void>;
+  updateSessionUser: (patch: Partial<AuthUser>) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -82,6 +86,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setUser((prev) => {
                   const merged = { ...prev, ...p };
                   void saveItem(USER_KEY, JSON.stringify(merged));
+                  const themeId = normalizeThemeId(merged.themePreference);
+                  applyTheme(themeId);
+                  applyUniwindTheme(themeId);
                   return merged;
                 });
               }
@@ -119,6 +126,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
       }
       const nextUser = res.user ?? {};
+      const themeId = normalizeThemeId(nextUser.themePreference);
+      applyTheme(themeId);
+      applyUniwindTheme(themeId);
       await saveItem(TOKEN_KEY, res.accessToken);
       await saveItem(USER_KEY, JSON.stringify(nextUser));
       setAccessToken(res.accessToken);
@@ -196,6 +206,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [accessToken],
   );
 
+  const updateSessionUser = useCallback((patch: Partial<AuthUser>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, ...patch };
+      void saveItem(USER_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
   const value = useMemo(
     () => ({
       user,
@@ -204,8 +223,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       updateProfilePhoto,
+      updateSessionUser,
     }),
-    [user, accessToken, login, logout, updateProfilePhoto],
+    [user, accessToken, login, logout, updateProfilePhoto, updateSessionUser],
   );
 
   if (!hydrated) return null;

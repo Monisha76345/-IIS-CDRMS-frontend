@@ -11,7 +11,7 @@ import {
   type MobileApplicationStatus,
 } from '@/src/api/applications';
 import { ApplicationStatusBadge } from '@/src/cdrms/components/ApplicationStatusBadge';
-import { COLORS, FONTS } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GLASS } from '@/src/cdrms/theme';
 
 export type StatusCountItem = {
   key: string;
@@ -54,7 +54,7 @@ export function StatusCountGrid({
                 borderColor: active ? item.tint : COLORS.border,
                 minHeight: 62,
                 justifyContent: 'center',
-                shadowColor: '#0F172A',
+                shadowColor: GLASS.shadow,
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: active ? 0.12 : 0.06,
                 shadowRadius: 6,
@@ -72,7 +72,7 @@ export function StatusCountGrid({
                     backgroundColor: active ? 'rgba(255,255,255,0.22)' : item.soft,
                   }}
                 >
-                  <Icon size={14} color={active ? '#FFFFFF' : item.tint} strokeWidth={2.3} />
+                  <Icon size={14} color={active ? COLORS.white : item.tint} strokeWidth={2.3} />
                 </Box>
                 <VStack className="flex-1 min-w-0" style={{ gap: 1 }}>
                   <Text
@@ -80,7 +80,7 @@ export function StatusCountGrid({
                       fontFamily: FONTS.bold,
                       fontSize: 18,
                       lineHeight: 22,
-                      color: active ? '#FFFFFF' : COLORS.ink,
+                      color: active ? COLORS.white : COLORS.ink,
                     }}
                   >
                     {item.count}
@@ -176,12 +176,12 @@ export function OfficeAppRow({
               </Text>
               <Box
                 style={{
-                  backgroundColor: '#EFF6FF',
+                  backgroundColor: GLASS.tintBlue,
                   borderRadius: 8,
                   paddingHorizontal: 8,
                   paddingVertical: 3,
                   borderWidth: 1,
-                  borderColor: '#BFDBFE',
+                  borderColor: `${COLORS.primary}40`,
                 }}
               >
                 <Text
@@ -200,7 +200,7 @@ export function OfficeAppRow({
                 flex: 1,
                 fontFamily: FONTS.medium,
                 fontSize: 12,
-                color: '#64748B',
+                color: COLORS.slate,
               }}
               numberOfLines={1}
             >
@@ -219,10 +219,10 @@ export function OfficeAppRow({
                     width: 32,
                     height: 32,
                     borderRadius: 999,
-                    backgroundColor: '#10B981',
+                    backgroundColor: COLORS.success,
                   }}
                 >
-                  <Download size={14} color="#FFFFFF" strokeWidth={2.4} />
+                  <Download size={14} color={COLORS.white} strokeWidth={2.4} />
                 </Pressable>
               ) : null}
               <Box
@@ -231,12 +231,12 @@ export function OfficeAppRow({
                   width: 32,
                   height: 32,
                   borderRadius: 999,
-                  backgroundColor: '#4F8CFF',
+                  backgroundColor: COLORS.primary,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Eye size={14} color="#FFFFFF" strokeWidth={2.4} />
+                <Eye size={14} color={COLORS.white} strokeWidth={2.4} />
               </Box>
             </HStack>
           </HStack>

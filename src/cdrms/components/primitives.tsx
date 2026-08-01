@@ -34,10 +34,12 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/src/auth/AuthContext';
 import { resolveAppRole, displayName } from '@/src/auth/roles';
-import { COLORS, FONTS, GRADIENT_HEADER, GRADIENT_PRIMARY, SPACE, TYPE } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GLASS, GRADIENT_HEADER, GRADIENT_PRIMARY, SPACE, TYPE, gradientStops } from '@/src/cdrms/theme';
 import type { Go, NavTab, Screen } from '@/src/cdrms/types';
-import { useProject } from '@/src/cdrms/project/ProjectContext';
+import { useTheme } from '@/src/theme/ThemeContext';
 import { NotificationBell } from '@/src/cdrms/components/NotificationBell';
+import { ThemeToggleButton } from '@/src/cdrms/components/ThemePicker';
+import { useProject } from '@/src/cdrms/project/ProjectContext';
 
 /** Edge-pinned tab bar — soft U-notch cradles the center + */
 const BAR_H = 64;
@@ -70,7 +72,7 @@ export function GradientHeader({
   const insets = useSafeAreaInsets();
   return (
     <LinearGradient
-      colors={[...GRADIENT_HEADER]}
+      colors={gradientStops(GRADIENT_HEADER)}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{
@@ -100,6 +102,7 @@ export function ProfileMenu({
   photoUrl?: string | null;
   onLogout: () => void;
 }) {
+  const { themeId } = useTheme();
   const [open, setOpen] = useState(false);
   const [dropTop, setDropTop] = useState(100);
   const btnRef = useRef<RNView>(null);
@@ -159,7 +162,7 @@ export function ProfileMenu({
       resizeMode="cover"
     />
   ) : (
-    <Text style={{ fontFamily: FONTS.bold, fontSize: 18, color: '#FFFFFF' }}>
+    <Text style={{ fontFamily: FONTS.bold, fontSize: 18, color: COLORS.white }}>
       {initials || '?'}
     </Text>
   );
@@ -199,6 +202,7 @@ export function ProfileMenu({
 
         {/* Dropdown card */}
         <Animated.View
+          key={themeId}
           style={[
             {
               position: 'absolute',
@@ -206,8 +210,8 @@ export function ProfileMenu({
               right: 12,
               width: 232,
               borderRadius: 20,
-              backgroundColor: '#FFFFFF',
-              shadowColor: '#1E3A5F',
+              backgroundColor: COLORS.white,
+              shadowColor: GLASS.shadow,
               shadowOffset: { width: 0, height: 12 },
               shadowOpacity: 0.22,
               shadowRadius: 24,
@@ -240,7 +244,7 @@ export function ProfileMenu({
                 borderStyle: 'solid',
                 borderLeftColor: 'transparent',
                 borderRightColor: 'transparent',
-                borderBottomColor: '#4338CA',
+                borderBottomColor: COLORS.primaryDeep,
               }}
             />
           </View>
@@ -248,7 +252,7 @@ export function ProfileMenu({
           {/* Gradient profile header */}
           <View style={{ borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden' }}>
             <LinearGradient
-              colors={['#4338CA', '#6366F1']}
+              colors={gradientStops(GRADIENT_HEADER)}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 15 }}
@@ -274,7 +278,7 @@ export function ProfileMenu({
                 {/* Name + role + loginId */}
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text
-                    style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#FFFFFF', lineHeight: 20 }}
+                    style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.white, lineHeight: 20 }}
                     numberOfLines={1}
                   >
                     {userName}
@@ -283,7 +287,7 @@ export function ProfileMenu({
                   {roleName ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
                       <View
-                        style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#4ADE80' }}
+                        style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.success }}
                       />
                       <Text
                         style={{
@@ -317,7 +321,7 @@ export function ProfileMenu({
           </View>
 
           {/* Divider */}
-          <View style={{ height: 1, backgroundColor: '#F1F5F9' }} />
+          <View style={{ height: 1, backgroundColor: COLORS.muted }} />
 
           {/* Sign out row */}
           <Pressable
@@ -333,7 +337,7 @@ export function ProfileMenu({
               paddingVertical: 14,
               borderBottomLeftRadius: 20,
               borderBottomRightRadius: 20,
-              backgroundColor: '#FFFFFF',
+              backgroundColor: COLORS.white,
             }}
           >
             <View
@@ -341,14 +345,14 @@ export function ProfileMenu({
                 height: 34,
                 width: 34,
                 borderRadius: 10,
-                backgroundColor: '#FFF1F2',
+                backgroundColor: `${COLORS.destructive}14`,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <LogOut size={16} color="#EF4444" />
+              <LogOut size={16} color={COLORS.destructive} />
             </View>
-            <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#DC2626' }}>Sign out</Text>
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.destructive }}>Sign out</Text>
           </Pressable>
         </Animated.View>
       </Modal>
@@ -399,16 +403,21 @@ export function AppHeader({
     />
   ) : null;
 
+  const themeBtn = canLogout ? (
+    <ThemeToggleButton variant={gradient ? 'header' : 'plain'} />
+  ) : null;
+
   const notifBell =
     go && showNotifications && !isEngineerOrZc ? (
       <NotificationBell go={go} variant={gradient ? 'header' : 'plain'} />
     ) : null;
 
   const rightSlot =
-    right || notifBell || logoutBtn ? (
+    right || notifBell || themeBtn || logoutBtn ? (
       <HStack className="items-center gap-2">
         {right}
         {notifBell}
+        {themeBtn}
         {logoutBtn}
       </HStack>
     ) : null;
@@ -556,7 +565,7 @@ export function AppBtn({
         }}
       >
         <LinearGradient
-          colors={[...GRADIENT_PRIMARY]}
+          colors={gradientStops(GRADIENT_PRIMARY)}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{
@@ -827,6 +836,7 @@ export function BottomNav({
   hidePlus?: boolean;
   hideAlerts?: boolean;
 }) {
+  const { themeId } = useTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { startNewProject } = useProject();
@@ -896,7 +906,7 @@ export function BottomNav({
                 borderRadius: 12,
                 overflow: 'hidden',
                 borderWidth: on ? 2 : 1,
-                borderColor: on ? COLORS.primary : '#A0AEC0',
+                borderColor: on ? COLORS.primary : COLORS.slate,
               }}
             >
               <Image source={{ uri: user!.profilePhoto! }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
@@ -904,7 +914,7 @@ export function BottomNav({
           ) : (
             <Icon
               size={22}
-              color={on ? COLORS.primary : '#A0AEC0'}
+              color={on ? COLORS.primary : COLORS.slate}
               strokeWidth={on ? 2.4 : 1.9}
             />
           )}
@@ -917,9 +927,9 @@ export function BottomNav({
                 minWidth: 15,
                 height: 15,
                 paddingHorizontal: 3,
-                backgroundColor: '#EF4444',
+                backgroundColor: COLORS.destructive,
                 borderWidth: 1.5,
-                borderColor: '#FFFFFF',
+                borderColor: COLORS.white,
               }}
             >
               <Text className="text-[8px] font-extrabold text-white">{it.badge}</Text>
@@ -941,6 +951,7 @@ export function BottomNav({
 
   return (
     <Box
+      key={themeId}
       pointerEvents="box-none"
       style={{
         position: 'absolute',
@@ -954,7 +965,7 @@ export function BottomNav({
         style={{
           width,
           height: barH,
-          shadowColor: '#0F172A',
+          shadowColor: GLASS.shadow,
           shadowOffset: { width: 0, height: -6 },
           shadowOpacity: 0.1,
           shadowRadius: 16,
@@ -1023,9 +1034,9 @@ export function StatusChip({ status }: { status: string }) {
     Approved: { bg: '#D1FAE5', fg: '#047857' },
     Returned: { bg: '#FFEDD5', fg: '#C2410C' },
     Rejected: { bg: '#FEE2E2', fg: '#DC2626' },
-    Draft: { bg: '#EFF6FF', fg: '#1D4ED8' },
+    Draft: { bg: GLASS.tintBlue, fg: COLORS.primaryDeep },
     'In progress': { bg: '#F1F5F9', fg: '#334155' },
-    Assigned: { bg: '#EFF6FF', fg: '#2563EB' },
+    Assigned: { bg: GLASS.tintBlue, fg: COLORS.primary },
   };
   const s = styles[status] || { bg: '#F1F5F9', fg: '#0F172A' };
   return (

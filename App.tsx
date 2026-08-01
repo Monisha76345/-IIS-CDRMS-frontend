@@ -4,6 +4,7 @@ import { AuthProvider } from '@/src/auth/AuthContext';
 import { DeviceCameraHost } from '@/src/cdrms/components/DeviceCameraHost';
 import { useCdrmsFonts } from '@/src/cdrms/fonts';
 import { COLORS } from '@/src/cdrms/theme';
+import { ThemeProvider } from '@/src/theme/ThemeContext';
 import '@/global.css';
 import { useRef } from 'react';
 import { ActivityIndicator, View } from 'react-native';
@@ -58,8 +59,10 @@ export default function App() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <GluestackUIProvider mode="light">
             <AuthProvider>
-              <RootNavigator />
-              <DeviceCameraHost />
+              <ThemeProvider>
+                <RootNavigator />
+                <DeviceCameraHost />
+              </ThemeProvider>
             </AuthProvider>
           </GluestackUIProvider>
         </GestureHandlerRootView>

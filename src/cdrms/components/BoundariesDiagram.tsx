@@ -18,7 +18,7 @@ import {
   outwardNormal,
   type Pt,
 } from '@/src/cdrms/lib/sitePlotGeometry';
-import { COLORS, FONTS } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GLASS } from '@/src/cdrms/theme';
 
 /** Same palette as web SiteDimensionPlot */
 const DIM_COLORS = {
@@ -53,6 +53,8 @@ type Props = {
   roadSouth?: boolean;
   roadEast?: boolean;
   roadWest?: boolean;
+  /** Hide inner title bar when wrapped in GlassSectionCard */
+  embedded?: boolean;
 };
 
 function shortBeside(raw: string | null | undefined, max = 20): string | null {
@@ -180,6 +182,7 @@ export function BoundariesDiagram({
   roadSouth,
   roadEast,
   roadWest,
+  embedded = false,
 }: Props) {
   const [unit, setUnit] = useState<AreaUnit>('sqft');
 
@@ -300,17 +303,29 @@ export function BoundariesDiagram({
     <Box
       style={{
         overflow: 'hidden',
-        borderRadius: 16,
+        borderRadius: embedded ? 12 : 16,
         backgroundColor: COLORS.white,
-        borderWidth: 1.5,
-        borderColor: COLORS.border,
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 3,
+        borderWidth: 1,
+        borderColor: embedded ? GLASS.border : COLORS.border,
+        ...(embedded
+          ? {
+              shadowColor: '#0F172A',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.08,
+              shadowRadius: 8,
+              elevation: 2,
+            }
+          : {
+              borderWidth: 1.5,
+              shadowColor: '#0F172A',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.1,
+              shadowRadius: 12,
+              elevation: 3,
+            }),
       }}
     >
+      {!embedded ? (
       <HStack
         className="items-center justify-between"
         style={{
@@ -375,8 +390,9 @@ export function BoundariesDiagram({
           ) : null}
         </HStack>
       </HStack>
+      ) : null}
 
-      <Box style={{ paddingHorizontal: 10, paddingBottom: 8, paddingTop: 4 }}>
+      <Box style={{ paddingHorizontal: 10, paddingBottom: 8, paddingTop: embedded ? 8 : 4 }}>
         {!hasAny || !plot ? (
           <Box
             style={{

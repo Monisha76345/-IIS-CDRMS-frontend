@@ -46,13 +46,14 @@ import {
   SurveyScaffold,
   WorkspaceHeader,
 } from '@/src/cdrms/components/SurveyLayout';
+import { GlassHeaderBadge, GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
 import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
 import { ReviewMediaPanel } from '@/src/cdrms/components/ReviewMediaPanel';
 import { ReviewSchedulesPanel } from '@/src/cdrms/components/ReviewSchedulesPanel';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { formatCoords, type Cardinal } from '@/src/cdrms/project/types';
 import { validateDraft, validationSummary } from '@/src/cdrms/project/validation';
-import { COLORS, FONTS, GRADIENT_SUBTLE, SPACE } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GLASS, GRADIENT_SUBTLE, SPACE } from '@/src/cdrms/theme';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go } from '@/src/cdrms/types';
 
@@ -239,23 +240,40 @@ export function ValidateScreen({ go }: { go: Go }) {
   );
 }
 
-function ReviewDetailRow({ label, value }: { label: string; value: string }) {
+function reviewStepBadge(stepLabel: string, total = 4) {
+  const n = Number(stepLabel.replace(/\D/g, ''));
+  return Number.isFinite(n) && n > 0 ? `${n}/${total}` : stepLabel;
+}
+
+function ReviewDetailRow({
+  label,
+  value,
+  variant = 'default',
+  isLast = false,
+}: {
+  label: string;
+  value: string;
+  variant?: 'default' | 'premium';
+  isLast?: boolean;
+}) {
   const display = value.trim() || '—';
+  const isPremium = variant === 'premium';
+
   return (
     <HStack
       className="items-start"
       style={{
         gap: 10,
-        paddingVertical: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F1F5F9',
+        paddingVertical: isPremium ? 8 : 10,
+        borderBottomWidth: isPremium || isLast ? 0 : 1,
+        borderBottomColor: isPremium ? GLASS.divider : '#F1F5F9',
       }}
     >
       <Text
         style={{
-          width: 118,
+          width: isPremium ? 108 : 118,
           fontFamily: FONTS.bold,
-          fontSize: 12,
+          fontSize: isPremium ? 11 : 12,
           color: COLORS.ink,
           letterSpacing: 0.2,
         }}
@@ -266,9 +284,9 @@ function ReviewDetailRow({ label, value }: { label: string; value: string }) {
         style={{
           flex: 1,
           fontFamily: FONTS.regular,
-          fontSize: 13,
+          fontSize: isPremium ? 12 : 13,
           color: COLORS.ink,
-          lineHeight: 18,
+          lineHeight: isPremium ? 17 : 18,
         }}
       >
         {display}
@@ -289,6 +307,8 @@ function ReviewSectionCard({
   iconBg,
   rows,
   footer,
+  variant = 'default',
+  stepTotal = 4,
 }: {
   stepLabel: string;
   icon: LucideIcon;
@@ -297,17 +317,69 @@ function ReviewSectionCard({
   iconBg: string;
   rows: { label: string; value: string }[];
   footer?: ReactNode;
+  variant?: 'default' | 'premium';
+  stepTotal?: number;
 }) {
   if (!rows.length && !footer) return null;
 
-  return (
-    <SurveyCard>
-      <WorkspaceHeader
+  const body = (
+    <VStack style={{ gap: SPACE[2] }}>
+      {rows.length ? (
+        <Box
+          style={
+            variant === 'premium'
+              ? {
+                  borderRadius: 12,
+                  backgroundColor: GLASS.surfaceSolid,
+                  borderWidth: 1,
+                  borderColor: GLASS.border,
+                  paddingHorizontal: SPACE[2],
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.06,
+                  shadowRadius: 8,
+                  elevation: 2,
+                }
+              : undefined
+          }
+        >
+          {rows.map((row, i) => (
+            <ReviewDetailRow
+              key={`${stepLabel}-${row.label}`}
+              label={row.label}
+              value={row.value}
+              variant={variant}
+              isLast={i === rows.length - 1}
+            />
+          ))}
+        </Box>
+      ) : null}
+      {footer}
+    </VStack>
+  );
+
+  if (variant === 'premium') {
+    return (
+      <GlassSectionCard
         icon={Icon}
         title={title}
         subtitle={subtitle}
-        iconBg={iconBg}
-      />
+        badge={
+          <GlassHeaderBadge>
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
+              {reviewStepBadge(stepLabel, stepTotal)}
+            </Text>
+          </GlassHeaderBadge>
+        }
+      >
+        {body}
+      </GlassSectionCard>
+    );
+  }
+
+  return (
+    <SurveyCard>
+      <WorkspaceHeader icon={Icon} title={title} subtitle={subtitle} iconBg={iconBg} />
       <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
         {rows.map((row) => (
           <ReviewDetailRow key={`${stepLabel}-${row.label}`} label={row.label} value={row.value} />
@@ -556,6 +628,7 @@ export function ReviewScreen({ go }: { go: Go }) {
 
   const plotDiagram = plotDimsReady ? (
     <BoundariesDiagram
+      embedded={isBackendTask}
       north={Number(draft.dimNorth) || 0}
       south={Number(draft.dimSouth) || 0}
       east={Number(draft.dimEast) || 0}
@@ -573,12 +646,16 @@ export function ReviewScreen({ go }: { go: Go }) {
     />
   ) : null;
 
+  const reviewVariant: 'default' | 'premium' = isBackendTask ? 'premium' : 'default';
+  const reviewStepTotal = isBackendTask ? 4 : 3;
+
   return (
     <SurveyScaffold
       title={TERMS.workflow.reviewSubmit}
       subtitle={TERMS.workflow.reviewSubmitSubtitle}
       onBack={() => go('validate')}
       showSteps={false}
+      surface={isBackendTask ? 'premium' : 'default'}
       badge={summary.allOk ? 'Ready to submit' : 'Incomplete'}
       footer={
         <VStack space="sm" className="items-stretch">
@@ -658,8 +735,8 @@ export function ReviewScreen({ go }: { go: Go }) {
       }
       go={go}
     >
-      <SurveyCard>
-        <WorkspaceHeader
+      {isBackendTask ? (
+        <GlassSectionCard
           icon={ClipboardList}
           title={titleId}
           subtitle={
@@ -667,10 +744,84 @@ export function ReviewScreen({ go }: { go: Go }) {
               ? 'Refreshing from server…'
               : surveyLine || 'Final check before CAO review'
           }
-          badge={draft.status === 'submitted' ? 'SUBMITTED' : 'DRAFT'}
-          iconBg={COLORS.primary}
-        />
-      </SurveyCard>
+          badge={
+            <GlassHeaderBadge>
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
+                {draft.status === 'submitted' ? 'SUBMITTED' : 'DRAFT'}
+              </Text>
+            </GlassHeaderBadge>
+          }
+        >
+          <HStack style={{ flexWrap: 'wrap', gap: 6 }}>
+            {draft.siteNo.trim() || draft.surveyNo.trim() ? (
+              <Box
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                  borderRadius: 999,
+                  backgroundColor: GLASS.tintBlue,
+                  borderWidth: 1,
+                  borderColor: '#BFDBFE',
+                }}
+              >
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: COLORS.primary }}>
+                  Site {draft.siteNo.trim() || draft.surveyNo.trim()}
+                </Text>
+              </Box>
+            ) : null}
+            {draft.zoneCode.trim() ? (
+              <Box
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                  borderRadius: 999,
+                  backgroundColor: GLASS.surface,
+                  borderWidth: 1,
+                  borderColor: GLASS.border,
+                }}
+              >
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: COLORS.ink }}>
+                  Zone {draft.zoneCode.trim()}
+                </Text>
+              </Box>
+            ) : null}
+            <Box
+              style={{
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+                borderRadius: 999,
+                backgroundColor: summary.allOk ? '#ECFDF5' : '#FFFBEB',
+                borderWidth: 1,
+                borderColor: summary.allOk ? '#A7F3D0' : '#FCD34D',
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: FONTS.bold,
+                  fontSize: 10,
+                  color: summary.allOk ? '#047857' : '#B45309',
+                }}
+              >
+                {summary.allOk ? 'Validation passed' : `${summary.failed.length} to fix`}
+              </Text>
+            </Box>
+          </HStack>
+        </GlassSectionCard>
+      ) : (
+        <SurveyCard>
+          <WorkspaceHeader
+            icon={ClipboardList}
+            title={titleId}
+            subtitle={
+              refreshing
+                ? 'Refreshing from server…'
+                : surveyLine || 'Final check before CAO review'
+            }
+            badge={draft.status === 'submitted' ? 'SUBMITTED' : 'DRAFT'}
+            iconBg={COLORS.primary}
+          />
+        </SurveyCard>
+      )}
 
       {reviewSections.map((section) => {
         const plot = 'plot' in section && section.plot;
@@ -679,8 +830,8 @@ export function ReviewScreen({ go }: { go: Go }) {
 
         let footer: ReactNode = null;
         if (plot) footer = plotDiagram;
-        if (showSchedules) footer = <ReviewSchedulesPanel />;
-        if (showMediaPreview) footer = <ReviewMediaPanel />;
+        if (showSchedules) footer = <ReviewSchedulesPanel variant={reviewVariant} />;
+        if (showMediaPreview) footer = <ReviewMediaPanel variant={reviewVariant} />;
 
         return (
           <ReviewSectionCard
@@ -692,6 +843,8 @@ export function ReviewScreen({ go }: { go: Go }) {
             iconBg={section.iconBg}
             rows={section.rows}
             footer={footer}
+            variant={reviewVariant}
+            stepTotal={reviewStepTotal}
           />
         );
       })}
@@ -699,13 +852,19 @@ export function ReviewScreen({ go }: { go: Go }) {
       {!summary.allOk ? (
         <Pressable
           onPress={() => go('validate')}
-          className="mx-4 active:opacity-90"
+          className={isBackendTask ? undefined : 'mx-4'}
           style={{
-            backgroundColor: '#FFFBEB',
-            borderRadius: 14,
-            padding: 14,
+            marginHorizontal: isBackendTask ? SPACE.gutter : undefined,
+            backgroundColor: isBackendTask ? GLASS.surfaceSolid : '#FFFBEB',
+            borderRadius: isBackendTask ? 16 : 14,
+            padding: isBackendTask ? 12 : 14,
             borderWidth: 1,
-            borderColor: '#FCD34D',
+            borderColor: isBackendTask ? '#FCD34D' : '#FCD34D',
+            shadowColor: isBackendTask ? '#0F172A' : undefined,
+            shadowOffset: isBackendTask ? { width: 0, height: 2 } : undefined,
+            shadowOpacity: isBackendTask ? 0.06 : undefined,
+            shadowRadius: isBackendTask ? 8 : undefined,
+            elevation: isBackendTask ? 2 : undefined,
           }}
         >
           <HStack className="items-center" style={{ gap: 12 }}>
@@ -746,13 +905,19 @@ export function ReviewScreen({ go }: { go: Go }) {
         </Pressable>
       ) : (
         <Box
-          className="mx-4"
+          className={isBackendTask ? undefined : 'mx-4'}
           style={{
-            backgroundColor: '#ECFDF5',
-            borderRadius: 14,
-            padding: 14,
+            marginHorizontal: isBackendTask ? SPACE.gutter : undefined,
+            backgroundColor: isBackendTask ? GLASS.surfaceSolid : '#ECFDF5',
+            borderRadius: isBackendTask ? 16 : 14,
+            padding: isBackendTask ? 12 : 14,
             borderWidth: 1,
-            borderColor: '#A7F3D0',
+            borderColor: isBackendTask ? '#A7F3D0' : '#A7F3D0',
+            shadowColor: isBackendTask ? '#0F172A' : undefined,
+            shadowOffset: isBackendTask ? { width: 0, height: 2 } : undefined,
+            shadowOpacity: isBackendTask ? 0.06 : undefined,
+            shadowRadius: isBackendTask ? 8 : undefined,
+            elevation: isBackendTask ? 2 : undefined,
           }}
         >
           <HStack className="items-center" style={{ gap: 12 }}>
@@ -794,18 +959,19 @@ export function ReviewScreen({ go }: { go: Go }) {
       {/* Certification */}
       <Pressable
         onPress={() => setTerms((t) => !t)}
-        className="mx-4 active:opacity-95"
+        className={isBackendTask ? undefined : 'mx-4'}
         style={{
-          backgroundColor: COLORS.white,
-          borderRadius: 16,
-          paddingVertical: 16,
-          paddingHorizontal: 14,
+          marginHorizontal: isBackendTask ? SPACE.gutter : undefined,
+          backgroundColor: isBackendTask ? GLASS.surfaceSolid : COLORS.white,
+          borderRadius: isBackendTask ? 16 : 16,
+          paddingVertical: isBackendTask ? 12 : 16,
+          paddingHorizontal: isBackendTask ? 12 : 14,
           borderWidth: 1.5,
-          borderColor: terms ? '#6EE7B7' : COLORS.border,
+          borderColor: terms ? '#6EE7B7' : isBackendTask ? GLASS.border : COLORS.border,
           shadowColor: '#0F172A',
-          shadowOffset: { width: 0, height: 3 },
-          shadowOpacity: 0.06,
-          shadowRadius: 8,
+          shadowOffset: { width: 0, height: isBackendTask ? 2 : 3 },
+          shadowOpacity: isBackendTask ? 0.06 : 0.06,
+          shadowRadius: isBackendTask ? 8 : 8,
           elevation: 2,
         }}
       >

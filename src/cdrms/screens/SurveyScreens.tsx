@@ -14,6 +14,7 @@ import {
   Info,
   Lock,
   MapPin,
+  MessageSquareText,
   Navigation,
   Plus,
   RefreshCw,
@@ -42,6 +43,7 @@ import { Textarea, TextareaInput } from '@/components/ui/textarea';
 import { VStack } from '@/components/ui/vstack';
 import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
 import { ImagePreviewModal } from '@/src/cdrms/components/ImagePreviewModal';
+import { FrostedGlass, GlassHeaderBadge, GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
 import { LiveCompassDial } from '@/src/cdrms/components/LiveCompassDial';
 import { LiveGpsPanel } from '@/src/cdrms/components/LiveGpsPanel';
 import { SchedulesEditorCard } from '@/src/cdrms/components/SchedulesEditorCard';
@@ -70,7 +72,8 @@ import {
   formatCoords,
   type Cardinal,
 } from '@/src/cdrms/project/types';
-import { COLORS, FONTS, SPACE, TYPE } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GLASS, GRADIENT_PRIMARY, GRADIENT_VIDEO, SPACE, TYPE, gradientStops } from '@/src/cdrms/theme';
+import { useTheme } from '@/src/theme/ThemeContext';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go } from '@/src/cdrms/types';
 
@@ -193,24 +196,24 @@ export function BandiScreen({ go }: { go: Go }) {
       val: `${draft.surveyNo || '—'} · ${draft.village || 'Pending GPS'}`,
       ok: Boolean(draft.surveyNo || draft.village),
       icon: ClipboardList,
-      iconColor: '#2563EB',
-      iconBg: '#EFF6FF',
+      iconColor: COLORS.primary,
+      iconBg: GLASS.tintBlue,
     },
     {
       label: TERMS.fields.gpsCoordinates,
       val: coords ? `${coords.lat}, ${coords.lng}` : 'Capture on Site Particulars',
       ok: Boolean(draft.gps),
       icon: MapPin,
-      iconColor: '#2563EB',
-      iconBg: '#CCFBF1',
+      iconColor: COLORS.primary,
+      iconBg: GLASS.tintCyan,
     },
     {
       label: TERMS.fields.administrativeArea,
       val: adminArea,
       ok: Boolean(draft.taluk || draft.district),
       icon: Building2,
-      iconColor: '#2563EB',
-      iconBg: '#DBEAFE',
+      iconColor: COLORS.primary,
+      iconBg: GLASS.tintBlue,
     },
   ];
 
@@ -230,6 +233,7 @@ export function BandiScreen({ go }: { go: Go }) {
           ? 'Compass, GPS, occupancy & schedule photos'
           : TERMS.workflow.checkBandiSubtitle
       }
+      surface={isBackendTask ? 'premium' : 'default'}
       onBack={() => {
         void (async () => {
           if (isBackendTask) {
@@ -285,38 +289,81 @@ export function BandiScreen({ go }: { go: Go }) {
       }
           go={go}
     >
-      <SurveyCard>
-        <WorkspaceHeader
+      {isBackendTask ? (
+        <GlassSectionCard
           icon={Compass}
-          title={isBackendTask ? 'Facing direction *' : TERMS.sections.boundaryCompass}
+          title="Facing direction *"
           subtitle={
             compassFace
               ? `Live ${draft.compassReading} · turn phone to update`
               : 'Hold phone flat — live sensor on real device'
           }
-          iconBg={COLORS.primary}
-        />
-
-        <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], alignItems: 'center' }}>
+          badge={
+            compassFace ? (
+              <GlassHeaderBadge>
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
+                  {compassFace}
+                </Text>
+              </GlassHeaderBadge>
+            ) : undefined
+          }
+        >
           <LiveCompassDial />
-        </VStack>
-      </SurveyCard>
+        </GlassSectionCard>
+      ) : (
+        <SurveyCard>
+          <WorkspaceHeader
+            icon={Compass}
+            title={TERMS.sections.boundaryCompass}
+            subtitle={
+              compassFace
+                ? `Live ${draft.compassReading} · turn phone to update`
+                : 'Hold phone flat — live sensor on real device'
+            }
+            iconBg={COLORS.primary}
+          />
+
+          <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], alignItems: 'center' }}>
+            <LiveCompassDial />
+          </VStack>
+        </SurveyCard>
+      )}
 
       {isBackendTask ? (
         <>
-          {/* ── Card 1: Live GPS & Coordinates ── */}
-          <SurveyCard>
-            <WorkspaceHeader
-              icon={MapPin}
-              title="Live GPS & coordinates"
-              subtitle={
-                isLiveFix
-                  ? 'Live GPS locked · location & coordinates captured'
-                  : 'Device location required'
-              }
-              iconBg={COLORS.primary}
-            />
-            <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
+          <GlassSectionCard
+            icon={MapPin}
+            title="Live GPS & coordinates *"
+            subtitle={
+              mapGps
+                ? `${coords?.lat ?? mapGps.latitude.toFixed(4)}, ${coords?.lng ?? mapGps.longitude.toFixed(4)}`
+                : geoBusy
+                  ? 'Acquiring device location…'
+                  : 'Allow location · tap refresh if needed'
+            }
+            badge={
+              mapGps ? (
+                <GlassHeaderBadge>
+                  <Box
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: COLORS.success,
+                    }}
+                  />
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
+                    {`±${Math.round(mapGps.accuracy ?? 6)}m`}
+                  </Text>
+                </GlassHeaderBadge>
+              ) : geoBusy ? (
+                <GlassHeaderBadge>
+                  <ActivityIndicator size={10} color="#FFFFFF" />
+                </GlassHeaderBadge>
+              ) : undefined
+            }
+          >
+            <VStack style={{ gap: SPACE[2] }}>
               <LiveGpsPanel
                 gps={mapGps}
                 address={liveAddress}
@@ -326,50 +373,39 @@ export function BandiScreen({ go }: { go: Go }) {
                 syNo={draft.surveyNo || draft.siteNo || undefined}
                 title={null}
                 hideTitleHeader
+                variant="premium"
               />
 
-              {/* Coordinates Section inside same card */}
-              <Box
-                style={{
-                  borderRadius: 12,
-                  backgroundColor: COLORS.white,
-                  paddingHorizontal: 12,
-                  paddingVertical: 11,
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
-                  shadowColor: '#0F172A',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.06,
-                  shadowRadius: 6,
-                  elevation: 2,
-                }}
+              <FrostedGlass
+                borderRadius={12}
+                padding={SPACE[2]}
+                fill={GLASS.surfaceSolid}
+                sheen={false}
+                style={{ borderTopWidth: 2, borderTopColor: '#0891B2' }}
               >
                 <HStack className="items-center" style={{ gap: SPACE[2] }}>
                   <Box
                     style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 10,
-                      backgroundColor: COLORS.white,
+                      width: 32,
+                      height: 32,
+                      borderRadius: 9,
+                      backgroundColor: GLASS.tintBlue,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      shadowColor: '#0F172A',
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.08,
-                      shadowRadius: 6,
-                      elevation: 2,
+                      borderWidth: 1,
+                      borderColor: `${COLORS.primary}40`,
                     }}
                   >
-                    <Crosshair size={18} color={COLORS.primary} strokeWidth={2.4} />
+                    <Crosshair size={16} color={COLORS.primary} strokeWidth={2.4} />
                   </Box>
 
-                  <VStack className="flex-1 min-w-0" style={{ gap: 6 }}>
+                  <VStack className="flex-1 min-w-0" style={{ gap: 4 }}>
                     <HStack className="items-center" style={{ gap: SPACE[2] }}>
                       <Box
                         style={{
-                          width: 7,
-                          height: 7,
-                          borderRadius: 4,
+                          width: 6,
+                          height: 6,
+                          borderRadius: 3,
                           backgroundColor: mapGps ? COLORS.success : COLORS.warning,
                         }}
                       />
@@ -378,6 +414,7 @@ export function BandiScreen({ go }: { go: Go }) {
                           ...TYPE.caption,
                           fontFamily: FONTS.bold,
                           color: COLORS.ink,
+                          fontSize: 10,
                         }}
                       >
                         {mapGps
@@ -387,24 +424,24 @@ export function BandiScreen({ go }: { go: Go }) {
                             : 'Waiting for location'}
                       </Text>
                       {mapGps ? (
-                        <Text style={{ ...TYPE.caption, fontFamily: FONTS.semibold, color: COLORS.ink }}>
+                        <Text style={{ ...TYPE.caption, fontFamily: FONTS.semibold, color: COLORS.slate, fontSize: 10 }}>
                           {`±${Math.round(mapGps.accuracy ?? 6)} m`}
                         </Text>
                       ) : null}
                     </HStack>
 
                     <HStack className="items-center justify-between">
-                      <Text style={{ ...TYPE.caption, color: '#64748B' }}>Latitude</Text>
-                      <Text style={{ ...TYPE.bodyStrong, fontSize: 13, color: COLORS.ink }}>
+                      <Text style={{ ...TYPE.caption, color: COLORS.slate, fontSize: 11 }}>Latitude</Text>
+                      <Text style={{ ...TYPE.bodyStrong, fontSize: 12, color: COLORS.ink }}>
                         {mapGps ? mapGps.latitude.toFixed(6) : '—'}
                       </Text>
                     </HStack>
 
-                    <Box style={{ height: 1, backgroundColor: COLORS.border }} />
+                    <Box style={{ height: 1, backgroundColor: GLASS.divider }} />
 
                     <HStack className="items-center justify-between">
-                      <Text style={{ ...TYPE.caption, color: '#64748B' }}>Longitude</Text>
-                      <Text style={{ ...TYPE.bodyStrong, fontSize: 13, color: COLORS.ink }}>
+                      <Text style={{ ...TYPE.caption, color: COLORS.slate, fontSize: 11 }}>Longitude</Text>
+                      <Text style={{ ...TYPE.bodyStrong, fontSize: 12, color: COLORS.ink }}>
                         {mapGps ? mapGps.longitude.toFixed(6) : '—'}
                       </Text>
                     </HStack>
@@ -415,110 +452,129 @@ export function BandiScreen({ go }: { go: Go }) {
                     accessibilityLabel="Refresh live coordinates"
                     className="active:opacity-80"
                     style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 10,
-                      backgroundColor: COLORS.white,
+                      width: 30,
+                      height: 30,
+                      borderRadius: 8,
+                      backgroundColor: GLASS.tintBlue,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      shadowColor: '#0F172A',
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.08,
-                      shadowRadius: 6,
-                      elevation: 2,
                       borderWidth: 1,
-                      borderColor: COLORS.border,
+                      borderColor: `${COLORS.primary}40`,
                     }}
                   >
                     {geoBusy ? (
-                      <ActivityIndicator size="small" color={COLORS.ink} />
+                      <ActivityIndicator size="small" color={COLORS.primary} />
                     ) : (
-                      <RefreshCw size={15} color={COLORS.ink} strokeWidth={2.4} />
+                      <RefreshCw size={14} color={COLORS.primary} strokeWidth={2.4} />
                     )}
                   </Pressable>
                 </HStack>
-              </Box>
+              </FrostedGlass>
             </VStack>
-          </SurveyCard>
+          </GlassSectionCard>
 
-          {/* ── Card 2: Occupancy ── */}
-          <SurveyCard>
-            <WorkspaceHeader
-              icon={Building2}
-              title="Occupancy"
-              subtitle="Select the current occupancy status of the site"
-              iconBg={COLORS.primary}
-            />
-            <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
-              <Box
-                style={{
-                  backgroundColor: '#F8FAFC',
-                  borderRadius: 14,
-                  borderWidth: 1,
-                  borderColor: '#E2E8F0',
-                  padding: SPACE[4],
-                  gap: SPACE[3],
-                }}
-              >
-                <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                  <Text style={{ ...TYPE.label, color: COLORS.ink }}>Occupancy</Text>
-                  <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#DC2626', lineHeight: 16 }}>*</Text>
-                </Box>
-                <HStack style={{ gap: SPACE[4], alignItems: 'center', marginTop: SPACE[1] }}>
-                  {(['Empty', 'Occupied'] as const).map((opt) => {
-                    const on = draft.occupancy === opt;
-                    return (
-                      <Pressable
-                        key={opt}
-                        onPress={() => updateField('occupancy', opt)}
-                        className="active:opacity-80"
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected: on }}
+          <GlassSectionCard
+            icon={Building2}
+            title="Occupancy *"
+            subtitle={
+              draft.occupancy === 'Occupied'
+                ? draft.occupancyReason.trim()
+                  ? 'Occupied · reason captured'
+                  : 'Occupied · add reason below'
+                : draft.occupancy === 'Empty'
+                  ? 'Site is currently empty'
+                  : 'Required before continuing'
+            }
+            badge={
+              draft.occupancy ? (
+                <GlassHeaderBadge>
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
+                    {draft.occupancy}
+                  </Text>
+                </GlassHeaderBadge>
+              ) : undefined
+            }
+          >
+            <FrostedGlass
+              borderRadius={12}
+              padding={SPACE[2]}
+              fill={GLASS.surfaceSolid}
+              sheen={false}
+              style={{ borderTopWidth: 2, borderTopColor: COLORS.primary }}
+            >
+              <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginBottom: SPACE[2] }}>
+                <Text style={{ ...TYPE.label, color: COLORS.ink, fontSize: 10 }}>Occupancy</Text>
+                <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#DC2626', lineHeight: 14 }}>*</Text>
+              </Box>
+              <HStack style={{ gap: SPACE[3], alignItems: 'center' }}>
+                {(['Empty', 'Occupied'] as const).map((opt) => {
+                  const on = draft.occupancy === opt;
+                  return (
+                    <Pressable
+                      key={opt}
+                      onPress={() => updateField('occupancy', opt)}
+                      className="active:opacity-80"
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: on }}
+                      style={{
+                        flex: 1,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                        paddingVertical: SPACE[2],
+                        paddingHorizontal: SPACE[2],
+                        borderRadius: 10,
+                        backgroundColor: on ? GLASS.tintBlue : GLASS.surface,
+                        borderWidth: 1,
+                        borderColor: on ? COLORS.primary : GLASS.border,
+                      }}
+                    >
+                      <Box
                         style={{
-                          flexDirection: 'row',
+                          width: 16,
+                          height: 16,
+                          borderRadius: 8,
+                          borderWidth: 2,
+                          borderColor: on ? COLORS.primary : '#94A3B8',
+                          backgroundColor: COLORS.white,
                           alignItems: 'center',
-                          gap: 8,
-                          paddingVertical: 2,
+                          justifyContent: 'center',
                         }}
                       >
-                        <Box
-                          style={{
-                            width: 20,
-                            height: 20,
-                            borderRadius: 10,
-                            borderWidth: 2,
-                            borderColor: on ? COLORS.primary : '#94A3B8',
-                            backgroundColor: COLORS.white,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          {on ? (
-                            <Box
-                              style={{
-                                width: 10,
-                                height: 10,
-                                borderRadius: 5,
-                                backgroundColor: COLORS.primary,
-                              }}
-                            />
-                          ) : null}
-                        </Box>
-                        <Text
-                          style={{
-                            fontFamily: FONTS.semibold,
-                            fontSize: 14,
-                            color: on ? COLORS.primary : COLORS.ink,
-                          }}
-                        >
-                          {opt}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </HStack>
-              </Box>
-              {draft.occupancy === 'Occupied' ? (
+                        {on ? (
+                          <Box
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: 4,
+                              backgroundColor: COLORS.primary,
+                            }}
+                          />
+                        ) : null}
+                      </Box>
+                      <Text
+                        style={{
+                          fontFamily: FONTS.semibold,
+                          fontSize: 13,
+                          color: on ? COLORS.primary : COLORS.ink,
+                        }}
+                      >
+                        {opt}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </HStack>
+            </FrostedGlass>
+            {draft.occupancy === 'Occupied' ? (
+              <FrostedGlass
+                borderRadius={12}
+                padding={SPACE[2]}
+                fill={GLASS.surfaceSolid}
+                sheen={false}
+                style={{ borderTopWidth: 2, borderTopColor: '#0891B2' }}
+              >
                 <Field
                   compact
                   label="Occupied reason *"
@@ -526,9 +582,9 @@ export function BandiScreen({ go }: { go: Go }) {
                   onChangeText={(t) => updateField('occupancyReason', t)}
                   placeholder="Why is the site occupied?"
                 />
-              ) : null}
-            </VStack>
-          </SurveyCard>
+              </FrostedGlass>
+            ) : null}
+          </GlassSectionCard>
         </>
       ) : (
         <SurveyCard>
@@ -536,7 +592,7 @@ export function BandiScreen({ go }: { go: Go }) {
             <SectionTitle
               title={TERMS.sections.siteMatchDetails}
               subtitle="Matched from site particulars and live GPS"
-              accent="#2563EB"
+              accent={COLORS.primary}
             />
             {rows.map((r, i) => {
               const Icon = r.icon;
@@ -609,8 +665,8 @@ export function BandiScreen({ go }: { go: Go }) {
                   paddingHorizontal: 12,
                   borderRadius: 10,
                   borderWidth: 1,
-                  borderColor: '#BFDBFE',
-                  backgroundColor: schedulesEditing ? '#2563EB' : '#EFF6FF',
+                  borderColor: `${COLORS.primary}40`,
+                  backgroundColor: schedulesEditing ? COLORS.primary : GLASS.tintBlue,
                   flexDirection: 'row',
                   alignItems: 'center',
                   gap: 6,
@@ -619,13 +675,13 @@ export function BandiScreen({ go }: { go: Go }) {
                 {schedulesEditing ? (
                   <Check size={14} color="#FFFFFF" strokeWidth={2.5} />
                 ) : (
-                  <Edit3 size={14} color="#2563EB" strokeWidth={2.5} />
+                  <Edit3 size={14} color={COLORS.primary} strokeWidth={2.5} />
                 )}
                 <Text
                   style={{
                     fontSize: 12,
                     fontWeight: '800',
-                    color: schedulesEditing ? '#FFFFFF' : '#2563EB',
+                    color: schedulesEditing ? '#FFFFFF' : COLORS.primary,
                   }}
                 >
                   {schedulesEditing ? 'Done' : 'Edit'}
@@ -653,7 +709,7 @@ export function BandiScreen({ go }: { go: Go }) {
                       style={{
                         borderRadius: 12,
                         borderWidth: 1,
-                        borderColor: '#BFDBFE',
+                        borderColor: `${COLORS.primary}40`,
                         backgroundColor: '#FFFFFF',
                         paddingHorizontal: 12,
                         paddingVertical: 10,
@@ -692,10 +748,7 @@ export function BandiScreen({ go }: { go: Go }) {
       ) : null}
 
       {isBackendTask ? (
-        <SchedulesEditorCard
-          title="Site Schedules"
-          subtitle="4 sides · Road checkbox · engineer note · upload image"
-        />
+        <SchedulesEditorCard />
       ) : (
         <>
           <Box className="mx-4 mb-1">
@@ -780,7 +833,7 @@ export function BandiScreen({ go }: { go: Go }) {
                         </Text>
                         <Text
                           className="text-[12px] font-bold mt-1"
-                          style={{ color: val ? '#0F172A' : '#2563EB' }}
+                          style={{ color: val ? '#0F172A' : COLORS.primary }}
                         >
                           {val || 'Tap to upload photo'}
                         </Text>
@@ -789,9 +842,9 @@ export function BandiScreen({ go }: { go: Go }) {
                       <VStack className="items-center justify-between" style={{ minHeight: 88 }}>
                         <Box
                           className="items-center justify-center rounded-full"
-                          style={{ width: 30, height: 30, backgroundColor: '#EFF6FF' }}
+                          style={{ width: 30, height: 30, backgroundColor: GLASS.tintBlue }}
                         >
-                          <Camera size={14} color="#2563EB" strokeWidth={2.2} />
+                          <Camera size={14} color={COLORS.primary} strokeWidth={2.2} />
                         </Box>
                         <Box
                           className="items-center justify-center rounded-full"
@@ -828,14 +881,14 @@ export function BandiScreen({ go }: { go: Go }) {
                   width: 4,
                   alignSelf: 'stretch',
                   borderRadius: 999,
-                  backgroundColor: '#2563EB',
+                  backgroundColor: COLORS.primary,
                 }}
               />
               <Box
                 className="items-center justify-center rounded-full"
-                style={{ width: 32, height: 32, backgroundColor: '#EFF6FF' }}
+                style={{ width: 32, height: 32, backgroundColor: GLASS.tintBlue }}
               >
-                <Info size={16} color="#2563EB" strokeWidth={2.4} />
+                <Info size={16} color={COLORS.primary} strokeWidth={2.4} />
               </Box>
               <VStack className="flex-1 min-w-0">
                 <Text className="text-[14px] font-bold" style={{ color: '#0F172A' }}>
@@ -854,7 +907,7 @@ export function BandiScreen({ go }: { go: Go }) {
               <SectionTitle
                 title={TERMS.workflow.checkBandi}
                 subtitle={TERMS.workflow.checkBandiRemarksSubtitle}
-                accent="#2563EB"
+                accent={COLORS.primary}
               />
               <Textarea
                 className="min-h-[110px] rounded-[16px] border-0 mt-1"
@@ -918,8 +971,8 @@ export function BandiScreen({ go }: { go: Go }) {
                     borderRadius: 8,
                     width: 22,
                     height: 22,
-                    borderColor: draft.bandiVerified ? '#2563EB' : '#93C5FD',
-                    backgroundColor: draft.bandiVerified ? '#2563EB' : '#FFFFFF',
+                    borderColor: draft.bandiVerified ? COLORS.primary : `${COLORS.primary}66`,
+                    backgroundColor: draft.bandiVerified ? COLORS.primary : '#FFFFFF',
                   }}
                 >
                   <CheckboxIcon as={CheckIcon} />
@@ -955,7 +1008,7 @@ export function BandiScreen({ go }: { go: Go }) {
               className="flex-1 h-24 rounded-2xl overflow-hidden active:opacity-90"
             >
               <LinearGradient
-                colors={['#2563EB', '#3B82F6']}
+                colors={gradientStops(GRADIENT_PRIMARY)}
                 style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 }}
               >
                 <Camera size={24} color="#fff" />
@@ -1066,7 +1119,7 @@ export function SurroundingsScreen({ go }: { go: Go }) {
           icon={Camera}
           title={TERMS.sections.directionalPhotos}
           subtitle="North · South · East · West"
-          iconBg="#2563EB"
+          iconBg={COLORS.primary}
         />
         <Box className="px-4 pb-5 flex-row flex-wrap justify-between" style={{ gap: 12 }}>
           {CARDINALS.map((k) => {
@@ -1115,19 +1168,19 @@ export function SurroundingsScreen({ go }: { go: Go }) {
                     onPress={() => void takeFor(k)}
                     className="flex-1 items-center justify-center"
                     style={{
-                      backgroundColor: '#EFF6FF',
+                      backgroundColor: GLASS.tintBlue,
                       borderWidth: 2,
-                      borderColor: '#BFDBFE',
+                      borderColor: `${COLORS.primary}40`,
                       borderStyle: 'dashed',
                     }}
                   >
                     <Box
                       className="h-12 w-12 rounded-full items-center justify-center mb-2"
-                      style={{ backgroundColor: '#2563EB' }}
+                      style={{ backgroundColor: COLORS.primary }}
                     >
                       <Camera size={22} color="#fff" />
                     </Box>
-                    <Text className="text-[12px] font-extrabold" style={{ color: '#2563EB' }}>
+                    <Text className="text-[12px] font-extrabold" style={{ color: COLORS.primary }}>
                       Capture {label}
                     </Text>
                   </Pressable>
@@ -1143,7 +1196,7 @@ export function SurroundingsScreen({ go }: { go: Go }) {
           <SectionTitle
             title={TERMS.sections.nearbyContext}
             subtitle="Record adjacent structures and reference points"
-            accent="#2563EB"
+            accent={COLORS.primary}
           />
           <Field
             label={TERMS.fields.nearbyBuildings}
@@ -1170,7 +1223,7 @@ export function SurroundingsScreen({ go }: { go: Go }) {
           <Box className="mt-1 p-4 rounded-2xl" style={{ backgroundColor: '#F4F6FB' }}>
             <HStack className="items-center justify-between mb-2">
               <Text className="text-xs font-extrabold text-foreground">Section progress</Text>
-              <Text className="text-xs font-bold" style={{ color: '#2563EB' }}>
+              <Text className="text-xs font-bold" style={{ color: COLORS.primary }}>
                 {Math.round((doneCount / 4) * 100)}%
               </Text>
             </HStack>
@@ -1179,7 +1232,7 @@ export function SurroundingsScreen({ go }: { go: Go }) {
               className="h-2.5 rounded-full"
               style={{ backgroundColor: '#DBEAFE' }}
             >
-              <ProgressFilledTrack style={{ backgroundColor: '#2563EB' }} />
+              <ProgressFilledTrack style={{ backgroundColor: COLORS.primary }} />
             </Progress>
           </Box>
         </VStack>
@@ -1195,6 +1248,7 @@ export function SurroundingsScreen({ go }: { go: Go }) {
 }
 
 export function PhotosScreen({ go }: { go: Go }) {
+  const { themeId } = useTheme();
   const {
     draft,
     setSelfie,
@@ -1234,12 +1288,14 @@ export function PhotosScreen({ go }: { go: Go }) {
 
   return (
     <SurveyScaffold
+      key={themeId}
       title={isBackendTask ? 'Step 4 — Media & submit' : 'Upload Photographs'}
       subtitle={
         isBackendTask
           ? 'Selfie mandatory · extra site photos optional · then video required'
           : TERMS.workflow.photosSubtitle
       }
+      surface={isBackendTask ? 'premium' : 'default'}
       onBack={() => {
         void (async () => {
           if (isBackendTask) {
@@ -1284,6 +1340,300 @@ export function PhotosScreen({ go }: { go: Go }) {
       }
       go={go}
     >
+      {isBackendTask ? (
+        <>
+          <GlassSectionCard
+            icon={Camera}
+            title="Engineer selfie *"
+            subtitle={
+              draft.selfie
+                ? 'Verification photo captured · tap to retake'
+                : 'Mandatory front-camera selfie on site'
+            }
+            badge={
+              <GlassHeaderBadge>
+                {draft.selfie ? (
+                  <>
+                    <CheckCircle2 size={10} color="#FFFFFF" strokeWidth={2.5} />
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
+                      Done
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
+                    Required
+                  </Text>
+                )}
+              </GlassHeaderBadge>
+            }
+          >
+            {draft.selfie ? (
+              <Box
+                style={{
+                  borderRadius: 12,
+                  backgroundColor: GLASS.surfaceSolid,
+                  borderWidth: 1,
+                  borderColor: GLASS.border,
+                  padding: SPACE[2],
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 8,
+                  elevation: 2,
+                }}
+              >
+                <HStack style={{ alignItems: 'center', gap: SPACE[3] }}>
+                  <Box
+                    style={{
+                      width: 72,
+                      height: 72,
+                      borderRadius: 12,
+                      overflow: 'hidden',
+                      backgroundColor: '#0F172A',
+                    }}
+                  >
+                    <Pressable
+                      onPress={() => {
+                        setPreviewTitle('Engineer selfie');
+                        setPreviewUri(draft.selfie!.uri);
+                      }}
+                      style={{ width: '100%', height: '100%' }}
+                    >
+                      <ApiMediaImage
+                        uri={draft.selfie.uri}
+                        style={{ width: '100%', height: '100%' }}
+                        resizeMode="cover"
+                      />
+                    </Pressable>
+                  </Box>
+                  <VStack style={{ flex: 1, gap: 4 }}>
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}>
+                      Selfie captured
+                    </Text>
+                    <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: COLORS.slate }}>
+                      Engineer verification photo ready
+                    </Text>
+                    <HStack style={{ gap: SPACE[2], marginTop: 2 }}>
+                      <Pressable
+                        onPress={() => void takeSelfieMedia()}
+                        style={{
+                          paddingHorizontal: 10,
+                          paddingVertical: 6,
+                          borderRadius: 8,
+                          backgroundColor: COLORS.primary,
+                        }}
+                      >
+                        <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
+                          Retake
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => void removeSelfie()}
+                        style={{
+                          paddingHorizontal: 10,
+                          paddingVertical: 6,
+                          borderRadius: 8,
+                          backgroundColor: '#FEF2F2',
+                          borderWidth: 1,
+                          borderColor: '#FECACA',
+                        }}
+                      >
+                        <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#DC2626' }}>
+                          Delete
+                        </Text>
+                      </Pressable>
+                    </HStack>
+                  </VStack>
+                </HStack>
+              </Box>
+            ) : (
+              <Box
+                style={{
+                  borderRadius: 12,
+                  backgroundColor: GLASS.surfaceSolid,
+                  borderWidth: 1,
+                  borderColor: GLASS.border,
+                  padding: SPACE[2],
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 8,
+                  elevation: 2,
+                }}
+              >
+                <HStack style={{ alignItems: 'center', justifyContent: 'space-between', gap: SPACE[2] }}>
+                  <VStack style={{ flex: 1, gap: 2 }}>
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}>
+                      Take a live selfie
+                    </Text>
+                    <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: COLORS.slate, lineHeight: 16 }}>
+                      Front camera · engineer on site
+                    </Text>
+                  </VStack>
+                  <Pressable
+                    onPress={() => void takeSelfieMedia()}
+                    className="active:opacity-80 flex-row items-center gap-1.5 shrink-0"
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                      borderRadius: 10,
+                      backgroundColor: COLORS.primary,
+                    }}
+                  >
+                    <Camera size={14} color="#FFFFFF" strokeWidth={2.4} />
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#FFFFFF' }}>
+                      Take Selfie
+                    </Text>
+                  </Pressable>
+                </HStack>
+              </Box>
+            )}
+          </GlassSectionCard>
+
+          <GlassSectionCard
+            icon={ImageIcon}
+            title="Site photos"
+            subtitle={
+              draft.photos.length === 0
+                ? 'Optional extra site images · rear camera'
+                : `${draft.photos.length} of ${maxPhotos} uploaded`
+            }
+            badge={
+              <GlassHeaderBadge>
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
+                  {draft.photos.length}/{maxPhotos}
+                </Text>
+              </GlassHeaderBadge>
+            }
+          >
+            <VStack style={{ gap: SPACE[2] }}>
+              {draft.photos.length < maxPhotos ? (
+                <Pressable
+                  onPress={() => void takeSitePhoto()}
+                  className="active:opacity-80 flex-row items-center self-start"
+                  style={{
+                    gap: 6,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderRadius: 10,
+                    backgroundColor: GLASS.tintBlue,
+                    borderWidth: 1,
+                    borderColor: `${COLORS.primary}40`,
+                  }}
+                >
+                  <Plus size={14} color={COLORS.primary} strokeWidth={2.8} />
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: COLORS.primary }}>
+                    Add Photo
+                  </Text>
+                </Pressable>
+              ) : null}
+
+              <Box className="flex-row flex-wrap" style={{ gap: 8 }}>
+                {draft.photos.map((p, i) => (
+                  <Box
+                    key={p.id}
+                    className="rounded-xl overflow-hidden relative"
+                    style={{
+                      width: '31%',
+                      aspectRatio: 1,
+                      shadowColor: '#0F172A',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.08,
+                      shadowRadius: 8,
+                      elevation: 2,
+                    }}
+                  >
+                    <Pressable
+                      onPress={() => {
+                        setPreviewTitle(`Site Photo ${String(i + 1).padStart(2, '0')}`);
+                        setPreviewUri(p.uri);
+                      }}
+                      className="w-full h-full"
+                    >
+                      <ApiMediaImage uri={p.uri} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    </Pressable>
+                    <Pressable
+                      onPress={() => void removePhoto(p.id)}
+                      className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full items-center justify-center"
+                      style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+                    >
+                      <X size={12} color="#fff" />
+                    </Pressable>
+                  </Box>
+                ))}
+                {draft.photos.length === 0 ? (
+                  <Box
+                    className="items-center justify-center rounded-xl"
+                    style={{
+                      width: '100%',
+                      minHeight: 72,
+                      backgroundColor: GLASS.surface,
+                      borderWidth: 1,
+                      borderColor: GLASS.border,
+                      borderStyle: 'dashed',
+                      paddingVertical: SPACE[3],
+                      paddingHorizontal: SPACE[2],
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: FONTS.medium,
+                        fontSize: 11,
+                        color: COLORS.slate,
+                        textAlign: 'center',
+                        lineHeight: 16,
+                      }}
+                    >
+                      No extra site photos yet · optional
+                    </Text>
+                  </Box>
+                ) : null}
+              </Box>
+            </VStack>
+          </GlassSectionCard>
+
+          <GlassSectionCard
+            icon={MessageSquareText}
+            title="Engineer comments *"
+            subtitle={
+              draft.engineerComments.trim()
+                ? 'Field remarks captured'
+                : 'Required before continuing to video'
+            }
+            badge={
+              <GlassHeaderBadge>
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
+                  {draft.engineerComments.trim() ? 'Done' : 'Required'}
+                </Text>
+              </GlassHeaderBadge>
+            }
+          >
+            <Box
+              style={{
+                borderRadius: 12,
+                backgroundColor: GLASS.surfaceSolid,
+                borderWidth: 1,
+                borderColor: GLASS.border,
+                padding: SPACE[2],
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.08,
+                shadowRadius: 8,
+                elevation: 2,
+              }}
+            >
+              <Textarea>
+                <TextareaInput
+                  value={draft.engineerComments}
+                  onChangeText={(t) => updateField('engineerComments', t)}
+                  placeholder="Enter field remarks / comments…"
+                />
+              </Textarea>
+            </Box>
+          </GlassSectionCard>
+        </>
+      ) : (
+        <>
       {/* ── Card 1: Mandatory Engineer Selfie ── */}
       <SurveyCard>
         <WorkspaceHeader
@@ -1548,33 +1898,6 @@ export function PhotosScreen({ go }: { go: Go }) {
         </VStack>
       </SurveyCard>
 
-      <ImagePreviewModal
-        uri={previewUri}
-        title={previewTitle}
-        onClose={() => setPreviewUri(null)}
-      />
-
-      {isBackendTask ? (
-        <SurveyCard>
-          <VStack style={{ paddingHorizontal: SPACE[4], paddingVertical: SPACE[4], gap: SPACE[2] }}>
-            <Text style={{ fontFamily: FONTS.bold, fontSize: 15, color: COLORS.ink }}>
-              Engineer comments{' '}
-              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#DC2626' }}>*</Text>
-            </Text>
-            <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}>
-              Required — same as web Step 4 before submit
-            </Text>
-            <Textarea>
-              <TextareaInput
-                value={draft.engineerComments}
-                onChangeText={(t) => updateField('engineerComments', t)}
-                placeholder="Enter field remarks / comments…"
-              />
-            </Textarea>
-          </VStack>
-        </SurveyCard>
-      ) : null}
-
       {draft.photos.length > 0 ? (
         <SurveyCard>
           <HStack
@@ -1609,6 +1932,14 @@ export function PhotosScreen({ go }: { go: Go }) {
           </HStack>
         </SurveyCard>
       ) : null}
+        </>
+      )}
+
+      <ImagePreviewModal
+        uri={previewUri}
+        title={previewTitle}
+        onClose={() => setPreviewUri(null)}
+      />
     </SurveyScaffold>
   );
 }
@@ -1622,6 +1953,7 @@ function formatDuration(ms?: number | null) {
 }
 
 export function VideoScreen({ go }: { go: Go }) {
+  const { themeId } = useTheme();
   const { draft, setVideo, persistBackendStep, reloadBackendDraft } = useProject();
   const [busy, setBusy] = useState<'record' | 'choose' | null>(null);
   const [stepSaving, setStepSaving] = useState(false);
@@ -1666,12 +1998,14 @@ export function VideoScreen({ go }: { go: Go }) {
 
   return (
     <SurveyScaffold
+      key={themeId}
       title={isBackendTask ? 'Step 4 — Media & submit' : 'Upload Inspection Video'}
       subtitle={
         isBackendTask
           ? 'Site video required before validation'
           : TERMS.workflow.videoSubtitle
       }
+      surface={isBackendTask ? 'premium' : 'default'}
       onBack={() => {
         void (async () => {
           if (isBackendTask) {
@@ -1686,7 +2020,7 @@ export function VideoScreen({ go }: { go: Go }) {
       }}
       step={isBackendTask ? 4 : 5}
       total={isBackendTask ? 4 : 5}
-      badge="Final step"
+      badge={isBackendTask ? (draft.video ? 'Video ready' : 'Required') : 'Final step'}
       footer={
         <VStack space="sm">
           <FooterContinueBtn
@@ -1720,6 +2054,172 @@ export function VideoScreen({ go }: { go: Go }) {
       }
           go={go}
     >
+      {isBackendTask ? (
+        <GlassSectionCard
+          icon={Video}
+          title="Site walk-through video *"
+          subtitle={
+            draft.video
+              ? `Recorded ${recordedLabel}`
+              : 'Record or choose a site video (max 50 MB)'
+          }
+          badge={
+            <GlassHeaderBadge>
+              {draft.video ? (
+                <>
+                  <CheckCircle2 size={10} color="#FFFFFF" strokeWidth={2.5} />
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
+                    Ready
+                  </Text>
+                </>
+              ) : (
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
+                  Required
+                </Text>
+              )}
+            </GlassHeaderBadge>
+          }
+        >
+          <VStack style={{ gap: SPACE[2] }}>
+            <Box
+              className="rounded-xl overflow-hidden"
+              style={{
+                aspectRatio: 16 / 9,
+                backgroundColor: '#0F172A',
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.12,
+                shadowRadius: 10,
+                elevation: 3,
+              }}
+            >
+              {draft.video ? (
+                <SiteVideoPlayer
+                  key={draft.video.uri}
+                  uri={draft.video.uri}
+                  durationLabel={formatDuration(draft.video.durationMs)}
+                />
+              ) : (
+                <LinearGradient
+                  colors={gradientStops(GRADIENT_VIDEO)}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                >
+                  <Box
+                    style={{
+                      height: 56,
+                      width: 56,
+                      borderRadius: 999,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: 'rgba(255,255,255,0.18)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.35)',
+                    }}
+                  >
+                    <Video size={24} color="#fff" strokeWidth={2.2} />
+                  </Box>
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: '#FFFFFF' }}>
+                    No video yet
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: FONTS.medium,
+                      fontSize: 11,
+                      color: 'rgba(255,255,255,0.75)',
+                    }}
+                  >
+                    Record or choose a file below
+                  </Text>
+                </LinearGradient>
+              )}
+            </Box>
+
+            {draft.video ? (
+              <HStack style={{ alignItems: 'center', gap: SPACE[2] }}>
+                <VStack style={{ flex: 1, gap: 2 }}>
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}>
+                    Site walk-through
+                  </Text>
+                  <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: COLORS.slate }}>
+                    Max 50 MB · stored on device
+                  </Text>
+                </VStack>
+                <Pressable
+                  onPress={() => void setVideo(null)}
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    borderRadius: 8,
+                    backgroundColor: '#FEF2F2',
+                    borderWidth: 1,
+                    borderColor: '#FECACA',
+                  }}
+                >
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#DC2626' }}>
+                    Remove
+                  </Text>
+                </Pressable>
+              </HStack>
+            ) : null}
+
+            <HStack style={{ gap: SPACE[2] }}>
+              <Pressable
+                onPress={record}
+                disabled={busy !== null}
+                className="flex-1 active:opacity-90"
+                style={{
+                  borderRadius: 12,
+                  overflow: 'hidden',
+                  opacity: busy === 'choose' ? 0.55 : 1,
+                }}
+              >
+                <LinearGradient
+                  colors={gradientStops(GRADIENT_PRIMARY)}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: 12,
+                    paddingVertical: 12,
+                    gap: 8,
+                  }}
+                >
+                  <Camera size={16} color="#fff" strokeWidth={2.3} />
+                  <Text style={{ flex: 1, fontFamily: FONTS.bold, fontSize: 11, color: '#FFFFFF' }}>
+                    {busy === 'record' ? 'Opening…' : videoPickOnly ? 'Pick Video' : 'Record Video'}
+                  </Text>
+                </LinearGradient>
+              </Pressable>
+              <Pressable
+                onPress={choose}
+                disabled={busy !== null}
+                className="flex-1 active:opacity-90"
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 12,
+                  paddingVertical: 12,
+                  gap: 8,
+                  borderRadius: 12,
+                  backgroundColor: GLASS.tintBlue,
+                  borderWidth: 1,
+                  borderColor: `${COLORS.primary}40`,
+                  opacity: busy === 'record' ? 0.55 : 1,
+                }}
+              >
+                <Film size={16} color={COLORS.primary} strokeWidth={2.3} />
+                <Text style={{ flex: 1, fontFamily: FONTS.bold, fontSize: 11, color: COLORS.primary }}>
+                  {busy === 'choose' ? 'Opening…' : 'Choose File'}
+                </Text>
+              </Pressable>
+            </HStack>
+          </VStack>
+        </GlassSectionCard>
+      ) : (
+      <>
       <SurveyCard>
         <WorkspaceHeader
           icon={Camera}
@@ -1748,7 +2248,7 @@ export function VideoScreen({ go }: { go: Go }) {
               />
             ) : (
               <LinearGradient
-                colors={['#1E40AF', '#2563EB', '#3B82F6']}
+                colors={gradientStops(GRADIENT_VIDEO)}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }}
@@ -1830,7 +2330,7 @@ export function VideoScreen({ go }: { go: Go }) {
           disabled={busy !== null}
           className="flex-1 min-h-[68px] rounded-2xl overflow-hidden active:opacity-90"
           style={{
-            shadowColor: '#2563EB',
+            shadowColor: COLORS.primary,
             shadowOffset: { width: 0, height: 8 },
             shadowOpacity: 0.28,
             shadowRadius: 14,
@@ -1839,7 +2339,7 @@ export function VideoScreen({ go }: { go: Go }) {
           }}
         >
           <LinearGradient
-            colors={['#2563EB', '#3B82F6', '#3B82F6']}
+            colors={gradientStops(GRADIENT_PRIMARY)}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{
@@ -1883,7 +2383,7 @@ export function VideoScreen({ go }: { go: Go }) {
           style={{
             backgroundColor: '#FFFFFF',
             borderWidth: 1.5,
-            borderColor: '#BFDBFE',
+            borderColor: `${COLORS.primary}40`,
             shadowColor: '#1E293B',
             shadowOffset: { width: 0, height: 6 },
             shadowOpacity: 0.06,
@@ -1898,7 +2398,7 @@ export function VideoScreen({ go }: { go: Go }) {
               width: 38,
               height: 38,
               borderRadius: 12,
-              backgroundColor: '#EFF6FF',
+              backgroundColor: GLASS.tintBlue,
             }}
           >
             <Film size={18} color={COLORS.primary} strokeWidth={2.3} />
@@ -1964,6 +2464,8 @@ export function VideoScreen({ go }: { go: Go }) {
           </HStack>
         </Box>
       ) : null}
+      </>
+      )}
     </SurveyScaffold>
   );
 }

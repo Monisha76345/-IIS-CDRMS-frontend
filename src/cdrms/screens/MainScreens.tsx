@@ -58,7 +58,17 @@ import {
   ScreenLoader,
 } from '@/src/cdrms/components/primitives';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
-import { COLORS, FONTS } from '@/src/cdrms/theme';
+import {
+  COLORS,
+  FONTS,
+  GLASS,
+  GRADIENT_HEADER,
+  GRADIENT_PRIMARY,
+  HEADER_ON_GRADIENT,
+  gradientStops,
+} from '@/src/cdrms/theme';
+import { ThemeToggleButton } from '@/src/cdrms/components/ThemePicker';
+import { useTheme } from '@/src/theme/ThemeContext';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go, Screen } from '@/src/cdrms/types';
 import { useAuth } from '@/src/auth/AuthContext';
@@ -105,7 +115,25 @@ function mapTaskCard(app: MobileApplication) {
   };
 }
 
+function getAppStatusAccent(status: string): string {
+  switch (status) {
+    case 'Submitted':
+    case 'Verified':
+    case 'Approved':
+      return COLORS.success;
+    case 'Returned':
+      return COLORS.warning;
+    case 'Rejected':
+      return COLORS.destructive;
+    case 'In progress':
+      return COLORS.slate;
+    default:
+      return COLORS.primary;
+  }
+}
+
 export function Dashboard({ go }: { go: Go }) {
+  const { themeId } = useTheme();
   const insets = useSafeAreaInsets();
   const { openBackendTask } = useProject();
   const { accessToken, user, logout } = useAuth();
@@ -150,8 +178,8 @@ export function Dashboard({ go }: { go: Go }) {
   const submitted = tasks.filter((t) => t.status === 'submitted').length;
 
   const stats = [
-    { label: 'Pending', value: pending, bg: '#EFF6FF', fg: '#2563EB', icon: FileText },
-    { label: 'Submitted', value: submitted, bg: '#DBEAFE', fg: '#2563EB', icon: ClipboardCheck },
+    { label: 'Pending', value: pending, bg: GLASS.tintBlue, fg: COLORS.primary, icon: FileText },
+    { label: 'Submitted', value: submitted, bg: GLASS.tintSky, fg: COLORS.primary, icon: ClipboardCheck },
   ];
 
   const actions: Array<{
@@ -174,7 +202,7 @@ export function Dashboard({ go }: { go: Go }) {
       to: 'history',
       primary: true,
       iconBg: 'rgba(255,255,255,0.22)',
-      iconColor: '#FFFFFF',
+      iconColor: COLORS.white,
       watermarkColor: 'rgba(255,255,255,0.22)',
     },
     {
@@ -183,9 +211,9 @@ export function Dashboard({ go }: { go: Go }) {
       label: 'Continue open task',
       desc: taskCards[0] ? taskCards[0].project : 'Open a task from My Tasks',
       to: 'project',
-      iconBg: '#EFF6FF',
-      iconColor: '#2563EB',
-      watermarkColor: 'rgba(37,99,235,0.14)',
+      iconBg: GLASS.tintBlue,
+      iconColor: COLORS.primary,
+      watermarkColor: `${COLORS.primary}24`,
       onPress: () => {
         if (taskCards[0]) void openAssignedTask(taskCards[0].id);
         else go('history');
@@ -202,14 +230,15 @@ export function Dashboard({ go }: { go: Go }) {
   };
 
   return (
-    <ScreenShell className="bg-[#F3F4F6]">
+    <ScreenShell className="bg-background">
       <ScrollView
+        key={themeId}
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
         <LinearGradient
-          colors={['#1E40AF', '#2563EB', '#3B82F6']}
+          colors={gradientStops(GRADIENT_HEADER)}
           locations={[0, 0.45, 1]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -258,7 +287,7 @@ export function Dashboard({ go }: { go: Go }) {
                     height: 52,
                     borderRadius: 26,
                     backgroundColor: 'rgba(255,255,255,0.95)',
-                    shadowColor: '#0F172A',
+                    shadowColor: GLASS.shadow,
                     shadowOffset: { width: 0, height: 4 },
                     shadowOpacity: 0.2,
                     shadowRadius: 8,
@@ -272,7 +301,7 @@ export function Dashboard({ go }: { go: Go }) {
                       resizeMode="cover"
                     />
                   ) : (
-                    <Text className="font-extrabold text-[16px]" style={{ color: '#2563EB' }}>
+                    <Text className="font-extrabold text-[16px]" style={{ color: COLORS.primary }}>
                       {displayName(user)
                         .split(/\s+/)
                         .filter(Boolean)
@@ -292,7 +321,8 @@ export function Dashboard({ go }: { go: Go }) {
                 </VStack>
               </HStack>
               <HStack className="items-center gap-2">
-              <ProfileMenu
+                <ThemeToggleButton variant="header" />
+                <ProfileMenu
                 gradient
                 userName={displayName(user)}
                 roleName={user?.roleName}
@@ -334,7 +364,7 @@ export function Dashboard({ go }: { go: Go }) {
               className="active:opacity-95"
             >
             <LinearGradient
-              colors={['#1E40AF', '#2563EB', '#3B82F6']}
+              colors={gradientStops(GRADIENT_HEADER)}
               locations={[0, 0.45, 1]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
@@ -354,7 +384,7 @@ export function Dashboard({ go }: { go: Go }) {
                     style={{
                       fontFamily: FONTS.medium,
                       fontSize: 11,
-                      color: 'rgba(219,234,254,0.95)',
+                      color: HEADER_ON_GRADIENT.soft,
                     }}
                   >
                     Today&apos;s Applications
@@ -374,7 +404,7 @@ export function Dashboard({ go }: { go: Go }) {
                       style={{
                         fontFamily: FONTS.medium,
                         fontSize: 13,
-                        color: 'rgba(219,234,254,0.92)',
+                        color: HEADER_ON_GRADIENT.soft,
                       }}
                     >
                       open tasks
@@ -390,7 +420,7 @@ export function Dashboard({ go }: { go: Go }) {
                     backgroundColor: 'rgba(255,255,255,0.2)',
                   }}
                 >
-                  <ChevronRight size={16} color="#FFFFFF" strokeWidth={2.6} />
+                  <ChevronRight size={16} color={COLORS.white} strokeWidth={2.6} />
                 </Box>
               </HStack>
             </LinearGradient>
@@ -402,11 +432,11 @@ export function Dashboard({ go }: { go: Go }) {
         <Box className="px-4" style={{ marginTop: -28 }}>
           <Box
             style={{
-              backgroundColor: '#FFFFFF',
+              backgroundColor: COLORS.white,
               borderRadius: 28,
               paddingVertical: 16,
               paddingHorizontal: 10,
-              shadowColor: '#1E3A8A',
+              shadowColor: COLORS.primaryDeep,
               shadowOffset: { width: 0, height: 10 },
               shadowOpacity: 0.1,
               shadowRadius: 20,
@@ -428,10 +458,10 @@ export function Dashboard({ go }: { go: Go }) {
                     >
                       <Icon size={18} color={s.fg} strokeWidth={2.3} />
                     </Box>
-                    <Text className="mt-2 text-[18px] font-extrabold" style={{ color: '#0F172A' }}>
+                    <Text className="mt-2 text-[18px] font-extrabold" style={{ color: COLORS.ink }}>
                       {s.value}
                     </Text>
-                    <Text className="text-[11px] font-semibold" style={{ color: '#94A3B8' }}>
+                    <Text className="text-[11px] font-semibold" style={{ color: COLORS.slate }}>
                       {s.label}
                     </Text>
                   </Pressable>
@@ -443,7 +473,7 @@ export function Dashboard({ go }: { go: Go }) {
 
         {/* Quick Actions */}
         <Box className="px-4 mt-5">
-          <Text className="text-[16px] font-bold mb-3" style={{ color: '#0F172A' }}>
+          <Text className="text-[16px] font-bold mb-3" style={{ color: COLORS.ink }}>
             Quick Actions
           </Text>
 
@@ -478,7 +508,7 @@ export function Dashboard({ go }: { go: Go }) {
                     style={{
                       width: '47.5%',
                       borderRadius: 24,
-                      shadowColor: '#2563EB',
+                      shadowColor: COLORS.primary,
                       shadowOffset: { width: 0, height: 8 },
                       shadowOpacity: 0.28,
                       shadowRadius: 14,
@@ -486,7 +516,7 @@ export function Dashboard({ go }: { go: Go }) {
                     }}
                   >
                     <LinearGradient
-                      colors={['#2563EB', '#3B82F6']}
+                      colors={gradientStops(GRADIENT_PRIMARY)}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
                       style={{ padding: 16, minHeight: 138, overflow: 'hidden' }}
@@ -522,7 +552,7 @@ export function Dashboard({ go }: { go: Go }) {
                           zIndex: 2,
                         }}
                       >
-                        <ChevronRight size={14} color="#FFFFFF" strokeWidth={2.6} />
+                        <ChevronRight size={14} color={COLORS.white} strokeWidth={2.6} />
                       </Box>
                     </LinearGradient>
                   </Pressable>
@@ -542,8 +572,8 @@ export function Dashboard({ go }: { go: Go }) {
                     minHeight: 138,
                     borderRadius: 24,
                     padding: 16,
-                    backgroundColor: '#FFFFFF',
-                    shadowColor: '#0F172A',
+                    backgroundColor: COLORS.white,
+                    shadowColor: GLASS.shadow,
                     shadowOffset: { width: 0, height: 6 },
                     shadowOpacity: 0.06,
                     shadowRadius: 14,
@@ -565,11 +595,11 @@ export function Dashboard({ go }: { go: Go }) {
                   </Box>
                   <Text
                     className="mt-5 font-bold text-[13px]"
-                    style={{ color: '#0F172A', zIndex: 1 }}
+                    style={{ color: COLORS.ink, zIndex: 1 }}
                   >
                     {a.label}
                   </Text>
-                  <Text className="text-[11px] mt-0.5" style={{ color: '#94A3B8', zIndex: 1 }}>
+                  <Text className="text-[11px] mt-0.5" style={{ color: COLORS.slate, zIndex: 1 }}>
                     {a.desc}
                   </Text>
                   <Box
@@ -577,17 +607,17 @@ export function Dashboard({ go }: { go: Go }) {
                     style={{
                       width: 28,
                       height: 28,
-                      backgroundColor: '#FFFFFF',
+                      backgroundColor: COLORS.white,
                       borderWidth: 1,
-                      borderColor: '#E2E8F0',
-                      shadowColor: '#0F172A',
+                      borderColor: COLORS.border,
+                      shadowColor: GLASS.shadow,
                       shadowOpacity: 0.08,
                       shadowRadius: 4,
                       shadowOffset: { width: 0, height: 2 },
                       zIndex: 2,
                     }}
                   >
-                    <ChevronRight size={14} color="#2563EB" strokeWidth={2.4} />
+                    <ChevronRight size={14} color={COLORS.primary} strokeWidth={2.4} />
                   </Box>
                 </Pressable>
               );
@@ -598,7 +628,7 @@ export function Dashboard({ go }: { go: Go }) {
         {/* Recent Activity */}
         <Box className="px-4 mt-6">
           <HStack className="items-center justify-between mb-3">
-            <Text className="text-[16px] font-bold" style={{ color: '#0F172A' }}>
+            <Text className="text-[16px] font-bold" style={{ color: COLORS.ink }}>
               Recent Activity
             </Text>
             <Pressable
@@ -614,8 +644,14 @@ export function Dashboard({ go }: { go: Go }) {
 
           <VStack space="sm">
             {recentCards.length === 0 ? (
-              <Box className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8">
-                <Text className="text-center text-sm text-slate-500">
+              <Box
+                className="rounded-2xl border border-dashed px-4 py-8"
+                style={{
+                  borderColor: COLORS.border,
+                  backgroundColor: COLORS.white,
+                }}
+              >
+                <Text className="text-center text-sm" style={{ color: COLORS.slate }}>
                   No assigned tasks yet. When a Zonal Commissioner creates an application for you,
                   it will appear here.
                 </Text>
@@ -636,10 +672,10 @@ export function Dashboard({ go }: { go: Go }) {
                   disabled={openingId === a.id}
                   className="active:opacity-90"
                   style={{
-                    backgroundColor: '#FFFFFF',
+                    backgroundColor: COLORS.white,
                     borderRadius: 22,
                     padding: 14,
-                    shadowColor: '#0F172A',
+                    shadowColor: GLASS.shadow,
                     shadowOffset: { width: 0, height: 6 },
                     shadowOpacity: 0.06,
                     shadowRadius: 12,
@@ -649,7 +685,7 @@ export function Dashboard({ go }: { go: Go }) {
                   <HStack className="items-start gap-3">
                     <Box
                       className="items-center justify-center rounded-full"
-                      style={{ width: 42, height: 42, backgroundColor: '#EFF6FF' }}
+                      style={{ width: 42, height: 42, backgroundColor: GLASS.tintBlue }}
                     >
                       <FileText size={18} color={COLORS.primary} />
                     </Box>
@@ -682,14 +718,14 @@ export function Dashboard({ go }: { go: Go }) {
                         </VStack>
                         <HStack className="items-center gap-1.5">
                           <StatusChip status={a.status} />
-                          <MoreVertical size={16} color="#94A3B8" />
+                          <MoreVertical size={16} color={COLORS.slate} />
                         </HStack>
                       </HStack>
 
                       <HStack className="items-center gap-2 mt-3">
                         <Box
                           className="flex-1 rounded-full overflow-hidden"
-                          style={{ height: 6, backgroundColor: '#EFF6FF' }}
+                          style={{ height: 6, backgroundColor: GLASS.tintBlue }}
                         >
                           <Box
                             style={{
@@ -720,6 +756,7 @@ export function Dashboard({ go }: { go: Go }) {
 }
 
 export function NotificationsScreen({ go }: { go: Go }) {
+  const { themeId } = useTheme();
   const { accessToken, user } = useAuth();
   const { openBackendTask } = useProject();
   const home = homeScreenForRole(user);
@@ -789,15 +826,16 @@ export function NotificationsScreen({ go }: { go: Go }) {
         }
       />
       <ScrollView
+        key={themeId}
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 120 }}
       >
         <Box className="px-5 pt-4">
           <HStack className="items-center gap-3 h-12 px-4 rounded-2xl bg-card shadow-sm">
-            <Search size={16} color="#6B7289" />
+            <Search size={16} color={COLORS.slate} />
             <TextInput
               placeholder="Search notifications"
-              placeholderTextColor="#6B7289"
+              placeholderTextColor={COLORS.slate}
               value={query}
               onChangeText={setQuery}
               className="flex-1 text-sm text-foreground"
@@ -808,11 +846,11 @@ export function NotificationsScreen({ go }: { go: Go }) {
             {loading && items.length === 0 ? (
               <ListLoader count={3} text="Loading notifications…" />
             ) : error ? (
-              <Text className="text-[13px] mt-6 text-center" style={{ color: '#DC2626' }}>
+              <Text className="text-[13px] mt-6 text-center" style={{ color: COLORS.destructive }}>
                 {error}
               </Text>
             ) : filtered.length === 0 ? (
-              <Text className="text-[13px] mt-6 text-center" style={{ color: '#64748B' }}>
+              <Text className="text-[13px] mt-6 text-center" style={{ color: COLORS.slate }}>
                 All caught up — no new notifications.
               </Text>
             ) : (
@@ -885,17 +923,6 @@ export function NotificationsScreen({ go }: { go: Go }) {
   );
 }
 
-const APP_STATUS_ACCENT: Record<string, string> = {
-  Submitted: '#10B981',
-  Verified: '#059669',
-  Approved: '#10B981',
-  Returned: '#F97316',
-  Rejected: '#EF4444',
-  Draft: '#2563EB',
-  'In progress': '#64748B',
-  Assigned: '#2563EB',
-};
-
 const APP_FILTERS: Array<{ key: string; label: string; icon: LucideIcon }> = [
   { key: 'All', label: 'All', icon: Layers },
   { key: 'Draft', label: 'Draft', icon: FileText },
@@ -916,8 +943,8 @@ function ApplicationThumb({ uri }: { uri: string | null }) {
         width: 44,
         height: 44,
         borderRadius: 12,
-        backgroundColor: '#EFF6FF',
-        shadowColor: '#0F172A',
+        backgroundColor: GLASS.tintBlue,
+        shadowColor: GLASS.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,
         shadowRadius: 4,
@@ -955,7 +982,7 @@ function ApplicationListCard({
   image: string | null;
   onPress: () => void;
 }) {
-  const accent = APP_STATUS_ACCENT[status] || COLORS.primary;
+  const accent = getAppStatusAccent(status);
   const meta = [siteNo, village !== '—' ? village : null].filter(Boolean).join(' · ');
 
   return (
@@ -967,7 +994,7 @@ function ApplicationListCard({
           overflow: 'hidden',
           borderWidth: 1,
           borderColor: COLORS.border,
-          shadowColor: '#0F172A',
+          shadowColor: GLASS.shadow,
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.08,
           shadowRadius: 12,
@@ -1037,6 +1064,7 @@ function ApplicationListCard({
 }
 
 export function HistoryScreen({ go }: { go: Go }) {
+  const { themeId } = useTheme();
   const { applications, draft, openApplication, statusOverrides, openBackendTask } = useProject();
   const { accessToken } = useAuth();
   const [tab, setTab] = useState('All');
@@ -1160,15 +1188,16 @@ export function HistoryScreen({ go }: { go: Go }) {
   const filtered = tab === 'All' ? liveApps : liveApps.filter((a) => a.status === tab);
 
   return (
-    <ScreenShell className="bg-[#F8FAFC]">
+    <ScreenShell className="bg-background">
       <AppHeader
         title="Applications"
         subtitle={`${filtered.length} task${filtered.length === 1 ? '' : 's'} · assigned & submitted`}
         go={go}
       />
 
-      <Box style={{ backgroundColor: '#F8FAFC' }}>
+      <Box style={{ backgroundColor: COLORS.soft }}>
         <ScrollView
+          key={themeId}
           horizontal
           showsHorizontalScrollIndicator={false}
           className="grow-0"
@@ -1196,7 +1225,7 @@ export function HistoryScreen({ go }: { go: Go }) {
                   paddingHorizontal: 12,
                   borderRadius: 12,
                   backgroundColor: COLORS.white,
-                  shadowColor: '#0F172A',
+                  shadowColor: GLASS.shadow,
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: on ? 0.12 : 0.06,
                   shadowRadius: 6,
@@ -1225,7 +1254,7 @@ export function HistoryScreen({ go }: { go: Go }) {
                     height: 18,
                     paddingHorizontal: 4,
                     borderRadius: 9,
-                    backgroundColor: on ? '#EFF6FF' : '#F1F5F9',
+                    backgroundColor: on ? GLASS.tintBlue : COLORS.muted,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
@@ -1241,6 +1270,7 @@ export function HistoryScreen({ go }: { go: Go }) {
       </Box>
 
       <ScrollView
+        key={themeId}
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 100, paddingTop: 8 }}
         showsVerticalScrollIndicator={false}
@@ -1254,7 +1284,7 @@ export function HistoryScreen({ go }: { go: Go }) {
               style={{
                 backgroundColor: COLORS.white,
                 borderRadius: 16,
-                shadowColor: '#0F172A',
+                shadowColor: GLASS.shadow,
                 shadowOpacity: 0.08,
                 shadowRadius: 12,
                 shadowOffset: { width: 0, height: 4 },
@@ -1268,7 +1298,7 @@ export function HistoryScreen({ go }: { go: Go }) {
                   width: 56,
                   borderRadius: 16,
                   backgroundColor: COLORS.white,
-                  shadowColor: '#0F172A',
+                  shadowColor: GLASS.shadow,
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.08,
                   shadowRadius: 6,
@@ -1321,6 +1351,7 @@ export function HistoryScreen({ go }: { go: Go }) {
 }
 
 export function ProfileScreen({ go }: { go: Go }) {
+  const { themeId } = useTheme();
   const { user, logout } = useAuth();
   const appRole = resolveAppRole(user);
   const home = homeScreenForRole(user);
@@ -1434,7 +1465,7 @@ export function ProfileScreen({ go }: { go: Go }) {
   ];
 
   return (
-    <ScreenShell className="bg-[#F8FAFC]">
+    <ScreenShell className="bg-background">
       <AppHeader
         title="Profile"
         subtitle="Officer details & personal information"
@@ -1442,6 +1473,7 @@ export function ProfileScreen({ go }: { go: Go }) {
       />
 
       <ScrollView
+        key={themeId}
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16, paddingTop: 16 }}
         showsVerticalScrollIndicator={false}
@@ -1451,9 +1483,9 @@ export function ProfileScreen({ go }: { go: Go }) {
           <Box
             className="p-5 rounded-2xl border"
             style={{
-              backgroundColor: '#FFFFFF',
-              borderColor: '#E2E8F0',
-              shadowColor: '#0F172A',
+              backgroundColor: COLORS.white,
+              borderColor: COLORS.border,
+              shadowColor: GLASS.shadow,
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.06,
               shadowRadius: 12,
@@ -1469,7 +1501,7 @@ export function ProfileScreen({ go }: { go: Go }) {
                     style={{
                       width: 72,
                       height: 72,
-                      backgroundColor: '#2563EB',
+                      backgroundColor: COLORS.primary,
                     }}
                   >
                     {profilePhoto ? (
@@ -1483,30 +1515,41 @@ export function ProfileScreen({ go }: { go: Go }) {
                   </Box>
                   <Box
                     className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full items-center justify-center border-2 border-white"
-                    style={{ backgroundColor: '#2563EB' }}
+                    style={{ backgroundColor: COLORS.primary }}
                   >
-                    <Camera size={13} color="#FFFFFF" strokeWidth={2.4} />
+                    <Camera size={13} color={COLORS.white} strokeWidth={2.4} />
                   </Box>
                 </Pressable>
 
                 {/* Name, Status & Info */}
                 <VStack space="xs" className="flex-1 min-w-0">
                   <HStack className="items-center gap-2 flex-wrap">
-                    <Text className="text-lg font-extrabold text-slate-900" numberOfLines={1}>
+                    <Text className="text-lg font-extrabold" style={{ color: COLORS.ink }} numberOfLines={1}>
                       {name}
                     </Text>
-                    <Box className="flex-row items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200">
-                      <CheckCircle2 size={11} color="#059669" strokeWidth={2.5} />
-                      <Text className="text-[11px] font-bold text-emerald-700">Active</Text>
+                    <Box
+                      className="flex-row items-center gap-1 px-2.5 py-0.5 rounded-full border"
+                      style={{
+                        backgroundColor: `${COLORS.success}14`,
+                        borderColor: `${COLORS.success}40`,
+                      }}
+                    >
+                      <CheckCircle2 size={11} color={COLORS.success} strokeWidth={2.5} />
+                      <Text className="text-[11px] font-bold" style={{ color: COLORS.success }}>
+                        Active
+                      </Text>
                     </Box>
                   </HStack>
 
-                  <Text className="text-xs font-semibold text-slate-600">
+                  <Text className="text-xs font-semibold" style={{ color: COLORS.slate }}>
                     {roleTitle} · {zone}
                   </Text>
 
-                  <Text className="text-[11px] font-mono text-slate-500">
-                    Login ID: <Text className="font-semibold text-slate-700">{loginId}</Text>
+                  <Text className="text-[11px] font-mono" style={{ color: COLORS.slate }}>
+                    Login ID:{' '}
+                    <Text className="font-semibold" style={{ color: COLORS.ink }}>
+                      {loginId}
+                    </Text>
                   </Text>
                 </VStack>
               </HStack>
@@ -1519,14 +1562,14 @@ export function ProfileScreen({ go }: { go: Go }) {
                       onPress={() => setPreviewModalOpen(true)}
                       className="flex-1 flex-row items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 active:bg-slate-100"
                     >
-                      <Eye size={14} color="#2563EB" strokeWidth={2.2} />
+                      <Eye size={14} color={COLORS.primary} strokeWidth={2.2} />
                       <Text className="text-xs font-bold text-slate-800">View Photo</Text>
                     </Pressable>
                     <Pressable
                       onPress={handleDeletePhoto}
                       className="flex-1 flex-row items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-red-200 bg-red-50 active:bg-red-100"
                     >
-                      <Trash2 size={14} color="#DC2626" strokeWidth={2.2} />
+                      <Trash2 size={14} color={COLORS.destructive} strokeWidth={2.2} />
                       <Text className="text-xs font-bold text-red-600">Delete Photo</Text>
                     </Pressable>
                   </>
@@ -1535,7 +1578,7 @@ export function ProfileScreen({ go }: { go: Go }) {
                     onPress={() => void handlePickPhoto()}
                     className="flex-1 flex-row items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 active:bg-slate-100"
                   >
-                    <Upload size={14} color="#2563EB" strokeWidth={2.2} />
+                    <Upload size={14} color={COLORS.primary} strokeWidth={2.2} />
                     <Text className="text-xs font-bold text-slate-800">Upload Photo</Text>
                   </Pressable>
                 )}
@@ -1547,9 +1590,9 @@ export function ProfileScreen({ go }: { go: Go }) {
           <Box
             className="p-5 rounded-2xl border"
             style={{
-              backgroundColor: '#FFFFFF',
-              borderColor: '#E2E8F0',
-              shadowColor: '#0F172A',
+              backgroundColor: COLORS.white,
+              borderColor: COLORS.border,
+              shadowColor: GLASS.shadow,
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.06,
               shadowRadius: 12,
@@ -1557,7 +1600,7 @@ export function ProfileScreen({ go }: { go: Go }) {
             }}
           >
             <HStack className="items-center gap-2 mb-4">
-              <User size={18} color="#2563EB" strokeWidth={2.4} />
+              <User size={18} color={COLORS.primary} strokeWidth={2.4} />
               <Text className="text-base font-extrabold text-slate-900">Personal Information</Text>
             </HStack>
 
@@ -1573,7 +1616,7 @@ export function ProfileScreen({ go }: { go: Go }) {
                       {field.label}
                     </Text>
                     <HStack className="items-center gap-2">
-                      {Icon && <Icon size={14} color="#2563EB" strokeWidth={2.2} />}
+                      {Icon && <Icon size={14} color={COLORS.primary} strokeWidth={2.2} />}
                       <Text className="text-sm font-bold text-slate-900">{field.value}</Text>
                     </HStack>
                   </Box>
@@ -1593,7 +1636,7 @@ export function ProfileScreen({ go }: { go: Go }) {
                     MAPPING STATUS
                   </Text>
                   <HStack className="items-center gap-1.5 self-start px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200">
-                    <CheckCircle2 size={12} color="#059669" strokeWidth={2.5} />
+                    <CheckCircle2 size={12} color={COLORS.success} strokeWidth={2.5} />
                     <Text className="text-[11px] font-bold text-emerald-700">ACTIVE</Text>
                   </HStack>
                 </Box>
@@ -1609,7 +1652,7 @@ export function ProfileScreen({ go }: { go: Go }) {
             }}
             className="w-full h-13 rounded-2xl bg-red-50 border border-red-200 flex-row items-center justify-center gap-2 active:opacity-90"
           >
-            <LogOut size={18} color="#DC2626" strokeWidth={2.2} />
+            <LogOut size={18} color={COLORS.destructive} strokeWidth={2.2} />
             <Text className="font-bold text-red-600 text-sm">Logout Officer Account</Text>
           </Pressable>
         </VStack>

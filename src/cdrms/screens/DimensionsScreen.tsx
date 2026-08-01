@@ -6,22 +6,29 @@ import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
+import { GlassHeaderBadge, GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
 import { LiveCompassDial } from '@/src/cdrms/components/LiveCompassDial';
-import { AppBtn, Field } from '@/src/cdrms/components/primitives';
+import { Field } from '@/src/cdrms/components/primitives';
 import {
-  SurveyCard,
   SurveyScaffold,
-  WorkspaceHeader,
   FooterContinueBtn,
 } from '@/src/cdrms/components/SurveyLayout';
+import { parseCompassReading } from '@/src/cdrms/hooks/useCompass';
 import { siteDimensionToFormDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
 import { type Cardinal } from '@/src/cdrms/project/types';
-import { COLORS, SPACE } from '@/src/cdrms/theme';
+import { CARDINAL_ACCENT, COLORS, FONTS, GLASS, SPACE } from '@/src/cdrms/theme';
 import type { Go } from '@/src/cdrms/types';
 
 const CARDINALS: Cardinal[] = ['N', 'S', 'E', 'W'];
+
+const DIM_FIELDS: Array<{ side: Cardinal; label: string; key: 'dimNorth' | 'dimSouth' | 'dimEast' | 'dimWest' }> = [
+  { side: 'N', label: 'North', key: 'dimNorth' },
+  { side: 'S', label: 'South', key: 'dimSouth' },
+  { side: 'E', label: 'East', key: 'dimEast' },
+  { side: 'W', label: 'West', key: 'dimWest' },
+];
 
 function scheduleLabel(
   note: string | undefined,
@@ -36,6 +43,78 @@ function scheduleLabel(
   return base;
 }
 
+function DimSideField({
+  side,
+  label,
+  value,
+  onChangeText,
+}: {
+  side: Cardinal;
+  label: string;
+  value: string;
+  onChangeText: (t: string) => void;
+}) {
+  const accent = CARDINAL_ACCENT[side];
+
+  return (
+    <Box style={{ flex: 1 }}>
+      <Box
+        style={{
+          borderRadius: 12,
+          padding: SPACE[2],
+          backgroundColor: GLASS.surfaceSolid,
+          borderWidth: 1,
+          borderColor: GLASS.border,
+          borderTopWidth: 2,
+          borderTopColor: accent,
+          shadowColor: '#0F172A',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.08,
+          shadowRadius: 8,
+          elevation: 2,
+        }}
+      >
+        <HStack style={{ alignItems: 'center', gap: 6, marginBottom: 4 }}>
+          <Box
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: 999,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: GLASS.tintBlue,
+              borderWidth: 1,
+              borderColor: '#BFDBFE',
+            }}
+          >
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: accent }}>{side}</Text>
+          </Box>
+          <Text
+            style={{
+              fontFamily: FONTS.semibold,
+              fontSize: 10,
+              color: COLORS.slate,
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
+            }}
+          >
+            {label}
+          </Text>
+        </HStack>
+        <Field
+          compact
+          label=" "
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={`Enter ${side}`}
+          keyboardType="decimal-pad"
+          showCheck={false}
+        />
+      </Box>
+    </Box>
+  );
+}
+
 /** Step 3 — Dimensions (web parity) for ZC-assigned engineer tasks. */
 export function DimensionsScreen({ go }: { go: Go }) {
   const { draft, setDimSide, persistBackendStep, reloadBackendDraft } = useProject();
@@ -44,7 +123,8 @@ export function DimensionsScreen({ go }: { go: Go }) {
   const [stepSaving, setStepSaving] = useState(false);
   const clearedZcSeed = useRef(false);
 
-  // Strip accidental ZC siteDimension copies so engineer must enter manually (web parity).
+  const compassFace = parseCompassReading(draft.compassReading)?.face ?? null;
+
   useEffect(() => {
     if (!isBackendTask || clearedZcSeed.current) return;
     const zc = siteDimensionToFormDims(draft.siteDimensionMaster);
@@ -85,6 +165,10 @@ export function DimensionsScreen({ go }: { go: Go }) {
     (v) => Number(v) > 0,
   );
 
+  const filledCount = [draft.dimNorth, draft.dimSouth, draft.dimEast, draft.dimWest].filter(
+    (v) => Number(v) > 0,
+  ).length;
+
   const schedulesAround = useMemo(() => {
     const out: Record<Cardinal, string> = { N: '', S: '', E: '', W: '' };
     for (const k of CARDINALS) {
@@ -103,7 +187,6 @@ export function DimensionsScreen({ go }: { go: Go }) {
         <Text className="px-4 py-8 text-center text-slate-500">
           Dimensions step is for assigned ZC tasks.
         </Text>
-        <AppBtn onPress={() => go('bandi')}>Back</AppBtn>
       </SurveyScaffold>
     );
   }
@@ -112,6 +195,7 @@ export function DimensionsScreen({ go }: { go: Go }) {
     <SurveyScaffold
       title="Step 3 — Dimensions"
       subtitle="N / S / E / W · live plot updates"
+      surface="premium"
       onBack={() => {
         void (async () => {
           try {
@@ -124,7 +208,7 @@ export function DimensionsScreen({ go }: { go: Go }) {
       }}
       step={3}
       total={4}
-      badge={liveSiteDimension}
+      badge={liveSiteDimension !== '—' ? liveSiteDimension : undefined}
       footer={
         <FooterContinueBtn
           disabled={!dimsReady || stepSaving}
@@ -147,66 +231,73 @@ export function DimensionsScreen({ go }: { go: Go }) {
       }
       go={go}
     >
-      <SurveyCard>
-        <WorkspaceHeader
-          icon={Compass}
-          title="Facing direction"
-          subtitle="Tap N / NE / E / SE / S / SW / W / NW"
-          iconBg={COLORS.primary}
-        />
-        <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], alignItems: 'center' }}>
-          <LiveCompassDial />
-        </VStack>
-      </SurveyCard>
+      <GlassSectionCard
+        icon={Compass}
+        title="Facing direction"
+        subtitle={
+          compassFace
+            ? `Live ${draft.compassReading} · turn phone to update`
+            : 'Hold phone flat — live sensor on real device'
+        }
+        badge={
+          compassFace ? (
+            <GlassHeaderBadge>
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
+                {compassFace}
+              </Text>
+            </GlassHeaderBadge>
+          ) : undefined
+        }
+      >
+        <LiveCompassDial />
+      </GlassSectionCard>
 
-      <SurveyCard>
-        <WorkspaceHeader
-          icon={Ruler}
-          title="Site dimensions"
-          subtitle={`Live plot: ${liveSiteDimension}`}
-          iconBg={COLORS.primary}
-        />
-        <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
+      <GlassSectionCard
+        icon={Ruler}
+        title="Site dimensions *"
+        subtitle={
+          dimsReady
+            ? `Live plot · ${liveSiteDimension}`
+            : `${filledCount}/4 sides · plot updates as you type`
+        }
+        badge={
+          <GlassHeaderBadge>
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
+              {isOdd ? 'Odd' : 'Even'}
+            </Text>
+          </GlassHeaderBadge>
+        }
+      >
+        <VStack style={{ gap: SPACE[2] }}>
           <HStack style={{ gap: SPACE[2] }}>
-            {(
-              [
-                ['North', 'N', draft.dimNorth],
-                ['South', 'S', draft.dimSouth],
-              ] as const
-            ).map(([label, side, value]) => (
-              <Box key={side} style={{ flex: 1, maxWidth: 140 }}>
-                <Field
-                  compact
+            {DIM_FIELDS.filter(({ side }) => side === 'N' || side === 'S').map(
+              ({ side, label, key }) => (
+                <DimSideField
+                  key={side}
+                  side={side}
                   label={label}
-                  value={value}
+                  value={draft[key]}
                   onChangeText={(t) => setDimSide(side, t)}
-                  placeholder={side}
-                  keyboardType="decimal-pad"
                 />
-              </Box>
-            ))}
+              ),
+            )}
           </HStack>
           <HStack style={{ gap: SPACE[2] }}>
-            {(
-              [
-                ['East', 'E', draft.dimEast],
-                ['West', 'W', draft.dimWest],
-              ] as const
-            ).map(([label, side, value]) => (
-              <Box key={side} style={{ flex: 1, maxWidth: 140 }}>
-                <Field
-                  compact
+            {DIM_FIELDS.filter(({ side }) => side === 'E' || side === 'W').map(
+              ({ side, label, key }) => (
+                <DimSideField
+                  key={side}
+                  side={side}
                   label={label}
-                  value={value}
+                  value={draft[key]}
                   onChangeText={(t) => setDimSide(side, t)}
-                  placeholder={side}
-                  keyboardType="decimal-pad"
                 />
-              </Box>
-            ))}
+              ),
+            )}
           </HStack>
 
           <BoundariesDiagram
+            embedded
             north={Number(draft.dimNorth) || 0}
             south={Number(draft.dimSouth) || 0}
             east={Number(draft.dimEast) || 0}
@@ -222,7 +313,7 @@ export function DimensionsScreen({ go }: { go: Go }) {
             roadWest={Boolean(draft.roadFlags?.W)}
           />
         </VStack>
-      </SurveyCard>
+      </GlassSectionCard>
     </SurveyScaffold>
   );
 }

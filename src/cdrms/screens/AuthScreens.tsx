@@ -96,8 +96,13 @@ import {
 } from '@/src/cdrms/mediaPermission';
 import {
   COLORS,
+  GLASS,
   GRADIENT_HEADER,
+  GRADIENT_MESH,
+  GRADIENT_PRIMARY,
+  gradientStops,
 } from '@/src/cdrms/theme';
+import { useTheme } from '@/src/theme/ThemeContext';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go } from '@/src/cdrms/types';
 import { useAuth } from '@/src/auth/AuthContext';
@@ -190,7 +195,7 @@ export function SplashScreen({ go }: { go: Go }) {
     <ScreenShell>
       <Animated.View style={[{ flex: 1 }, screenStyle]}>
         <LinearGradient
-          colors={[...GRADIENT_HEADER]}
+          colors={gradientStops(GRADIENT_HEADER)}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ flex: 1, paddingTop: insets.top, paddingBottom: insets.bottom }}
@@ -1041,6 +1046,7 @@ export function OtpScreen({ go }: { go: Go }) {
 }
 
 export function PermissionScreen({ go }: { go: Go }) {
+  const { themeId } = useTheme();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const [busy, setBusy] = useState(false);
@@ -1057,29 +1063,29 @@ export function PermissionScreen({ go }: { go: Go }) {
       icon: Navigation,
       title: TERMS.permissions.gpsTitle,
       desc: 'Required for accurate survey geo-tagging',
-      accent: '#2563EB',
-      soft: '#EFF6FF',
+      accent: COLORS.primary,
+      soft: GLASS.tintBlue,
     },
     {
       icon: Camera,
       title: TERMS.permissions.cameraTitle,
       desc: TERMS.permissions.cameraDesc,
-      accent: '#3B82F6',
-      soft: '#DBEAFE',
+      accent: COLORS.primaryGlow,
+      soft: GLASS.tintSky,
     },
     {
       icon: Mic,
       title: TERMS.permissions.microphoneTitle,
       desc: TERMS.permissions.microphoneDesc,
-      accent: '#2563EB',
-      soft: '#EFF6FF',
+      accent: COLORS.primary,
+      soft: GLASS.tintBlue,
     },
     {
       icon: MapPinned,
       title: TERMS.permissions.foregroundTitle,
       desc: TERMS.permissions.foregroundDesc,
-      accent: '#3B82F6',
-      soft: '#DBEAFE',
+      accent: COLORS.primaryGlow,
+      soft: GLASS.tintSky,
     },
   ] as const;
 
@@ -1193,7 +1199,7 @@ export function PermissionScreen({ go }: { go: Go }) {
   return (
     <ScreenShell>
       <LinearGradient
-        colors={['#F7F8FD', '#EFF6FF', '#E8ECF9']}
+        colors={gradientStops(GRADIENT_MESH)}
         start={{ x: 0.1, y: 0 }}
         end={{ x: 0.9, y: 1 }}
         style={{ flex: 1 }}
@@ -1208,7 +1214,7 @@ export function PermissionScreen({ go }: { go: Go }) {
               width: 220,
               height: 220,
               borderRadius: 999,
-              backgroundColor: 'rgba(59,130,246,0.18)',
+              backgroundColor: `${COLORS.primaryGlow}2E`,
             },
             orbAStyle,
           ]}
@@ -1230,6 +1236,7 @@ export function PermissionScreen({ go }: { go: Go }) {
         />
 
         <ScrollView
+          key={themeId}
           className="flex-1"
           contentContainerStyle={{
             flexGrow: 1,
@@ -1244,9 +1251,9 @@ export function PermissionScreen({ go }: { go: Go }) {
               <Box
                 className="px-3 py-1.5 rounded-full flex-row items-center gap-1.5"
                 style={{
-                  backgroundColor: 'rgba(37,99,235,0.1)',
+                  backgroundColor: `${COLORS.primary}1A`,
                   borderWidth: 1,
-                  borderColor: 'rgba(37,99,235,0.18)',
+                  borderColor: `${COLORS.primary}2E`,
                 }}
               >
                 <ShieldCheck size={13} color={COLORS.primaryDeep} strokeWidth={2.4} />
@@ -1356,7 +1363,7 @@ export function PermissionScreen({ go }: { go: Go }) {
                       backgroundColor: COLORS.white,
                       borderWidth: 1,
                       borderColor: 'rgba(226,229,240,0.9)',
-                      shadowColor: '#2563EB',
+                      shadowColor: COLORS.primary,
                       shadowOffset: { width: 0, height: 8 },
                       shadowOpacity: 0.06,
                       shadowRadius: 14,
