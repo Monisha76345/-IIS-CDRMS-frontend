@@ -93,6 +93,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
   const { themeId } = useTheme();
   const { accessToken, user } = useAuth();
   const [apps, setApps] = useState<MobileApplication[]>([]);
+  const [zoneLabel, setZoneLabel] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<ZcTab>('all');
   const [q, setQ] = useState('');
@@ -103,8 +104,16 @@ export function ZcHomeScreen({ go }: { go: Go }) {
     setLoading(true);
     setError(null);
     try {
-      const list = await fetchZcApplications(accessToken);
+      const [list, meta] = await Promise.all([
+        fetchZcApplications(accessToken),
+        fetchMyZoneMeta(accessToken).catch(() => null),
+      ]);
       setApps(list);
+      setZoneLabel(
+        meta?.zoneCode?.trim() ||
+          list.find((a) => a.zoneCode?.trim())?.zoneCode?.trim() ||
+          null,
+      );
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to load applications');
       setApps([]);
@@ -189,6 +198,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
           title="Welcome"
           subtitle={displayName(user)}
           welcome
+          zoneLabel={zoneLabel}
           go={go}
         />
 
@@ -701,11 +711,10 @@ export function ZcCreateScreen({ go }: { go: Go }) {
     <ScreenShell className="bg-background">
       <AppHeader
         title="Create application"
-        subtitle={
-          zone ? `Zone ${zone.zoneCode} · ${zone.zoneName}` : 'New site application'
-        }
+        subtitle={zone ? `Zone ${zone.zoneCode}` : undefined}
         onBack={() => go('zc_home')}
-        gradient={false}
+        gradient
+        compact
         go={go}
         showNotifications={false}
         showLogout={false}
@@ -754,7 +763,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
             </Box>
           ) : (
             <VStack style={{ gap: 12 }}>
-              <PlainSectionCard title="Site details" subtitle="Site no, type & dimension" icon={Ruler}>
+              <PlainSectionCard title="Site details" icon={Ruler}>
                 <HStack style={{ gap: 8, marginBottom: 10 }}>
                   <Field
                     label="Site no"
@@ -1009,7 +1018,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                 ) : null}
               </PlainSectionCard>
 
-              <PlainSectionCard title="Address" subtitle="Area, block & pincode" icon={MapPin}>
+              <PlainSectionCard title="Address" icon={MapPin}>
                 <HStack style={{ gap: 8, marginBottom: 10 }}>
                   <Field
                     label="Area"
@@ -1048,7 +1057,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                 </HStack>
               </PlainSectionCard>
 
-              <PlainSectionCard title="Site Schedules" subtitle="North · South · East · West" icon={Compass}>
+              <PlainSectionCard title="Site Schedules" icon={Compass}>
                 <HStack style={{ gap: 8, marginBottom: 10 }}>
                   <Field
                     label="North"
@@ -1088,7 +1097,6 @@ export function ZcCreateScreen({ go }: { go: Go }) {
 
               <PlainSectionCard
                 title="Assign engineer"
-                subtitle="Required · field engineer in your zone"
                 icon={UserCheck}
                 required
               >
@@ -1103,7 +1111,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     height: 40,
                     borderRadius: 12,
                     borderWidth: 1,
-                    borderColor: form.assignedEngineerUserId ? COLORS.border : `${COLORS.destructive}55`,
+                    borderColor: COLORS.border,
                     backgroundColor: COLORS.white,
                     paddingHorizontal: 12,
                     flexDirection: 'row',
@@ -1124,7 +1132,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                       ? `${selectedEngineer.name}${selectedEngineer.postName ? ` · ${selectedEngineer.postName}` : ''}`
                       : engineers.length === 0
                         ? 'No engineers in this zone'
-                        : 'Select engineer *'}
+                        : 'Select engineer'}
                   </Text>
                   <ChevronDown size={16} color={COLORS.slate} />
                 </Pressable>

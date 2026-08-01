@@ -24,6 +24,7 @@ import {
   countZcBuckets,
   fetchApplication,
   fetchCaoApplications,
+  fetchMyZoneMeta,
   normalizeApplicationStatus,
   type MobileApplication,
 } from '@/src/api/applications';
@@ -71,6 +72,7 @@ export function CaoHomeScreen({ go }: { go: Go }) {
   const { themeId } = useTheme();
   const { accessToken, user } = useAuth();
   const [apps, setApps] = useState<MobileApplication[]>([]);
+  const [zoneLabel, setZoneLabel] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<CaoTab>('all');
   const [q, setQ] = useState('');
@@ -81,8 +83,16 @@ export function CaoHomeScreen({ go }: { go: Go }) {
     setLoading(true);
     setError(null);
     try {
-      const list = await fetchCaoApplications(accessToken);
+      const [list, meta] = await Promise.all([
+        fetchCaoApplications(accessToken),
+        fetchMyZoneMeta(accessToken).catch(() => null),
+      ]);
       setApps(list);
+      setZoneLabel(
+        meta?.zoneCode?.trim() ||
+          list.find((a) => a.zoneCode?.trim())?.zoneCode?.trim() ||
+          null,
+      );
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to load applications');
       setApps([]);
@@ -155,6 +165,7 @@ export function CaoHomeScreen({ go }: { go: Go }) {
           title="Welcome"
           subtitle={displayName(user)}
           welcome
+          zoneLabel={zoneLabel}
           go={go}
         />
 

@@ -7,6 +7,7 @@ import {
   FileText,
   Home,
   LogOut,
+  MapPin,
   Plus,
   User,
   type LucideIcon,
@@ -105,6 +106,7 @@ export function ProfileMenu({
   roleName,
   loginId,
   photoUrl,
+  zoneLabel,
   onLogout,
 }: {
   gradient: boolean;
@@ -112,6 +114,7 @@ export function ProfileMenu({
   roleName?: string | null;
   loginId?: string | null;
   photoUrl?: string | null;
+  zoneLabel?: string | null;
   onLogout: () => void;
 }) {
   const { themeId } = useTheme();
@@ -327,6 +330,20 @@ export function ProfileMenu({
                       ID: {loginId}
                     </Text>
                   ) : null}
+
+                  {zoneLabel ? (
+                    <Text
+                      style={{
+                        fontFamily: FONTS.semibold,
+                        fontSize: 10,
+                        color: 'rgba(255,255,255,0.9)',
+                        marginTop: 3,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {zoneLabel}
+                    </Text>
+                  ) : null}
                 </View>
               </View>
             </LinearGradient>
@@ -335,11 +352,11 @@ export function ProfileMenu({
           {/* Divider */}
           <View style={{ height: 1, backgroundColor: COLORS.muted }} />
 
-          {/* Sign out row */}
+          {/* Logout row */}
           <Pressable
             onPress={() => closeMenu(onLogout)}
             accessibilityRole="button"
-            accessibilityLabel="Sign out"
+            accessibilityLabel="Logout"
             className="active:opacity-70"
             style={{
               flexDirection: 'row',
@@ -364,7 +381,7 @@ export function ProfileMenu({
             >
               <LogOut size={16} color={COLORS.destructive} />
             </View>
-            <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.destructive }}>Sign out</Text>
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.destructive }}>Logout</Text>
           </Pressable>
         </Animated.View>
       </Modal>
@@ -382,6 +399,8 @@ export function AppHeader({
   showLogout = true,
   showNotifications = true,
   welcome = false,
+  compact = false,
+  zoneLabel,
 }: {
   title: string;
   onBack?: () => void;
@@ -393,6 +412,10 @@ export function AppHeader({
   showNotifications?: boolean;
   /** Home greeting: larger “Welcome” + smaller name on the next line. */
   welcome?: boolean;
+  /** Tighter padding for secondary screens (create / forms). */
+  compact?: boolean;
+  /** Zone code shown on welcome header + profile menu. */
+  zoneLabel?: string | null;
 }) {
   const insets = useSafeAreaInsets();
   const { logout, isAuthenticated, user } = useAuth();
@@ -468,51 +491,6 @@ export function AppHeader({
       </VStack>
     );
 
-  const initials =
-    userName
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((p) => p[0]?.toUpperCase() || '')
-      .join('') || 'U';
-
-  const welcomeAvatar =
-    welcome && go ? (
-      <Pressable
-        onPress={() => go('profile')}
-        className="active:opacity-85 items-center justify-center overflow-hidden"
-        style={{
-          width: 52,
-          height: 52,
-          borderRadius: 26,
-          backgroundColor: 'rgba(255,255,255,0.95)',
-          shadowColor: GLASS.shadow,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.2,
-          shadowRadius: 8,
-          elevation: 4,
-        }}
-      >
-        {user?.profilePhoto ? (
-          <Image
-            source={{ uri: user.profilePhoto }}
-            style={{ width: 52, height: 52 }}
-            resizeMode="cover"
-          />
-        ) : (
-          <Text
-            style={{
-              fontFamily: FONTS.bold,
-              fontSize: 16,
-              color: COLORS.primary,
-            }}
-          >
-            {initials}
-          </Text>
-        )}
-      </Pressable>
-    ) : null;
-
   const logoutBtn = canLogout ? (
     <ProfileMenu
       gradient={gradient}
@@ -520,6 +498,7 @@ export function AppHeader({
       roleName={user?.roleName}
       loginId={user?.loginId}
       photoUrl={user?.profilePhoto}
+      zoneLabel={zoneLabel}
       onLogout={() => void onLogout()}
     />
   ) : null;
@@ -547,7 +526,11 @@ export function AppHeader({
     return (
       <Box
         className="bg-card border-b border-border"
-        style={{ paddingTop: insets.top + SPACE[2], paddingHorizontal: SPACE.gutter, paddingBottom: SPACE[4] }}
+        style={{
+          paddingTop: insets.top + (compact ? SPACE[1] : SPACE[2]),
+          paddingHorizontal: SPACE.gutter,
+          paddingBottom: compact ? SPACE[2] : SPACE[4],
+        }}
       >
         <HStack className="items-center justify-between" style={{ gap: SPACE[3] }}>
           <HStack className="items-center flex-1 min-w-0" style={{ gap: SPACE[2] }}>
@@ -555,9 +538,14 @@ export function AppHeader({
               <Pressable
                 onPress={onBack}
                 className="items-center justify-center active:opacity-80"
-                style={{ height: 44, width: 44, borderRadius: 12, backgroundColor: COLORS.muted }}
+                style={{
+                  height: compact ? 36 : 44,
+                  width: compact ? 36 : 44,
+                  borderRadius: 12,
+                  backgroundColor: COLORS.muted,
+                }}
               >
-                <ArrowLeft size={20} color={COLORS.primaryDeep} />
+                <ArrowLeft size={compact ? 18 : 20} color={COLORS.primaryDeep} />
               </Pressable>
             ) : null}
             {titleBlock(false)}
@@ -570,32 +558,63 @@ export function AppHeader({
 
   return (
     <GradientHeader>
-      <Box style={{ paddingHorizontal: SPACE.gutter, paddingBottom: SPACE[6] }}>
-        <HStack className="items-center justify-between" style={{ paddingTop: SPACE[1], gap: SPACE[3] }}>
+      <Box
+        style={{
+          paddingHorizontal: SPACE.gutter,
+          paddingBottom: compact ? SPACE[3] : SPACE[6],
+        }}
+      >
+        <HStack
+          className="items-center justify-between"
+          style={{ paddingTop: SPACE[1], gap: SPACE[3] }}
+        >
           <HStack className="items-center flex-1 min-w-0" style={{ gap: SPACE[3] }}>
             {onBack ? (
               <Pressable
                 onPress={onBack}
                 className="items-center justify-center active:opacity-80"
                 style={{
-                  height: 44,
-                  width: 44,
+                  height: compact ? 36 : 44,
+                  width: compact ? 36 : 44,
                   borderRadius: 12,
                   backgroundColor: 'rgba(255,255,255,0.16)',
                   borderWidth: 1,
                   borderColor: 'rgba(255,255,255,0.22)',
                 }}
               >
-                <ArrowLeft size={20} color={COLORS.white} />
+                <ArrowLeft size={compact ? 18 : 20} color={COLORS.white} />
               </Pressable>
             ) : null}
-            {welcomeAvatar}
             {titleBlock(true)}
           </HStack>
           {rightSlot}
         </HStack>
         {welcome ? (
-          <HStack className="items-center" style={{ marginTop: SPACE[4], gap: 6 }}>
+          <HStack className="items-center flex-wrap" style={{ marginTop: SPACE[4], gap: 6 }}>
+            {zoneLabel ? (
+              <>
+                <MapPin size={13} color="rgba(255,255,255,0.85)" />
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontFamily: FONTS.semibold,
+                    color: 'rgba(255,255,255,0.88)',
+                  }}
+                  numberOfLines={1}
+                >
+                  {zoneLabel}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontFamily: FONTS.medium,
+                    color: 'rgba(255,255,255,0.45)',
+                  }}
+                >
+                  ·
+                </Text>
+              </>
+            ) : null}
             <Clock size={13} color="rgba(255,255,255,0.85)" />
             <Text
               style={{

@@ -18,8 +18,8 @@ import {
   Lock,
   LogOut,
   Mail,
+  MapPin,
   MapPinned,
-  MoreVertical,
   Phone,
   Search,
   Send,
@@ -61,7 +61,6 @@ import {
   FONTS,
   GLASS,
   GRADIENT_HEADER,
-  GRADIENT_PRIMARY,
   SPACE,
   gradientStops,
 } from '@/src/cdrms/theme';
@@ -76,8 +75,8 @@ import { ApiError } from '@/src/api/client';
 import {
   fetchApplication,
   fetchEngineerTasks,
+  fetchMyZoneMeta,
   engineerTaskProgressPercent,
-  isOpenEngineerTask,
   type MobileApplication,
 } from '@/src/api/applications';
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
@@ -92,9 +91,7 @@ import {
 import {
   getSelectedOfficeAppId,
   setSelectedOfficeAppId,
-  setEngineerAppsFilter,
   consumeEngineerAppsFilter,
-  setEngineerAppsReturn,
   consumeEngineerAppsReturn,
 } from '@/src/cdrms/officeSelection';
 import { ensureCameraPermission } from '@/src/cdrms/mediaPermission';
@@ -153,12 +150,14 @@ export function Dashboard({ go }: { go: Go }) {
   const insets = useSafeAreaInsets();
   const { openBackendTask } = useProject();
   const { accessToken, user, logout } = useAuth();
-  const [tasks, setTasks] = useState<MobileApplication[]>([]);
-  const [submittedTotal, setSubmittedTotal] = useState(0);
+  const [allApps, setAllApps] = useState<MobileApplication[]>([]);
+  const [zoneLabel, setZoneLabel] = useState<string | null>(null);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [openingId, setOpeningId] = useState<string | null>(null);
-  /** Home Recent Activity + quick-action highlight. */
-  const [recentFilter, setRecentFilter] = useState<'all' | 'in_progress'>('all');
+  /** Home list filter from the 4 status cards. */
+  const [recentFilter, setRecentFilter] = useState<
+    'all' | 'assigned' | 'in_progress' | 'submitted'
+  >('all');
 
   useEffect(() => {
     const roleHome = homeScreenForRole(user);
@@ -169,27 +168,25 @@ export function Dashboard({ go }: { go: Go }) {
 
   useEffect(() => {
     if (!accessToken) {
-      setTasks([]);
-      setSubmittedTotal(0);
+      setAllApps([]);
+      setZoneLabel(null);
       setLoadingTasks(false);
       return;
     }
     setLoadingTasks(true);
-    // Load full assignment history once: open work for the home task list,
-    // submitted total = all submissions so far (not only open queue).
-    fetchEngineerTasks(accessToken, 'all')
-      .then((all) => {
-        setTasks(all.filter(isOpenEngineerTask));
-        setSubmittedTotal(
-          all.filter(
-            (t) =>
-              t.status === 'submitted' || Boolean(t.engineerSubmittedAt?.trim()),
-          ).length,
-        );
+    Promise.all([
+      fetchEngineerTasks(accessToken, 'all'),
+      fetchMyZoneMeta(accessToken).catch(() => null),
+    ])
+      .then(([all, meta]) => {
+        setAllApps(all);
+        const fromMeta = meta?.zoneCode?.trim() || null;
+        const fromTask = all.find((t) => t.zoneCode?.trim())?.zoneCode?.trim() || null;
+        setZoneLabel(fromMeta || fromTask);
       })
       .catch(() => {
-        setTasks([]);
-        setSubmittedTotal(0);
+        setAllApps([]);
+        setZoneLabel(null);
       })
       .finally(() => setLoadingTasks(false));
   }, [accessToken]);
@@ -207,74 +204,62 @@ export function Dashboard({ go }: { go: Go }) {
     }
   };
 
-  const openAppsWithFilter = (filter: string) => {
-    setEngineerAppsFilter(filter);
-    setEngineerAppsReturn('dashboard');
-    go('history');
-  };
+  const assignedTasks = allApps.filter((t) => t.status === 'assigned');
+  const inProgressTasks = allApps.filter((t) => t.status === 'in_progress');
+  const submittedTasks = allApps.filter(
+    (t) => t.status === 'submitted' || Boolean(t.engineerSubmittedAt?.trim()),
+  );
 
-  const inProgressTasks = tasks.filter((t) => t.status === 'in_progress');
-  const recentSource = recentFilter === 'in_progress' ? inProgressTasks : tasks;
-  const recentCards = recentSource.slice(0, 8).map(mapTaskCard);
-  const assigned = tasks.filter((t) => t.status === 'assigned').length;
-  const inProgress = inProgressTasks.length;
-  const totalTasks = tasks.length;
+  const filteredApps =
+    recentFilter === 'assigned'
+      ? assignedTasks
+      : recentFilter === 'in_progress'
+        ? inProgressTasks
+        : recentFilter === 'submitted'
+          ? submittedTasks
+          : allApps;
 
-  const stats = [
+  const recentCards = filteredApps.slice(0, 12).map(mapTaskCard);
+
+  const filterCards: Array<{
+    id: 'all' | 'assigned' | 'in_progress' | 'submitted';
+    label: string;
+    value: number;
+    bg: string;
+    fg: string;
+    icon: typeof FileText;
+  }> = [
     {
+      id: 'all',
+      label: 'All tasks',
+      value: allApps.length,
+      bg: GLASS.tintBlue,
+      fg: COLORS.primary,
+      icon: Layers,
+    },
+    {
+      id: 'assigned',
       label: 'Assigned',
-      filter: 'Assigned',
-      value: assigned,
+      value: assignedTasks.length,
       bg: GLASS.tintBlue,
       fg: COLORS.primary,
       icon: FileText,
     },
     {
+      id: 'in_progress',
       label: 'In progress',
-      filter: 'In progress',
-      value: inProgress,
+      value: inProgressTasks.length,
       bg: '#FFFBEB',
       fg: '#B45309',
       icon: Edit3,
     },
     {
+      id: 'submitted',
       label: 'Submitted',
-      filter: 'Submitted',
-      value: submittedTotal,
+      value: submittedTasks.length,
       bg: GLASS.tintSky,
       fg: COLORS.primary,
       icon: ClipboardCheck,
-    },
-  ];
-
-  const actions: Array<{
-    id: 'all' | 'in_progress';
-    icon: typeof ClipboardCheck;
-    watermark: typeof ClipboardCheck;
-    label: string;
-    desc: string;
-  }> = [
-    {
-      id: 'all',
-      icon: ClipboardCheck,
-      watermark: ClipboardCheck,
-      label: 'All tasks',
-      desc: loadingTasks
-        ? 'Loading…'
-        : totalTasks > 0
-          ? `${totalTasks} application${totalTasks === 1 ? '' : 's'}`
-          : 'No tasks yet',
-    },
-    {
-      id: 'in_progress',
-      icon: Edit3,
-      watermark: FileText,
-      label: 'Continue open task',
-      desc: loadingTasks
-        ? 'Loading…'
-        : inProgress > 0
-          ? `${inProgress} in progress`
-          : 'No in-progress tasks',
     },
   ];
 
@@ -286,6 +271,24 @@ export function Dashboard({ go }: { go: Go }) {
     if (status === 'Assigned') return 0;
     return 0;
   };
+
+  const sectionTitle =
+    recentFilter === 'all'
+      ? 'Recent Activity'
+      : recentFilter === 'assigned'
+        ? 'Assigned'
+        : recentFilter === 'in_progress'
+          ? 'In progress'
+          : 'Submitted';
+
+  const emptyMessage =
+    recentFilter === 'assigned'
+      ? 'No assigned tasks yet.'
+      : recentFilter === 'in_progress'
+        ? 'No in-progress tasks yet.'
+        : recentFilter === 'submitted'
+          ? 'No submitted applications yet.'
+          : 'No applications yet. When a Zonal Commissioner creates an application for you, it will appear here.';
 
   return (
     <ScreenShell className="bg-background">
@@ -336,66 +339,32 @@ export function Dashboard({ go }: { go: Go }) {
 
           <Box className="px-5" style={{ paddingTop: insets.top + 8 }}>
             <HStack className="items-center justify-between">
-              <HStack className="items-center gap-3 flex-1 min-w-0">
-                <Pressable
-                  onPress={() => go('profile')}
-                  className="active:opacity-85 items-center justify-center overflow-hidden"
+              <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
+                <Text
                   style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: 26,
-                    backgroundColor: 'rgba(255,255,255,0.95)',
-                    shadowColor: GLASS.shadow,
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.2,
-                    shadowRadius: 8,
-                    elevation: 4,
+                    fontFamily: FONTS.bold,
+                    fontSize: 22,
+                    lineHeight: 28,
+                    letterSpacing: -0.3,
+                    color: COLORS.white,
                   }}
+                  numberOfLines={1}
                 >
-                  {user?.profilePhoto ? (
-                    <Image
-                      source={{ uri: user.profilePhoto }}
-                      className="w-full h-full"
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <Text className="font-extrabold text-[16px]" style={{ color: COLORS.primary }}>
-                      {displayName(user)
-                        .split(/\s+/)
-                        .filter(Boolean)
-                        .slice(0, 2)
-                        .map((p) => p[0]?.toUpperCase() || '')
-                        .join('') || 'U'}
-                    </Text>
-                  )}
-                </Pressable>
-                <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
-                  <Text
-                    style={{
-                      fontFamily: FONTS.bold,
-                      fontSize: 22,
-                      lineHeight: 28,
-                      letterSpacing: -0.3,
-                      color: COLORS.white,
-                    }}
-                    numberOfLines={1}
-                  >
-                    Welcome
-                  </Text>
-                  <Text
-                    style={{
-                      fontFamily: FONTS.semibold,
-                      fontSize: 14,
-                      lineHeight: 18,
-                      letterSpacing: 0.1,
-                      color: 'rgba(255,255,255,0.88)',
-                    }}
-                    numberOfLines={1}
-                  >
-                    {displayName(user)}
-                  </Text>
-                </VStack>
-              </HStack>
+                  Welcome
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: FONTS.semibold,
+                    fontSize: 14,
+                    lineHeight: 18,
+                    letterSpacing: 0.1,
+                    color: 'rgba(255,255,255,0.88)',
+                  }}
+                  numberOfLines={1}
+                >
+                  {displayName(user)}
+                </Text>
+              </VStack>
               <HStack className="items-center gap-2">
                 <ThemeToggleButton variant="header" />
                 <ProfileMenu
@@ -404,6 +373,7 @@ export function Dashboard({ go }: { go: Go }) {
                 roleName={user?.roleName}
                 loginId={user?.loginId}
                 photoUrl={user?.profilePhoto}
+                zoneLabel={zoneLabel}
                 onLogout={() => {
                   void (async () => {
                     await logout();
@@ -415,6 +385,17 @@ export function Dashboard({ go }: { go: Go }) {
             </HStack>
 
             <HStack className="mt-4 items-center flex-wrap" style={{ gap: 6 }}>
+              {zoneLabel ? (
+                <>
+                  <MapPin size={13} color="rgba(255,255,255,0.85)" />
+                  <Text className="text-[11px]" style={{ color: 'rgba(255,255,255,0.88)', fontFamily: FONTS.semibold }}>
+                    {zoneLabel}
+                  </Text>
+                  <Text className="text-[11px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                    ·
+                  </Text>
+                </>
+              ) : null}
               <Clock size={13} color="rgba(255,255,255,0.85)" />
               <Text className="text-[11px]" style={{ color: 'rgba(255,255,255,0.88)' }}>
                 {new Date().toLocaleDateString(undefined, {
@@ -428,46 +409,55 @@ export function Dashboard({ go }: { go: Go }) {
           </Box>
         </LinearGradient>
 
-        {/* Status counts — three small cards */}
+        {/* Filter counts — All tasks · Assigned · In progress · Submitted */}
         <Box className="px-4" style={{ marginTop: -28 }}>
-          <HStack style={{ gap: 10 }}>
-            {stats.map((s) => {
+          <HStack style={{ gap: 8 }}>
+            {filterCards.map((s) => {
               const Icon = s.icon;
+              const selected = recentFilter === s.id;
               return (
                 <Pressable
-                  key={s.label}
-                  onPress={() => openAppsWithFilter(s.filter)}
+                  key={s.id}
+                  onPress={() => setRecentFilter(s.id)}
                   className="flex-1 active:opacity-90"
                   style={{
-                    backgroundColor: COLORS.white,
-                    borderRadius: 18,
-                    paddingVertical: 14,
-                    paddingHorizontal: 6,
+                    backgroundColor: selected ? COLORS.primary : COLORS.white,
+                    borderRadius: 16,
+                    paddingVertical: 12,
+                    paddingHorizontal: 4,
                     alignItems: 'center',
-                    shadowColor: COLORS.primaryDeep,
+                    shadowColor: selected ? COLORS.primary : COLORS.primaryDeep,
                     shadowOffset: { width: 0, height: 8 },
-                    shadowOpacity: 0.1,
+                    shadowOpacity: selected ? 0.22 : 0.1,
                     shadowRadius: 14,
                     elevation: 5,
                     borderWidth: 1,
-                    borderColor: COLORS.border,
+                    borderColor: selected ? COLORS.primary : COLORS.border,
                   }}
                 >
                   <Box
                     className="items-center justify-center rounded-full"
-                    style={{ width: 40, height: 40, backgroundColor: s.bg }}
+                    style={{
+                      width: 34,
+                      height: 34,
+                      backgroundColor: selected ? 'rgba(255,255,255,0.22)' : s.bg,
+                    }}
                   >
-                    <Icon size={17} color={s.fg} strokeWidth={2.3} />
+                    <Icon
+                      size={15}
+                      color={selected ? COLORS.white : s.fg}
+                      strokeWidth={2.3}
+                    />
                   </Box>
                   <Text
-                    className="mt-2 text-[18px] font-extrabold"
-                    style={{ color: COLORS.ink }}
+                    className="mt-1.5 text-[16px] font-extrabold"
+                    style={{ color: selected ? COLORS.white : COLORS.ink }}
                   >
                     {loadingTasks ? '—' : s.value}
                   </Text>
                   <Text
-                    className="text-[10px] font-semibold text-center"
-                    style={{ color: COLORS.slate, marginTop: 2 }}
+                    className="text-[9px] font-semibold text-center"
+                    style={{ color: selected ? 'rgba(255,255,255,0.9)' : COLORS.slate, marginTop: 1 }}
                     numberOfLines={1}
                   >
                     {s.label}
@@ -478,163 +468,10 @@ export function Dashboard({ go }: { go: Go }) {
           </HStack>
         </Box>
 
-        {/* Quick Actions */}
-        <Box className="px-4 mt-5">
-          <Text className="text-[16px] font-bold mb-3" style={{ color: COLORS.ink }}>
-            Quick Actions
-          </Text>
-
-          <Box className="flex-row flex-wrap" style={{ gap: 12 }}>
-            {actions.map((a) => {
-              const Icon = a.icon;
-              const Watermark = a.watermark;
-              const selected = recentFilter === a.id;
-              const watermark = (
-                <Box
-                  pointerEvents="none"
-                  style={{
-                    position: 'absolute',
-                    right: 8,
-                    top: 10,
-                    opacity: 1,
-                    transform: [{ rotate: '12deg' }],
-                  }}
-                >
-                  <Watermark
-                    size={42}
-                    color={selected ? 'rgba(255,255,255,0.22)' : `${COLORS.primary}24`}
-                    strokeWidth={1.4}
-                  />
-                </Box>
-              );
-
-              if (selected) {
-                return (
-                  <Pressable
-                    key={a.id}
-                    onPress={() => setRecentFilter(a.id)}
-                    className="overflow-hidden active:opacity-90"
-                    style={{
-                      width: '47.5%',
-                      borderRadius: 24,
-                      shadowColor: COLORS.primary,
-                      shadowOffset: { width: 0, height: 8 },
-                      shadowOpacity: 0.28,
-                      shadowRadius: 14,
-                      elevation: 5,
-                    }}
-                  >
-                    <LinearGradient
-                      colors={gradientStops(GRADIENT_PRIMARY)}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={{ padding: 16, minHeight: 138, overflow: 'hidden' }}
-                    >
-                      {watermark}
-                      <Box
-                        className="items-center justify-center"
-                        style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 14,
-                          backgroundColor: 'rgba(255,255,255,0.22)',
-                          zIndex: 1,
-                        }}
-                      >
-                        <Icon size={20} color={COLORS.white} strokeWidth={2.4} />
-                      </Box>
-                      <Text className="mt-5 font-bold text-[13px] text-white" style={{ zIndex: 1 }}>
-                        {a.label}
-                      </Text>
-                      <Text
-                        className="text-[11px] mt-0.5"
-                        style={{ color: 'rgba(255,255,255,0.8)', zIndex: 1 }}
-                      >
-                        {a.desc}
-                      </Text>
-                      <Box
-                        className="absolute bottom-3.5 right-3.5 items-center justify-center rounded-full"
-                        style={{
-                          width: 28,
-                          height: 28,
-                          backgroundColor: 'rgba(255,255,255,0.22)',
-                          zIndex: 2,
-                        }}
-                      >
-                        <ChevronRight size={14} color={COLORS.white} strokeWidth={2.6} />
-                      </Box>
-                    </LinearGradient>
-                  </Pressable>
-                );
-              }
-
-              return (
-                <Pressable
-                  key={a.id}
-                  onPress={() => setRecentFilter(a.id)}
-                  className="overflow-hidden active:opacity-90"
-                  style={{
-                    width: '47.5%',
-                    minHeight: 138,
-                    borderRadius: 24,
-                    padding: 16,
-                    backgroundColor: COLORS.white,
-                    shadowColor: GLASS.shadow,
-                    shadowOffset: { width: 0, height: 6 },
-                    shadowOpacity: 0.06,
-                    shadowRadius: 14,
-                    elevation: 3,
-                  }}
-                >
-                  {watermark}
-                  <Box
-                    className="items-center justify-center"
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 14,
-                      backgroundColor: GLASS.tintBlue,
-                      zIndex: 1,
-                    }}
-                  >
-                    <Icon size={18} color={COLORS.primary} strokeWidth={2.3} />
-                  </Box>
-                  <Text
-                    className="mt-5 font-bold text-[13px]"
-                    style={{ color: COLORS.ink, zIndex: 1 }}
-                  >
-                    {a.label}
-                  </Text>
-                  <Text className="text-[11px] mt-0.5" style={{ color: COLORS.slate, zIndex: 1 }}>
-                    {a.desc}
-                  </Text>
-                  <Box
-                    className="absolute bottom-3.5 right-3.5 items-center justify-center rounded-full"
-                    style={{
-                      width: 28,
-                      height: 28,
-                      backgroundColor: COLORS.white,
-                      borderWidth: 1,
-                      borderColor: COLORS.border,
-                      shadowColor: GLASS.shadow,
-                      shadowOpacity: 0.08,
-                      shadowRadius: 4,
-                      shadowOffset: { width: 0, height: 2 },
-                      zIndex: 2,
-                    }}
-                  >
-                    <ChevronRight size={14} color={COLORS.primary} strokeWidth={2.4} />
-                  </Box>
-                </Pressable>
-              );
-            })}
-          </Box>
-        </Box>
-
-        {/* Recent Activity */}
+        {/* Filtered activity list */}
         <Box className="px-4 mt-6">
           <Text className="text-[16px] font-bold mb-3" style={{ color: COLORS.ink }}>
-            {recentFilter === 'in_progress' ? 'In progress' : 'Recent Activity'}
+            {sectionTitle}
           </Text>
 
           <VStack space="sm">
@@ -649,27 +486,29 @@ export function Dashboard({ go }: { go: Go }) {
                 }}
               >
                 <Text className="text-center text-sm" style={{ color: COLORS.slate }}>
-                  {recentFilter === 'in_progress'
-                    ? 'No in-progress tasks yet.'
-                    : 'No assigned tasks yet. When a Zonal Commissioner creates an application for you, it will appear here.'}
+                  {emptyMessage}
                 </Text>
               </Box>
             ) : (
               recentCards.map((a) => {
               const pct =
                 typeof a.progress === 'number' ? a.progress : progressFor(a.status);
+              const canOpen = a.status === 'Assigned' || a.status === 'In progress';
+              const openOrContinue = () => {
+                if (canOpen && a.apiTask) {
+                  void openAssignedTask(a.id);
+                  return;
+                }
+                if (a.apiTask) {
+                  setSelectedOfficeAppId(a.id);
+                  go('engineer_detail');
+                  return;
+                }
+                go('history');
+              };
               return (
-                <Pressable
+                <Box
                   key={a.id}
-                  onPress={() => {
-                    if (a.apiTask) {
-                      void openAssignedTask(a.id);
-                      return;
-                    }
-                    go('history');
-                  }}
-                  disabled={openingId === a.id}
-                  className="active:opacity-90"
                   style={{
                     backgroundColor: COLORS.white,
                     borderRadius: 22,
@@ -690,7 +529,7 @@ export function Dashboard({ go }: { go: Go }) {
                     </Box>
                     <VStack className="flex-1 min-w-0">
                       <HStack className="items-start justify-between gap-2">
-                        <VStack className="flex-1 min-w-0">
+                        <Pressable onPress={openOrContinue} className="flex-1 min-w-0 active:opacity-90">
                           <Text
                             style={{
                               fontFamily: FONTS.bold,
@@ -714,11 +553,8 @@ export function Dashboard({ go }: { go: Go }) {
                               .filter(Boolean)
                               .join(' · ')}
                           </Text>
-                        </VStack>
-                        <HStack className="items-center gap-1.5">
-                          <StatusChip status={a.status} />
-                          <MoreVertical size={16} color={COLORS.slate} />
-                        </HStack>
+                        </Pressable>
+                        <StatusChip status={a.status} />
                       </HStack>
 
                       <HStack className="items-center gap-2 mt-3">
@@ -739,9 +575,69 @@ export function Dashboard({ go }: { go: Go }) {
                           {pct}%
                         </Text>
                       </HStack>
+
+                      <HStack className="items-center justify-end" style={{ gap: 8, marginTop: 10 }}>
+                        {a.status === 'Submitted' ? (
+                          <Box
+                            className="items-center justify-center"
+                            style={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: 10,
+                              backgroundColor: '#DCFCE7',
+                              borderWidth: 1,
+                              borderColor: '#BBF7D0',
+                            }}
+                          >
+                            <CheckCircle2 size={16} color={COLORS.success} strokeWidth={2.4} />
+                          </Box>
+                        ) : a.status === 'Assigned' && canOpen ? (
+                          <Pressable
+                            onPress={() => {
+                              if (a.apiTask) void openAssignedTask(a.id);
+                              else go('history');
+                            }}
+                            disabled={openingId === a.id}
+                            accessibilityRole="button"
+                            accessibilityLabel="Open task"
+                            className="active:opacity-85 items-center justify-center"
+                            style={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: 10,
+                              backgroundColor: GLASS.tintBlue,
+                              borderWidth: 1,
+                              borderColor: COLORS.border,
+                              opacity: openingId === a.id ? 0.6 : 1,
+                            }}
+                          >
+                            <ChevronRight size={18} color={COLORS.primary} strokeWidth={2.6} />
+                          </Pressable>
+                        ) : a.status === 'In progress' && canOpen ? (
+                          <Pressable
+                            onPress={() => {
+                              if (a.apiTask) void openAssignedTask(a.id);
+                              else go('history');
+                            }}
+                            disabled={openingId === a.id}
+                            accessibilityRole="button"
+                            accessibilityLabel="Continue task"
+                            className="active:opacity-85 items-center justify-center"
+                            style={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: 10,
+                              backgroundColor: COLORS.primary,
+                              opacity: openingId === a.id ? 0.6 : 1,
+                            }}
+                          >
+                            <Edit3 size={15} color={COLORS.white} strokeWidth={2.4} />
+                          </Pressable>
+                        ) : null}
+                      </HStack>
                     </VStack>
                   </HStack>
-                </Pressable>
+                </Box>
               );
             })
             )}
@@ -972,7 +868,8 @@ function ApplicationListCard({
   village,
   date,
   image,
-  onPress,
+  onView,
+  onOpen,
 }: {
   project: string;
   siteNo?: string;
@@ -980,35 +877,102 @@ function ApplicationListCard({
   village: string;
   date: string;
   image: string | null;
-  onPress: () => void;
+  onView: () => void;
+  /** Assigned / In progress — open capture flow. */
+  onOpen?: () => void;
 }) {
   const accent = getAppStatusAccent(status);
   const meta = [siteNo, village !== '—' ? village : null].filter(Boolean).join(' · ');
+  const isSubmitted = status === 'Submitted';
+  const isAssigned = status === 'Assigned';
+  const isInProgress = status === 'In progress';
+
+  const actionBtn = (() => {
+    if (isSubmitted) {
+      return (
+        <Box
+          className="items-center justify-center"
+          accessibilityLabel="Submitted"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 10,
+            backgroundColor: '#DCFCE7',
+            borderWidth: 1,
+            borderColor: '#BBF7D0',
+          }}
+        >
+          <CheckCircle2 size={16} color={COLORS.success} strokeWidth={2.4} />
+        </Box>
+      );
+    }
+    if (isAssigned && onOpen) {
+      return (
+        <Pressable
+          onPress={onOpen}
+          accessibilityRole="button"
+          accessibilityLabel="Open task"
+          className="active:opacity-85 items-center justify-center"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 10,
+            backgroundColor: GLASS.tintBlue,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+          }}
+        >
+          <ChevronRight size={18} color={COLORS.primary} strokeWidth={2.6} />
+        </Pressable>
+      );
+    }
+    if (isInProgress && onOpen) {
+      return (
+        <Pressable
+          onPress={onOpen}
+          accessibilityRole="button"
+          accessibilityLabel="Continue task"
+          className="active:opacity-85 items-center justify-center"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 10,
+            backgroundColor: COLORS.primary,
+          }}
+        >
+          <Edit3 size={15} color={COLORS.white} strokeWidth={2.4} />
+        </Pressable>
+      );
+    }
+    return null;
+  })();
 
   return (
-    <Pressable onPress={onPress} className="active:opacity-92">
-      <Box
-        style={{
-          backgroundColor: COLORS.white,
-          borderRadius: 16,
-          overflow: 'hidden',
-          borderWidth: 1,
-          borderColor: COLORS.border,
-          shadowColor: GLASS.shadow,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.08,
-          shadowRadius: 12,
-          elevation: 3,
-        }}
-      >
-        <HStack>
-          <Box style={{ width: 4, backgroundColor: accent, alignSelf: 'stretch' }} />
-          <HStack
-            className="flex-1 items-center"
-            style={{ paddingVertical: 14, paddingHorizontal: 14, gap: 12 }}
-          >
+    <Box
+      style={{
+        backgroundColor: COLORS.white,
+        borderRadius: 16,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        shadowColor: GLASS.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 3,
+      }}
+    >
+      <HStack>
+        <Box style={{ width: 4, backgroundColor: accent, alignSelf: 'stretch' }} />
+        <HStack
+          className="flex-1 items-center"
+          style={{ paddingVertical: 14, paddingHorizontal: 14, gap: 12 }}
+        >
+          <Pressable onPress={onView} className="active:opacity-92">
             <ApplicationThumb uri={image} />
-            <VStack className="flex-1 min-w-0" style={{ gap: 4 }}>
+          </Pressable>
+          <VStack className="flex-1 min-w-0" style={{ gap: 4 }}>
+            <Pressable onPress={onView} className="active:opacity-92">
               <HStack className="items-start justify-between" style={{ gap: 8 }}>
                 <Text
                   style={{
@@ -1027,55 +991,61 @@ function ApplicationListCard({
 
               {meta ? (
                 <Text
-                  style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}
+                  style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink, marginTop: 4 }}
                   numberOfLines={1}
                 >
                   {meta}
                 </Text>
               ) : null}
 
-              <HStack className="items-center justify-between" style={{ marginTop: 2 }}>
-                <HStack className="items-center flex-1 min-w-0" style={{ gap: 10 }}>
-                  {date ? (
-                    <HStack className="items-center" style={{ gap: 4 }}>
-                      <MapPinned size={12} color={COLORS.primary} strokeWidth={2.3} />
-                      <Text
-                        style={{ fontFamily: FONTS.semibold, fontSize: 11, color: COLORS.ink }}
-                        numberOfLines={1}
-                      >
-                        {date}
-                      </Text>
-                    </HStack>
-                  ) : null}
+              {date ? (
+                <HStack className="items-center" style={{ gap: 4, marginTop: 6 }}>
+                  <MapPinned size={12} color={COLORS.primary} strokeWidth={2.3} />
+                  <Text
+                    style={{ fontFamily: FONTS.semibold, fontSize: 11, color: COLORS.ink }}
+                    numberOfLines={1}
+                  >
+                    {date}
+                  </Text>
                 </HStack>
-                <Box
-                  className="items-center justify-center"
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 10,
-                    backgroundColor: COLORS.primary,
-                  }}
-                >
-                  <Eye size={15} color={COLORS.white} strokeWidth={2.4} />
-                </Box>
-              </HStack>
-            </VStack>
+              ) : null}
+            </Pressable>
+          </VStack>
+
+          <HStack className="items-center" style={{ gap: 8 }}>
+            <Pressable
+              onPress={onView}
+              accessibilityRole="button"
+              accessibilityLabel="View application"
+              className="active:opacity-85 items-center justify-center"
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 10,
+                backgroundColor: GLASS.tintBlue,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+              }}
+            >
+              <Eye size={15} color={COLORS.primary} strokeWidth={2.4} />
+            </Pressable>
+            {actionBtn}
           </HStack>
         </HStack>
-      </Box>
-    </Pressable>
+      </HStack>
+    </Box>
   );
 }
 
 export function HistoryScreen({ go }: { go: Go }) {
   const { themeId } = useTheme();
-  const { applications, draft, openApplication } = useProject();
+  const { applications, draft, openApplication, openBackendTask } = useProject();
   const { accessToken } = useAuth();
   const [tab, setTab] = useState(() => consumeEngineerAppsFilter() || 'All');
   const [backTarget] = useState(() => consumeEngineerAppsReturn());
   const [apiTasks, setApiTasks] = useState<MobileApplication[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
+  const [openingId, setOpeningId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!accessToken) {
@@ -1089,6 +1059,23 @@ export function HistoryScreen({ go }: { go: Go }) {
       .catch(() => setApiTasks([]))
       .finally(() => setLoadingTasks(false));
   }, [accessToken]);
+
+  const canOpenTask = (status: string) =>
+    status === 'Assigned' || status === 'In progress';
+
+  const openTask = async (id: string) => {
+    if (openingId) return;
+    setOpeningId(id);
+    try {
+      await openBackendTask(id);
+      go('project');
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : 'Unable to open task';
+      Alert.alert('Task', msg);
+    } finally {
+      setOpeningId(null);
+    }
+  };
 
   const viewApplication = (id: string, status: string, live: boolean, apiTask?: boolean) => {
     if (apiTask) {
@@ -1345,7 +1332,12 @@ export function HistoryScreen({ go }: { go: Go }) {
                 village={a.village}
                 date={a.date}
                 image={a.image}
-                onPress={() => viewApplication(a.id, a.status, a.live, a.apiTask)}
+                onView={() => viewApplication(a.id, a.status, a.live, a.apiTask)}
+                onOpen={
+                  a.apiTask && canOpenTask(a.status)
+                    ? () => void openTask(a.id)
+                    : undefined
+                }
               />
             ))
           )}
