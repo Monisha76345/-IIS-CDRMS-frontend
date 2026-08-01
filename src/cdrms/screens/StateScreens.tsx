@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   ArrowRight,
+  Building2,
   Camera,
   Check,
   CheckCircle2,
@@ -10,20 +11,16 @@ import {
   Compass,
   Edit3,
   FileText,
-  Home,
   Lock,
-  MapPin,
-  Play,
   RefreshCw,
-  Route,
   Ruler,
   Send,
   ShieldCheck,
-  Sparkles,
   WifiOff,
   X,
+  type LucideIcon,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -49,13 +46,30 @@ import {
   SurveyScaffold,
   WorkspaceHeader,
 } from '@/src/cdrms/components/SurveyLayout';
-import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
+import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
+import { ReviewMediaPanel } from '@/src/cdrms/components/ReviewMediaPanel';
+import { ReviewSchedulesPanel } from '@/src/cdrms/components/ReviewSchedulesPanel';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
-import { formatCoords } from '@/src/cdrms/project/types';
+import { formatCoords, type Cardinal } from '@/src/cdrms/project/types';
 import { validateDraft, validationSummary } from '@/src/cdrms/project/validation';
 import { COLORS, FONTS, GRADIENT_SUBTLE, SPACE } from '@/src/cdrms/theme';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go } from '@/src/cdrms/types';
+
+const REVIEW_CARDINALS: Cardinal[] = ['N', 'S', 'E', 'W'];
+
+function plotScheduleLabel(
+  note: string | undefined,
+  zc: string | undefined,
+  isRoad: boolean,
+): string {
+  const eng = (note || '').trim();
+  const zcNote = (zc || '').trim();
+  const base = eng || zcNote;
+  if (isRoad && base) return `Road · ${base}`;
+  if (isRoad) return 'Road';
+  return base;
+}
 
 export function DraftScreen({ go }: { go: Go }) {
   const { draft, saveDraft } = useProject();
@@ -225,27 +239,117 @@ export function ValidateScreen({ go }: { go: Go }) {
   );
 }
 
+function ReviewDetailRow({ label, value }: { label: string; value: string }) {
+  const display = value.trim() || '—';
+  return (
+    <HStack
+      className="items-start"
+      style={{
+        gap: 10,
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
+      }}
+    >
+      <Text
+        style={{
+          width: 118,
+          fontFamily: FONTS.bold,
+          fontSize: 12,
+          color: COLORS.ink,
+          letterSpacing: 0.2,
+        }}
+      >
+        {label}
+      </Text>
+      <Text
+        style={{
+          flex: 1,
+          fontFamily: FONTS.regular,
+          fontSize: 13,
+          color: COLORS.ink,
+          lineHeight: 18,
+        }}
+      >
+        {display}
+      </Text>
+    </HStack>
+  );
+}
+
+function filterReviewRows(rows: { label: string; value: string }[]) {
+  return rows.filter((row) => row.value.trim() && row.value !== '—');
+}
+
+function ReviewSectionCard({
+  stepLabel,
+  icon: Icon,
+  title,
+  subtitle,
+  iconBg,
+  rows,
+  footer,
+}: {
+  stepLabel: string;
+  icon: LucideIcon;
+  title: string;
+  subtitle: string;
+  iconBg: string;
+  rows: { label: string; value: string }[];
+  footer?: ReactNode;
+}) {
+  if (!rows.length && !footer) return null;
+
+  return (
+    <SurveyCard>
+      <WorkspaceHeader
+        icon={Icon}
+        title={title}
+        subtitle={subtitle}
+        iconBg={iconBg}
+      />
+      <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
+        {rows.map((row) => (
+          <ReviewDetailRow key={`${stepLabel}-${row.label}`} label={row.label} value={row.value} />
+        ))}
+        {footer}
+      </VStack>
+    </SurveyCard>
+  );
+}
+
 export function ReviewScreen({ go }: { go: Go }) {
-  const { draft, submitApplication } = useProject();
+  const { draft, submitApplication, reloadBackendDraft } = useProject();
   const [terms, setTerms] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const isBackendTask = Boolean(draft.backendApplicationId);
+
+  useEffect(() => {
+    if (!isBackendTask) return;
+    void (async () => {
+      setRefreshing(true);
+      try {
+        await reloadBackendDraft();
+      } catch {
+        /* keep local draft */
+      } finally {
+        setRefreshing(false);
+      }
+    })();
+  }, [isBackendTask, reloadBackendDraft]);
 
   const items = useMemo(() => validateDraft(draft), [draft]);
   const summary = useMemo(() => validationSummary(items), [items]);
 
-  const dirsFilled = (['N', 'S', 'E', 'W'] as const).filter((k) =>
-    draft.directions[k].trim() || draft.surroundingPhotos[k]
-  ).length;
   const coords = draft.gps
     ? formatCoords(draft.gps.latitude, draft.gps.longitude).short
     : 'No GPS';
 
   const isResubmit = Boolean(draft.resubmitOfId);
   const canSubmit = terms && summary.allOk && !submitting;
-  const photoCount = draft.photos.length;
-  const videoCount = draft.video ? 1 : 0;
-  const isBackendTask = Boolean(draft.backendApplicationId);
 
   const titleId =
     draft.applicationNumber?.trim() ||
@@ -271,11 +375,157 @@ export function ReviewScreen({ go }: { go: Go }) {
     return draft.siteDimensionMaster.trim() || draft.dimensionArea.trim() || '—';
   })();
 
-  const roadDisplay = (() => {
-    const sides = (['N', 'S', 'E', 'W'] as const).filter((k) => draft.roadFlags?.[k]);
-    if (sides.length) return `Road · ${sides.join(', ')}`;
-    return draft.roadType.trim() || 'No road flagged';
+  const fullDimDisplay = (() => {
+    const n = draft.dimNorth.trim();
+    const s = draft.dimSouth.trim();
+    const e = draft.dimEast.trim();
+    const w = draft.dimWest.trim();
+    if (n && s && e && w) return `${n} × ${e} × ${s} × ${w}`;
+    return dimDisplay;
   })();
+
+  const plotDimsReady = [draft.dimNorth, draft.dimSouth, draft.dimEast, draft.dimWest].every(
+    (v) => Number(v) > 0,
+  );
+
+  const schedulesAround = useMemo(() => {
+    const out: Record<Cardinal, string> = { N: '', S: '', E: '', W: '' };
+    for (const k of REVIEW_CARDINALS) {
+      out[k] = plotScheduleLabel(
+        draft.directions[k],
+        draft.zcDirections[k],
+        Boolean(draft.roadFlags?.[k]),
+      );
+    }
+    return out;
+  }, [draft.directions, draft.zcDirections, draft.roadFlags]);
+
+  const reviewSections = useMemo(() => {
+    if (isBackendTask) {
+      return [
+        {
+          stepLabel: 'STEP 01',
+          icon: Building2,
+          title: 'Assigned site',
+          subtitle: draft.createdByZcName.trim()
+            ? `Assigned by ${draft.createdByZcName.trim()}`
+            : 'ZC site particulars',
+          iconBg: COLORS.primary,
+          rows: filterReviewRows([
+            { label: 'Application', value: draft.applicationNumber?.trim() || titleId },
+            { label: 'Site no', value: draft.siteNo.trim() || draft.surveyNo.trim() },
+            { label: 'Zone', value: draft.zoneCode.trim() },
+            { label: 'Village', value: draft.village.trim() || draft.addressArea.trim() },
+            {
+              label: 'Area / block',
+              value: [draft.addressArea.trim(), draft.addressBlock.trim()].filter(Boolean).join(', '),
+            },
+            { label: 'Pincode', value: draft.addressPincode.trim() },
+            { label: 'Taluk', value: draft.taluk.trim() },
+            { label: 'District', value: draft.district.trim() },
+            { label: 'Site type', value: draft.siteDimensionType },
+            { label: 'ZC dimension', value: draft.siteDimensionMaster.trim() },
+            { label: 'Site details', value: draft.siteDetails.trim() },
+          ]),
+        },
+        {
+          stepLabel: 'STEP 02',
+          icon: Compass,
+          title: 'Compass & schedule',
+          subtitle: 'Facing, GPS, occupancy & schedules',
+          iconBg: COLORS.primary,
+          rows: filterReviewRows([
+            { label: 'Compass', value: draft.compassReading.trim() },
+            {
+              label: 'Occupancy',
+              value:
+                draft.occupancy === 'Occupied'
+                  ? `Occupied · ${draft.occupancyReason.trim() || '—'}`
+                  : draft.occupancy || '',
+            },
+            { label: 'GPS', value: coords !== 'No GPS' ? coords : '' },
+          ]),
+          showSchedules: true,
+        },
+        {
+          stepLabel: 'STEP 03',
+          icon: Ruler,
+          title: 'Dimensions',
+          subtitle: plotDimsReady ? `Live plot · ${fullDimDisplay}` : 'Site measurements',
+          iconBg: '#4F46E5',
+          rows: filterReviewRows([{ label: 'Dimensions', value: fullDimDisplay }]),
+          plot: plotDimsReady,
+        },
+        {
+          stepLabel: 'STEP 04',
+          icon: Camera,
+          title: 'Media & comments',
+          subtitle: 'Selfie, photos, comments & video',
+          iconBg: '#DB2777',
+          rows: filterReviewRows([
+            { label: 'Engineer comments', value: draft.engineerComments.trim() },
+          ]),
+          showMediaPreview: true,
+        },
+      ];
+    }
+
+    return [
+      {
+        stepLabel: 'STEP 01',
+        icon: Building2,
+        title: 'Project details',
+        subtitle: 'Work name & site particulars',
+        iconBg: COLORS.primary,
+        rows: filterReviewRows([
+          { label: 'Project', value: draft.projectName.trim() },
+          { label: 'Survey no', value: draft.surveyNo.trim() },
+          { label: 'Khatedar', value: draft.khatedarName.trim() },
+          { label: 'Plot no', value: draft.plotNo.trim() },
+          { label: 'Village', value: draft.village.trim() },
+          { label: 'District', value: draft.district.trim() },
+        ]),
+      },
+      {
+        stepLabel: 'STEP 02',
+        icon: Compass,
+        title: 'Compass & boundaries',
+        subtitle: 'Check Bandi & boundary directions',
+        iconBg: COLORS.primary,
+        rows: filterReviewRows([
+          { label: 'Compass', value: draft.compassReading.trim() },
+          { label: 'GPS', value: coords !== 'No GPS' ? coords : '' },
+          { label: 'North boundary', value: draft.directions.N.trim() },
+          { label: 'South boundary', value: draft.directions.S.trim() },
+          { label: 'East boundary', value: draft.directions.E.trim() },
+          { label: 'West boundary', value: draft.directions.W.trim() },
+          {
+            label: 'Approach road',
+            value: [draft.approachRoadName.trim(), draft.approachRoadWidth.trim()]
+              .filter(Boolean)
+              .join(' · '),
+          },
+          { label: 'Remarks', value: draft.approachNotes.trim() },
+        ]),
+      },
+      {
+        stepLabel: 'STEP 03',
+        icon: Camera,
+        title: 'Media',
+        subtitle: 'Photos & walkthrough video',
+        iconBg: '#DB2777',
+        rows: [],
+        showMediaPreview: true,
+      },
+    ];
+  }, [
+    draft,
+    titleId,
+    coords,
+    fullDimDisplay,
+    isBackendTask,
+    plotDimsReady,
+  ]);
 
   const onConfirmSubmit = async () => {
     if (!summary.allOk) {
@@ -304,72 +554,24 @@ export function ReviewScreen({ go }: { go: Go }) {
     }
   };
 
-  const infoTiles = [
-    {
-      label: 'Village',
-      val: draft.village.trim() || draft.addressArea.trim() || '—',
-      icon: Home,
-      bg: '#EFF6FF',
-      fg: '#2563EB',
-    },
-    {
-      label: 'Dimension',
-      val: dimDisplay,
-      icon: Ruler,
-      bg: '#EEF2FF',
-      fg: '#4F46E5',
-    },
-    {
-      label: 'Location',
-      val: coords,
-      icon: MapPin,
-      bg: '#ECFDF5',
-      fg: '#059669',
-    },
-    {
-      label: 'Road',
-      val: roadDisplay,
-      icon: Route,
-      bg: '#FFF7ED',
-      fg: '#EA580C',
-    },
-  ];
-
-  const mediaCards = [
-    {
-      key: 'photos',
-      label: 'Photos',
-      value: String(photoCount),
-      icon: Camera,
-      color: '#2563EB',
-      soft: '#EFF6FF',
-      bar: '#2563EB',
-      progress: Math.min(photoCount / Math.max(isBackendTask ? 1 : 3, 1), 1),
-      onPress: () => go('photos'),
-    },
-    {
-      key: 'video',
-      label: 'Video',
-      value: String(videoCount),
-      icon: Play,
-      color: '#DB2777',
-      soft: '#FDF2F8',
-      bar: '#EC4899',
-      progress: videoCount >= 1 ? 1 : 0,
-      onPress: () => go('video'),
-    },
-    {
-      key: 'directions',
-      label: 'Schedules',
-      value: `${dirsFilled}/4`,
-      icon: Compass,
-      color: '#0D9488',
-      soft: '#F0FDFA',
-      bar: '#14B8A6',
-      progress: dirsFilled / 4,
-      onPress: () => go('bandi'),
-    },
-  ];
+  const plotDiagram = plotDimsReady ? (
+    <BoundariesDiagram
+      north={Number(draft.dimNorth) || 0}
+      south={Number(draft.dimSouth) || 0}
+      east={Number(draft.dimEast) || 0}
+      west={Number(draft.dimWest) || 0}
+      odd={draft.siteDimensionType === 'Odd'}
+      siteNo={draft.siteNo.trim() || draft.surveyNo.trim() || null}
+      scheduleNorth={schedulesAround.N || null}
+      scheduleSouth={schedulesAround.S || null}
+      scheduleEast={schedulesAround.E || null}
+      scheduleWest={schedulesAround.W || null}
+      roadNorth={Boolean(draft.roadFlags?.N)}
+      roadSouth={Boolean(draft.roadFlags?.S)}
+      roadEast={Boolean(draft.roadFlags?.E)}
+      roadWest={Boolean(draft.roadFlags?.W)}
+    />
+  ) : null;
 
   return (
     <SurveyScaffold
@@ -433,8 +635,8 @@ export function ReviewScreen({ go }: { go: Go }) {
                   {submitting
                     ? 'Submitting…'
                     : isResubmit
-                      ? 'Resubmit Application'
-                      : 'Submit Application'}
+                      ? 'Resubmit Report'
+                      : 'Submit Report'}
                 </Text>
               </HStack>
               <ArrowRight size={18} color="#fff" strokeWidth={2.5} />
@@ -456,315 +658,43 @@ export function ReviewScreen({ go }: { go: Go }) {
       }
       go={go}
     >
-      {/* Project summary */}
       <SurveyCard>
         <WorkspaceHeader
           icon={ClipboardList}
-          title="Project summary"
+          title={titleId}
           subtitle={
-            draft.createdByZcName.trim()
-              ? `Assigned by ${draft.createdByZcName.trim()}`
-              : 'Final check before CAO review'
+            refreshing
+              ? 'Refreshing from server…'
+              : surveyLine || 'Final check before CAO review'
           }
-          stepLabel={draft.status === 'submitted' ? 'SUBMITTED' : 'DRAFT'}
+          badge={draft.status === 'submitted' ? 'SUBMITTED' : 'DRAFT'}
           iconBg={COLORS.primary}
         />
-
-        <VStack
-          style={{
-            paddingHorizontal: SPACE[4],
-            paddingBottom: SPACE[4],
-            gap: SPACE[3],
-          }}
-        >
-          <HStack className="items-start" style={{ gap: 12 }}>
-            {draft.photos[0]?.uri ? (
-              <Box
-                className="overflow-hidden"
-                style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 14,
-                  backgroundColor: '#EFF6FF',
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
-                }}
-              >
-                <ApiMediaImage
-                  uri={draft.photos[0].uri}
-                  style={{ width: 64, height: 64 }}
-                  resizeMode="cover"
-                />
-              </Box>
-            ) : (
-              <Box
-                className="items-center justify-center"
-                style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 14,
-                  backgroundColor: '#EFF6FF',
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
-                }}
-              >
-                <Camera size={22} color={COLORS.primary} strokeWidth={2.2} />
-              </Box>
-            )}
-            <VStack className="flex-1 min-w-0" style={{ gap: 4 }}>
-              <Text
-                style={{
-                  fontFamily: FONTS.bold,
-                  fontSize: 18,
-                  color: COLORS.ink,
-                  lineHeight: 24,
-                }}
-                numberOfLines={2}
-              >
-                {titleId}
-              </Text>
-              <Text
-                style={{
-                  fontFamily: FONTS.medium,
-                  fontSize: 12,
-                  color: COLORS.ink,
-                }}
-                numberOfLines={1}
-              >
-                {surveyLine || 'Field survey ready for submission'}
-              </Text>
-              <HStack className="items-center" style={{ gap: 6, marginTop: 2 }}>
-                <Box
-                  style={{
-                    paddingHorizontal: 8,
-                    paddingVertical: 3,
-                    borderRadius: 999,
-                    backgroundColor:
-                      draft.occupancy === 'Occupied' ? '#FEF3C7' : '#DCFCE7',
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontFamily: FONTS.bold,
-                      fontSize: 10,
-                      color:
-                        draft.occupancy === 'Occupied' ? '#B45309' : '#15803D',
-                    }}
-                  >
-                    {draft.occupancy || 'Empty'}
-                  </Text>
-                </Box>
-                {draft.compassReading.trim() ? (
-                  <Box
-                    style={{
-                      paddingHorizontal: 8,
-                      paddingVertical: 3,
-                      borderRadius: 999,
-                      backgroundColor: '#EFF6FF',
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontFamily: FONTS.bold,
-                        fontSize: 10,
-                        color: COLORS.primary,
-                      }}
-                    >
-                      {draft.compassReading.trim()}
-                    </Text>
-                  </Box>
-                ) : null}
-              </HStack>
-            </VStack>
-          </HStack>
-
-          <Box
-            style={{
-              borderRadius: 14,
-              borderWidth: 1,
-              borderColor: COLORS.border,
-              overflow: 'hidden',
-              backgroundColor: COLORS.white,
-            }}
-          >
-            <Box className="flex-row" style={{ borderBottomWidth: 1, borderBottomColor: COLORS.border }}>
-              {infoTiles.slice(0, 2).map((item, i) => {
-                const Icon = item.icon;
-                return (
-                  <HStack
-                    key={item.label}
-                    className="items-center flex-1"
-                    style={{
-                      gap: 10,
-                      paddingVertical: 12,
-                      paddingHorizontal: 12,
-                      borderRightWidth: i === 0 ? 1 : 0,
-                      borderRightColor: COLORS.border,
-                    }}
-                  >
-                    <Box
-                      className="items-center justify-center"
-                      style={{
-                        width: 34,
-                        height: 34,
-                        borderRadius: 10,
-                        backgroundColor: item.bg,
-                      }}
-                    >
-                      <Icon size={15} color={item.fg} strokeWidth={2.3} />
-                    </Box>
-                    <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
-                      <Text
-                        style={{
-                          fontFamily: FONTS.bold,
-                          fontSize: 10,
-                          color: COLORS.slate,
-                          letterSpacing: 0.6,
-                          textTransform: 'uppercase',
-                        }}
-                      >
-                        {item.label}
-                      </Text>
-                      <Text
-                        style={{
-                          fontFamily: FONTS.bold,
-                          fontSize: 13,
-                          color: COLORS.ink,
-                        }}
-                        numberOfLines={1}
-                      >
-                        {item.val}
-                      </Text>
-                    </VStack>
-                  </HStack>
-                );
-              })}
-            </Box>
-            <Box className="flex-row">
-              {infoTiles.slice(2, 4).map((item, i) => {
-                const Icon = item.icon;
-                return (
-                  <HStack
-                    key={item.label}
-                    className="items-center flex-1"
-                    style={{
-                      gap: 10,
-                      paddingVertical: 12,
-                      paddingHorizontal: 12,
-                      borderRightWidth: i === 0 ? 1 : 0,
-                      borderRightColor: COLORS.border,
-                    }}
-                  >
-                    <Box
-                      className="items-center justify-center"
-                      style={{
-                        width: 34,
-                        height: 34,
-                        borderRadius: 10,
-                        backgroundColor: item.bg,
-                      }}
-                    >
-                      <Icon size={15} color={item.fg} strokeWidth={2.3} />
-                    </Box>
-                    <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
-                      <Text
-                        style={{
-                          fontFamily: FONTS.bold,
-                          fontSize: 10,
-                          color: COLORS.slate,
-                          letterSpacing: 0.6,
-                          textTransform: 'uppercase',
-                        }}
-                      >
-                        {item.label}
-                      </Text>
-                      <Text
-                        style={{
-                          fontFamily: FONTS.bold,
-                          fontSize: 13,
-                          color: COLORS.ink,
-                        }}
-                        numberOfLines={1}
-                      >
-                        {item.val}
-                      </Text>
-                    </VStack>
-                  </HStack>
-                );
-              })}
-            </Box>
-          </Box>
-        </VStack>
       </SurveyCard>
 
-      {/* Capture readiness */}
-      <HStack className="mx-4" style={{ gap: 10 }}>
-        {mediaCards.map((m) => {
-          const Icon = m.icon;
-          const fillPct = Math.min(Math.max(m.progress, 0), 1) * 100;
-          return (
-            <Pressable
-              key={m.key}
-              onPress={m.onPress}
-              className="flex-1 active:opacity-90"
-              style={{
-                backgroundColor: COLORS.white,
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                overflow: 'hidden',
-                shadowColor: '#0F172A',
-                shadowOffset: { width: 0, height: 3 },
-                shadowOpacity: 0.06,
-                shadowRadius: 8,
-                elevation: 2,
-              }}
-            >
-              <VStack className="items-center" style={{ paddingTop: 14, paddingBottom: 12, gap: 4 }}>
-                <Box
-                  className="items-center justify-center"
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    backgroundColor: m.soft,
-                  }}
-                >
-                  <Icon size={17} color={m.color} strokeWidth={2.3} />
-                </Box>
-                <Text
-                  style={{
-                    fontFamily: FONTS.bold,
-                    fontSize: 22,
-                    color: m.color,
-                    lineHeight: 26,
-                  }}
-                >
-                  {m.value}
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: FONTS.semibold,
-                    fontSize: 11,
-                    color: COLORS.ink,
-                  }}
-                >
-                  {m.label}
-                </Text>
-              </VStack>
-              <Box style={{ height: 3, backgroundColor: '#E2E8F0' }}>
-                <Box
-                  style={{
-                    height: 3,
-                    width: `${fillPct}%`,
-                    backgroundColor: m.bar,
-                  }}
-                />
-              </Box>
-            </Pressable>
-          );
-        })}
-      </HStack>
+      {reviewSections.map((section) => {
+        const plot = 'plot' in section && section.plot;
+        const showSchedules = 'showSchedules' in section && section.showSchedules;
+        const showMediaPreview = 'showMediaPreview' in section && section.showMediaPreview;
+
+        let footer: ReactNode = null;
+        if (plot) footer = plotDiagram;
+        if (showSchedules) footer = <ReviewSchedulesPanel />;
+        if (showMediaPreview) footer = <ReviewMediaPanel />;
+
+        return (
+          <ReviewSectionCard
+            key={section.stepLabel}
+            stepLabel={section.stepLabel}
+            icon={section.icon}
+            title={section.title}
+            subtitle={section.subtitle}
+            iconBg={section.iconBg}
+            rows={section.rows}
+            footer={footer}
+          />
+        );
+      })}
 
       {!summary.allOk ? (
         <Pressable
@@ -927,27 +857,23 @@ export function ReviewScreen({ go }: { go: Go }) {
       <AppSheet
         open={confirm}
         onClose={() => !submitting && setConfirm(false)}
-        title={isResubmit ? 'Resubmit application?' : 'Submit application?'}
+        title={isResubmit ? 'Resubmit report?' : 'Submit report?'}
       >
         <Text className="text-sm text-muted-foreground">
           Are you sure you want to submit this report{' '}
           <Text className="font-bold text-foreground">({titleId})</Text>?
         </Text>
         {submitting ? (
-          <ScreenLoader text="Submitting application…" minHeight={120} />
+          <ScreenLoader text="Submitting report…" minHeight={120} />
         ) : (
-          <HStack space="md" className="mt-4">
-            <Box className="flex-1">
-              <AppBtn variant="outline" onPress={() => setConfirm(false)}>
-                Cancel
-              </AppBtn>
-            </Box>
-            <Box className="flex-1">
-              <AppBtn onPress={onConfirmSubmit}>
-                {isResubmit ? 'Confirm & Resubmit' : 'Confirm & Submit'}
-              </AppBtn>
-            </Box>
-          </HStack>
+          <VStack space="sm" className="mt-4">
+            <AppBtn onPress={onConfirmSubmit}>
+              {isResubmit ? 'Confirm & Resubmit' : 'Confirm & Submit'}
+            </AppBtn>
+            <AppBtn variant="outline" onPress={() => setConfirm(false)}>
+              Cancel
+            </AppBtn>
+          </VStack>
         )}
       </AppSheet>
     </SurveyScaffold>
@@ -957,7 +883,6 @@ export function ReviewScreen({ go }: { go: Go }) {
 export function SuccessScreen({ go }: { go: Go }) {
   const { lastSubmitted, draft, startNewProject } = useProject();
   const appId = lastSubmitted?.applicationId || draft.applicationId || draft.id;
-  const projectName = lastSubmitted?.projectName || draft.projectName.trim() || 'Application';
   const submittedAt = lastSubmitted?.submittedAt || draft.submittedAt;
 
   return (
@@ -968,47 +893,32 @@ export function SuccessScreen({ go }: { go: Go }) {
         end={{ x: 1, y: 1 }}
         style={{ flex: 1 }}
       >
-        <VStack className="flex-1">
-          <VStack className="flex-1 items-center justify-center px-8">
-            <Box className="relative">
-              <Box className="h-32 w-32 rounded-full bg-success/15 items-center justify-center">
-                <CheckCircle2 size={64} color={COLORS.success} strokeWidth={2} />
-              </Box>
-              <Box className="absolute -top-2 -right-2">
-                <Sparkles size={24} color={COLORS.warning} />
-              </Box>
-            </Box>
-            <Text className="mt-8 text-2xl font-extrabold text-foreground text-center">
-              Application Submitted
-            </Text>
-            <Text className="mt-2 text-sm text-muted-foreground text-center max-w-xs">
-              <Text className="font-bold text-foreground">{projectName}</Text> has been recorded
-              for CAO verification.
-            </Text>
-            <AppCard className="mt-6 w-full">
-              <VStack space="md">
-                <HStack className="items-center justify-between">
-                  <Text className="text-xs text-muted-foreground font-semibold">Application ID</Text>
-                  <Text className="font-bold text-foreground">{appId}</Text>
-                </HStack>
-                <HStack className="items-center justify-between">
-                  <Text className="text-xs text-muted-foreground font-semibold">Status</Text>
-                  <StatusChip status="Submitted" />
-                </HStack>
-                <HStack className="items-center justify-between">
-                  <Text className="text-xs text-muted-foreground font-semibold">Submitted</Text>
-                  <Text className="font-semibold text-sm text-foreground">
-                    {submittedAt ? new Date(submittedAt).toLocaleString() : 'Just now'}
-                  </Text>
-                </HStack>
-                <HStack className="items-center justify-between">
-                  <Text className="text-xs text-muted-foreground font-semibold">Est. Review</Text>
-                  <Text className="font-semibold text-sm text-foreground">2–3 working days</Text>
-                </HStack>
-              </VStack>
-            </AppCard>
-          </VStack>
-          <VStack space="md" className="p-5">
+        <VStack className="flex-1 items-center px-5 pt-16">
+          <Box className="h-32 w-32 rounded-full bg-success/15 items-center justify-center">
+            <CheckCircle2 size={64} color={COLORS.success} strokeWidth={2} />
+          </Box>
+          <Text className="mt-8 text-2xl font-extrabold text-foreground text-center">
+            Application Submitted
+          </Text>
+          <AppCard className="mt-6 w-full">
+            <VStack space="md">
+              <HStack className="items-center justify-between">
+                <Text className="text-xs text-muted-foreground font-semibold">Application ID</Text>
+                <Text className="font-bold text-foreground">{appId}</Text>
+              </HStack>
+              <HStack className="items-center justify-between">
+                <Text className="text-xs text-muted-foreground font-semibold">Status</Text>
+                <StatusChip status="Submitted" />
+              </HStack>
+              <HStack className="items-center justify-between">
+                <Text className="text-xs text-muted-foreground font-semibold">Submitted</Text>
+                <Text className="font-semibold text-sm text-foreground">
+                  {submittedAt ? new Date(submittedAt).toLocaleString() : 'Just now'}
+                </Text>
+              </HStack>
+            </VStack>
+          </AppCard>
+          <VStack space="md" className="mt-8 w-full">
             <AppBtn
               onPress={() => {
                 startNewProject();

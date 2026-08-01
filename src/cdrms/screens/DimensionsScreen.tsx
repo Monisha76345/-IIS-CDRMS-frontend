@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Compass, Ruler } from 'lucide-react-native';
-import { View } from 'react-native';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -18,38 +17,11 @@ import {
 import { siteDimensionToFormDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
-import { DIRECTION_META, type Cardinal } from '@/src/cdrms/project/types';
-import { COLORS, FONTS, SPACE, TYPE } from '@/src/cdrms/theme';
+import { type Cardinal } from '@/src/cdrms/project/types';
+import { COLORS, SPACE } from '@/src/cdrms/theme';
 import type { Go } from '@/src/cdrms/types';
 
 const CARDINALS: Cardinal[] = ['N', 'S', 'E', 'W'];
-
-/** Compact horizontal road strip for schedule chips. */
-function RoadChipIcon() {
-  return (
-    <View
-      style={{
-        width: 30,
-        height: 14,
-        borderRadius: 3,
-        backgroundColor: '#4B5563',
-        borderWidth: 0.5,
-        borderColor: '#1F2937',
-        justifyContent: 'center',
-        paddingHorizontal: 3,
-      }}
-    >
-      <View
-        style={{
-          height: 2,
-          borderRadius: 1,
-          backgroundColor: '#FBBF24',
-          opacity: 0.95,
-        }}
-      />
-    </View>
-  );
-}
 
 function scheduleLabel(
   note: string | undefined,
@@ -180,7 +152,6 @@ export function DimensionsScreen({ go }: { go: Go }) {
           icon={Compass}
           title="Facing direction"
           subtitle="Tap N / NE / E / SE / S / SW / W / NW"
-          stepLabel="STEP 03"
           iconBg={COLORS.primary}
         />
         <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], alignItems: 'center' }}>
@@ -193,7 +164,6 @@ export function DimensionsScreen({ go }: { go: Go }) {
           icon={Ruler}
           title="Site dimensions"
           subtitle={`Live plot: ${liveSiteDimension}`}
-          stepLabel="STEP 03"
           iconBg={COLORS.primary}
         />
         <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
@@ -251,62 +221,6 @@ export function DimensionsScreen({ go }: { go: Go }) {
             roadEast={Boolean(draft.roadFlags?.E)}
             roadWest={Boolean(draft.roadFlags?.W)}
           />
-
-          <VStack style={{ gap: SPACE[2] }}>
-            <Text style={{ ...TYPE.label, color: COLORS.ink }}>Scheduled sites (around)</Text>
-            <HStack style={{ flexWrap: 'wrap', gap: 8 }}>
-              {CARDINALS.map((k) => {
-                const label = schedulesAround[k] || '—';
-                const isRoad = Boolean(draft.roadFlags?.[k]);
-                return (
-                  <Box
-                    key={`sched-chip-${k}`}
-                    style={{
-                      width: '47%',
-                      flexGrow: 1,
-                      borderRadius: 12,
-                      backgroundColor: COLORS.white,
-                      paddingHorizontal: 12,
-                      paddingVertical: 10,
-                      borderWidth: 1,
-                      borderColor: COLORS.border,
-                      shadowColor: '#0F172A',
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.06,
-                      shadowRadius: 6,
-                      elevation: 2,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontFamily: FONTS.bold,
-                        fontSize: 10,
-                        letterSpacing: 0.4,
-                        color: COLORS.ink,
-                        textTransform: 'uppercase',
-                      }}
-                    >
-                      {DIRECTION_META[k].label}
-                    </Text>
-                    <HStack className="items-center" style={{ gap: 6, marginTop: 4 }}>
-                      {isRoad ? <RoadChipIcon /> : null}
-                      <Text
-                        numberOfLines={2}
-                        style={{
-                          flex: 1,
-                          fontFamily: FONTS.semibold,
-                          fontSize: 13,
-                          color: COLORS.ink,
-                        }}
-                      >
-                        {label}
-                      </Text>
-                    </HStack>
-                  </Box>
-                );
-              })}
-            </HStack>
-          </VStack>
         </VStack>
       </SurveyCard>
     </SurveyScaffold>

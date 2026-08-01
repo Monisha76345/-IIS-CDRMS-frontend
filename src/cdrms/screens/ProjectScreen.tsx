@@ -115,7 +115,6 @@ function SiteLoadingCards() {
           icon={MapPin}
           title={TERMS.sections.siteLocation}
           subtitle="Capturing GPS…"
-          stepLabel="STEP 01"
           iconBg="#2563EB"
         />
         <Box className="mx-[14px] mb-4 overflow-hidden" style={{ borderRadius: 18, height: 200 }}>
@@ -182,7 +181,6 @@ function SiteLoadingCards() {
           icon={Building2}
           title={TERMS.sections.projectWorkspace}
           subtitle="Filling site particulars…"
-          stepLabel="STEP 01"
           iconBg="#2563EB"
         />
         <VStack space="md" className="px-[14px] pb-5">
@@ -369,7 +367,6 @@ export function ProjectScreen({ go }: { go: Go }) {
                   ? `${draft.district}, ${draft.state || 'Karnataka'}`
                   : 'Tap refresh to capture GPS'
               }
-              stepLabel="STEP 01"
               iconBg="#2563EB"
             />
             <GpsSiteCard
@@ -391,7 +388,6 @@ export function ProjectScreen({ go }: { go: Go }) {
               icon={Building2}
               title={TERMS.sections.projectWorkspace}
               subtitle={draft.id}
-              stepLabel="STEP 01"
               iconBg="#2563EB"
             />
 

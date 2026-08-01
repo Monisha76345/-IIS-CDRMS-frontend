@@ -36,7 +36,6 @@ export function EngineerStickyHeader() {
         icon={Building2}
         title="ZC site details"
         subtitle="Assigned by Zonal Commissioner · view only"
-        stepLabel="STEP 01"
         iconBg={COLORS.primary}
       />
 
