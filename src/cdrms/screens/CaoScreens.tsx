@@ -105,6 +105,19 @@ export function CaoHomeScreen({ go }: { go: Go }) {
     void reload();
   }, [reload]);
 
+  const handleDownloadApp = useCallback(
+    async (app: MobileApplication) => {
+      if (!accessToken) return;
+      try {
+        const result = await downloadApplicationPdf(app, accessToken);
+        Alert.alert('Download complete', result.message);
+      } catch (e) {
+        Alert.alert('Download failed', e instanceof Error ? e.message : 'Could not generate PDF');
+      }
+    },
+    [accessToken],
+  );
+
   const counts = useMemo(() => countZcBuckets(apps), [apps]);
 
   const countItems: StatusCountItem[] = [
@@ -185,7 +198,32 @@ export function CaoHomeScreen({ go }: { go: Go }) {
           </HStack>
 
           <StatusCountGrid
-            items={countItems}
+            items={[
+              {
+                key: 'assigned',
+                label: 'Assigned',
+                count: counts.assigned,
+                icon: ClipboardList,
+                tint: '#2563EB',
+                soft: '#DBEAFE',
+              },
+              {
+                key: 'in_progress',
+                label: 'In progress',
+                count: counts.in_progress,
+                icon: Hourglass,
+                tint: '#7C3AED',
+                soft: '#EDE9FE',
+              },
+              {
+                key: 'submitted',
+                label: 'Submitted',
+                count: counts.submitted,
+                icon: Send,
+                tint: '#0EA5E9',
+                soft: '#E0F2FE',
+              },
+            ]}
             activeKey={tab === 'all' ? '' : tab}
             columns={3}
             onSelect={(key) => setTab((prev) => (prev === key ? 'all' : (key as CaoTab)))}
@@ -292,6 +330,11 @@ export function CaoHomeScreen({ go }: { go: Go }) {
                   setCaoReturnScreen('cao_home');
                   go('cao_detail');
                 }}
+                onDownload={
+                  app.status === 'submitted'
+                    ? () => void handleDownloadApp(app)
+                    : undefined
+                }
               />
             ))
           )}
@@ -343,6 +386,19 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  const handleDownloadApp = useCallback(
+    async (app: MobileApplication) => {
+      if (!accessToken) return;
+      try {
+        const result = await downloadApplicationPdf(app, accessToken);
+        Alert.alert('Download complete', result.message);
+      } catch (e) {
+        Alert.alert('Download failed', e instanceof Error ? e.message : 'Could not generate PDF');
+      }
+    },
+    [accessToken],
+  );
 
   const filtered = useMemo(() => {
     const filterDef = CAO_APP_FILTERS.find((f) => f.key === tab);
@@ -517,6 +573,11 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
                 setCaoReturnScreen('cao_apps');
                 go('cao_detail');
               }}
+              onDownload={
+                app.status === 'submitted'
+                  ? () => void handleDownloadApp(app)
+                  : undefined
+              }
             />
           ))
         )}

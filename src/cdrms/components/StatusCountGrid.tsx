@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { Eye, type LucideIcon } from 'lucide-react-native';
+import { Download, Eye, type LucideIcon } from 'lucide-react-native';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -113,6 +113,7 @@ export function OfficeAppRow({
   detailLines,
   status,
   onPress,
+  onDownload,
 }: {
   title: string;
   subtitle: string;
@@ -121,6 +122,7 @@ export function OfficeAppRow({
   detailLines?: string[];
   status: MobileApplicationStatus | string;
   onPress: () => void;
+  onDownload?: () => void;
 }) {
   const tone = applicationStatusTone(status);
 
@@ -198,24 +200,70 @@ export function OfficeAppRow({
                   </Text>
                 ) : null}
               </VStack>
-              <HStack
-                className="items-center"
-                style={{
-                  gap: 4,
-                  backgroundColor: '#4F8CFF',
-                  borderRadius: 999,
-                  paddingHorizontal: 10,
-                  paddingVertical: 5,
-                }}
-              >
-                <Eye size={12} color="#FFFFFF" strokeWidth={2.4} />
-                <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#FFFFFF' }}>
-                  View
-                </Text>
+              <HStack className="items-center" style={{ gap: 6 }}>
+                {onDownload ? (
+                  <Pressable
+                    onPress={(e) => {
+                      e?.stopPropagation?.();
+                      onDownload();
+                    }}
+                    className="items-center justify-center active:opacity-80"
+                    style={{
+                      flexDirection: 'row',
+                      gap: 4,
+                      backgroundColor: '#10B981',
+                      borderRadius: 999,
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                    }}
+                  >
+                    <Download size={12} color="#FFFFFF" strokeWidth={2.4} />
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#FFFFFF' }}>
+                      Download
+                    </Text>
+                  </Pressable>
+                ) : null}
+                <HStack
+                  className="items-center"
+                  style={{
+                    gap: 4,
+                    backgroundColor: '#4F8CFF',
+                    borderRadius: 999,
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                  }}
+                >
+                  <Eye size={12} color="#FFFFFF" strokeWidth={2.4} />
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#FFFFFF' }}>
+                    View
+                  </Text>
+                </HStack>
               </HStack>
             </HStack>
           ) : (
-            <HStack className="items-center justify-end">
+            <HStack className="items-center justify-end" style={{ gap: 6 }}>
+              {onDownload ? (
+                <Pressable
+                  onPress={(e) => {
+                    e?.stopPropagation?.();
+                    onDownload();
+                  }}
+                  className="items-center justify-center active:opacity-80"
+                  style={{
+                    flexDirection: 'row',
+                    gap: 4,
+                    backgroundColor: '#10B981',
+                    borderRadius: 999,
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                  }}
+                >
+                  <Download size={12} color="#FFFFFF" strokeWidth={2.4} />
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#FFFFFF' }}>
+                    Download
+                  </Text>
+                </Pressable>
+              ) : null}
               <HStack
                 className="items-center"
                 style={{
