@@ -146,6 +146,31 @@ export async function fetchSiteDimensions(token?: string | null) {
     .filter((row) => row.label);
 }
 
+/** Create a new site dimension master row (authenticated). */
+export async function createSiteDimension(
+  token: string,
+  label: string,
+): Promise<SiteDimensionOption> {
+  const normalized = label.trim().replace(/\s+/g, '');
+  const code = `DIM-${normalized.replace(/\*/g, 'x').replace(/[^\w]/g, '')}`.slice(0, 50);
+  const raw = await apiRequest<unknown>('/masters/attributes', {
+    method: 'POST',
+    token,
+    body: {
+      type: 'site_dimension',
+      label: normalized,
+      code,
+      status: 'Active',
+    },
+  });
+  const row = asData<Record<string, unknown>>(raw);
+  return {
+    id: String(row.id ?? ''),
+    label: String(row.label ?? normalized).trim(),
+    code: row.code != null ? String(row.code) : code,
+  };
+}
+
 function parseJsonField<T>(value: unknown): T | null {
   if (value == null || value === '') return null;
   if (typeof value === 'string') {

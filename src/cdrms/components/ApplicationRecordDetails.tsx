@@ -6,7 +6,7 @@ import {
   Compass,
   Eye,
   Film,
-  MapPin,
+  MessageSquare,
   Ruler,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -16,9 +16,7 @@ import { HStack } from '@/components/ui/hstack';
 import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import {
-  type MobileApplication,
-} from '@/src/api/applications';
+import { type MobileApplication } from '@/src/api/applications';
 import { ApplicationStatusBadge } from '@/src/cdrms/components/ApplicationStatusBadge';
 import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
 import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
@@ -31,57 +29,72 @@ import { COLORS, FONTS } from '@/src/cdrms/theme';
 function SectionCard({
   title,
   icon: Icon,
-  accent = '#2563EB',
   children,
 }: {
   title: string;
   icon: LucideIcon;
-  accent?: string;
   children: ReactNode;
 }) {
   return (
     <Box
       style={{
-        backgroundColor: COLORS.white,
-        borderRadius: 18,
-        padding: 14,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 14,
         borderWidth: 1,
-        borderColor: '#EEF2F7',
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.07,
-        shadowRadius: 10,
-        elevation: 3,
+        borderColor: '#E2E8F0',
+        marginBottom: 0,
+        overflow: 'hidden',
       }}
     >
-      <HStack className="items-center" style={{ gap: 10, marginBottom: 10 }}>
+      <HStack
+        className="items-center"
+        style={{
+          gap: 8,
+          paddingHorizontal: 10,
+          paddingVertical: 8,
+          backgroundColor: '#FFFFFF',
+          borderBottomWidth: 1,
+          borderBottomColor: '#E2E8F0',
+        }}
+      >
         <Box
           style={{
-            width: 36,
-            height: 36,
-            borderRadius: 11,
-            backgroundColor: accent,
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            backgroundColor: COLORS.primary,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Icon size={17} color="#fff" strokeWidth={2.3} />
+          <Icon size={14} color="#FFFFFF" strokeWidth={2.4} />
         </Box>
-        <Text style={{ flex: 1, fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}>
+        <Text
+          style={{ flex: 1, fontFamily: FONTS.bold, fontSize: 13, color: '#0F172A' }}
+          numberOfLines={1}
+        >
           {title}
         </Text>
       </HStack>
-      {children}
+      <Box style={{ paddingHorizontal: 10, paddingVertical: 8 }}>{children}</Box>
     </Box>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: ReactNode }) {
+function InfoRow({
+  label,
+  value,
+  last,
+}: {
+  label: string;
+  value: ReactNode;
+  last?: boolean;
+}) {
   return (
     <Box
       style={{
-        paddingVertical: 9,
-        borderBottomWidth: 1,
+        paddingVertical: 7,
+        borderBottomWidth: last ? 0 : 1,
         borderBottomColor: '#F1F5F9',
       }}
     >
@@ -91,7 +104,7 @@ function InfoRow({ label, value }: { label: string; value: ReactNode }) {
           fontSize: 10,
           color: '#94A3B8',
           textTransform: 'uppercase',
-          letterSpacing: 0.4,
+          letterSpacing: 0.3,
         }}
       >
         {label}
@@ -102,16 +115,90 @@ function InfoRow({ label, value }: { label: string; value: ReactNode }) {
             fontFamily: FONTS.semibold,
             fontSize: 13,
             color: COLORS.ink,
-            marginTop: 3,
-            lineHeight: 18,
+            marginTop: 2,
+            lineHeight: 17,
           }}
         >
           {value || '—'}
         </Text>
       ) : (
-        <Box style={{ marginTop: 4 }}>{value}</Box>
+        <Box style={{ marginTop: 3 }}>{value}</Box>
       )}
     </Box>
+  );
+}
+
+function InfoPairRow({
+  leftLabel,
+  leftValue,
+  rightLabel,
+  rightValue,
+  last,
+}: {
+  leftLabel: string;
+  leftValue: string;
+  rightLabel: string;
+  rightValue: string;
+  last?: boolean;
+}) {
+  return (
+    <HStack
+      style={{
+        paddingVertical: 7,
+        borderBottomWidth: last ? 0 : 1,
+        borderBottomColor: '#F1F5F9',
+        gap: 10,
+      }}
+    >
+      <Box style={{ flex: 1 }}>
+        <Text
+          style={{
+            fontFamily: FONTS.medium,
+            fontSize: 10,
+            color: '#94A3B8',
+            textTransform: 'uppercase',
+            letterSpacing: 0.3,
+          }}
+        >
+          {leftLabel}
+        </Text>
+        <Text
+          style={{
+            fontFamily: FONTS.semibold,
+            fontSize: 13,
+            color: COLORS.ink,
+            marginTop: 2,
+            lineHeight: 17,
+          }}
+        >
+          {leftValue || '—'}
+        </Text>
+      </Box>
+      <Box style={{ flex: 1 }}>
+        <Text
+          style={{
+            fontFamily: FONTS.medium,
+            fontSize: 10,
+            color: '#94A3B8',
+            textTransform: 'uppercase',
+            letterSpacing: 0.3,
+          }}
+        >
+          {rightLabel}
+        </Text>
+        <Text
+          style={{
+            fontFamily: FONTS.semibold,
+            fontSize: 13,
+            color: COLORS.ink,
+            marginTop: 2,
+            lineHeight: 17,
+          }}
+        >
+          {rightValue || '—'}
+        </Text>
+      </Box>
+    </HStack>
   );
 }
 
@@ -119,25 +206,21 @@ function MediaThumb({
   label,
   uri,
   onView,
-  columns = 4,
 }: {
   label: string;
   uri: string;
   onView: () => void;
-  columns?: 2 | 4;
 }) {
-  const widthPct = columns === 4 ? '23%' : '47%';
-
   return (
-    <Box style={{ width: widthPct }}>
+    <Box style={{ width: '23%' }}>
       <Text
         style={{
           fontFamily: FONTS.bold,
           fontSize: 9,
           color: '#1E3A5F',
-          marginBottom: 4,
+          marginBottom: 3,
           textTransform: 'uppercase',
-          letterSpacing: 0.4,
+          letterSpacing: 0.3,
         }}
         numberOfLines={1}
       >
@@ -155,11 +238,7 @@ function MediaThumb({
         <Box style={{ position: 'relative' }}>
           <ApiMediaImage
             uri={uri}
-            style={{
-              width: '100%',
-              aspectRatio: 1,
-              backgroundColor: '#E2E8F0',
-            }}
+            style={{ width: '100%', aspectRatio: 1, backgroundColor: '#E2E8F0' }}
             resizeMode="cover"
           />
           <Pressable
@@ -173,25 +252,20 @@ function MediaThumb({
               left: 0,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: 'rgba(15, 23, 42, 0.45)',
+              backgroundColor: 'rgba(15, 23, 42, 0.4)',
             }}
           >
             <Box
               style={{
-                width: 32,
-                height: 32,
+                width: 28,
+                height: 28,
                 borderRadius: 8,
                 alignItems: 'center',
                 justifyContent: 'center',
                 backgroundColor: '#FFFFFF',
-                shadowColor: '#0F172A',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.15,
-                shadowRadius: 4,
-                elevation: 3,
               }}
             >
-              <Eye size={16} color="#2563EB" strokeWidth={2.3} />
+              <Eye size={14} color="#2563EB" strokeWidth={2.3} />
             </Box>
           </Pressable>
         </Box>
@@ -200,59 +274,55 @@ function MediaThumb({
   );
 }
 
-function ApplicationHistorySection({ app }: { app: MobileApplication }) {
-  return null;
-}
-
 function ApplicationSummaryCard({ app }: { app: MobileApplication }) {
   return (
     <Box
       style={{
-        backgroundColor: COLORS.white,
+        backgroundColor: '#FFFFFF',
         borderRadius: 14,
         borderWidth: 1,
-        borderColor: '#EEF2F7',
+        borderColor: '#E2E8F0',
         overflow: 'hidden',
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.07,
-        shadowRadius: 8,
-        elevation: 2,
       }}
     >
       <HStack>
-        <Box
-          style={{
-            width: 4,
-            backgroundColor: '#2563EB',
-            alignSelf: 'stretch',
-          }}
-        />
-        <VStack className="flex-1" style={{ padding: 12, gap: 6 }}>
-          <HStack className="items-center" style={{ gap: 6, flexWrap: 'wrap' }}>
-            <Box
-              style={{
-                backgroundColor: '#EFF6FF',
-                borderRadius: 8,
-                paddingHorizontal: 8,
-                paddingVertical: 3,
-                borderWidth: 1,
-                borderColor: '#E2E8F0',
-              }}
+        <Box style={{ width: 3.5, backgroundColor: COLORS.primary, alignSelf: 'stretch' }} />
+        <VStack className="flex-1" style={{ paddingHorizontal: 11, paddingVertical: 10, gap: 5 }}>
+          <HStack className="items-center justify-between" style={{ gap: 8 }}>
+            <Text
+              style={{ flex: 1, fontFamily: FONTS.bold, fontSize: 15, color: COLORS.ink }}
+              numberOfLines={1}
             >
-              <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: COLORS.primary }}>
-                Zone {app.zoneCode}
-              </Text>
-            </Box>
-            <Box style={{ marginLeft: 'auto' }}>
-              <ApplicationStatusBadge status={app.status} size="md" />
-            </Box>
+              {app.applicationNumber}
+            </Text>
+            <ApplicationStatusBadge status={app.status} size="md" />
           </HStack>
-          <Text style={{ fontFamily: FONTS.bold, fontSize: 17, color: COLORS.ink }}>
-            {app.applicationNumber}
-          </Text>
-          <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}>
-            Engineer: {app.assignedEngineerName || '—'}
+          <HStack className="items-center" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <Text style={{ fontFamily: FONTS.semibold, fontSize: 12, color: COLORS.ink }}>
+              Site no: {app.siteNo || '—'}
+            </Text>
+            <HStack className="items-center" style={{ gap: 4 }}>
+              <Text style={{ fontFamily: FONTS.semibold, fontSize: 12, color: COLORS.ink }}>
+                Zone:
+              </Text>
+              <Box
+                style={{
+                  backgroundColor: '#EFF6FF',
+                  borderRadius: 7,
+                  paddingHorizontal: 7,
+                  paddingVertical: 2,
+                  borderWidth: 1,
+                  borderColor: '#BFDBFE',
+                }}
+              >
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: COLORS.primary }}>
+                  {app.zoneCode || '—'}
+                </Text>
+              </Box>
+            </HStack>
+          </HStack>
+          <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: '#64748B' }} numberOfLines={1}>
+            Assigned Engineer: {app.assignedEngineerName || '—'}
           </Text>
         </VStack>
       </HStack>
@@ -260,81 +330,10 @@ function ApplicationSummaryCard({ app }: { app: MobileApplication }) {
   );
 }
 
-function InfoPairRow({
-  leftLabel,
-  leftValue,
-  rightLabel,
-  rightValue,
-}: {
-  leftLabel: string;
-  leftValue: string;
-  rightLabel: string;
-  rightValue: string;
-}) {
-  return (
-    <HStack
-      style={{
-        paddingVertical: 9,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F1F5F9',
-        gap: 12,
-      }}
-    >
-      <Box style={{ flex: 1 }}>
-        <Text
-          style={{
-            fontFamily: FONTS.medium,
-            fontSize: 10,
-            color: '#94A3B8',
-            textTransform: 'uppercase',
-            letterSpacing: 0.4,
-          }}
-        >
-          {leftLabel}
-        </Text>
-        <Text
-          style={{
-            fontFamily: FONTS.semibold,
-            fontSize: 13,
-            color: COLORS.ink,
-            marginTop: 3,
-            lineHeight: 18,
-          }}
-        >
-          {leftValue || '—'}
-        </Text>
-      </Box>
-      <Box style={{ flex: 1 }}>
-        <Text
-          style={{
-            fontFamily: FONTS.medium,
-            fontSize: 10,
-            color: '#94A3B8',
-            textTransform: 'uppercase',
-            letterSpacing: 0.4,
-          }}
-        >
-          {rightLabel}
-        </Text>
-        <Text
-          style={{
-            fontFamily: FONTS.semibold,
-            fontSize: 13,
-            color: COLORS.ink,
-            marginTop: 3,
-            lineHeight: 18,
-          }}
-        >
-          {rightValue || '—'}
-        </Text>
-      </Box>
-    </HStack>
-  );
-}
-
 function ZcDetailsBlock({ app, siteType }: { app: MobileApplication; siteType: string }) {
+  const hasComments = Boolean(app.siteDimensionComment?.trim());
   return (
-    <SectionCard title="ZC application details" icon={Building2} accent="#2563EB">
+    <SectionCard title="ZC application details" icon={Building2}>
       <InfoPairRow
         leftLabel="Site no"
         leftValue={app.siteNo}
@@ -352,20 +351,34 @@ function ZcDetailsBlock({ app, siteType }: { app: MobileApplication; siteType: s
         leftValue={app.addressArea || '—'}
         rightLabel="Block"
         rightValue={app.addressBlock || '—'}
+        last={!app.createdByZcName && !hasComments}
       />
-      <InfoRow label="Created by ZC" value={app.createdByZcName || '—'} />
-      <InfoRow label="ZC comments" value={app.siteDimensionComment || '—'} />
+      {app.createdByZcName ? (
+        <InfoRow label="Created by ZC" value={app.createdByZcName} last={!hasComments} />
+      ) : null}
+      {hasComments ? (
+        <InfoRow label="ZC comments" value={app.siteDimensionComment!} last />
+      ) : null}
     </SectionCard>
   );
 }
 
 function SchedulesBlock({ app }: { app: MobileApplication }) {
   return (
-    <SectionCard title="Site Schedules" icon={Compass} accent="#0EA5E9">
-      <InfoRow label="Schedule N" value={app.scheduleNorth || '—'} />
-      <InfoRow label="Schedule S" value={app.scheduleSouth || '—'} />
-      <InfoRow label="Schedule W" value={app.scheduleWest || '—'} />
-      <InfoRow label="Schedule E" value={app.scheduleEast || '—'} />
+    <SectionCard title="Site Schedules" icon={Compass}>
+      <InfoPairRow
+        leftLabel="North"
+        leftValue={app.scheduleNorth || '—'}
+        rightLabel="South"
+        rightValue={app.scheduleSouth || '—'}
+      />
+      <InfoPairRow
+        leftLabel="West"
+        leftValue={app.scheduleWest || '—'}
+        rightLabel="East"
+        rightValue={app.scheduleEast || '—'}
+        last
+      />
     </SectionCard>
   );
 }
@@ -416,6 +429,7 @@ export function ApplicationRecordDetails({
       }
     : null;
 
+  // Diagram only — schedules are shown in Site Schedules card (no duplicate).
   const boundariesBlock = boundary.dims ? (
     <BoundariesDiagram
       north={boundary.dims.north}
@@ -425,21 +439,31 @@ export function ApplicationRecordDetails({
       odd={siteType === 'Odd'}
       siteNo={app.siteNo}
       totalArea={boundary.total}
-      scheduleNorth={app.scheduleNorth}
-      scheduleSouth={app.scheduleSouth}
-      scheduleEast={app.scheduleEast}
-      scheduleWest={app.scheduleWest}
     />
   ) : null;
 
+  const hasCompassBlock = Boolean(app.compass || app.occupancy || hasGps);
+  const hasMedia =
+    app.selfieUrl ||
+    photos.length > 0 ||
+    schedulePhotos.N ||
+    schedulePhotos.S ||
+    schedulePhotos.E ||
+    schedulePhotos.W;
+
+  const coreBlocks = (
+    <>
+      <ApplicationSummaryCard app={app} />
+      <ZcDetailsBlock app={app} siteType={siteType} />
+      <SchedulesBlock app={app} />
+      {boundariesBlock}
+    </>
+  );
+
   if (!showEmptyEngineer && !hasEngineerCapture) {
     return (
-      <VStack style={{ gap: 12 }}>
-        <ApplicationSummaryCard app={app} />
-        <ZcDetailsBlock app={app} siteType={siteType} />
-        <SchedulesBlock app={app} />
-        {boundariesBlock}
-        <ApplicationHistorySection app={app} />
+      <VStack style={{ gap: 10 }}>
+        {coreBlocks}
         <ImagePreviewModal
           uri={preview?.uri ?? null}
           title={preview?.title}
@@ -449,152 +473,129 @@ export function ApplicationRecordDetails({
     );
   }
 
-  const hasMedia =
-    app.selfieUrl ||
-    photos.length > 0 ||
-    schedulePhotos.N ||
-    schedulePhotos.S ||
-    schedulePhotos.E ||
-    schedulePhotos.W;
-
   return (
-    <VStack style={{ gap: 12 }}>
-      <ApplicationSummaryCard app={app} />
-      <ZcDetailsBlock app={app} siteType={siteType} />
-      <SchedulesBlock app={app} />
-      {boundariesBlock}
+    <VStack style={{ gap: 10 }}>
+      {coreBlocks}
 
       {app.engineerSiteDetails ? (
-        <SectionCard title="Engineer — Site details" icon={Building2} accent="#7C3AED">
-          <InfoRow label="Site verification details" value={app.engineerSiteDetails} />
-        </SectionCard>
-      ) : null}
-
-      <SectionCard title="Compass & GPS" icon={Compass} accent="#059669">
-        <InfoRow label="Compass" value={app.compass || '—'} />
-        <InfoRow label="Occupancy" value={app.occupancy || '—'} />
-        {app.occupancy === 'Occupied' ? (
-          <InfoRow label="Occupancy reason" value={app.occupancyReason || '—'} />
-        ) : null}
-        <InfoRow
-          label="GPS location"
-          value={hasGps ? `${app.latitude}, ${app.longitude}` : '—'}
-        />
-        {hasGps ? (
-          <Pressable
-            onPress={() => {
-              void Linking.openURL(
-                `https://maps.google.com/?q=${app.latitude},${app.longitude}`,
-              );
-            }}
+        <SectionCard title="Site details" icon={Building2}>
+          <Text
             style={{
-              marginTop: 4,
-              marginBottom: 4,
-              paddingVertical: 10,
-              paddingHorizontal: 12,
-              borderRadius: 10,
-              backgroundColor: '#EFF6FF',
-              borderWidth: 1,
-              borderColor: '#BFDBFE',
+              fontFamily: FONTS.semibold,
+              fontSize: 13,
+              color: COLORS.ink,
+              lineHeight: 18,
             }}
           >
-            <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.primary }}>
-              Open in Google Maps →
-            </Text>
-          </Pressable>
-        ) : null}
-      </SectionCard>
-
-      {hasGps && gpsFix ? (
-        <SectionCard title="Site Map" icon={MapPin} accent="#0284C7">
-          <Box style={{ borderRadius: 14, overflow: 'hidden', marginTop: 2 }}>
-            <GpsSiteCard
-              height={220}
-              variant="inset"
-              gps={gpsFix}
-              syNo={app.siteNo}
-              villageLabel={app.addressArea}
-              layoutName={app.addressBlock || app.zoneCode}
-              liveMap
-              allowMapGestures
-            />
-          </Box>
+            {app.engineerSiteDetails}
+          </Text>
         </SectionCard>
       ) : null}
 
-      {boundary.source === 'engineer' ? (
-        <SectionCard title="Dimensions" icon={Ruler} accent="#D97706">
-          <HStack className="flex-wrap" style={{ gap: 8, marginTop: 2 }}>
-            {(
-              [
-                ['N', app.dimNorth],
-                ['S', app.dimSouth],
-                ['E', app.dimEast],
-                ['W', app.dimWest],
-              ] as const
-            ).map(([side, val]) => (
-              <Box
-                key={side}
+      {hasCompassBlock ? (
+        <SectionCard title="Compass & GPS" icon={Compass}>
+          <InfoPairRow
+            leftLabel="Compass"
+            leftValue={app.compass || '—'}
+            rightLabel="Occupancy"
+            rightValue={app.occupancy || '—'}
+            last={app.occupancy !== 'Occupied' && !hasGps}
+          />
+          {app.occupancy === 'Occupied' ? (
+            <InfoRow
+              label="Occupancy reason"
+              value={app.occupancyReason || '—'}
+              last={!hasGps}
+            />
+          ) : null}
+          {hasGps ? (
+            <>
+              <InfoRow
+                label="GPS location"
+                value={`${app.latitude}, ${app.longitude}`}
+                last={!gpsFix}
+              />
+              {gpsFix ? (
+                <Box style={{ borderRadius: 12, overflow: 'hidden', marginTop: 6 }}>
+                  <GpsSiteCard
+                    height={200}
+                    variant="inset"
+                    gps={gpsFix}
+                    syNo={app.siteNo}
+                    villageLabel={app.addressArea}
+                    layoutName={app.addressBlock || app.zoneCode}
+                    liveMap
+                    allowMapGestures
+                  />
+                </Box>
+              ) : null}
+              <Pressable
+                onPress={() => {
+                  void Linking.openURL(
+                    `https://maps.google.com/?q=${app.latitude},${app.longitude}`,
+                  );
+                }}
                 style={{
-                  width: '47%',
-                  borderRadius: 12,
-                  padding: 10,
-                  backgroundColor: '#FFFBEB',
+                  marginTop: 8,
+                  paddingVertical: 9,
+                  paddingHorizontal: 11,
+                  borderRadius: 10,
+                  backgroundColor: '#EFF6FF',
                   borderWidth: 1,
-                  borderColor: '#FDE68A',
+                  borderColor: '#BFDBFE',
                 }}
               >
-                <Text style={{ fontFamily: FONTS.medium, fontSize: 10, color: '#92400E' }}>
-                  Dim {side}
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.primary }}>
+                  Open in Google Maps →
                 </Text>
-                <Text style={{ fontFamily: FONTS.bold, fontSize: 18, color: '#78350F', marginTop: 2 }}>
-                  {val != null && val !== '' ? String(val) : '—'}
-                </Text>
-              </Box>
-            ))}
-          </HStack>
+              </Pressable>
+            </>
+          ) : null}
+        </SectionCard>
+      ) : null}
+
+      {/* Dimensions only when no diagram (diagram already shows N/S/E/W). */}
+      {boundary.source === 'engineer' && !boundariesBlock ? (
+        <SectionCard title="Dimensions" icon={Ruler}>
+          <InfoPairRow
+            leftLabel="Dim N"
+            leftValue={app.dimNorth != null && app.dimNorth !== '' ? String(app.dimNorth) : '—'}
+            rightLabel="Dim S"
+            rightValue={app.dimSouth != null && app.dimSouth !== '' ? String(app.dimSouth) : '—'}
+          />
+          <InfoPairRow
+            leftLabel="Dim E"
+            leftValue={app.dimEast != null && app.dimEast !== '' ? String(app.dimEast) : '—'}
+            rightLabel="Dim W"
+            rightValue={app.dimWest != null && app.dimWest !== '' ? String(app.dimWest) : '—'}
+            last={!app.totalSiteArea}
+          />
           {app.totalSiteArea ? (
-            <Box
-              style={{
-                marginTop: 10,
-                padding: 10,
-                borderRadius: 12,
-                backgroundColor: '#F8FAFC',
-                borderWidth: 1,
-                borderColor: '#E2E8F0',
-              }}
-            >
-              <Text style={{ fontFamily: FONTS.medium, fontSize: 10, color: '#94A3B8' }}>
-                TOTAL SITE AREA
-              </Text>
-              <Text style={{ fontFamily: FONTS.bold, fontSize: 16, color: COLORS.ink, marginTop: 2 }}>
-                {app.totalSiteArea}
-              </Text>
-            </Box>
+            <InfoRow label="Total site area" value={app.totalSiteArea} last />
           ) : null}
         </SectionCard>
       ) : null}
 
       {hasMedia ? (
-        <SectionCard title="Photos" icon={Camera} accent="#2563EB">
-          <VStack style={{ gap: 14 }}>
+        <SectionCard title="Photos" icon={Camera}>
+          <VStack style={{ gap: 10 }}>
             {app.selfieUrl ? (
               <Box>
                 <Text
                   style={{
                     fontFamily: FONTS.bold,
-                    fontSize: 11,
+                    fontSize: 10,
                     color: '#64748B',
-                    marginBottom: 8,
+                    marginBottom: 6,
                     textTransform: 'uppercase',
-                    letterSpacing: 0.5,
+                    letterSpacing: 0.4,
                   }}
                 >
                   Selfie
                 </Text>
                 <HStack className="flex-wrap" style={{ gap: 6 }}>
                   <MediaThumb
-                    label="Engineer selfie"
+                    label="Selfie"
                     uri={app.selfieUrl}
                     onView={() => setPreview({ uri: app.selfieUrl!, title: 'Selfie' })}
                   />
@@ -607,11 +608,11 @@ export function ApplicationRecordDetails({
                 <Text
                   style={{
                     fontFamily: FONTS.bold,
-                    fontSize: 11,
+                    fontSize: 10,
                     color: '#64748B',
-                    marginBottom: 8,
+                    marginBottom: 6,
                     textTransform: 'uppercase',
-                    letterSpacing: 0.5,
+                    letterSpacing: 0.4,
                   }}
                 >
                   Site photos
@@ -620,11 +621,9 @@ export function ApplicationRecordDetails({
                   {photos.map((url, i) => (
                     <MediaThumb
                       key={`photo-${i}-${url}`}
-                      label={`Site photo ${i + 1}`}
+                      label={`Photo ${i + 1}`}
                       uri={url}
-                      onView={() =>
-                        setPreview({ uri: url, title: `Site photo ${i + 1}` })
-                      }
+                      onView={() => setPreview({ uri: url, title: `Site photo ${i + 1}` })}
                     />
                   ))}
                 </HStack>
@@ -636,22 +635,22 @@ export function ApplicationRecordDetails({
                 <Text
                   style={{
                     fontFamily: FONTS.bold,
-                    fontSize: 11,
+                    fontSize: 10,
                     color: '#64748B',
-                    marginBottom: 8,
+                    marginBottom: 6,
                     textTransform: 'uppercase',
-                    letterSpacing: 0.5,
+                    letterSpacing: 0.4,
                   }}
                 >
-                  Schedule boundary photos
+                  Schedule photos
                 </Text>
                 <HStack className="flex-wrap" style={{ gap: 6 }}>
                   {(
                     [
-                      ['N', 'North photo'],
-                      ['S', 'South photo'],
-                      ['E', 'East photo'],
-                      ['W', 'West photo'],
+                      ['N', 'North'],
+                      ['S', 'South'],
+                      ['E', 'East'],
+                      ['W', 'West'],
                     ] as const
                   ).map(([key, label]) =>
                     schedulePhotos[key] ? (
@@ -660,7 +659,7 @@ export function ApplicationRecordDetails({
                         label={label}
                         uri={schedulePhotos[key]}
                         onView={() =>
-                          setPreview({ uri: schedulePhotos[key], title: label })
+                          setPreview({ uri: schedulePhotos[key], title: `${label} photo` })
                         }
                       />
                     ) : null,
@@ -673,11 +672,10 @@ export function ApplicationRecordDetails({
       ) : null}
 
       {app.videoUrl ? (
-        <SectionCard title="Site Video" icon={Film} accent="#1E293B">
+        <SectionCard title="Site Video" icon={Film}>
           <Box
             style={{
-              marginTop: 2,
-              borderRadius: 14,
+              borderRadius: 12,
               overflow: 'hidden',
               aspectRatio: 16 / 9,
               backgroundColor: '#0F172A',
@@ -689,12 +687,19 @@ export function ApplicationRecordDetails({
       ) : null}
 
       {app.engineerComments ? (
-        <SectionCard title="Comments" icon={Building2} accent="#64748B">
-          <InfoRow label="Comments" value={app.engineerComments} />
+        <SectionCard title="Comments" icon={MessageSquare}>
+          <Text
+            style={{
+              fontFamily: FONTS.semibold,
+              fontSize: 13,
+              color: COLORS.ink,
+              lineHeight: 18,
+            }}
+          >
+            {app.engineerComments}
+          </Text>
         </SectionCard>
       ) : null}
-
-      <ApplicationHistorySection app={app} />
 
       <ImagePreviewModal
         uri={preview?.uri ?? null}

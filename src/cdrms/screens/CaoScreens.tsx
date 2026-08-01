@@ -567,7 +567,7 @@ export function CaoDetailScreen({ go }: { go: Go }) {
   };
 
   return (
-    <ScreenShell className="bg-[#F8FAFC]">
+    <ScreenShell className="bg-white">
       <AppHeader
         title="View Application"
         onBack={() => go(backTarget)}
@@ -576,7 +576,7 @@ export function CaoDetailScreen({ go }: { go: Go }) {
         showNotifications={false}
         showLogout={false}
       />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ padding: 10, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         {loading ? (
           <ScreenLoader text="Loading application details…" />
         ) : error || !app ? (
@@ -594,15 +594,15 @@ export function CaoDetailScreen({ go }: { go: Go }) {
             </Text>
           </Box>
         ) : (
-          <VStack style={{ gap: 12 }}>
+          <VStack style={{ gap: 10 }}>
             <ApplicationRecordDetails app={app} />
 
             <Pressable
               onPress={() => void handleDownload()}
               disabled={downloading}
               style={{
-                height: 48,
-                borderRadius: 14,
+                height: 46,
+                borderRadius: 12,
                 backgroundColor: COLORS.primary,
                 alignItems: 'center',
                 justifyContent: 'center',
