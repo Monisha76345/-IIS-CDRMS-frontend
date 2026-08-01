@@ -9,7 +9,6 @@ import {
   Compass,
   Crosshair,
   Edit3,
-  Film,
   Image as ImageIcon,
   Info,
   Lock,
@@ -47,6 +46,7 @@ import { FrostedGlass, GlassHeaderBadge, GlassSectionCard } from '@/src/cdrms/co
 import { LiveCompassDial } from '@/src/cdrms/components/LiveCompassDial';
 import { LiveGpsPanel } from '@/src/cdrms/components/LiveGpsPanel';
 import { SchedulesEditorCard } from '@/src/cdrms/components/SchedulesEditorCard';
+import { SiteVideoCaptureCard } from '@/src/cdrms/components/SiteVideoCaptureCard';
 import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
 import { AppBtn, AppSheet, Field } from '@/src/cdrms/components/primitives';
 import {
@@ -62,7 +62,6 @@ import {
   captureSitePhoto,
   captureSelfie,
   captureVideo,
-  chooseVideoFile,
 } from '@/src/cdrms/hooks/useMediaCapture';
 import { isLiveVideoBlocked } from '@/src/cdrms/device/isVirtualDevice';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
@@ -1286,7 +1285,7 @@ export function PhotosScreen({ go }: { go: Go }) {
       title={isBackendTask ? 'Media & submit' : 'Upload Photographs'}
       subtitle={
         isBackendTask
-          ? 'Selfie · site photos · comments · then video'
+          ? 'Selfie · site photos · comments · video'
           : TERMS.workflow.photosSubtitle
       }
       surface={isBackendTask ? 'premium' : 'default'}
@@ -1304,33 +1303,55 @@ export function PhotosScreen({ go }: { go: Go }) {
       }}
       step={4}
       total={isBackendTask ? 4 : 5}
-      badge={`${totalPhotosCount} uploaded`}
+      badge={
+        isBackendTask
+          ? draft.video
+            ? 'Media ready'
+            : `${totalPhotosCount} uploaded`
+          : `${totalPhotosCount} uploaded`
+      }
       footer={
-        <FooterContinueBtn
-          loading={stepSaving}
-          disabled={
-            stepSaving ||
-            !draft.selfie ||
-            (isBackendTask && !draft.engineerComments.trim())
-          }
-          label="Continue"
-          onPress={() => {
-            void (async () => {
-              if (isBackendTask) {
-                setStepSaving(true);
-                try {
-                  await persistBackendStep('media');
-                } catch (err) {
-                  alertDraftError(err);
-                  setStepSaving(false);
-                  return;
-                }
-                setStepSaving(false);
+        isBackendTask ? (
+          <VStack space="sm">
+            <FooterContinueBtn
+              loading={stepSaving}
+              disabled={
+                stepSaving ||
+                !draft.selfie ||
+                !draft.engineerComments.trim() ||
+                !draft.video
               }
-              go('video');
-            })();
-          }}
-        />
+              label="Continue"
+              onPress={() => {
+                void (async () => {
+                  setStepSaving(true);
+                  try {
+                    await persistBackendStep('media');
+                  } catch (err) {
+                    alertDraftError(err);
+                    setStepSaving(false);
+                    return;
+                  }
+                  setStepSaving(false);
+                  go('validate');
+                })();
+              }}
+            />
+            <HStack className="items-center justify-center gap-1.5 pt-0.5">
+              <Lock size={11} color="#94A3B8" strokeWidth={2.2} />
+              <Text className="text-[10px] font-medium" style={{ color: '#94A3B8' }}>
+                Your data is secure and encrypted
+              </Text>
+            </HStack>
+          </VStack>
+        ) : (
+          <FooterContinueBtn
+            loading={stepSaving}
+            disabled={stepSaving || !draft.selfie}
+            label="Continue"
+            onPress={() => go('video')}
+          />
+        )
       }
       go={go}
     >
@@ -1416,18 +1437,18 @@ export function PhotosScreen({ go }: { go: Go }) {
                       </Pressable>
                       <Pressable
                         onPress={() => void removeSelfie()}
+                        className="h-10 w-10 rounded-full items-center justify-center active:opacity-80"
                         style={{
-                          paddingHorizontal: 10,
-                          paddingVertical: 6,
-                          borderRadius: 8,
-                          backgroundColor: '#FEF2F2',
-                          borderWidth: 1,
-                          borderColor: '#FECACA',
+                          backgroundColor: COLORS.white,
+                          shadowColor: '#0F172A',
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.08,
+                          shadowRadius: 6,
+                          elevation: 2,
                         }}
+                        accessibilityLabel="Remove selfie"
                       >
-                        <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#DC2626' }}>
-                          Delete
-                        </Text>
+                        <Trash2 size={16} color={COLORS.destructive} strokeWidth={2.2} />
                       </Pressable>
                     </HStack>
                   </VStack>
@@ -1603,6 +1624,8 @@ export function PhotosScreen({ go }: { go: Go }) {
               </Textarea>
             </Box>
           </GlassSectionCard>
+
+          <SiteVideoCaptureCard />
         </>
       ) : (
         <>
@@ -1677,18 +1700,18 @@ export function PhotosScreen({ go }: { go: Go }) {
                     </Pressable>
                     <Pressable
                       onPress={() => void removeSelfie()}
+                      className="h-10 w-10 rounded-full items-center justify-center active:opacity-80"
                       style={{
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                        borderRadius: 8,
-                        backgroundColor: '#FEF2F2',
-                        borderWidth: 1,
-                        borderColor: '#FECACA',
+                        backgroundColor: COLORS.white,
+                        shadowColor: '#0F172A',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.08,
+                        shadowRadius: 6,
+                        elevation: 2,
                       }}
+                      accessibilityLabel="Remove selfie"
                     >
-                      <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#DC2626' }}>
-                        Delete
-                      </Text>
+                      <Trash2 size={16} color={COLORS.destructive} strokeWidth={2.2} />
                     </Pressable>
                   </HStack>
                 </VStack>
@@ -1900,37 +1923,29 @@ function formatDuration(ms?: number | null) {
 
 export function VideoScreen({ go }: { go: Go }) {
   const { themeId } = useTheme();
-  const { draft, setVideo, persistBackendStep, reloadBackendDraft } = useProject();
-  const [busy, setBusy] = useState<'record' | 'choose' | null>(null);
-  const [stepSaving, setStepSaving] = useState(false);
+  const { draft, setVideo } = useProject();
+  const [busy, setBusy] = useState(false);
   const videoPickOnly = isLiveVideoBlocked();
   const isBackendTask = Boolean(draft.backendApplicationId);
 
+  useEffect(() => {
+    if (isBackendTask) go('photos');
+  }, [go, isBackendTask]);
+
   const record = async () => {
     if (busy) return;
-    setBusy('record');
+    setBusy(true);
     try {
       const asset = await captureVideo();
       if (asset) await setVideo(asset);
     } catch (err) {
       alertDraftError(err);
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
 
-  const choose = async () => {
-    if (busy) return;
-    setBusy('choose');
-    try {
-      const asset = await chooseVideoFile();
-      if (asset) await setVideo(asset);
-    } catch (err) {
-      alertDraftError(err);
-    } finally {
-      setBusy(null);
-    }
-  };
+  if (isBackendTask) return null;
 
   const recordedLabel = draft.video
     ? new Date(draft.video.createdAt).toLocaleString(undefined, {
@@ -1945,50 +1960,19 @@ export function VideoScreen({ go }: { go: Go }) {
   return (
     <SurveyScaffold
       key={themeId}
-      title={isBackendTask ? 'Media & submit' : 'Upload Inspection Video'}
-      subtitle={
-        isBackendTask
-          ? 'Site video required before validation'
-          : TERMS.workflow.videoSubtitle
-      }
-      surface={isBackendTask ? 'premium' : 'default'}
-      onBack={() => {
-        void (async () => {
-          if (isBackendTask) {
-            try {
-              await reloadBackendDraft();
-            } catch {
-              /* still navigate */
-            }
-          }
-          go('photos');
-        })();
-      }}
-      step={isBackendTask ? 4 : 5}
-      total={isBackendTask ? 4 : 5}
-      badge={isBackendTask ? (draft.video ? 'Video ready' : 'Required') : 'Final step'}
+      title="Upload Inspection Video"
+      subtitle={TERMS.workflow.videoSubtitle}
+      surface="default"
+      onBack={() => go('photos')}
+      step={5}
+      total={5}
+      badge="Final step"
       footer={
         <VStack space="sm">
           <FooterContinueBtn
-            loading={stepSaving}
-            disabled={stepSaving || (isBackendTask && !draft.video)}
-            label={TERMS.workflow.validateApplication}
-            onPress={() => {
-              void (async () => {
-                if (isBackendTask) {
-                  setStepSaving(true);
-                  try {
-                    await persistBackendStep('media');
-                  } catch (err) {
-                    alertDraftError(err);
-                    setStepSaving(false);
-                    return;
-                  }
-                  setStepSaving(false);
-                }
-                go('validate');
-              })();
-            }}
+            disabled={!draft.video}
+            label="Continue"
+            onPress={() => go('validate')}
           />
           <HStack className="items-center justify-center gap-1.5 pt-0.5">
             <Lock size={11} color="#94A3B8" strokeWidth={2.2} />
@@ -1998,173 +1982,8 @@ export function VideoScreen({ go }: { go: Go }) {
           </HStack>
         </VStack>
       }
-          go={go}
+      go={go}
     >
-      {isBackendTask ? (
-        <GlassSectionCard
-          icon={Video}
-          title="Site walk-through video *"
-          subtitle={
-            draft.video
-              ? `Recorded ${recordedLabel}`
-              : 'Record or choose a site video (max 50 MB)'
-          }
-          badge={
-            <GlassHeaderBadge>
-              {draft.video ? (
-                <>
-                  <CheckCircle2 size={10} color="#FFFFFF" strokeWidth={2.5} />
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
-                    Ready
-                  </Text>
-                </>
-              ) : (
-                <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
-                  Required
-                </Text>
-              )}
-            </GlassHeaderBadge>
-          }
-        >
-          <VStack style={{ gap: SPACE[2] }}>
-            <Box
-              className="rounded-xl overflow-hidden"
-              style={{
-                aspectRatio: 16 / 9,
-                backgroundColor: '#0F172A',
-                shadowColor: '#0F172A',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.12,
-                shadowRadius: 10,
-                elevation: 3,
-              }}
-            >
-              {draft.video ? (
-                <SiteVideoPlayer
-                  key={draft.video.uri}
-                  uri={draft.video.uri}
-                  durationLabel={formatDuration(draft.video.durationMs)}
-                />
-              ) : (
-                <LinearGradient
-                  colors={gradientStops(GRADIENT_VIDEO)}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                >
-                  <Box
-                    style={{
-                      height: 56,
-                      width: 56,
-                      borderRadius: 999,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: 'rgba(255,255,255,0.18)',
-                      borderWidth: 1,
-                      borderColor: 'rgba(255,255,255,0.35)',
-                    }}
-                  >
-                    <Video size={24} color="#fff" strokeWidth={2.2} />
-                  </Box>
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: '#FFFFFF' }}>
-                    No video yet
-                  </Text>
-                  <Text
-                    style={{
-                      fontFamily: FONTS.medium,
-                      fontSize: 11,
-                      color: 'rgba(255,255,255,0.75)',
-                    }}
-                  >
-                    Record or choose a file below
-                  </Text>
-                </LinearGradient>
-              )}
-            </Box>
-
-            {draft.video ? (
-              <HStack style={{ alignItems: 'center', gap: SPACE[2] }}>
-                <VStack style={{ flex: 1, gap: 2 }}>
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}>
-                    Site walk-through
-                  </Text>
-                  <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: COLORS.slate }}>
-                    Max 50 MB · stored on device
-                  </Text>
-                </VStack>
-                <Pressable
-                  onPress={() => void setVideo(null)}
-                  style={{
-                    paddingHorizontal: 10,
-                    paddingVertical: 6,
-                    borderRadius: 8,
-                    backgroundColor: '#FEF2F2',
-                    borderWidth: 1,
-                    borderColor: '#FECACA',
-                  }}
-                >
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#DC2626' }}>
-                    Remove
-                  </Text>
-                </Pressable>
-              </HStack>
-            ) : null}
-
-            <HStack style={{ gap: SPACE[2] }}>
-              <Pressable
-                onPress={record}
-                disabled={busy !== null}
-                className="flex-1 active:opacity-90"
-                style={{
-                  borderRadius: 12,
-                  overflow: 'hidden',
-                  opacity: busy === 'choose' ? 0.55 : 1,
-                }}
-              >
-                <LinearGradient
-                  colors={gradientStops(GRADIENT_PRIMARY)}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingHorizontal: 12,
-                    paddingVertical: 12,
-                    gap: 8,
-                  }}
-                >
-                  <Camera size={16} color="#fff" strokeWidth={2.3} />
-                  <Text style={{ flex: 1, fontFamily: FONTS.bold, fontSize: 11, color: '#FFFFFF' }}>
-                    {busy === 'record' ? 'Opening…' : videoPickOnly ? 'Pick Video' : 'Record Video'}
-                  </Text>
-                </LinearGradient>
-              </Pressable>
-              <Pressable
-                onPress={choose}
-                disabled={busy !== null}
-                className="flex-1 active:opacity-90"
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  paddingHorizontal: 12,
-                  paddingVertical: 12,
-                  gap: 8,
-                  borderRadius: 12,
-                  backgroundColor: GLASS.tintBlue,
-                  borderWidth: 1,
-                  borderColor: `${COLORS.primary}40`,
-                  opacity: busy === 'record' ? 0.55 : 1,
-                }}
-              >
-                <Film size={16} color={COLORS.primary} strokeWidth={2.3} />
-                <Text style={{ flex: 1, fontFamily: FONTS.bold, fontSize: 11, color: COLORS.primary }}>
-                  {busy === 'choose' ? 'Opening…' : 'Choose File'}
-                </Text>
-              </Pressable>
-            </HStack>
-          </VStack>
-        </GlassSectionCard>
-      ) : (
       <>
       <SurveyCard>
         <WorkspaceHeader
@@ -2213,7 +2032,7 @@ export function VideoScreen({ go }: { go: Go }) {
                 </Box>
                 <Text className="text-white font-extrabold text-sm">No video yet</Text>
                 <Text className="text-white/70 text-xs font-medium">
-                  Record or choose a file below
+                  Record video below
                 </Text>
               </LinearGradient>
             )}
@@ -2270,72 +2089,30 @@ export function VideoScreen({ go }: { go: Go }) {
         </VStack>
       </SurveyCard>
 
-      <HStack className="mx-4 items-stretch" space="md">
-        <Pressable
-          onPress={record}
-          disabled={busy !== null}
-          className="flex-1 min-h-[68px] rounded-2xl overflow-hidden active:opacity-90"
+      <Pressable
+        onPress={record}
+        disabled={busy}
+        className="mx-4 min-h-[68px] rounded-2xl overflow-hidden active:opacity-90"
+        style={{
+          shadowColor: COLORS.primary,
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.28,
+          shadowRadius: 14,
+          elevation: 5,
+          opacity: busy ? 0.55 : 1,
+        }}
+      >
+        <LinearGradient
+          colors={gradientStops(GRADIENT_PRIMARY)}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={{
-            shadowColor: COLORS.primary,
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.28,
-            shadowRadius: 14,
-            elevation: 5,
-            opacity: busy === 'choose' ? 0.55 : 1,
-          }}
-        >
-          <LinearGradient
-            colors={gradientStops(GRADIENT_PRIMARY)}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingHorizontal: 12,
-              paddingVertical: 12,
-              gap: 8,
-            }}
-          >
-            <Box
-              className="items-center justify-center shrink-0"
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 12,
-                backgroundColor: 'rgba(255,255,255,0.22)',
-              }}
-            >
-              <Camera size={18} color="#fff" strokeWidth={2.3} />
-            </Box>
-            <Text
-              className="flex-1 font-extrabold text-white text-[12px] shrink"
-              style={{ lineHeight: 16, flexShrink: 1 }}
-            >
-              {busy === 'record'
-                ? 'Opening…'
-                : videoPickOnly
-                  ? 'Pick Video'
-                  : 'Record Video'}
-            </Text>
-            <ChevronRight size={18} color="rgba(255,255,255,0.9)" strokeWidth={2.4} />
-          </LinearGradient>
-        </Pressable>
-
-        <Pressable
-          onPress={choose}
-          disabled={busy !== null}
-          className="flex-1 min-h-[68px] rounded-2xl flex-row items-center px-3 gap-2.5 active:opacity-90"
-          style={{
-            backgroundColor: '#FFFFFF',
-            borderWidth: 1.5,
-            borderColor: `${COLORS.primary}40`,
-            shadowColor: '#1E293B',
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: 0.06,
-            shadowRadius: 12,
-            elevation: 2,
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 12,
             paddingVertical: 12,
+            gap: 8,
           }}
         >
           <Box
@@ -2344,20 +2121,20 @@ export function VideoScreen({ go }: { go: Go }) {
               width: 38,
               height: 38,
               borderRadius: 12,
-              backgroundColor: GLASS.tintBlue,
+              backgroundColor: 'rgba(255,255,255,0.22)',
             }}
           >
-            <Film size={18} color={COLORS.primary} strokeWidth={2.3} />
+            <Camera size={18} color="#fff" strokeWidth={2.3} />
           </Box>
           <Text
-            className="flex-1 font-extrabold text-foreground text-[12px] shrink"
+            className="flex-1 font-extrabold text-white text-[12px] shrink"
             style={{ lineHeight: 16, flexShrink: 1 }}
           >
-            {busy === 'choose' ? 'Opening…' : 'Choose File'}
+            {busy ? 'Opening…' : videoPickOnly ? 'Pick Video' : 'Record Video'}
           </Text>
-          <ChevronRight size={18} color={COLORS.primary} strokeWidth={2.4} />
-        </Pressable>
-      </HStack>
+          <ChevronRight size={18} color="rgba(255,255,255,0.9)" strokeWidth={2.4} />
+        </LinearGradient>
+      </Pressable>
 
       {draft.video ? (
         <Box
@@ -2411,7 +2188,6 @@ export function VideoScreen({ go }: { go: Go }) {
         </Box>
       ) : null}
       </>
-      )}
     </SurveyScaffold>
   );
 }

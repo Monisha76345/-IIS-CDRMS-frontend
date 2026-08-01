@@ -10,12 +10,11 @@ import { VStack } from '@/components/ui/vstack';
 import { FrostedGlass } from '@/src/cdrms/components/GlassSurface';
 import {
   cardinalFromHeading,
-  cardinalNameFromHeading,
   formatLiveReading,
   useCompass,
 } from '@/src/cdrms/hooks/useCompass';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
-import { CARDINAL_ACCENT, COLORS, FONTS, GLASS, SPACE, TYPE, cardinalAccentColor } from '@/src/cdrms/theme';
+import { CARDINAL_ACCENT, COLORS, FONTS, GLASS, SPACE, cardinalAccentColor } from '@/src/cdrms/theme';
 
 const SIZE = 132;
 const CENTER = SIZE / 2;
@@ -41,7 +40,6 @@ export function LiveCompassDial() {
 
   const heading = Math.round(compass.heading);
   const face = cardinalFromHeading(compass.heading);
-  const faceName = cardinalNameFromHeading(compass.heading);
   const faceColor = cardinalAccentColor(face);
   const roseRotation = compass.available ? -heading : 0;
 
@@ -61,14 +59,6 @@ export function LiveCompassDial() {
     lastSaved.current = reading;
     setCompassReading(reading);
   }, [compass.available, compass.heading, setCompassReading]);
-
-  const statusLabel = !compass.available
-    ? compass.status === 'permission'
-      ? 'Allow Location for compass'
-      : compass.status === 'calibrating'
-        ? 'Calibrating… hold phone flat'
-        : 'Use a real device · sensor required'
-    : `Facing ${faceName}`;
 
   return (
     <FrostedGlass
@@ -214,81 +204,33 @@ export function LiveCompassDial() {
           </Animated.View>
         </Box>
 
-        <VStack className="items-center" style={{ gap: 2 }}>
-          <HStack style={{ alignItems: 'baseline', gap: 6 }}>
-            <Text
-              style={{
-                fontFamily: FONTS.bold,
-                fontSize: 22,
-                lineHeight: 26,
-                color: COLORS.ink,
-              }}
-            >
-              {compass.available ? `${heading}°` : '—'}
-            </Text>
-            {compass.available ? (
-              <Box
-                style={{
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  borderRadius: 999,
-                  backgroundColor: GLASS.tintBlue,
-                  borderWidth: 1,
-                  borderColor: '#BFDBFE',
-                }}
-              >
-                <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: faceColor }}>
-                  {face}
-                </Text>
-              </Box>
-            ) : null}
-          </HStack>
-          <Text style={{ ...TYPE.label, color: COLORS.slate, textAlign: 'center', fontSize: 10 }}>
-            {statusLabel}
+        <HStack style={{ alignItems: 'baseline', gap: 6, justifyContent: 'center' }}>
+          <Text
+            style={{
+              fontFamily: FONTS.bold,
+              fontSize: 22,
+              lineHeight: 26,
+              color: COLORS.ink,
+            }}
+          >
+            {compass.available ? `${heading}°` : '—'}
           </Text>
           {compass.available ? (
-            <Text
+            <Box
               style={{
-                fontFamily: FONTS.medium,
-                fontSize: 10,
-                color: COLORS.slate,
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+                borderRadius: 999,
+                backgroundColor: GLASS.tintBlue,
+                borderWidth: 1,
+                borderColor: '#BFDBFE',
               }}
             >
-              Live sensor · hold phone flat · turn slowly
-            </Text>
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: faceColor }}>
+                {face}
+              </Text>
+            </Box>
           ) : null}
-        </VStack>
-
-        <HStack style={{ gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
-          {(['N', 'S', 'E', 'W'] as const).map((k) => {
-            const active = compass.available && face === k;
-            const color = CARDINAL_ACCENT[k];
-            return (
-              <Box
-                key={k}
-                style={{
-                  paddingHorizontal: 8,
-                  paddingVertical: 4,
-                  borderRadius: 8,
-                  backgroundColor: active ? GLASS.tintBlue : GLASS.surface,
-                  borderWidth: 1,
-                  borderColor: active ? color : GLASS.borderSoft,
-                  borderTopWidth: 2,
-                  borderTopColor: color,
-                }}
-              >
-                <Text
-                  style={{
-                    fontFamily: FONTS.bold,
-                    fontSize: 10,
-                    color: active ? color : COLORS.slate,
-                  }}
-                >
-                  {k}
-                </Text>
-              </Box>
-            );
-          })}
         </HStack>
       </VStack>
     </FrostedGlass>

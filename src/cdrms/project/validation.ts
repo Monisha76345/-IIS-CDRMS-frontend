@@ -187,7 +187,7 @@ export function validateDraft(draft: ProjectDraft): ValidationItem[] {
     detail: draft.video
       ? 'Inspection video captured'
       : 'Video is mandatory — record or attach site inspection video',
-    fixScreen: 'video',
+    fixScreen: isBackend ? 'photos' : 'video',
   });
 
   return items;

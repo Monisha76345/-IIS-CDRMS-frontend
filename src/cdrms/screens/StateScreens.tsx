@@ -54,7 +54,7 @@ import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { formatCoords, type Cardinal } from '@/src/cdrms/project/types';
 import { validateDraft, validationSummary } from '@/src/cdrms/project/validation';
 import { setSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
-import { COLORS, FONTS, GLASS, GRADIENT_SUBTLE, SPACE } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GLASS, GRADIENT_PRIMARY, GRADIENT_SUBTLE, SPACE, gradientStops } from '@/src/cdrms/theme';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go } from '@/src/cdrms/types';
 
@@ -128,12 +128,13 @@ export function ValidateScreen({ go }: { go: Go }) {
   const { draft } = useProject();
   const items = useMemo(() => validateDraft(draft), [draft]);
   const summary = useMemo(() => validationSummary(items), [items]);
+  const isBackendTask = Boolean(draft.backendApplicationId);
 
   return (
     <SurveyScaffold
       title={TERMS.workflow.validate}
       subtitle={TERMS.workflow.validateSubtitle}
-      onBack={() => go('video')}
+      onBack={() => go(isBackendTask ? 'photos' : 'video')}
       showSteps={false}
       badge={summary.allOk ? 'Ready' : `${summary.failed.length} to fix`}
       footer={
@@ -249,32 +250,29 @@ function reviewStepBadge(stepLabel: string, total = 4) {
 function ReviewDetailRow({
   label,
   value,
-  variant = 'default',
   isLast = false,
 }: {
   label: string;
   value: string;
-  variant?: 'default' | 'premium';
   isLast?: boolean;
 }) {
   const display = value.trim() || '—';
-  const isPremium = variant === 'premium';
 
   return (
     <HStack
       className="items-start"
       style={{
         gap: 10,
-        paddingVertical: isPremium ? 8 : 10,
-        borderBottomWidth: isPremium || isLast ? 0 : 1,
-        borderBottomColor: isPremium ? GLASS.divider : '#F1F5F9',
+        paddingVertical: 10,
+        borderBottomWidth: isLast ? 0 : 1,
+        borderBottomColor: '#F1F5F9',
       }}
     >
       <Text
         style={{
-          width: isPremium ? 108 : 118,
+          width: 118,
           fontFamily: FONTS.bold,
-          fontSize: isPremium ? 11 : 12,
+          fontSize: 12,
           color: COLORS.ink,
           letterSpacing: 0.2,
         }}
@@ -285,15 +283,23 @@ function ReviewDetailRow({
         style={{
           flex: 1,
           fontFamily: FONTS.regular,
-          fontSize: isPremium ? 12 : 13,
+          fontSize: 13,
           color: COLORS.ink,
-          lineHeight: isPremium ? 17 : 18,
+          lineHeight: 18,
         }}
       >
         {display}
       </Text>
     </HStack>
   );
+}
+
+function reviewRowFullWidth(label: string, value: string) {
+  const text = value.trim();
+  if (!text || text === '—') return false;
+  if (label === 'Site details' || label === 'Engineer comments') return true;
+  if (label === 'Area / block' || label === 'Village') return text.length > 28;
+  return text.length > 42;
 }
 
 function filterReviewRows(rows: { label: string; value: string }[]) {
@@ -324,36 +330,75 @@ function ReviewSectionCard({
   if (!rows.length && !footer) return null;
 
   const body = (
-    <VStack style={{ gap: SPACE[2] }}>
+    <VStack style={{ gap: variant === 'premium' ? SPACE[1] : SPACE[2] }}>
       {rows.length ? (
-        <Box
-          style={
-            variant === 'premium'
-              ? {
-                  borderRadius: 12,
-                  backgroundColor: GLASS.surfaceSolid,
-                  borderWidth: 1,
-                  borderColor: GLASS.border,
-                  paddingHorizontal: SPACE[2],
-                  shadowColor: '#0F172A',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.06,
-                  shadowRadius: 8,
-                  elevation: 2,
-                }
-              : undefined
-          }
-        >
-          {rows.map((row, i) => (
-            <ReviewDetailRow
-              key={`${stepLabel}-${row.label}`}
-              label={row.label}
-              value={row.value}
-              variant={variant}
-              isLast={i === rows.length - 1}
-            />
-          ))}
-        </Box>
+        variant === 'premium' ? (
+          <Box
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              justifyContent: 'space-between',
+              rowGap: SPACE[2],
+              borderRadius: 12,
+              backgroundColor: GLASS.surfaceSolid,
+              borderWidth: 1,
+              borderColor: GLASS.border,
+              paddingHorizontal: SPACE[2],
+              paddingVertical: SPACE[2],
+              shadowColor: '#0F172A',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.06,
+              shadowRadius: 8,
+              elevation: 2,
+            }}
+          >
+            {rows.map((row) => (
+              <Box
+                key={`${stepLabel}-${row.label}`}
+                style={{
+                  width: reviewRowFullWidth(row.label, row.value) ? '100%' : '48%',
+                  minWidth: 0,
+                  paddingVertical: 2,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: FONTS.medium,
+                    fontSize: 10,
+                    color: COLORS.slate,
+                    letterSpacing: 0.4,
+                    textTransform: 'uppercase',
+                  }}
+                  numberOfLines={1}
+                >
+                  {row.label}
+                </Text>
+                <Text
+                  style={{
+                    marginTop: 2,
+                    fontFamily: FONTS.semibold,
+                    fontSize: 12,
+                    color: COLORS.ink,
+                    lineHeight: 16,
+                  }}
+                >
+                  {row.value.trim() || '—'}
+                </Text>
+              </Box>
+            ))}
+          </Box>
+        ) : (
+          <Box>
+            {rows.map((row, i) => (
+              <ReviewDetailRow
+                key={`${stepLabel}-${row.label}`}
+                label={row.label}
+                value={row.value}
+                isLast={i === rows.length - 1}
+              />
+            ))}
+          </Box>
+        )
       ) : null}
       {footer}
     </VStack>
@@ -665,26 +710,26 @@ export function ReviewScreen({ go }: { go: Go }) {
             onPress={() => setConfirm(true)}
             className="w-full overflow-hidden active:opacity-90"
             style={{
-              height: 54,
-              borderRadius: 16,
-              opacity: canSubmit ? 1 : 0.48,
-              shadowColor: '#1D4ED8',
-              shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: canSubmit ? 0.28 : 0,
-              shadowRadius: 14,
-              elevation: canSubmit ? 5 : 0,
+              height: 44,
+              borderRadius: 12,
+              opacity: canSubmit ? 1 : 0.45,
+              shadowColor: COLORS.primary,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: canSubmit ? 0.2 : 0,
+              shadowRadius: 8,
+              elevation: canSubmit ? 3 : 0,
             }}
           >
             <LinearGradient
-              colors={['#1E3A8A', '#2563EB', '#3B82F6']}
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 1, y: 0.5 }}
+              colors={gradientStops(GRADIENT_PRIMARY)}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={{
                 flex: 1,
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                paddingHorizontal: 18,
+                paddingHorizontal: 14,
               }}
             >
               <HStack className="items-center gap-2.5">
@@ -705,10 +750,10 @@ export function ReviewScreen({ go }: { go: Go }) {
                 <Text
                   style={{
                     fontFamily: FONTS.bold,
-                    fontSize: 15,
-                    color: '#FFFFFF',
-                    letterSpacing: 0.2,
+                    fontSize: 14,
+                    color: COLORS.white,
                   }}
+                  numberOfLines={1}
                 >
                   {submitting
                     ? 'Submitting…'
@@ -717,7 +762,7 @@ export function ReviewScreen({ go }: { go: Go }) {
                       : 'Submit Report'}
                 </Text>
               </HStack>
-              <ArrowRight size={18} color="#fff" strokeWidth={2.5} />
+              <ArrowRight size={16} color={COLORS.white} strokeWidth={2.5} />
             </LinearGradient>
           </Pressable>
           <HStack className="items-center justify-center gap-1.5">
