@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Compass,
-  LogOut,
   type LucideIcon,
 } from 'lucide-react-native';
 import React, { type ReactNode, useEffect, useRef, useState } from 'react';
@@ -24,7 +23,6 @@ import { Pressable } from '@/components/ui/pressable';
 import { ScrollView } from '@/components/ui/scroll-view';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import { useAuth } from '@/src/auth/AuthContext';
 import { ScreenShell } from '@/src/cdrms/components/primitives';
 import { ENGINEER_SURVEY_STEPS, SURVEY_STEPS } from '@/src/cdrms/terminology';
 import { COLORS, FONTS, GRADIENT_HEADER, GRADIENT_PRIMARY, SPACE, TYPE } from '@/src/cdrms/theme';
@@ -163,7 +161,6 @@ export function SurveyHero({
   showSteps = true,
   total = 5,
   watermark,
-  go,
 }: {
   title: string;
   subtitle?: string;
@@ -176,7 +173,6 @@ export function SurveyHero({
   go?: Go;
 }) {
   const insets = useSafeAreaInsets();
-  const { logout } = useAuth();
   const steps = stepsForTotal(total);
   const stepLine =
     step != null
@@ -270,29 +266,6 @@ export function SurveyHero({
               </Text>
             ) : null}
           </VStack>
-
-          {go ? (
-            <Pressable
-              onPress={async () => {
-                await logout();
-                go('login');
-              }}
-              hitSlop={8}
-              accessibilityLabel="Logout"
-              className="items-center justify-center active:opacity-80"
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 12,
-                backgroundColor: 'rgba(255,255,255,0.14)',
-                borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.26)',
-                marginTop: 2,
-              }}
-            >
-              <LogOut size={16} color="#FFFFFF" strokeWidth={2.2} />
-            </Pressable>
-          ) : null}
         </HStack>
       </LinearGradient>
 
@@ -318,8 +291,6 @@ function CompactSurveyHeader({
   onBack,
   step,
   total = 5,
-  badge,
-  go,
 }: {
   title: string;
   onBack: () => void;
@@ -329,7 +300,6 @@ function CompactSurveyHeader({
   go?: Go;
 }) {
   const insets = useSafeAreaInsets();
-  const { logout } = useAuth();
   const steps = stepsForTotal(total);
 
   return (
@@ -382,28 +352,6 @@ function CompactSurveyHeader({
               </Text>
             ) : null}
           </VStack>
-          {go ? (
-            <Pressable
-              onPress={async () => {
-                await logout();
-                go('login');
-              }}
-              accessibilityLabel="Logout"
-              className="active:opacity-85"
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 999,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'rgba(255,255,255,0.18)',
-                borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.35)',
-              }}
-            >
-              <LogOut size={14} color="#FFFFFF" />
-            </Pressable>
-          ) : null}
         </HStack>
       </LinearGradient>
     </Box>
@@ -505,7 +453,6 @@ export function SurveyScaffold({
   watermark,
   children,
   footer,
-  go,
 }: {
   title: string;
   subtitle: string;
@@ -579,7 +526,7 @@ export function SurveyScaffold({
             opacity: compact ? 1 : 0,
           }}
         >
-          <CompactSurveyHeader title={title} onBack={onBack} step={step} total={total} badge={badge} go={go} />
+          <CompactSurveyHeader title={title} onBack={onBack} step={step} total={total} />
         </Box>
 
         <ScrollView
@@ -607,7 +554,6 @@ export function SurveyScaffold({
                 badge={badge ?? 'Auto-saved'}
                 showSteps={showSteps}
                 watermark={watermark}
-                go={go}
               />
 
               <Box style={{ gap: SPACE[4], paddingTop: SPACE[4], backgroundColor: COLORS.soft }}>

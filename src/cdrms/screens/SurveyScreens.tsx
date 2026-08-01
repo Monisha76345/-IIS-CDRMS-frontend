@@ -595,7 +595,7 @@ export function BandiScreen({ go }: { go: Go }) {
             <HStack className="items-center justify-between">
               <VStack className="flex-1 min-w-0 pr-2">
                 <Text className="text-[15px] font-extrabold" style={{ color: '#0F172A' }}>
-                  Schedules (site around)
+                  Site Schedules
                 </Text>
                 <Text className="text-[11px] mt-0.5" style={{ color: '#94A3B8' }}>
                   Prefills from ZC — tap Edit to update
@@ -693,7 +693,7 @@ export function BandiScreen({ go }: { go: Go }) {
 
       {isBackendTask ? (
         <SchedulesEditorCard
-          title="Schedules (site around)"
+          title="Site Schedules"
           subtitle="4 sides · Road checkbox · engineer note · upload image"
         />
       ) : (

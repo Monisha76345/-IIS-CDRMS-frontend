@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Linking } from 'react-native';
 import {
   Building2,
@@ -6,7 +6,6 @@ import {
   Compass,
   Eye,
   Film,
-  History,
   MapPin,
   Ruler,
   type LucideIcon,
@@ -28,30 +27,6 @@ import { ImagePreviewModal } from '@/src/cdrms/components/ImagePreviewModal';
 import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
 import { resolveBoundaryDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { COLORS, FONTS } from '@/src/cdrms/theme';
-
-function addressLine(app: MobileApplication) {
-  return [app.addressArea, app.addressBlock, app.addressPincode].filter(Boolean).join(', ');
-}
-
-function engineerLabel(app: MobileApplication) {
-  return [app.assignedEngineerName || 'Engineer', app.assignedEngineerLoginId || null]
-    .filter(Boolean)
-    .join(' · ');
-}
-
-function formatHistoryDate(value?: string | null) {
-  if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const yyyy = d.getFullYear();
-  let hours = d.getHours();
-  const minutes = String(d.getMinutes()).padStart(2, '0');
-  const ampm = hours >= 12 ? 'pm' : 'am';
-  hours = hours % 12 || 12;
-  return `${dd}/${mm}/${yyyy}, ${hours}:${minutes} ${ampm}`;
-}
 
 function SectionCard({
   title,
@@ -229,22 +204,156 @@ function ApplicationHistorySection({ app }: { app: MobileApplication }) {
   return null;
 }
 
-function ZcDetailsBlock({ app, siteType, address }: { app: MobileApplication; siteType: string; address: string }) {
+function ApplicationSummaryCard({ app }: { app: MobileApplication }) {
+  return (
+    <Box
+      style={{
+        backgroundColor: COLORS.white,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: '#EEF2F7',
+        overflow: 'hidden',
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.07,
+        shadowRadius: 8,
+        elevation: 2,
+      }}
+    >
+      <HStack>
+        <Box
+          style={{
+            width: 4,
+            backgroundColor: '#2563EB',
+            alignSelf: 'stretch',
+          }}
+        />
+        <VStack className="flex-1" style={{ padding: 12, gap: 6 }}>
+          <HStack className="items-center" style={{ gap: 6, flexWrap: 'wrap' }}>
+            <Box
+              style={{
+                backgroundColor: '#EFF6FF',
+                borderRadius: 8,
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+                borderWidth: 1,
+                borderColor: '#E2E8F0',
+              }}
+            >
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: COLORS.primary }}>
+                Zone {app.zoneCode}
+              </Text>
+            </Box>
+            <Box style={{ marginLeft: 'auto' }}>
+              <ApplicationStatusBadge status={app.status} size="md" />
+            </Box>
+          </HStack>
+          <Text style={{ fontFamily: FONTS.bold, fontSize: 17, color: COLORS.ink }}>
+            {app.applicationNumber}
+          </Text>
+          <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}>
+            Engineer: {app.assignedEngineerName || '—'}
+          </Text>
+        </VStack>
+      </HStack>
+    </Box>
+  );
+}
+
+function InfoPairRow({
+  leftLabel,
+  leftValue,
+  rightLabel,
+  rightValue,
+}: {
+  leftLabel: string;
+  leftValue: string;
+  rightLabel: string;
+  rightValue: string;
+}) {
+  return (
+    <HStack
+      style={{
+        paddingVertical: 9,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
+        gap: 12,
+      }}
+    >
+      <Box style={{ flex: 1 }}>
+        <Text
+          style={{
+            fontFamily: FONTS.medium,
+            fontSize: 10,
+            color: '#94A3B8',
+            textTransform: 'uppercase',
+            letterSpacing: 0.4,
+          }}
+        >
+          {leftLabel}
+        </Text>
+        <Text
+          style={{
+            fontFamily: FONTS.semibold,
+            fontSize: 13,
+            color: COLORS.ink,
+            marginTop: 3,
+            lineHeight: 18,
+          }}
+        >
+          {leftValue || '—'}
+        </Text>
+      </Box>
+      <Box style={{ flex: 1 }}>
+        <Text
+          style={{
+            fontFamily: FONTS.medium,
+            fontSize: 10,
+            color: '#94A3B8',
+            textTransform: 'uppercase',
+            letterSpacing: 0.4,
+          }}
+        >
+          {rightLabel}
+        </Text>
+        <Text
+          style={{
+            fontFamily: FONTS.semibold,
+            fontSize: 13,
+            color: COLORS.ink,
+            marginTop: 3,
+            lineHeight: 18,
+          }}
+        >
+          {rightValue || '—'}
+        </Text>
+      </Box>
+    </HStack>
+  );
+}
+
+function ZcDetailsBlock({ app, siteType }: { app: MobileApplication; siteType: string }) {
   return (
     <SectionCard title="ZC application details" icon={Building2} accent="#2563EB">
-      <InfoRow label="Application no" value={app.applicationNumber} />
-      <InfoRow label="Status" value={<ApplicationStatusBadge status={app.status} size="md" />} />
-      <InfoRow label="Site no" value={app.siteNo} />
-      <InfoRow label="Site type" value={siteType} />
-      <InfoRow label="Site dimension" value={app.siteDimension || '—'} />
-      <InfoRow label="Zone" value={`${app.zoneCode}${app.zoneId ? ` (#${app.zoneId})` : ''}`} />
-      <InfoRow label="Area" value={app.addressArea} />
-      <InfoRow label="Block" value={app.addressBlock} />
-      <InfoRow label="Pincode" value={app.addressPincode} />
+      <InfoPairRow
+        leftLabel="Site no"
+        leftValue={app.siteNo}
+        rightLabel="Site type"
+        rightValue={siteType}
+      />
+      <InfoPairRow
+        leftLabel="Site dimension"
+        leftValue={app.siteDimension || '—'}
+        rightLabel="Pincode"
+        rightValue={app.addressPincode || '—'}
+      />
+      <InfoPairRow
+        leftLabel="Area"
+        leftValue={app.addressArea || '—'}
+        rightLabel="Block"
+        rightValue={app.addressBlock || '—'}
+      />
       <InfoRow label="Created by ZC" value={app.createdByZcName || '—'} />
-      <InfoRow label="Assigned engineer" value={engineerLabel(app)} />
-      <InfoRow label="Assigned CAO" value={app.assignedCaoName || '—'} />
-      <InfoRow label="Address" value={address || '—'} />
       <InfoRow label="ZC comments" value={app.siteDimensionComment || '—'} />
     </SectionCard>
   );
@@ -252,7 +361,7 @@ function ZcDetailsBlock({ app, siteType, address }: { app: MobileApplication; si
 
 function SchedulesBlock({ app }: { app: MobileApplication }) {
   return (
-    <SectionCard title="Schedules (site around)" icon={Compass} accent="#0EA5E9">
+    <SectionCard title="Site Schedules" icon={Compass} accent="#0EA5E9">
       <InfoRow label="Schedule N" value={app.scheduleNorth || '—'} />
       <InfoRow label="Schedule S" value={app.scheduleSouth || '—'} />
       <InfoRow label="Schedule W" value={app.scheduleWest || '—'} />
@@ -274,7 +383,6 @@ export function ApplicationRecordDetails({
   const [preview, setPreview] = useState<{ uri: string; title: string } | null>(null);
 
   const siteType = app.siteDimensionType || '—';
-  const address = addressLine(app);
   const hasGps = Boolean(app.latitude && app.longitude);
   const boundary = resolveBoundaryDims(app);
 
@@ -327,7 +435,8 @@ export function ApplicationRecordDetails({
   if (!showEmptyEngineer && !hasEngineerCapture) {
     return (
       <VStack style={{ gap: 12 }}>
-        <ZcDetailsBlock app={app} siteType={siteType} address={address} />
+        <ApplicationSummaryCard app={app} />
+        <ZcDetailsBlock app={app} siteType={siteType} />
         <SchedulesBlock app={app} />
         {boundariesBlock}
         <ApplicationHistorySection app={app} />
@@ -350,7 +459,8 @@ export function ApplicationRecordDetails({
 
   return (
     <VStack style={{ gap: 12 }}>
-      <ZcDetailsBlock app={app} siteType={siteType} address={address} />
+      <ApplicationSummaryCard app={app} />
+      <ZcDetailsBlock app={app} siteType={siteType} />
       <SchedulesBlock app={app} />
       {boundariesBlock}
 
@@ -360,10 +470,12 @@ export function ApplicationRecordDetails({
         </SectionCard>
       ) : null}
 
-      <SectionCard title="Engineer — Compass & GPS" icon={Compass} accent="#059669">
+      <SectionCard title="Compass & GPS" icon={Compass} accent="#059669">
         <InfoRow label="Compass" value={app.compass || '—'} />
         <InfoRow label="Occupancy" value={app.occupancy || '—'} />
-        <InfoRow label="Occupancy reason" value={app.occupancyReason || '—'} />
+        {app.occupancy === 'Occupied' ? (
+          <InfoRow label="Occupancy reason" value={app.occupancyReason || '—'} />
+        ) : null}
         <InfoRow
           label="GPS location"
           value={hasGps ? `${app.latitude}, ${app.longitude}` : '—'}
@@ -394,7 +506,7 @@ export function ApplicationRecordDetails({
       </SectionCard>
 
       {hasGps && gpsFix ? (
-        <SectionCard title="Engineer — Site map" icon={MapPin} accent="#0284C7">
+        <SectionCard title="Site Map" icon={MapPin} accent="#0284C7">
           <Box style={{ borderRadius: 14, overflow: 'hidden', marginTop: 2 }}>
             <GpsSiteCard
               height={220}
@@ -411,7 +523,7 @@ export function ApplicationRecordDetails({
       ) : null}
 
       {boundary.source === 'engineer' ? (
-        <SectionCard title="Engineer — Dimensions" icon={Ruler} accent="#D97706">
+        <SectionCard title="Dimensions" icon={Ruler} accent="#D97706">
           <HStack className="flex-wrap" style={{ gap: 8, marginTop: 2 }}>
             {(
               [
@@ -464,7 +576,7 @@ export function ApplicationRecordDetails({
       ) : null}
 
       {hasMedia ? (
-        <SectionCard title="Engineer — Photos" icon={Camera} accent="#2563EB">
+        <SectionCard title="Photos" icon={Camera} accent="#2563EB">
           <VStack style={{ gap: 14 }}>
             {app.selfieUrl ? (
               <Box>
@@ -561,7 +673,7 @@ export function ApplicationRecordDetails({
       ) : null}
 
       {app.videoUrl ? (
-        <SectionCard title="Engineer — Site video" icon={Film} accent="#1E293B">
+        <SectionCard title="Site Video" icon={Film} accent="#1E293B">
           <Box
             style={{
               marginTop: 2,
@@ -577,7 +689,7 @@ export function ApplicationRecordDetails({
       ) : null}
 
       {app.engineerComments ? (
-        <SectionCard title="Engineer — Comments" icon={Building2} accent="#64748B">
+        <SectionCard title="Comments" icon={Building2} accent="#64748B">
           <InfoRow label="Comments" value={app.engineerComments} />
         </SectionCard>
       ) : null}

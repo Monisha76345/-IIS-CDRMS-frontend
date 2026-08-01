@@ -2,10 +2,8 @@ import {
   ClipboardList,
   FilePlus2,
   Hourglass,
-  CheckCircle2,
-  RotateCcw,
+  Layers,
   Send,
-  XCircle,
   Search,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -37,7 +35,6 @@ import {
   fetchMyZoneMeta,
   fetchSiteDimensions,
   fetchZcApplications,
-  formatApplicationDate,
   normalizeApplicationStatus,
   type CreateApplicationInput,
   type MobileApplication,
@@ -82,14 +79,6 @@ function villageLine(app: MobileApplication) {
   return `${village} (${taluka}, ${district})`;
 }
 
-function zcAppDetailLines(app: MobileApplication) {
-  return [
-    villageLine(app),
-    `Sy. ${app.siteNo}`,
-    `Submitted ${formatApplicationDate(app.createdAt)}`,
-  ];
-}
-
 export function ZcHomeScreen({ go }: { go: Go }) {
   const { accessToken, user } = useAuth();
   const [apps, setApps] = useState<MobileApplication[]>([]);
@@ -126,6 +115,14 @@ export function ZcHomeScreen({ go }: { go: Go }) {
 
   const countItems: StatusCountItem[] = [
     {
+      key: 'all',
+      label: 'Total',
+      count: counts.total,
+      icon: Layers,
+      tint: '#2563EB',
+      soft: '#DBEAFE',
+    },
+    {
       key: 'assigned',
       label: 'Assigned',
       count: counts.assigned,
@@ -138,16 +135,16 @@ export function ZcHomeScreen({ go }: { go: Go }) {
       label: 'In progress',
       count: counts.in_progress,
       icon: Hourglass,
-      tint: '#7C3AED',
-      soft: '#EDE9FE',
+      tint: '#2563EB',
+      soft: '#DBEAFE',
     },
     {
       key: 'submitted',
       label: 'Submitted',
       count: counts.submitted,
       icon: Send,
-      tint: '#0EA5E9',
-      soft: '#E0F2FE',
+      tint: '#2563EB',
+      soft: '#DBEAFE',
     },
   ];
 
@@ -196,19 +193,14 @@ export function ZcHomeScreen({ go }: { go: Go }) {
 
         <Box className="px-4 mt-4">
           <HStack className="items-center justify-between mb-3">
-            <VStack className="flex-1 min-w-0">
-              <Text className="text-[16px] font-bold" style={{ color: '#0F172A' }}>
-                Application overview
-              </Text>
-              <Text className="text-[12px] mt-0.5" style={{ color: '#94A3B8' }}>
-                {counts.total} total · tap a status to filter
-              </Text>
-            </VStack>
+            <Text className="text-[16px] font-bold flex-1" style={{ color: '#0F172A' }}>
+              Application overview
+            </Text>
             <Pressable
               onPress={() => go('zc_create')}
               className="flex-row items-center gap-1.5 active:opacity-90"
               style={{
-                backgroundColor: '#1e3a5f',
+                backgroundColor: COLORS.primary,
                 borderRadius: 12,
                 paddingHorizontal: 12,
                 paddingVertical: 10,
@@ -221,9 +213,9 @@ export function ZcHomeScreen({ go }: { go: Go }) {
 
           <StatusCountGrid
             items={countItems}
-            activeKey={tab === 'all' ? '' : tab}
-            columns={3}
-            onSelect={(key) => setTab((prev) => (prev === key ? 'all' : (key as ZcTab)))}
+            activeKey={tab}
+            columns={2}
+            onSelect={(key) => setTab(key as ZcTab)}
           />
 
           <Box
@@ -313,14 +305,9 @@ export function ZcHomeScreen({ go }: { go: Go }) {
               <OfficeAppRow
                 key={app.id}
                 title={app.applicationNumber}
-                subtitle={`Site #${app.siteNo} · Zone ${app.zoneCode}`}
-                detailLines={zcAppDetailLines(app)}
-                meta={app.assignedEngineerName || 'Assigned Engineer'}
-                metaSub={
-                  app.assignedEngineerLoginId ||
-                  app.assignedEngineerUserId ||
-                  undefined
-                }
+                siteNo={app.siteNo}
+                zoneCode={app.zoneCode}
+                engineerName={app.assignedEngineerName}
                 status={app.status}
                 onPress={() => openDetail(app.id)}
               />
@@ -571,7 +558,14 @@ export function ZcCreateScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-[#F3F4F6]">
-      <AppHeader title="Create application" onBack={() => go('zc_home')} gradient={false} go={go} />
+      <AppHeader
+        title="Create application"
+        onBack={() => go('zc_home')}
+        gradient={false}
+        go={go}
+        showNotifications={false}
+        showLogout={false}
+      />
       {/*
         iOS: light padding avoidance.
         Android: do NOT use behavior="height" — it shrinks the whole page upward.
@@ -934,7 +928,14 @@ export function ZcDetailScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-[#F3F4F6]">
-      <AppHeader title="View Application" onBack={() => go('zc_home')} gradient={false} go={go} />
+      <AppHeader
+        title="View Application"
+        onBack={() => go('zc_home')}
+        gradient={false}
+        go={go}
+        showNotifications={false}
+        showLogout={false}
+      />
       <ScrollView
         contentContainerStyle={{ padding: 16, paddingBottom: 80 }}
         showsVerticalScrollIndicator

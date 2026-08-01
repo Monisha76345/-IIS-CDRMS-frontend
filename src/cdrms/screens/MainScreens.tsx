@@ -51,6 +51,7 @@ import {
   BottomNav,
   GradientHeader,
   IconBox,
+  ProfileMenu,
   ScreenShell,
   StatusChip,
   ListLoader,
@@ -291,24 +292,19 @@ export function Dashboard({ go }: { go: Go }) {
                 </VStack>
               </HStack>
               <HStack className="items-center gap-2">
-              <Pressable
-                onPress={async () => {
-                  await logout();
-                  go('login');
+              <ProfileMenu
+                gradient
+                userName={displayName(user)}
+                roleName={user?.roleName}
+                loginId={user?.loginId}
+                photoUrl={user?.profilePhoto}
+                onLogout={() => {
+                  void (async () => {
+                    await logout();
+                    go('login');
+                  })();
                 }}
-                className="flex-row items-center gap-1 active:opacity-85"
-                style={{
-                  height: 36,
-                  paddingHorizontal: 10,
-                  borderRadius: 999,
-                  backgroundColor: 'rgba(255,255,255,0.18)',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255,255,255,0.35)',
-                }}
-              >
-                <LogOut size={14} color={COLORS.white} />
-                <Text className="text-[11px] font-bold text-white">Logout</Text>
-              </Pressable>
+              />
               </HStack>
             </HStack>
 

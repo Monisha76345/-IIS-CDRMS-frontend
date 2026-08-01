@@ -245,7 +245,7 @@ function zcFormTable(app: MobileApplication, engineer: string, address: string) 
       ${formRowPair(['ZC comments', fmt(app.siteDimensionComment)])}
     ${cardClose()}
 
-    ${cardOpen('Schedules (site around)')}
+    ${cardOpen('Site Schedules')}
       ${formRowPair(['Schedule N', fmt(app.scheduleNorth)], ['Schedule S', fmt(app.scheduleSouth)])}
       ${formRowPair(['Schedule W', fmt(app.scheduleWest)], ['Schedule E', fmt(app.scheduleEast)])}
     ${cardClose()}
@@ -278,7 +278,7 @@ function engineerBlock(app: MobileApplication) {
       ${formRowPair(['Engineer comments', fmt(app.engineerComments)])}
     ${cardClose()}
 
-    ${cardOpen('Engineer — dimensions')}
+    ${cardOpen('Dimensions')}
       ${formRowPair(['Dim North', fmt(app.dimNorth)], ['Dim South', fmt(app.dimSouth)])}
       ${formRowPair(['Dim East', fmt(app.dimEast)], ['Dim West', fmt(app.dimWest)])}
       ${formRowPair(['Total site area', fmt(app.totalSiteArea)])}
@@ -334,7 +334,7 @@ function photosTable(photos: Array<PhotoEntry & { dataUrl: string | null }>) {
   }
 
   return `
-    ${cardOpen('Engineer — media &amp; photos')}
+    ${cardOpen('Photos')}
       ${body}
     ${cardClose()}
   `;

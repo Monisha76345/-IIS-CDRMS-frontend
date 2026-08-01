@@ -85,7 +85,7 @@ export function GradientHeader({
   );
 }
 
-function ProfileMenu({
+export function ProfileMenu({
   gradient,
   userName,
   roleName,
@@ -379,7 +379,6 @@ export function AppHeader({
   const { logout, isAuthenticated, user } = useAuth();
   const role = resolveAppRole(user);
   const isEngineerOrZc = role === 'engineer' || role === 'zc';
-  const isCao = role === 'cao';
   const canLogout = Boolean(showLogout && isAuthenticated && go);
 
   const onLogout = async () => {
@@ -389,54 +388,16 @@ export function AppHeader({
 
   const userName = displayName(user);
 
-  const logoutBtn =
-    canLogout && isCao ? (
-      <ProfileMenu
-        gradient={gradient}
-        userName={userName}
-        roleName={user?.roleName}
-        loginId={user?.loginId}
-        photoUrl={user?.profilePhoto}
-        onLogout={() => void onLogout()}
-      />
-    ) : canLogout && !isCao ? (
-      <Pressable
-        onPress={() => void onLogout()}
-        accessibilityRole="button"
-        accessibilityLabel="Logout"
-        className="flex-row items-center gap-1.5 active:opacity-85"
-        style={
-          gradient
-            ? {
-                height: 36,
-                paddingHorizontal: 12,
-                borderRadius: 999,
-                backgroundColor: 'rgba(255,255,255,0.18)',
-                borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.35)',
-              }
-            : {
-                height: 36,
-                paddingHorizontal: 12,
-                borderRadius: 999,
-                backgroundColor: '#FEF2F2',
-                borderWidth: 1,
-                borderColor: '#FECACA',
-              }
-        }
-      >
-        <LogOut size={14} color={gradient ? COLORS.white : COLORS.destructive} />
-        <Text
-          style={{
-            ...TYPE.caption,
-            fontFamily: FONTS.bold,
-            color: gradient ? '#FFFFFF' : COLORS.destructive,
-          }}
-        >
-          Logout
-        </Text>
-      </Pressable>
-    ) : null;
+  const logoutBtn = canLogout ? (
+    <ProfileMenu
+      gradient={gradient}
+      userName={userName}
+      roleName={user?.roleName}
+      loginId={user?.loginId}
+      photoUrl={user?.profilePhoto}
+      onLogout={() => void onLogout()}
+    />
+  ) : null;
 
   const notifBell =
     go && showNotifications && !isEngineerOrZc ? (

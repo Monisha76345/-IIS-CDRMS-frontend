@@ -22,7 +22,7 @@ const CARDINALS: Cardinal[] = ['N', 'S', 'E', 'W'];
  * Engineer schedules — same Step 1 card alignment: black text, white shadow tiles.
  */
 export function SchedulesEditorCard({
-  title = 'Schedules (site around)',
+  title = 'Site Schedules',
   subtitle = '4 sides · Road · note · photo',
 }: {
   title?: string;

@@ -3,6 +3,7 @@ import {
   Download,
   FileText,
   Hourglass,
+  Layers,
   RefreshCw,
   Search,
   Send,
@@ -22,11 +23,9 @@ import {
   countZcBuckets,
   fetchApplication,
   fetchCaoApplications,
-  formatApplicationDate,
   normalizeApplicationStatus,
   type MobileApplication,
 } from '@/src/api/applications';
-import { ApplicationStatusBadge } from '@/src/cdrms/components/ApplicationStatusBadge';
 import {
   AppHeader,
   BottomNav,
@@ -38,7 +37,6 @@ import {
 import {
   OfficeAppRow,
   StatusCountGrid,
-  type StatusCountItem,
 } from '@/src/cdrms/components/StatusCountGrid';
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
 import { getCaoReturnScreen, getSelectedOfficeAppId, setCaoReturnScreen, setSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
@@ -66,17 +64,6 @@ const CAO_STATUS_FILTERS: { key: CaoTab; label: string }[] = [
   { key: 'in_progress', label: 'In progress' },
   { key: 'submitted', label: 'Submitted' },
 ];
-
-function caoAppDetailLines(app: MobileApplication) {
-  const village = app.addressArea || '—';
-  const taluka = app.addressBlock || '—';
-  const district = app.zoneCode || '—';
-  return [
-    `${village} (${taluka}, ${district})`,
-    `Sy. ${app.siteNo}`,
-    `Submitted ${formatApplicationDate(app.createdAt)}`,
-  ];
-}
 
 export function CaoHomeScreen({ go }: { go: Go }) {
   const { accessToken, user } = useAuth();
@@ -120,33 +107,6 @@ export function CaoHomeScreen({ go }: { go: Go }) {
 
   const counts = useMemo(() => countZcBuckets(apps), [apps]);
 
-  const countItems: StatusCountItem[] = [
-    {
-      key: 'assigned',
-      label: 'Assigned',
-      count: counts.assigned,
-      icon: ClipboardList,
-      tint: '#2563EB',
-      soft: '#DBEAFE',
-    },
-    {
-      key: 'in_progress',
-      label: 'In progress',
-      count: counts.in_progress,
-      icon: Hourglass,
-      tint: '#7C3AED',
-      soft: '#EDE9FE',
-    },
-    {
-      key: 'submitted',
-      label: 'Submitted',
-      count: counts.submitted,
-      icon: Send,
-      tint: '#0EA5E9',
-      soft: '#E0F2FE',
-    },
-  ];
-
   const filtered = useMemo(() => {
     let items = apps;
     if (tab !== 'all') {
@@ -187,18 +147,21 @@ export function CaoHomeScreen({ go }: { go: Go }) {
 
         <Box className="px-4 mt-4">
           <HStack className="items-center justify-between mb-3">
-            <VStack className="flex-1 min-w-0">
-              <Text className="text-[16px] font-bold" style={{ color: '#0F172A' }}>
-                Application overview
-              </Text>
-              <Text className="text-[12px] mt-0.5" style={{ color: '#94A3B8' }}>
-                {counts.total} total · tap a status to filter
-              </Text>
-            </VStack>
+            <Text className="text-[16px] font-bold flex-1" style={{ color: '#0F172A' }}>
+              Application overview
+            </Text>
           </HStack>
 
           <StatusCountGrid
             items={[
+              {
+                key: 'all',
+                label: 'Total',
+                count: counts.total,
+                icon: Layers,
+                tint: '#2563EB',
+                soft: '#DBEAFE',
+              },
               {
                 key: 'assigned',
                 label: 'Assigned',
@@ -212,21 +175,21 @@ export function CaoHomeScreen({ go }: { go: Go }) {
                 label: 'In progress',
                 count: counts.in_progress,
                 icon: Hourglass,
-                tint: '#7C3AED',
-                soft: '#EDE9FE',
+                tint: '#2563EB',
+                soft: '#DBEAFE',
               },
               {
                 key: 'submitted',
                 label: 'Submitted',
                 count: counts.submitted,
                 icon: Send,
-                tint: '#0EA5E9',
-                soft: '#E0F2FE',
+                tint: '#2563EB',
+                soft: '#DBEAFE',
               },
             ]}
-            activeKey={tab === 'all' ? '' : tab}
-            columns={3}
-            onSelect={(key) => setTab((prev) => (prev === key ? 'all' : (key as CaoTab)))}
+            activeKey={tab}
+            columns={2}
+            onSelect={(key) => setTab(key as CaoTab)}
           />
 
           <Box
@@ -316,14 +279,9 @@ export function CaoHomeScreen({ go }: { go: Go }) {
               <OfficeAppRow
                 key={app.id}
                 title={app.applicationNumber}
-                subtitle={`Site #${app.siteNo} · Zone ${app.zoneCode}`}
-                detailLines={caoAppDetailLines(app)}
-                meta={app.assignedEngineerName || 'Assigned Engineer'}
-                metaSub={
-                  app.assignedEngineerLoginId ||
-                  app.assignedEngineerUserId ||
-                  undefined
-                }
+                siteNo={app.siteNo}
+                zoneCode={app.zoneCode}
+                engineerName={app.assignedEngineerName}
                 status={app.status}
                 onPress={() => {
                   setSelectedOfficeAppId(app.id);
@@ -565,8 +523,9 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
             <OfficeAppRow
               key={app.id}
               title={app.applicationNumber}
-              subtitle={`Site ${app.siteNo} · Zone ${app.zoneCode}`}
-              meta={`${app.assignedEngineerName || '—'} · ${addressLine(app) || '—'}`}
+              siteNo={app.siteNo}
+              zoneCode={app.zoneCode}
+              engineerName={app.assignedEngineerName}
               status={app.status}
               onPress={() => {
                 setSelectedOfficeAppId(app.id);
@@ -636,6 +595,8 @@ export function CaoDetailScreen({ go }: { go: Go }) {
         onBack={() => go(backTarget)}
         gradient={false}
         go={go}
+        showNotifications={false}
+        showLogout={false}
       />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         {loading ? (
@@ -656,72 +617,6 @@ export function CaoDetailScreen({ go }: { go: Go }) {
           </Box>
         ) : (
           <VStack style={{ gap: 12 }}>
-            <Box
-              style={{
-                backgroundColor: COLORS.white,
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                overflow: 'hidden',
-                shadowColor: '#0F172A',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.07,
-                shadowRadius: 8,
-                elevation: 2,
-              }}
-            >
-              <HStack>
-                <Box
-                  style={{
-                    width: 4,
-                    backgroundColor: '#2563EB',
-                    alignSelf: 'stretch',
-                  }}
-                />
-                <VStack className="flex-1" style={{ padding: 12, gap: 6 }}>
-                  <HStack className="items-center" style={{ gap: 6, flexWrap: 'wrap' }}>
-                    <Box
-                      style={{
-                        backgroundColor: '#EFF6FF',
-                        borderRadius: 8,
-                        paddingHorizontal: 8,
-                        paddingVertical: 3,
-                        borderWidth: 1,
-                        borderColor: COLORS.border,
-                      }}
-                    >
-                      <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: COLORS.primary }}>
-                        Zone {app.zoneCode}
-                      </Text>
-                    </Box>
-                    <Box
-                      style={{
-                        backgroundColor: COLORS.white,
-                        borderRadius: 8,
-                        paddingHorizontal: 8,
-                        paddingVertical: 3,
-                        borderWidth: 1,
-                        borderColor: COLORS.border,
-                      }}
-                    >
-                      <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: COLORS.ink }}>
-                        Site {app.siteNo}
-                      </Text>
-                    </Box>
-                    <Box style={{ marginLeft: 'auto' }}>
-                      <ApplicationStatusBadge status={app.status} size="md" />
-                    </Box>
-                  </HStack>
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 17, color: COLORS.ink }}>
-                    {app.applicationNumber}
-                  </Text>
-                  <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}>
-                    Engineer: {app.assignedEngineerName || '—'}
-                  </Text>
-                </VStack>
-              </HStack>
-            </Box>
-
             <ApplicationRecordDetails app={app} />
 
             <Pressable

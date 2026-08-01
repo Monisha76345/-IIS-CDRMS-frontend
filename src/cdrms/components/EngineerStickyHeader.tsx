@@ -67,7 +67,7 @@ export function EngineerStickyHeader() {
         />
 
         <VStack style={{ gap: SPACE[2] }}>
-          <Text style={{ ...TYPE.label, color: COLORS.ink }}>Schedules around site</Text>
+          <Text style={{ ...TYPE.label, color: COLORS.ink }}>Site Schedules</Text>
           <HStack style={{ flexWrap: 'wrap', gap: 8 }}>
             {CARDINALS.map(({ k, label }) => (
               <Box

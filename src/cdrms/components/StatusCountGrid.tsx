@@ -107,19 +107,17 @@ export function StatusCountGrid({
 
 export function OfficeAppRow({
   title,
-  subtitle,
-  meta,
-  metaSub,
-  detailLines,
+  siteNo,
+  zoneCode,
+  engineerName,
   status,
   onPress,
   onDownload,
 }: {
   title: string;
-  subtitle: string;
-  meta?: string;
-  metaSub?: string;
-  detailLines?: string[];
+  siteNo: string;
+  zoneCode: string;
+  engineerName?: string | null;
   status: MobileApplicationStatus | string;
   onPress: () => void;
   onDownload?: () => void;
@@ -146,7 +144,7 @@ export function OfficeAppRow({
     >
       <HStack className="items-center">
         <Box style={{ width: 3.5, backgroundColor: tone.bar, alignSelf: 'stretch' }} />
-        <VStack className="flex-1 min-w-0" style={{ paddingVertical: 10, paddingHorizontal: 11, gap: 3 }}>
+        <VStack className="flex-1 min-w-0" style={{ paddingVertical: 10, paddingHorizontal: 11, gap: 6 }}>
           <HStack className="items-center justify-between" style={{ gap: 8 }}>
             <Text
               style={{
@@ -165,122 +163,83 @@ export function OfficeAppRow({
             </Box>
           </HStack>
 
-          <Text
-            style={{ fontFamily: FONTS.semibold, fontSize: 12, color: COLORS.ink }}
-            numberOfLines={1}
-          >
-            {subtitle}
-          </Text>
-
-          {detailLines?.map((line) => (
+          <HStack className="items-center" style={{ gap: 8, flexWrap: 'wrap' }}>
             <Text
-              key={line}
-              style={{ fontFamily: FONTS.medium, fontSize: 11, color: '#64748B' }}
+              style={{ fontFamily: FONTS.semibold, fontSize: 12, color: COLORS.ink }}
               numberOfLines={1}
             >
-              {line}
+              Site no: {siteNo || '—'}
             </Text>
-          ))}
-
-          {meta ? (
-            <HStack className="items-center justify-between" style={{ gap: 8, marginTop: 1 }}>
-              <VStack className="flex-1 min-w-0" style={{ gap: 1 }}>
+            <HStack className="items-center" style={{ gap: 4 }}>
+              <Text style={{ fontFamily: FONTS.semibold, fontSize: 12, color: COLORS.ink }}>
+                Zone:
+              </Text>
+              <Box
+                style={{
+                  backgroundColor: '#EFF6FF',
+                  borderRadius: 8,
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderWidth: 1,
+                  borderColor: '#BFDBFE',
+                }}
+              >
                 <Text
-                  style={{ fontFamily: FONTS.medium, fontSize: 11, color: COLORS.ink }}
+                  style={{ fontFamily: FONTS.bold, fontSize: 11, color: COLORS.primary }}
                   numberOfLines={1}
                 >
-                  {meta}
+                  {zoneCode || '—'}
                 </Text>
-                {metaSub ? (
-                  <Text
-                    style={{ fontFamily: FONTS.medium, fontSize: 10, color: '#64748B' }}
-                    numberOfLines={1}
-                  >
-                    {metaSub}
-                  </Text>
-                ) : null}
-              </VStack>
-              <HStack className="items-center" style={{ gap: 6 }}>
-                {onDownload ? (
-                  <Pressable
-                    onPress={(e) => {
-                      e?.stopPropagation?.();
-                      onDownload();
-                    }}
-                    className="items-center justify-center active:opacity-80"
-                    style={{
-                      flexDirection: 'row',
-                      gap: 4,
-                      backgroundColor: '#10B981',
-                      borderRadius: 999,
-                      paddingHorizontal: 10,
-                      paddingVertical: 5,
-                    }}
-                  >
-                    <Download size={12} color="#FFFFFF" strokeWidth={2.4} />
-                    <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#FFFFFF' }}>
-                      Download
-                    </Text>
-                  </Pressable>
-                ) : null}
-                <HStack
-                  className="items-center"
-                  style={{
-                    gap: 4,
-                    backgroundColor: '#4F8CFF',
-                    borderRadius: 999,
-                    paddingHorizontal: 10,
-                    paddingVertical: 5,
-                  }}
-                >
-                  <Eye size={12} color="#FFFFFF" strokeWidth={2.4} />
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#FFFFFF' }}>
-                    View
-                  </Text>
-                </HStack>
-              </HStack>
+              </Box>
             </HStack>
-          ) : (
-            <HStack className="items-center justify-end" style={{ gap: 6 }}>
+          </HStack>
+
+          <HStack className="items-center justify-between" style={{ gap: 8 }}>
+            <Text
+              style={{
+                flex: 1,
+                fontFamily: FONTS.medium,
+                fontSize: 12,
+                color: '#64748B',
+              }}
+              numberOfLines={1}
+            >
+              Assigned Engineer: {engineerName?.trim() || '—'}
+            </Text>
+            <HStack className="items-center" style={{ gap: 6 }}>
               {onDownload ? (
                 <Pressable
                   onPress={(e) => {
                     e?.stopPropagation?.();
                     onDownload();
                   }}
+                  accessibilityLabel="Download"
                   className="items-center justify-center active:opacity-80"
                   style={{
-                    flexDirection: 'row',
-                    gap: 4,
-                    backgroundColor: '#10B981',
+                    width: 32,
+                    height: 32,
                     borderRadius: 999,
-                    paddingHorizontal: 10,
-                    paddingVertical: 5,
+                    backgroundColor: '#10B981',
                   }}
                 >
-                  <Download size={12} color="#FFFFFF" strokeWidth={2.4} />
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#FFFFFF' }}>
-                    Download
-                  </Text>
+                  <Download size={14} color="#FFFFFF" strokeWidth={2.4} />
                 </Pressable>
               ) : null}
-              <HStack
-                className="items-center"
+              <Box
+                accessibilityLabel="View"
                 style={{
-                  gap: 4,
-                  backgroundColor: '#4F8CFF',
+                  width: 32,
+                  height: 32,
                   borderRadius: 999,
-                  paddingHorizontal: 10,
-                  paddingVertical: 5,
+                  backgroundColor: '#4F8CFF',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                <Eye size={12} color="#FFFFFF" strokeWidth={2.4} />
-                <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#FFFFFF' }}>
-                  View
-                </Text>
-              </HStack>
+                <Eye size={14} color="#FFFFFF" strokeWidth={2.4} />
+              </Box>
             </HStack>
-          )}
+          </HStack>
         </VStack>
       </HStack>
     </Pressable>
