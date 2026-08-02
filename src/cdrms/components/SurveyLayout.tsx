@@ -2,7 +2,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import {
   ArrowLeft,
   ArrowRight,
-  Compass,
   type LucideIcon,
 } from 'lucide-react-native';
 import React, { type ReactNode, useEffect, useRef, useState } from 'react';
@@ -25,20 +24,21 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { ScreenShell } from '@/src/cdrms/components/primitives';
 import { ENGINEER_SURVEY_STEPS, SURVEY_STEPS } from '@/src/cdrms/terminology';
-import { COLORS, FONTS, GRADIENT_HEADER, GRADIENT_PRIMARY, GLASS, SPACE, TYPE, gradientStops } from '@/src/cdrms/theme';
-import { GlassMeshOrbs } from '@/src/cdrms/components/GlassSurface';
+import { COLORS, DESIGN, FONTS, GRADIENT_HEADER, GRADIENT_PRIMARY, GLASS, SPACE, TYPE, gradientStops, hexAlpha } from '@/src/cdrms/theme';
+import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
 import type { Go } from '@/src/cdrms/types';
+import { useTheme } from '@/src/theme/ThemeContext';
 
 function stepsForTotal(total: number) {
   return total === 4 ? ENGINEER_SURVEY_STEPS : SURVEY_STEPS;
 }
 
-const COMPACT_SCROLL_THRESHOLD = 64;
-/** Sticky bar: top pad (8) + continue btn (44) */
+const COMPACT_SCROLL_THRESHOLD = 48;
+/** Sticky bar: top pad + continue btn */
 const STICKY_FOOTER_HEIGHT = 52;
-const FOOTER_SCROLL_BUFFER = 4;
+const FOOTER_SCROLL_BUFFER = 2;
 
-/** Icon + label step tabs — sits in the rounded white sheet under the hero. */
+/** Five distinct steppers — one per design family (Classic / Soft / Bold / Nature / Minimal). */
 export function StepRail({
   step,
   total = 5,
@@ -50,83 +50,358 @@ export function StepRail({
 }) {
   const steps = stepsForTotal(total);
   const isPremium = variant === 'premium';
+  const { themeId } = useTheme();
+  /** Prefer layout family so each of the 5 designs is unmistakable. */
+  const family = DESIGN.id;
 
-  return (
-    <Box
-      style={{
-        backgroundColor: isPremium ? GLASS.card : COLORS.white,
-        borderBottomWidth: 1,
-        borderBottomColor: isPremium ? GLASS.borderSoft : COLORS.border,
-        paddingHorizontal: SPACE[2],
-        paddingTop: SPACE[2],
-      }}
-    >
-      <HStack className="items-stretch justify-between">
-        {steps.map((item, i) => {
-          const active = i === step - 1;
-          const Icon = item.icon;
-          const done = i < step - 1;
+  // ── Minimal — text tabs + underline only (no icons) ─────────────────────
+  if (family === 'minimal') {
+    return (
+      <Box
+        key={themeId}
+        style={{
+          backgroundColor: COLORS.white,
+          borderBottomWidth: 1,
+          borderBottomColor: COLORS.border,
+          paddingHorizontal: 4,
+        }}
+      >
+        <HStack>
+          {steps.map((item, i) => {
+            const active = i === step - 1;
+            const done = i < step - 1;
+            return (
+              <Box
+                key={item.label}
+                className="flex-1 items-center"
+                style={{
+                  paddingVertical: 12,
+                  borderBottomWidth: active ? 2.5 : 0,
+                  borderBottomColor: COLORS.primary,
+                }}
+              >
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 11,
+                    letterSpacing: 0.6,
+                    textTransform: 'uppercase',
+                    color: active ? COLORS.primary : done ? COLORS.ink : COLORS.slate,
+                  }}
+                >
+                  {item.short}
+                </Text>
+              </Box>
+            );
+          })}
+        </HStack>
+      </Box>
+    );
+  }
 
-          return (
-            <Box key={item.label} className="flex-1 items-center" style={{ position: 'relative' }}>
-              <VStack className="items-center" style={{ paddingBottom: SPACE[2], gap: 4 }}>
+  // ── Bold — numbered square chips in a solid row ─────────────────────────
+  if (family === 'bold') {
+    return (
+      <Box
+        key={themeId}
+        style={{
+          backgroundColor: isPremium ? GLASS.card : COLORS.white,
+          paddingHorizontal: SPACE[3],
+          paddingVertical: SPACE[3],
+        }}
+      >
+        <HStack style={{ gap: 6 }}>
+          {steps.map((item, i) => {
+            const active = i === step - 1;
+            const done = i < step - 1;
+            return (
+              <Box
+                key={item.label}
+                className="flex-1"
+                style={{
+                  borderRadius: 12,
+                  paddingVertical: 10,
+                  alignItems: 'center',
+                  gap: 4,
+                  backgroundColor: active
+                    ? COLORS.primary
+                    : done
+                      ? hexAlpha(COLORS.success, 0.12)
+                      : hexAlpha(COLORS.primary, 0.06),
+                  borderTopWidth: 3,
+                  borderTopColor: active
+                    ? COLORS.primaryDeep
+                    : done
+                      ? COLORS.success
+                      : hexAlpha(COLORS.primary, 0.25),
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 16,
+                    color: active
+                      ? COLORS.white
+                      : done
+                        ? COLORS.success
+                        : COLORS.primaryDeep,
+                  }}
+                >
+                  {done && !active ? '✓' : i + 1}
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 10,
+                    color: active
+                      ? COLORS.white
+                      : done
+                        ? COLORS.success
+                        : COLORS.primaryDeep,
+                  }}
+                >
+                  {item.short}
+                </Text>
+              </Box>
+            );
+          })}
+        </HStack>
+      </Box>
+    );
+  }
+
+  // ── Soft — large floating circular icons only (pill tray) ───────────────
+  if (family === 'soft') {
+    return (
+      <Box
+        key={themeId}
+        style={{
+          backgroundColor: 'transparent',
+          paddingHorizontal: SPACE[3],
+          paddingTop: SPACE[2],
+          paddingBottom: SPACE[2],
+        }}
+      >
+        <HStack
+          style={{
+            backgroundColor: COLORS.white,
+            borderRadius: 999,
+            paddingVertical: 10,
+            paddingHorizontal: 10,
+            gap: 4,
+            shadowColor: GLASS.shadow,
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.1,
+            shadowRadius: 18,
+            elevation: 4,
+            alignItems: 'center',
+          }}
+        >
+          {steps.map((item, i) => {
+            const active = i === step - 1;
+            const done = i < step - 1;
+            const Icon = item.icon;
+            return (
+              <Box key={item.label} className="flex-1 items-center" style={{ gap: 5 }}>
                 <Box
                   style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 10,
+                    width: 40,
+                    height: 40,
+                    borderRadius: 999,
                     alignItems: 'center',
                     justifyContent: 'center',
                     backgroundColor: active
-                      ? 'rgba(37,99,235,0.12)'
-                      : done && isPremium
-                        ? 'rgba(22,163,74,0.1)'
-                        : isPremium
-                          ? 'rgba(255,255,255,0.4)'
-                          : 'transparent',
-                    borderWidth: isPremium || active ? 1 : 0,
-                    borderColor: active
-                      ? 'rgba(37,99,235,0.25)'
-                      : isPremium
-                        ? GLASS.borderSoft
-                        : 'transparent',
+                      ? COLORS.primary
+                      : done
+                        ? COLORS.success
+                        : hexAlpha(COLORS.primary, 0.08),
+                    shadowColor: active ? COLORS.primaryDeep : 'transparent',
+                    shadowOffset: { width: 0, height: 5 },
+                    shadowOpacity: active ? 0.35 : 0,
+                    shadowRadius: 8,
+                    elevation: active ? 5 : 0,
                   }}
                 >
                   <Icon
-                    size={16}
-                    color={
-                      active ? COLORS.primary : done && isPremium ? COLORS.success : COLORS.slate
-                    }
-                    strokeWidth={active ? 2.4 : 2}
+                    size={18}
+                    color={active || done ? COLORS.white : COLORS.primary}
+                    strokeWidth={2.4}
                   />
                 </Box>
                 <Text
                   numberOfLines={1}
                   style={{
-                    ...TYPE.caption,
+                    fontFamily: FONTS.semibold,
+                    fontSize: 9,
+                    color: active ? COLORS.primary : done ? COLORS.ink : COLORS.slate,
+                  }}
+                >
+                  {item.short}
+                </Text>
+              </Box>
+            );
+          })}
+        </HStack>
+      </Box>
+    );
+  }
+
+  // ── Nature — organic trail: rounded nodes + dashed connectors ───────────
+  if (family === 'nature') {
+    return (
+      <Box
+        key={themeId}
+        style={{
+          backgroundColor: hexAlpha(COLORS.primary, 0.05),
+          paddingHorizontal: SPACE[3],
+          paddingTop: SPACE[3],
+          paddingBottom: SPACE[2],
+        }}
+      >
+        <HStack className="items-center">
+          {steps.map((item, i) => {
+            const active = i === step - 1;
+            const done = i < step - 1;
+            const Icon = item.icon;
+            const last = i === steps.length - 1;
+            return (
+              <React.Fragment key={item.label}>
+                <VStack className="items-center" style={{ flex: 1, gap: 6 }}>
+                  <Box
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 14,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: active
+                        ? COLORS.primary
+                        : done
+                          ? COLORS.success
+                          : COLORS.white,
+                      borderWidth: active || done ? 0 : 2,
+                      borderColor: hexAlpha(COLORS.primary, 0.3),
+                      transform: [{ rotate: active ? '0deg' : '0deg' }],
+                    }}
+                  >
+                    <Icon
+                      size={15}
+                      color={active || done ? COLORS.white : COLORS.primary}
+                      strokeWidth={2.3}
+                    />
+                  </Box>
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      fontFamily: FONTS.semibold,
+                      fontSize: 10,
+                      color: active ? COLORS.primaryDeep : COLORS.slate,
+                    }}
+                  >
+                    {item.short}
+                  </Text>
+                </VStack>
+                {!last ? (
+                  <HStack style={{ width: 16, marginBottom: 18, gap: 3, justifyContent: 'center' }}>
+                    {[0, 1, 2].map((d) => (
+                      <Box
+                        key={d}
+                        style={{
+                          width: 3,
+                          height: 3,
+                          borderRadius: 999,
+                          backgroundColor:
+                            done || active
+                              ? hexAlpha(COLORS.primary, 0.55)
+                              : hexAlpha(COLORS.ink, 0.18),
+                        }}
+                      />
+                    ))}
+                  </HStack>
+                ) : null}
+              </React.Fragment>
+            );
+          })}
+        </HStack>
+      </Box>
+    );
+  }
+
+  // ── Classic — numbered circles + solid connector line ───────────────────
+  return (
+    <Box
+      key={`${themeId}-rail`}
+      style={{
+        backgroundColor: isPremium ? GLASS.card : COLORS.white,
+        borderBottomWidth: 1,
+        borderBottomColor: isPremium ? GLASS.borderSoft : COLORS.border,
+        paddingHorizontal: SPACE[3],
+        paddingTop: SPACE[3],
+        paddingBottom: SPACE[2],
+      }}
+    >
+      <HStack className="items-center">
+        {steps.map((item, i) => {
+          const active = i === step - 1;
+          const done = i < step - 1;
+          const Icon = item.icon;
+          const last = i === steps.length - 1;
+          return (
+            <React.Fragment key={item.label}>
+              <VStack className="items-center" style={{ flex: 1, gap: 6 }}>
+                <Box
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 999,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: active
+                      ? COLORS.primary
+                      : done
+                        ? COLORS.success
+                        : COLORS.muted,
+                    borderWidth: active || done ? 0 : 2,
+                    borderColor: COLORS.border,
+                  }}
+                >
+                  {done && !active ? (
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.white }}>
+                      ✓
+                    </Text>
+                  ) : active ? (
+                    <Icon size={15} color={COLORS.white} strokeWidth={2.5} />
+                  ) : (
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.slate }}>
+                      {i + 1}
+                    </Text>
+                  )}
+                </Box>
+                <Text
+                  numberOfLines={1}
+                  style={{
                     fontFamily: FONTS.bold,
-                    fontSize: 11,
-                    textAlign: 'center',
-                    color: active ? COLORS.primary : COLORS.slate,
+                    fontSize: 10,
+                    color: active ? COLORS.primary : done ? COLORS.ink : COLORS.slate,
                   }}
                 >
                   {item.short}
                 </Text>
               </VStack>
-              {active ? (
+              {!last ? (
                 <Box
                   style={{
-                    position: 'absolute',
-                    bottom: 0,
-                    left: '15%',
-                    right: '15%',
-                    height: 3,
+                    height: 2,
+                    width: 16,
+                    marginBottom: 20,
                     borderRadius: 999,
-                    backgroundColor: COLORS.primary,
+                    backgroundColor: done ? COLORS.success : hexAlpha(COLORS.ink, 0.14),
                   }}
                 />
               ) : null}
-            </Box>
+            </React.Fragment>
           );
         })}
       </HStack>
@@ -171,22 +446,12 @@ export function SurveyCard({
   children: ReactNode;
   className?: string;
 }) {
+  const { themeId } = useTheme();
   return (
     <Box
-      className={`bg-white ${className}`}
-      style={{
-        marginHorizontal: SPACE.gutter,
-        borderRadius: SPACE.radiusLg,
-        overflow: 'hidden',
-        backgroundColor: COLORS.white,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.1,
-        shadowRadius: 14,
-        elevation: 4,
-      }}
+      key={themeId}
+      className={className}
+      style={cardSurfaceStyle({ marginHorizontal: SPACE.gutter })}
     >
       {children}
     </Box>
@@ -220,92 +485,88 @@ export function SurveyHero({
   const isPremium = variant === 'premium';
   const displayTitle = step != null ? `Step ${step} - ${title}` : title;
   const underTitle = subtitle;
+  const { themeId } = useTheme();
 
   return (
-    <Box>
+    <Box key={themeId}>
       <LinearGradient
         colors={gradientStops(GRADIENT_HEADER)}
-        locations={[0, 0.55, 1]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        locations={[0, 1]}
+        start={DESIGN.headerStart}
+        end={DESIGN.headerEnd}
         style={{
-          paddingTop: insets.top + SPACE[3],
-          paddingBottom: showSteps && step ? SPACE[7] : SPACE[5],
+          paddingTop: insets.top + SPACE[2],
+          paddingBottom: showSteps && step ? SPACE[4] : SPACE[3],
           paddingHorizontal: SPACE.gutter,
           overflow: 'hidden',
         }}
       >
-        <Box
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            top: -60,
-            right: -40,
-            width: 160,
-            height: 160,
-            borderRadius: 999,
-            backgroundColor: 'rgba(255,255,255,0.08)',
-          }}
-        />
-        {isPremium ? (
-          <Box
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              bottom: -20,
-              left: -30,
-              width: 100,
-              height: 100,
-              borderRadius: 999,
-              backgroundColor: 'rgba(255,255,255,0.06)',
-            }}
-          />
-        ) : null}
-
-        {watermark === 'compass' ? (
-          <Box
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              right: -4,
-              top: insets.top,
-              opacity: 0.14,
-            }}
-          >
-            <Compass size={100} color="#FFFFFF" strokeWidth={1.1} />
-          </Box>
-        ) : null}
-
         <HStack className="items-start" style={{ zIndex: 2, gap: SPACE[3] }}>
           <Pressable
             onPress={onBack}
             hitSlop={10}
-            className="items-center justify-center active:opacity-75"
+            className="active:opacity-75"
             style={{
-              width: 40,
-              height: 40,
-              borderRadius: 12,
-              backgroundColor: 'rgba(255,255,255,0.16)',
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.28)',
+              width: 42,
+              height: 42,
+              borderRadius: DESIGN.buttonRadius > 40 ? 21 : DESIGN.buttonRadius,
+              backgroundColor: COLORS.primaryDeep,
               marginTop: 2,
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
             <ArrowLeft size={18} color="#FFFFFF" strokeWidth={2.3} />
           </Pressable>
 
-          <VStack className="flex-1 min-w-0" style={{ gap: 4 }}>
+          <VStack className="flex-1 min-w-0" style={{ gap: 6 }}>
+            {step != null ? (
+              <HStack className="items-center" style={{ gap: 8 }}>
+                <Box
+                  style={{
+                    paddingHorizontal: 9,
+                    paddingVertical: 3,
+                    borderRadius: DESIGN.chipRadius,
+                    backgroundColor: COLORS.primaryDeep,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 10,
+                      letterSpacing: 0.6,
+                      color: COLORS.white,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Step {step} / {total}
+                  </Text>
+                </Box>
+                {badge ? (
+                  <Text
+                    style={{
+                      fontFamily: FONTS.medium,
+                      fontSize: 10,
+                      color: '#DBEAFE',
+                    }}
+                    numberOfLines={1}
+                  >
+                    {badge}
+                  </Text>
+                ) : null}
+              </HStack>
+            ) : null}
             <Text
               style={{
-                fontFamily: FONTS.bold,
-                fontSize: 18,
-                lineHeight: 24,
+                fontFamily: FONTS.displayBold,
+                fontSize: 20,
+                lineHeight: 26,
                 color: COLORS.white,
-                letterSpacing: -0.2,
+                letterSpacing: -0.35,
               }}
-              numberOfLines={1}
+              numberOfLines={2}
             >
-              {displayTitle}
+              {step != null ? title : displayTitle}
             </Text>
             {underTitle ? (
               <Text
@@ -313,7 +574,7 @@ export function SurveyHero({
                   fontFamily: FONTS.medium,
                   fontSize: 12,
                   lineHeight: 17,
-                  color: 'rgba(255,255,255,0.82)',
+                  color: '#DBEAFE',
                 }}
                 numberOfLines={3}
               >
@@ -327,14 +588,25 @@ export function SurveyHero({
       {showSteps && step ? (
         <Box
           style={{
-            marginTop: -18,
-            borderTopLeftRadius: 24,
-            borderTopRightRadius: 24,
+            marginTop: SPACE[2],
+            marginHorizontal: DESIGN.id === 'bold' ? SPACE[3] : 0,
+            borderTopLeftRadius: DESIGN.radiusLg,
+            borderTopRightRadius: DESIGN.radiusLg,
+            borderBottomLeftRadius: DESIGN.id === 'bold' ? DESIGN.radiusLg : 0,
+            borderBottomRightRadius: DESIGN.id === 'bold' ? DESIGN.radiusLg : 0,
             backgroundColor: isPremium ? GLASS.card : '#FFFFFF',
             overflow: 'hidden',
-            borderWidth: isPremium ? 1 : 0,
             borderBottomWidth: 0,
             borderColor: GLASS.border,
+            ...(DESIGN.id === 'bold'
+              ? {
+                  shadowColor: COLORS.primaryDeep,
+                  shadowOffset: { width: 0, height: 8 },
+                  shadowOpacity: 0.12,
+                  shadowRadius: 16,
+                  elevation: 4,
+                }
+              : null),
           }}
         >
           <StepRail step={step} total={total} variant={isPremium ? 'premium' : 'default'} />
@@ -366,7 +638,7 @@ function CompactSurveyHeader({
       style={{
         zIndex: 40,
         elevation: 12,
-        shadowColor: '#1E40AF',
+        shadowColor: COLORS.primaryDeep,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.18,
         shadowRadius: 12,
@@ -392,10 +664,8 @@ function CompactSurveyHeader({
             style={{
               width: 32,
               height: 32,
-              borderRadius: 999,
-              backgroundColor: 'rgba(255,255,255,0.12)',
-              borderWidth: 1.5,
-              borderColor: 'rgba(255,255,255,0.45)',
+              borderRadius: DESIGN.stepRadius > 40 ? 999 : DESIGN.stepRadius,
+              backgroundColor: COLORS.primaryDeep,
             }}
           >
             <ArrowLeft size={16} color="#fff" strokeWidth={2.2} />
@@ -426,11 +696,16 @@ export function StickyBar({
     <Box
       style={{
         paddingHorizontal: SPACE.gutter,
-        paddingTop: SPACE[2],
-        paddingBottom: compactBottom ? 2 : Math.max(insets.bottom, SPACE[3]),
+        paddingTop: SPACE[1],
+        paddingBottom: compactBottom ? 2 : Math.max(insets.bottom, SPACE[2]),
         backgroundColor: variant === 'premium' ? GLASS.card : COLORS.white,
         borderTopWidth: 1,
         borderTopColor: variant === 'premium' ? GLASS.border : COLORS.border,
+        shadowColor: COLORS.ink,
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 10,
+        elevation: 8,
       }}
     >
       {children}
@@ -451,21 +726,23 @@ export function FooterContinueBtn({
   loading?: boolean;
 }) {
   const blocked = Boolean(disabled || loading);
+  const { themeId } = useTheme();
   return (
     <Pressable
+      key={themeId}
       disabled={blocked}
       onPress={onPress}
-      className={blocked ? '' : 'active:opacity-90'}
+      className={blocked ? '' : 'active:opacity-92'}
       style={{
-        height: 44,
-        borderRadius: 12,
+        height: DESIGN.ctaHeight,
+        borderRadius: DESIGN.buttonRadius,
         overflow: 'hidden',
-        opacity: blocked ? 0.45 : 1,
-        shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 3,
+        opacity: blocked ? 0.42 : 1,
+        shadowColor: COLORS.primaryDeep,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: DESIGN.shadowOpacity + 0.12,
+        shadowRadius: DESIGN.shadowRadius,
+        elevation: DESIGN.elevation + 2,
       }}
     >
       <LinearGradient
@@ -477,21 +754,22 @@ export function FooterContinueBtn({
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 8,
-          paddingHorizontal: 14,
+          gap: 6,
+          paddingHorizontal: 16,
         }}
       >
         <Text
           style={{
             fontFamily: FONTS.bold,
-            fontSize: 14,
+            fontSize: 15,
+            letterSpacing: 0.2,
             color: COLORS.white,
           }}
           numberOfLines={1}
         >
           {loading ? 'Saving…' : label}
         </Text>
-        {!loading ? <ArrowRight size={16} color={COLORS.white} strokeWidth={2.5} /> : null}
+        {!loading ? <ArrowRight size={17} color={COLORS.white} strokeWidth={2.6} /> : null}
       </LinearGradient>
     </Pressable>
   );
@@ -530,6 +808,7 @@ export function SurveyScaffold({
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const keyboardOpenRef = useRef(false);
   const isPremium = surface === 'premium';
+  const { themeId } = useTheme();
 
   useEffect(() => {
     // keyboardWill* fires before layout settles — freeze compact header early.
@@ -561,7 +840,7 @@ export function SurveyScaffold({
   };
 
   return (
-    <ScreenShell className="bg-background">
+    <ScreenShell key={themeId} className="bg-background">
       {/*
         Plain style (no Uniwind className), wrapping scroll + footer.
         iOS: padding. Android: height only while keyboard is open (avoids Expo 54 sticky gap).
@@ -622,25 +901,13 @@ export function SurveyScaffold({
 
               <Box
                 style={{
-                  gap: isPremium ? SPACE[2] : SPACE[4],
-                  paddingTop: isPremium ? SPACE[2] : SPACE[4],
-                  position: 'relative',
+                  gap: DESIGN.sectionGap,
+                  paddingTop: Math.max(14, DESIGN.headerCardGap ?? 14),
+                  backgroundColor: COLORS.soft,
+                  paddingBottom: DESIGN.sectionGap,
                 }}
               >
-                {isPremium ? (
-                  <Box
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                    }}
-                  >
-                    <GlassMeshOrbs />
-                  </Box>
-                ) : null}
-                <Box style={{ gap: isPremium ? SPACE[2] : SPACE[4], backgroundColor: isPremium ? 'transparent' : COLORS.soft }}>
+                <Box style={{ gap: DESIGN.sectionGap }}>
                   {children}
                 </Box>
               </Box>
@@ -679,17 +946,17 @@ export function WorkspaceHeader({
     <Box
       style={{
         paddingHorizontal: SPACE.gutter,
-        paddingTop: SPACE[4],
-        paddingBottom: SPACE[3],
+        paddingTop: SPACE[2],
+        paddingBottom: SPACE[2],
       }}
     >
-      <HStack className="items-start" style={{ gap: SPACE[3] }}>
+      <HStack className="items-start" style={{ gap: SPACE[2] }}>
         <Box
           className="items-center justify-center"
           style={{
             width: 44,
             height: 44,
-            borderRadius: 12,
+            borderRadius: DESIGN.stepRadius > 40 ? 999 : DESIGN.stepRadius,
             backgroundColor: iconBg,
             marginTop: 2,
           }}
@@ -723,7 +990,7 @@ export function WorkspaceHeader({
               marginTop: 2,
               paddingHorizontal: SPACE[2],
               paddingVertical: SPACE[1],
-              borderRadius: 8,
+              borderRadius: DESIGN.chipRadius,
               backgroundColor: COLORS.white,
               shadowColor: '#0F172A',
               shadowOffset: { width: 0, height: 2 },

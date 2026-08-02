@@ -10,19 +10,29 @@ import {
   type ThemeId,
   type ThemePreset,
 } from '@/src/cdrms/themePresets';
+import {
+  buildThemeLayout,
+  type ThemeLayout,
+} from '@/src/cdrms/themeLayouts';
 import { applyUniwindTheme } from '@/src/theme/applyUniwindTheme';
 
 export type { ThemeId } from '@/src/cdrms/themePresets';
+export type { LayoutId, ThemeLayout } from '@/src/cdrms/themeLayouts';
 export {
   DEFAULT_THEME_ID,
+  HEADER_THEME_IDS,
+  HEADER_THEME_OPTIONS,
   THEME_OPTIONS,
   getThemeOption,
+  hexAlpha,
   normalizeThemeId,
 } from '@/src/cdrms/themePresets';
+export { layoutIdForTheme, getLayoutOption } from '@/src/cdrms/themeLayouts';
 
 export let currentThemeId: ThemeId = DEFAULT_THEME_ID;
 
 const initial = buildThemePreset(DEFAULT_THEME_ID);
+const initialLayout = buildThemeLayout(DEFAULT_THEME_ID);
 
 function replaceArray<T>(target: T[], source: readonly T[]) {
   target.length = 0;
@@ -43,6 +53,9 @@ export const GRADIENT_VIDEO: string[] = [...initial.GRADIENT_VIDEO];
 export const GRADIENT_CARD_HEADER: string[] = [...initial.GRADIENT_CARD_HEADER];
 export const GRADIENT_MESH: string[] = [...initial.GRADIENT_MESH];
 
+/** Mutable layout chrome — shape of the whole flow per theme family. */
+export const DESIGN: ThemeLayout = { ...initialLayout };
+
 export type CardinalKey = keyof typeof CARDINAL_ACCENT;
 
 function assignPreset(preset: ThemePreset) {
@@ -58,6 +71,16 @@ function assignPreset(preset: ThemePreset) {
   replaceArray(GRADIENT_CARD_HEADER, preset.GRADIENT_CARD_HEADER);
   replaceArray(GRADIENT_MESH, preset.GRADIENT_MESH);
   rebuildType();
+}
+
+function assignLayout(layout: ThemeLayout) {
+  Object.assign(DESIGN, layout);
+  SPACE.radius = layout.radius;
+  SPACE.radiusLg = layout.radiusLg;
+  SPACE.section = Math.max(10, layout.sectionGap + 2);
+  SPACE.cardGap = layout.sectionGap;
+  SPACE.cardPad = layout.id === 'soft' ? 12 : layout.id === 'minimal' ? 8 : 10;
+  SPACE.gutter = layout.id === 'minimal' ? 12 : 14;
 }
 
 /** White-on-gradient text (theme-neutral — works on any header gradient). */
@@ -83,6 +106,7 @@ export function applyTheme(id: ThemeId): ThemePreset {
   const preset = buildThemePreset(id);
   currentThemeId = id;
   assignPreset(preset);
+  assignLayout(buildThemeLayout(id));
   return preset;
 }
 
@@ -103,25 +127,25 @@ export const FONTS = {
   displayBold: 'SourceSerif4_700Bold',
 } as const;
 
-/** 4px spacing scale */
+/** 4px spacing scale — radius* / card pads sync from DESIGN on theme change. */
 export const SPACE = {
   1: 4,
-  2: 8,
-  3: 12,
-  4: 16,
-  5: 20,
-  6: 24,
-  7: 28,
-  8: 32,
-  10: 40,
-  gutter: 16,
-  cardPad: 16,
-  section: 20,
-  cardGap: 16,
+  2: 6,
+  3: 8,
+  4: 12,
+  5: 14,
+  6: 16,
+  7: 18,
+  8: 22,
+  10: 28,
+  gutter: 14,
+  cardPad: 10,
+  section: 12,
+  cardGap: 8,
   radius: 16,
   radiusLg: 20,
-  touch: 52,
-} as const;
+  touch: 46,
+};
 
 function buildType() {
   return {
@@ -191,9 +215,9 @@ function rebuildType() {
 // Ensure defaults are applied at module load
 applyTheme(DEFAULT_THEME_ID);
 
-/** Fixed blue gradients for splash/login — never follow user theme. */
-export const AUTH_GRADIENT_HEADER = ['#1E3A8A', '#1D4ED8', '#3B82F6'] as const;
-export const AUTH_GRADIENT_PRIMARY = ['#1E3A8A', '#2563EB'] as const;
+/** Fixed auth gradients — solid blue. */
+export const AUTH_GRADIENT_HEADER = ['#1E40AF', '#2563EB'] as const;
+export const AUTH_GRADIENT_PRIMARY = ['#1E40AF', '#2563EB'] as const;
 
 /** Reset to default blue (sync) — call on logout and pre-auth screens. */
 export function applyAuthTheme() {

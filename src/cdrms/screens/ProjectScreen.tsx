@@ -38,8 +38,9 @@ import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
 import { siteDimensionToFormDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { TERMS } from '@/src/cdrms/terminology';
-import { COLORS } from '@/src/cdrms/theme';
+import { COLORS, DESIGN } from '@/src/cdrms/theme';
 import type { Go } from '@/src/cdrms/types';
+import { useTheme } from '@/src/theme/ThemeContext';
 
 function PulseBar({
   height = 44,
@@ -72,7 +73,7 @@ function PulseBar({
           {
             height,
             width: '100%',
-            borderRadius: 12,
+            borderRadius: DESIGN.cardRadius,
             backgroundColor: '#E2E8F0',
           },
           style,
@@ -115,9 +116,9 @@ function SiteLoadingCards() {
           icon={MapPin}
           title={TERMS.sections.siteLocation}
           subtitle="Capturing GPS…"
-          iconBg="#2563EB"
+          iconBg={COLORS.primary}
         />
-        <Box className="mx-[14px] mb-4 overflow-hidden" style={{ borderRadius: 18, height: 200 }}>
+        <Box className="mx-[14px] mb-4 overflow-hidden" style={{ borderRadius: DESIGN.cardRadius, height: 200 }}>
           <Box
             className="flex-1 items-center justify-center"
             style={{ backgroundColor: '#ECFDF5' }}
@@ -141,10 +142,10 @@ function SiteLoadingCards() {
                   {
                     width: 56,
                     height: 56,
-                    borderRadius: 28,
+                    borderRadius: DESIGN.headerRadius,
                     borderWidth: 3,
                     borderColor: '#A7F3D0',
-                    borderTopColor: '#2563EB',
+                    borderTopColor: COLORS.primary,
                     alignItems: 'center',
                     justifyContent: 'center',
                     backgroundColor: '#FFFFFF',
@@ -157,16 +158,16 @@ function SiteLoadingCards() {
                   position: 'absolute',
                   width: 40,
                   height: 40,
-                  borderRadius: 20,
+                  borderRadius: DESIGN.radiusLg,
                   alignItems: 'center',
                   justifyContent: 'center',
                   backgroundColor: '#FFFFFF',
                 }}
               >
-                <MapPin size={18} color="#2563EB" strokeWidth={2.4} />
+                <MapPin size={18} color={COLORS.primary} strokeWidth={2.4} />
               </Box>
             </Box>
-            <Text className="mt-4 text-[13px] font-bold" style={{ color: '#2563EB' }}>
+            <Text className="mt-4 text-[13px] font-bold" style={{ color: COLORS.primary }}>
               Locating site…
             </Text>
             <Text className="mt-1 text-[11px]" style={{ color: '#64748B' }}>
@@ -181,12 +182,12 @@ function SiteLoadingCards() {
           icon={Building2}
           title={TERMS.sections.projectWorkspace}
           subtitle="Filling site particulars…"
-          iconBg="#2563EB"
+          iconBg={COLORS.primary}
         />
         <VStack space="md" className="px-[14px] pb-5">
           <HStack className="items-center gap-2.5 mb-1">
             <ButtonLoader size="small" color={COLORS.primary} />
-            <Text className="text-[12px] font-semibold" style={{ color: '#2563EB' }}>
+            <Text className="text-[12px] font-semibold" style={{ color: COLORS.primary }}>
               Auto-filling from GPS…
             </Text>
           </HStack>
@@ -226,6 +227,7 @@ function SiteLoadingCards() {
 }
 
 export function ProjectScreen({ go }: { go: Go }) {
+  const { themeId } = useTheme();
   const { draft, updateField, setDimSide, setGps, persistBackendStep, reloadBackendDraft } =
     useProject();
   const { refresh, loading } = useDeviceLocation();
@@ -280,6 +282,7 @@ export function ProjectScreen({ go }: { go: Go }) {
 
   return (
     <SurveyScaffold
+      key={themeId}
       title={
         isBackendTask
           ? 'ZC details'
@@ -368,7 +371,7 @@ export function ProjectScreen({ go }: { go: Go }) {
                   ? `${draft.district}, ${draft.state || 'Karnataka'}`
                   : 'Tap refresh to capture GPS'
               }
-              iconBg="#2563EB"
+              iconBg={COLORS.primary}
             />
             <GpsSiteCard
               height={220}
@@ -389,7 +392,7 @@ export function ProjectScreen({ go }: { go: Go }) {
               icon={Building2}
               title={TERMS.sections.projectWorkspace}
               subtitle={draft.id}
-              iconBg="#2563EB"
+              iconBg={COLORS.primary}
             />
 
             <VStack space="md" className="px-[14px] pb-5">
@@ -400,7 +403,7 @@ export function ProjectScreen({ go }: { go: Go }) {
                     ? 'Loaded from returned report — edit fields flagged by CAO'
                     : 'GPS fills jurisdiction — enter survey particulars manually'
                 }
-                accent="#2563EB"
+                accent={COLORS.primary}
               />
 
               <Field
@@ -473,7 +476,7 @@ export function ProjectScreen({ go }: { go: Go }) {
                     ? `Prefills from ${draft.dimensionArea} — same as Boundaries`
                     : 'Enter Site dimension (e.g. 40*50) or edit sides below'
                 }
-                accent="#2563EB"
+                accent={COLORS.primary}
               />
               <HStack space="sm">
                 <Box className="flex-1">
@@ -533,7 +536,7 @@ export function ProjectScreen({ go }: { go: Go }) {
               <SectionTitle
                 title={TERMS.sections.administrativeArea}
                 subtitle="Auto-filled from GPS — edit if required"
-                accent="#0891B2"
+                accent={COLORS.primary}
               />
 
               <HStack space="sm">

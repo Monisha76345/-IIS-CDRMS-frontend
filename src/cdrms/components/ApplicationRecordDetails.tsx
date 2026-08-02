@@ -19,7 +19,8 @@ import { GpsSiteCard } from '@/src/cdrms/components/GpsSiteCard';
 import { ImagePreviewModal } from '@/src/cdrms/components/ImagePreviewModal';
 import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
 import { resolveBoundaryDims } from '@/src/cdrms/lib/resolveBoundaryDims';
-import { COLORS, FONTS, GLASS, SPACE } from '@/src/cdrms/theme';
+import { COLORS, DESIGN, FONTS, GLASS, SPACE } from '@/src/cdrms/theme';
+import { useTheme } from '@/src/theme/ThemeContext';
 
 function SectionCard({
   title,
@@ -191,7 +192,7 @@ function MediaThumb({
       </Text>
       <Box
         style={{
-          borderRadius: 8,
+          borderRadius: DESIGN.stepRadius,
           overflow: 'hidden',
           borderWidth: 1,
           borderColor: GLASS.border,
@@ -222,7 +223,7 @@ function MediaThumb({
               style={{
                 width: 28,
                 height: 28,
-                borderRadius: 8,
+                borderRadius: DESIGN.stepRadius,
                 alignItems: 'center',
                 justifyContent: 'center',
                 backgroundColor: COLORS.white,
@@ -355,6 +356,7 @@ export function ApplicationRecordDetails({
   app: MobileApplication;
   showEmptyEngineer?: boolean;
 }) {
+  const { themeId } = useTheme();
   const [preview, setPreview] = useState<{ uri: string; title: string } | null>(null);
 
   const siteType = app.siteDimensionType || '—';
@@ -484,7 +486,7 @@ export function ApplicationRecordDetails({
 
   if (!showEmptyEngineer && !hasEngineerCapture) {
     return (
-      <VStack style={{ gap: 12 }}>
+      <VStack key={themeId} style={{ gap: Math.max(6, DESIGN.sectionGap - 2) }}>
         {zcCard}
         <ImagePreviewModal
           uri={preview?.uri ?? null}
@@ -496,7 +498,7 @@ export function ApplicationRecordDetails({
   }
 
   return (
-    <VStack style={{ gap: 12 }}>
+    <VStack key={themeId} style={{ gap: Math.max(6, DESIGN.sectionGap - 2) }}>
       {zcCard}
 
       <SectionCard title="Engineer details" subtitle="Submitted by field engineer" icon={Ruler}>
@@ -574,7 +576,7 @@ export function ApplicationRecordDetails({
           last={!hasGps}
         />
         {hasGps && gpsFix ? (
-          <Box style={{ borderRadius: 12, overflow: 'hidden', marginTop: 6 }}>
+          <Box style={{ borderRadius: DESIGN.cardRadius, overflow: 'hidden', marginTop: 6 }}>
             <GpsSiteCard
               height={200}
               variant="inset"
@@ -716,7 +718,7 @@ export function ApplicationRecordDetails({
             <SectionLabel>Site video</SectionLabel>
             <Box
               style={{
-                borderRadius: 12,
+                borderRadius: DESIGN.cardRadius,
                 overflow: 'hidden',
                 aspectRatio: 16 / 9,
                 backgroundColor: COLORS.ink,

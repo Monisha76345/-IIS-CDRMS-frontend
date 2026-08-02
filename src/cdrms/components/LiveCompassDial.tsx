@@ -14,7 +14,7 @@ import {
   useCompass,
 } from '@/src/cdrms/hooks/useCompass';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
-import { CARDINAL_ACCENT, COLORS, FONTS, GLASS, SPACE, cardinalAccentColor } from '@/src/cdrms/theme';
+import { CARDINAL_ACCENT, COLORS, FONTS, GLASS, SPACE, cardinalAccentColor, DESIGN } from '@/src/cdrms/theme';
 
 const SIZE = 132;
 const CENTER = SIZE / 2;
@@ -182,13 +182,13 @@ export function LiveCompassDial() {
             })}
 
             <LinearGradient
-              colors={compass.available ? ['#38BDF8', '#2563EB'] : ['#94A3B8', '#64748B']}
+              colors={compass.available ? [COLORS.primaryGlow, COLORS.primary] : ['#94A3B8', '#64748B']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{
                 height: 36,
                 width: 36,
-                borderRadius: 18,
+                borderRadius: DESIGN.cardRadius,
                 alignItems: 'center',
                 justifyContent: 'center',
                 zIndex: 2,

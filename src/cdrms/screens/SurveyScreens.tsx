@@ -71,7 +71,7 @@ import {
   formatCoords,
   type Cardinal,
 } from '@/src/cdrms/project/types';
-import { COLORS, FONTS, GLASS, GRADIENT_PRIMARY, GRADIENT_VIDEO, SPACE, TYPE, gradientStops } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GLASS, GRADIENT_PRIMARY, GRADIENT_VIDEO, SPACE, TYPE, gradientStops, DESIGN } from '@/src/cdrms/theme';
 import { useTheme } from '@/src/theme/ThemeContext';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go } from '@/src/cdrms/types';
@@ -88,6 +88,7 @@ const DIR_ICONS = {
 const CARDINALS: Cardinal[] = ['N', 'S', 'E', 'W'];
 
 export function BandiScreen({ go }: { go: Go }) {
+  const { themeId } = useTheme();
   const {
     draft,
     setBandiVerified,
@@ -242,6 +243,7 @@ export function BandiScreen({ go }: { go: Go }) {
 
   return (
     <SurveyScaffold
+      key={themeId}
       title={
         isBackendTask ? 'Site facing direction' : TERMS.workflow.checkBandi
       }
@@ -388,7 +390,7 @@ export function BandiScreen({ go }: { go: Go }) {
               />
 
               <FrostedGlass
-                borderRadius={12}
+                borderRadius={DESIGN.cardRadius}
                 padding={SPACE[2]}
                 fill={GLASS.surfaceSolid}
                 sheen={false}
@@ -399,7 +401,7 @@ export function BandiScreen({ go }: { go: Go }) {
                     style={{
                       width: 32,
                       height: 32,
-                      borderRadius: 9,
+                      borderRadius: DESIGN.chipRadius,
                       backgroundColor: GLASS.tintBlue,
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -465,7 +467,7 @@ export function BandiScreen({ go }: { go: Go }) {
                     style={{
                       width: 30,
                       height: 30,
-                      borderRadius: 8,
+                      borderRadius: DESIGN.stepRadius,
                       backgroundColor: GLASS.tintBlue,
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -507,7 +509,7 @@ export function BandiScreen({ go }: { go: Go }) {
             }
           >
             <FrostedGlass
-              borderRadius={12}
+              borderRadius={DESIGN.cardRadius}
               padding={SPACE[2]}
               fill={GLASS.surfaceSolid}
               sheen={false}
@@ -535,7 +537,7 @@ export function BandiScreen({ go }: { go: Go }) {
                         gap: 6,
                         paddingVertical: SPACE[2],
                         paddingHorizontal: SPACE[2],
-                        borderRadius: 10,
+                        borderRadius: DESIGN.stepRadius,
                         backgroundColor: on ? GLASS.tintBlue : GLASS.surface,
                         borderWidth: 1,
                         borderColor: on ? COLORS.primary : GLASS.border,
@@ -545,7 +547,7 @@ export function BandiScreen({ go }: { go: Go }) {
                         style={{
                           width: 16,
                           height: 16,
-                          borderRadius: 8,
+                          borderRadius: DESIGN.stepRadius,
                           borderWidth: 2,
                           borderColor: on ? COLORS.primary : '#94A3B8',
                           backgroundColor: COLORS.white,
@@ -580,7 +582,7 @@ export function BandiScreen({ go }: { go: Go }) {
             </FrostedGlass>
             {draft.occupancy === 'Occupied' ? (
               <FrostedGlass
-                borderRadius={12}
+                borderRadius={DESIGN.cardRadius}
                 padding={SPACE[2]}
                 fill={GLASS.surfaceSolid}
                 sheen={false}
@@ -619,7 +621,7 @@ export function BandiScreen({ go }: { go: Go }) {
                     style={{
                       width: 40,
                       height: 40,
-                      borderRadius: 12,
+                      borderRadius: DESIGN.cardRadius,
                       backgroundColor: r.iconBg,
                     }}
                   >
@@ -674,7 +676,7 @@ export function BandiScreen({ go }: { go: Go }) {
                 style={{
                   height: 34,
                   paddingHorizontal: 12,
-                  borderRadius: 10,
+                  borderRadius: DESIGN.stepRadius,
                   borderWidth: 1,
                   borderColor: `${COLORS.primary}40`,
                   backgroundColor: schedulesEditing ? COLORS.primary : GLASS.tintBlue,
@@ -718,7 +720,7 @@ export function BandiScreen({ go }: { go: Go }) {
                       placeholder={`What is on the ${meta.label.toLowerCase()} side?`}
                       placeholderTextColor="#94A3B8"
                       style={{
-                        borderRadius: 12,
+                        borderRadius: DESIGN.cardRadius,
                         borderWidth: 1,
                         borderColor: `${COLORS.primary}40`,
                         backgroundColor: '#FFFFFF',
@@ -732,7 +734,7 @@ export function BandiScreen({ go }: { go: Go }) {
                   ) : (
                     <Box
                       style={{
-                        borderRadius: 12,
+                        borderRadius: DESIGN.cardRadius,
                         borderWidth: 1,
                         borderColor: '#E5E7EB',
                         backgroundColor: '#F8FAFC',
@@ -792,7 +794,7 @@ export function BandiScreen({ go }: { go: Go }) {
                   style={{
                     width: '48%',
                     backgroundColor: '#FFFFFF',
-                    borderRadius: 22,
+                    borderRadius: DESIGN.cardRadius,
                     padding: 14,
                     shadowColor: '#1E3A8A',
                     shadowOffset: { width: 0, height: 8 },
@@ -817,7 +819,7 @@ export function BandiScreen({ go }: { go: Go }) {
                           <Check size={12} color="#fff" strokeWidth={3} />
                         </Box>
                       </HStack>
-                      <Box className="relative" style={{ height: 80, borderRadius: 12, overflow: 'hidden' }}>
+                      <Box className="relative" style={{ height: 80, borderRadius: DESIGN.cardRadius, overflow: 'hidden' }}>
                         <ApiMediaImage uri={photo.uri} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                         <Box
                           className="absolute bottom-1 left-1 px-2 py-0.5 rounded-full"
@@ -876,7 +878,7 @@ export function BandiScreen({ go }: { go: Go }) {
             className="mx-4 active:opacity-90"
             style={{
               backgroundColor: '#FFFFFF',
-              borderRadius: 20,
+              borderRadius: DESIGN.radiusLg,
               paddingVertical: 14,
               paddingHorizontal: 14,
               shadowColor: '#1E3A8A',
@@ -943,7 +945,7 @@ export function BandiScreen({ go }: { go: Go }) {
           <Box
             className="mx-4"
             style={{
-              borderRadius: 22,
+              borderRadius: DESIGN.cardRadius,
               backgroundColor: '#ECFDF5',
               borderWidth: 1.5,
               borderColor: '#A7F3D0',
@@ -962,7 +964,7 @@ export function BandiScreen({ go }: { go: Go }) {
                 style={{
                   width: 42,
                   height: 42,
-                  borderRadius: 14,
+                  borderRadius: DESIGN.cardRadius,
                   backgroundColor: '#D1FAE5',
                 }}
               >
@@ -979,7 +981,7 @@ export function BandiScreen({ go }: { go: Go }) {
                 <CheckboxIndicator
                   className="mt-0.5"
                   style={{
-                    borderRadius: 8,
+                    borderRadius: DESIGN.stepRadius,
                     width: 22,
                     height: 22,
                     borderColor: draft.bandiVerified ? COLORS.primary : `${COLORS.primary}66`,
@@ -1099,6 +1101,7 @@ export function DirectionsScreen({ go }: { go: Go }) {
 }
 
 export function SurroundingsScreen({ go }: { go: Go }) {
+  const { themeId } = useTheme();
   const { draft, setSurroundingPhoto, updateField } = useProject();
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState('Photo preview');
@@ -1112,6 +1115,7 @@ export function SurroundingsScreen({ go }: { go: Go }) {
 
   return (
     <SurveyScaffold
+      key={themeId}
       title={TERMS.sections.surroundings}
       subtitle={TERMS.workflow.surroundingsSubtitle}
       onBack={() => go('bandi')}
@@ -1393,7 +1397,7 @@ export function PhotosScreen({ go }: { go: Go }) {
             {draft.selfie ? (
               <Box
                 style={{
-                  borderRadius: 12,
+                  borderRadius: DESIGN.cardRadius,
                   backgroundColor: GLASS.surfaceSolid,
                   borderWidth: 1,
                   borderColor: GLASS.border,
@@ -1410,7 +1414,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                     style={{
                       width: 72,
                       height: 72,
-                      borderRadius: 12,
+                      borderRadius: DESIGN.cardRadius,
                       overflow: 'hidden',
                       backgroundColor: '#0F172A',
                     }}
@@ -1439,7 +1443,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                         style={{
                           paddingHorizontal: 10,
                           paddingVertical: 6,
-                          borderRadius: 8,
+                          borderRadius: DESIGN.stepRadius,
                           backgroundColor: COLORS.primary,
                         }}
                       >
@@ -1469,7 +1473,7 @@ export function PhotosScreen({ go }: { go: Go }) {
             ) : (
               <Box
                 style={{
-                  borderRadius: 12,
+                  borderRadius: DESIGN.cardRadius,
                   backgroundColor: GLASS.surfaceSolid,
                   borderWidth: 1,
                   borderColor: GLASS.border,
@@ -1524,7 +1528,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                     gap: 6,
                     paddingHorizontal: 12,
                     paddingVertical: 8,
-                    borderRadius: 10,
+                    borderRadius: DESIGN.stepRadius,
                     backgroundColor: GLASS.tintBlue,
                     borderWidth: 1,
                     borderColor: `${COLORS.primary}40`,
@@ -1619,7 +1623,7 @@ export function PhotosScreen({ go }: { go: Go }) {
           >
             <Box
               style={{
-                borderRadius: 12,
+                borderRadius: DESIGN.cardRadius,
                 backgroundColor: GLASS.surfaceSolid,
                 borderWidth: 1,
                 borderColor: GLASS.border,
@@ -1656,7 +1660,7 @@ export function PhotosScreen({ go }: { go: Go }) {
             /* Selfie Already Captured */
             <Box
               style={{
-                borderRadius: 14,
+                borderRadius: DESIGN.cardRadius,
                 backgroundColor: '#F8FAFC',
                 borderWidth: 1,
                 borderColor: '#E2E8F0',
@@ -1668,7 +1672,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                   style={{
                     width: 72,
                     height: 72,
-                    borderRadius: 12,
+                    borderRadius: DESIGN.cardRadius,
                     overflow: 'hidden',
                     backgroundColor: '#0F172A',
                   }}
@@ -1704,7 +1708,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                       style={{
                         paddingHorizontal: 12,
                         paddingVertical: 6,
-                        borderRadius: 8,
+                        borderRadius: DESIGN.stepRadius,
                         backgroundColor: COLORS.primary,
                       }}
                     >
@@ -1734,7 +1738,7 @@ export function PhotosScreen({ go }: { go: Go }) {
           ) : (
             <Box
               style={{
-                borderRadius: 14,
+                borderRadius: DESIGN.cardRadius,
                 backgroundColor: '#F8FAFC',
                 borderWidth: 1,
                 borderColor: '#E2E8F0',
@@ -1791,7 +1795,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                   gap: 6,
                   paddingHorizontal: 12,
                   paddingVertical: 8,
-                  borderRadius: 10,
+                  borderRadius: DESIGN.stepRadius,
                   backgroundColor: COLORS.primary,
                 }}
               >
@@ -2059,7 +2063,7 @@ export function VideoScreen({ go }: { go: Go }) {
                 style={{
                   width: 40,
                   height: 40,
-                  borderRadius: 12,
+                  borderRadius: DESIGN.cardRadius,
                   backgroundColor: COLORS.white,
                   shadowColor: '#0F172A',
                   shadowOffset: { width: 0, height: 2 },
@@ -2134,7 +2138,7 @@ export function VideoScreen({ go }: { go: Go }) {
             style={{
               width: 38,
               height: 38,
-              borderRadius: 12,
+              borderRadius: DESIGN.cardRadius,
               backgroundColor: 'rgba(255,255,255,0.22)',
             }}
           >
@@ -2154,7 +2158,7 @@ export function VideoScreen({ go }: { go: Go }) {
         <Box
           className="mx-4"
           style={{
-            borderRadius: 22,
+            borderRadius: DESIGN.cardRadius,
             backgroundColor: '#ECFDF5',
             borderWidth: 1.5,
             borderColor: '#6EE7B7',
@@ -2169,7 +2173,7 @@ export function VideoScreen({ go }: { go: Go }) {
               style={{
                 width: 44,
                 height: 44,
-                borderRadius: 14,
+                borderRadius: DESIGN.cardRadius,
                 backgroundColor: '#059669',
               }}
             >

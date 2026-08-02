@@ -1787,7 +1787,7 @@ export function GeoScreen({ go }: { go: Go }) {
           onBack={() => go('login')}
           go={go}
         />
-        <Box className="flex-1 items-center justify-center px-8" style={{ marginTop: -24 }}>
+        <Box className="flex-1 items-center justify-center px-8" style={{ marginTop: 8 }}>
           {isBusy || !locationError ? (
             <ScreenLoader color="#2563EB" />
           ) : (
@@ -1846,7 +1846,7 @@ export function GeoScreen({ go }: { go: Go }) {
           go={go}
         />
 
-        <Box className="flex-1 -mt-6 pb-10">
+        <Box className="flex-1 pb-10" style={{ marginTop: 12 }}>
           <Animated.View
             entering={FadeInUp.duration(560).springify().damping(14).stiffness(130)}
           >

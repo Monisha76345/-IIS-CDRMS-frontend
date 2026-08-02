@@ -43,15 +43,15 @@ async function saveThemeLocal(id: ThemeId) {
   await SecureStore.setItemAsync(THEME_STORAGE_KEY, id);
 }
 
-async function readThemeLocal(): Promise<ThemeId | null> {
+async function clearThemeLocal() {
   try {
-    const raw =
-      Platform.OS === 'web'
-        ? localStorage.getItem(THEME_STORAGE_KEY)
-        : await SecureStore.getItemAsync(THEME_STORAGE_KEY);
-    return raw ? normalizeThemeId(raw) : null;
+    if (Platform.OS === 'web') {
+      localStorage.removeItem(THEME_STORAGE_KEY);
+      return;
+    }
+    await SecureStore.deleteItemAsync(THEME_STORAGE_KEY);
   } catch {
-    return null;
+    /* ignore */
   }
 }
 
@@ -67,29 +67,26 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useLayoutEffect(() => {
     if (!isAuthenticated) {
+      // Pre-auth / logout — always Ocean Blue; drop any leftover device cache.
       applyAuthTheme();
       setThemeId(DEFAULT_THEME_ID);
       setThemeReady(true);
+      void clearThemeLocal();
     }
   }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    let cancelled = false;
-    void (async () => {
-      const cached = await readThemeLocal();
-      const fromUser = normalizeThemeId(user?.themePreference);
-      const next = user?.themePreference ? fromUser : (cached ?? DEFAULT_THEME_ID);
-      if (!cancelled) {
-        activateTheme(next);
-        setThemeId(next);
-        setThemeReady(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    // Server preference wins. If they never picked a theme (or continue past
+    // geo without choosing), stay on Ocean Blue — do not revive a stale cache.
+    const next = user?.themePreference
+      ? normalizeThemeId(user.themePreference)
+      : DEFAULT_THEME_ID;
+    activateTheme(next);
+    setThemeId(next);
+    setThemeReady(true);
+    void saveThemeLocal(next);
   }, [isAuthenticated, user?.themePreference]);
 
   const setTheme = useCallback(

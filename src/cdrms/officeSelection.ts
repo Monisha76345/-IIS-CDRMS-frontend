@@ -41,3 +41,16 @@ export function consumeEngineerAppsReturn() {
   engineerAppsReturn = null;
   return next;
 }
+
+/** Header theme icon → Profile “App theme” section. */
+let focusProfileTheme = false;
+
+export function requestFocusProfileTheme() {
+  focusProfileTheme = true;
+}
+
+export function consumeFocusProfileTheme() {
+  const next = focusProfileTheme;
+  focusProfileTheme = false;
+  return next;
+}

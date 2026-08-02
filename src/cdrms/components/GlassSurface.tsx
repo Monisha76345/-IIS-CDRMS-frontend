@@ -1,13 +1,19 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { type LucideIcon } from 'lucide-react-native';
 import { type ReactNode } from 'react';
-import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import { COLORS, BLUE_SHADES, FONTS, GLASS, GRADIENT_CARD_HEADER, GRADIENT_MESH, SPACE, gradientStops } from '@/src/cdrms/theme';
+import {
+  cardBodyStyle,
+  cardPlainHeaderStyle,
+  cardShowsGradientHeader,
+  cardSurfaceStyle,
+} from '@/src/cdrms/lib/cardSurface';
+import { COLORS, DESIGN, FONTS, GLASS, GRADIENT_CARD_HEADER, SPACE, gradientStops, hexAlpha } from '@/src/cdrms/theme';
 import { useTheme } from '@/src/theme/ThemeContext';
 
 type FrostedProps = {
@@ -22,68 +28,30 @@ type FrostedProps = {
 };
 
 /**
- * Deterministic frosted glass — fixed colors + optional reflection sheen.
+ * Nested panel — follows theme card family (elevated / soft / outline / tinted / flat).
  */
 export function FrostedGlass({
   children,
   style,
-  borderRadius = 14,
+  borderRadius,
   padding = 0,
-  fill = GLASS.card,
-  sheen = true,
+  fill,
+  sheen: _sheen = false,
 }: FrostedProps) {
+  const { themeId } = useTheme();
+  const surface = cardSurfaceStyle({ nested: true });
   return (
     <View
+      key={themeId}
       style={[
-        {
-          borderRadius,
-          overflow: 'hidden',
-          backgroundColor: fill,
-          borderWidth: 1,
-          borderColor: GLASS.border,
-          shadowColor: GLASS.shadow,
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: Platform.OS === 'ios' ? 0.1 : 0.08,
-          shadowRadius: 16,
-          elevation: 4,
-        },
+        surface,
+        borderRadius != null ? { borderRadius } : null,
+        fill != null ? { backgroundColor: fill } : null,
         style,
       ]}
     >
-      {sheen ? <ReflectionSheen borderRadius={borderRadius} /> : null}
       <View style={{ padding, zIndex: 1 }}>{children}</View>
     </View>
-  );
-}
-
-/** Top-edge light reflection */
-function ReflectionSheen({ borderRadius }: { borderRadius: number }) {
-  return (
-    <>
-      <LinearGradient
-        pointerEvents="none"
-        colors={[
-          'rgba(255,255,255,0.35)',
-          'rgba(255,255,255,0.08)',
-          'rgba(255,255,255,0)',
-        ]}
-        locations={[0, 0.25, 0.55]}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={[StyleSheet.absoluteFill, { borderRadius }]}
-      />
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          top: 1,
-          left: 16,
-          right: 16,
-          height: 1,
-          backgroundColor: 'rgba(255,255,255,0.9)',
-        }}
-      />
-    </>
   );
 }
 
@@ -93,10 +61,10 @@ type GlassSurfaceProps = {
   padding?: number;
 };
 
-export function GlassSurface({ children, style, padding = SPACE[3] }: GlassSurfaceProps) {
+export function GlassSurface({ children, style, padding = SPACE[2] }: GlassSurfaceProps) {
   return (
     <FrostedGlass
-      borderRadius={14}
+      borderRadius={DESIGN.cardRadius}
       padding={padding}
       fill={GLASS.surfaceSolid}
       sheen={false}
@@ -116,16 +84,18 @@ export function GlassIcon({
   color?: string;
   size?: number;
 }) {
+  const { themeId } = useTheme();
   return (
     <View
+      key={themeId}
       style={{
-        width: 32,
-        height: 32,
-        borderRadius: 10,
+        width: DESIGN.stepSize - 4,
+        height: DESIGN.stepSize - 4,
+        borderRadius: DESIGN.stepRadius > 40 ? 999 : Math.max(8, DESIGN.stepRadius - 2),
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: GLASS.iconBg,
-        borderWidth: 1,
+        borderWidth: DESIGN.borderWidth,
         borderColor: GLASS.borderSoft,
       }}
     >
@@ -141,32 +111,18 @@ export function GlassCard({
   children: ReactNode;
   style?: ViewStyle;
 }) {
+  const { themeId } = useTheme();
   return (
     <View
-      style={[
-        {
-          marginHorizontal: SPACE.gutter,
-          marginBottom: 0,
-          borderRadius: 20,
-          overflow: 'hidden',
-          backgroundColor: GLASS.cardSolid,
-          borderWidth: 1,
-          borderColor: GLASS.border,
-          shadowColor: GLASS.shadow,
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: Platform.OS === 'ios' ? 0.1 : 0.07,
-          shadowRadius: 18,
-          elevation: 4,
-        },
-        style,
-      ]}
+      key={themeId}
+      style={[cardSurfaceStyle({ marginHorizontal: SPACE.gutter }), style]}
     >
       {children}
     </View>
   );
 }
 
-/** Pill badge for gradient card headers */
+/** Pill badge for section headers — always high-contrast on primary. */
 export function GlassHeaderBadge({ children }: { children: ReactNode }) {
   return (
     <HStack
@@ -175,10 +131,8 @@ export function GlassHeaderBadge({ children }: { children: ReactNode }) {
         gap: 4,
         paddingHorizontal: 7,
         paddingVertical: 4,
-        borderRadius: 999,
-        backgroundColor: 'rgba(255,255,255,0.12)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.28)',
+        borderRadius: DESIGN.chipRadius > 40 ? 999 : DESIGN.chipRadius,
+        backgroundColor: COLORS.primaryDeep,
       }}
     >
       {children}
@@ -186,7 +140,7 @@ export function GlassHeaderBadge({ children }: { children: ReactNode }) {
   );
 }
 
-/** Rich mesh gradient + theme orbs — shared by app header and glass section headers. */
+/** Solid theme gradient for section headers — no transparent orbs / overlays. */
 export function PremiumGradientBackground({
   colors = GRADIENT_CARD_HEADER,
 }: {
@@ -198,64 +152,102 @@ export function PremiumGradientBackground({
     <Box key={themeId} pointerEvents="none" style={StyleSheet.absoluteFill}>
       <LinearGradient
         colors={gradientStops(colors)}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <Box
-        style={{
-          position: 'absolute',
-          top: -28,
-          right: -20,
-          width: 110,
-          height: 110,
-          borderRadius: 999,
-          backgroundColor: `${BLUE_SHADES.cyan}40`,
-        }}
-      />
-      <Box
-        style={{
-          position: 'absolute',
-          bottom: -35,
-          left: -25,
-          width: 100,
-          height: 100,
-          borderRadius: 999,
-          backgroundColor: `${COLORS.primaryDeep}45`,
-        }}
-      />
-      <Box
-        style={{
-          position: 'absolute',
-          top: 20,
-          left: '42%',
-          width: 70,
-          height: 70,
-          borderRadius: 999,
-          backgroundColor: `${BLUE_SHADES.indigo}30`,
-        }}
-      />
-      <LinearGradient
-        colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.06)', 'rgba(255,255,255,0)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0.8 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <LinearGradient
-        colors={['rgba(0,0,0,0)', 'rgba(15,23,42,0.1)']}
-        start={{ x: 0.5, y: 0.4 }}
-        end={{ x: 0.5, y: 1 }}
+        start={DESIGN.cardHeaderStart}
+        end={DESIGN.cardHeaderEnd}
         style={StyleSheet.absoluteFill}
       />
     </Box>
   );
 }
 
-/** Blue mesh-shader card header — cyan → blue gradient + soft orbs */
-export function GlassCardHeader({
+function SectionHeaderTitle({
   title,
   subtitle,
   icon: Icon,
+  badge,
+  onDark,
+}: {
+  title: string;
+  subtitle: string;
+  icon: LucideIcon;
+  badge?: ReactNode;
+  onDark: boolean;
+}) {
+  const required = title.trimEnd().endsWith('*');
+  const label = required ? title.replace(/\s*\*\s*$/, '') : title;
+  const titleColor = onDark ? '#FFFFFF' : COLORS.ink;
+  const subColor = onDark ? '#E2E8F0' : COLORS.slate;
+  const starColor = onDark ? '#FECACA' : COLORS.destructive;
+  const iconBg = onDark ? COLORS.primaryDeep : COLORS.primary;
+  const iconFg = '#FFFFFF';
+
+  return (
+    <HStack
+      style={{
+        alignItems: 'center',
+        gap: SPACE[2],
+        zIndex: 2,
+      }}
+    >
+      <Box
+        style={{
+          width: DESIGN.stepSize - 2,
+          height: DESIGN.stepSize - 2,
+          borderRadius: DESIGN.stepRadius > 40 ? 999 : DESIGN.stepRadius,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: iconBg,
+        }}
+      >
+        <Icon size={17} color={iconFg} strokeWidth={2} />
+      </Box>
+      <VStack style={{ flex: 1, gap: 1 }}>
+        <HStack style={{ alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+          <Text
+            style={{
+              fontFamily: FONTS.bold,
+              fontSize: 15,
+              color: titleColor,
+              letterSpacing: -0.2,
+            }}
+          >
+            {label}
+          </Text>
+          {required ? (
+            <Text
+              style={{
+                fontFamily: FONTS.bold,
+                fontSize: 15,
+                color: starColor,
+                letterSpacing: -0.2,
+              }}
+            >
+              *
+            </Text>
+          ) : null}
+        </HStack>
+        {subtitle ? (
+          <Text
+            style={{
+              fontFamily: FONTS.medium,
+              fontSize: 11,
+              color: subColor,
+            }}
+          >
+            {subtitle}
+          </Text>
+        ) : null}
+      </VStack>
+      {badge ?? null}
+    </HStack>
+  );
+}
+
+/** Section header — gradient for Classic/Bold; plain/soft/tint for Soft/Nature/Minimal. */
+export function GlassCardHeader({
+  title,
+  subtitle,
+  icon,
   badge,
 }: {
   title: string;
@@ -263,87 +255,45 @@ export function GlassCardHeader({
   icon: LucideIcon;
   badge?: ReactNode;
 }) {
-  const required = title.trimEnd().endsWith('*');
-  const label = required ? title.replace(/\s*\*\s*$/, '') : title;
+  const { themeId } = useTheme();
+  const useGradient = cardShowsGradientHeader();
 
-  return (
-    <Box style={{ overflow: 'hidden' }}>
-      <PremiumGradientBackground />
-      <HStack
-        style={{
-          alignItems: 'center',
-          gap: SPACE[2],
-          paddingHorizontal: SPACE[3],
-          paddingVertical: SPACE[3],
-          zIndex: 2,
-        }}
-      >
+  if (useGradient) {
+    return (
+      <Box key={themeId} style={{ overflow: 'hidden' }}>
+        <PremiumGradientBackground />
         <Box
           style={{
-            width: 34,
-            height: 34,
-            borderRadius: 10,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: 'rgba(255,255,255,0.14)',
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.3)',
-            shadowColor: COLORS.primaryGlow,
-            shadowOffset: { width: 0, height: 3 },
-            shadowOpacity: 0.18,
-            shadowRadius: 6,
-            elevation: 2,
+            paddingHorizontal: SPACE[2],
+            paddingVertical: SPACE[2],
           }}
         >
-          <Icon size={17} color="#FFFFFF" strokeWidth={2} />
+          <SectionHeaderTitle
+            title={title}
+            subtitle={subtitle}
+            icon={icon}
+            badge={badge}
+            onDark
+          />
         </Box>
-        <VStack style={{ flex: 1, gap: 1 }}>
-          <HStack style={{ alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-            <Text
-              style={{
-                fontFamily: FONTS.bold,
-                fontSize: 15,
-                color: '#FFFFFF',
-                letterSpacing: -0.2,
-                textShadowColor: 'rgba(15,23,42,0.25)',
-                textShadowOffset: { width: 0, height: 1 },
-                textShadowRadius: 3,
-              }}
-            >
-              {label}
-            </Text>
-            {required ? (
-              <Text
-                style={{
-                  fontFamily: FONTS.bold,
-                  fontSize: 15,
-                  color: '#F87171',
-                  letterSpacing: -0.2,
-                }}
-              >
-                *
-              </Text>
-            ) : null}
-          </HStack>
-          {subtitle ? (
-            <Text
-              style={{
-                fontFamily: FONTS.medium,
-                fontSize: 11,
-                color: 'rgba(255,255,255,0.9)',
-              }}
-            >
-              {subtitle}
-            </Text>
-          ) : null}
-        </VStack>
-        {badge ?? null}
-      </HStack>
+      </Box>
+    );
+  }
+
+  return (
+    <Box key={themeId} style={cardPlainHeaderStyle()}>
+      <SectionHeaderTitle
+        title={title}
+        subtitle={subtitle}
+        icon={icon}
+        badge={badge}
+        onDark={false}
+      />
     </Box>
   );
 }
 
-/** Premium survey section — gradient header + white body */
+/** Survey / detail section — chrome follows theme card family. */
 export function GlassSectionCard({
   title,
   subtitle,
@@ -359,15 +309,16 @@ export function GlassSectionCard({
   children: ReactNode;
   bodyStyle?: ViewStyle;
 }) {
+  const { themeId } = useTheme();
   return (
-    <GlassCard>
+    <GlassCard key={themeId}>
       <GlassCardHeader title={title} subtitle={subtitle} icon={icon} badge={badge} />
       <VStack
         style={[
           {
-            padding: SPACE[3],
-            gap: SPACE[2],
-            backgroundColor: GLASS.cardSolid,
+            padding: DESIGN.cardVariant === 'flat' ? SPACE[1] : SPACE[2],
+            gap: SPACE[1],
+            ...cardBodyStyle(),
           },
           bodyStyle,
         ]}
@@ -390,14 +341,11 @@ export function GlassDivider() {
   );
 }
 
-/** Rich blue mesh — soft background */
+/** Solid soft page wash — no transparent mesh artwork. */
 export function GlassMeshOrbs() {
   return (
-    <LinearGradient
-      colors={[...GRADIENT_MESH]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={StyleSheet.absoluteFill}
+    <Box
+      style={[StyleSheet.absoluteFill, { backgroundColor: COLORS.soft }]}
     />
   );
 }

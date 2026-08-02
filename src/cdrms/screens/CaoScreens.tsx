@@ -43,7 +43,8 @@ import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationReco
 import { getCaoReturnScreen, getSelectedOfficeAppId, setCaoReturnScreen, setSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
 import { downloadApplicationPdf } from '@/src/cdrms/lib/downloadApplicationPdf';
 import { showAppDialog } from '@/src/cdrms/components/AppDialog';
-import { COLORS, FONTS, GLASS, GRADIENT_PRIMARY, themeStatColors, gradientStops } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GLASS, GRADIENT_PRIMARY, themeStatColors, gradientStops, DESIGN } from '@/src/cdrms/theme';
+import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
 import { useTheme } from '@/src/theme/ThemeContext';
 import type { Go } from '@/src/cdrms/types';
 
@@ -63,7 +64,7 @@ function CaoDownloadOverlay({ visible }: { visible: boolean }) {
           style={{
             width: '100%',
             maxWidth: 280,
-            borderRadius: 24,
+            borderRadius: DESIGN.cardRadius,
             backgroundColor: COLORS.white,
             paddingVertical: 28,
             paddingHorizontal: 24,
@@ -242,15 +243,11 @@ export function CaoHomeScreen({ go }: { go: Go }) {
           />
 
           <Box
-            className="mt-3 flex-row items-center"
-            style={{
-              backgroundColor: COLORS.white,
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: COLORS.border,
-              paddingHorizontal: 10,
-              height: 42,
-            }}
+            className="mt-2 flex-row items-center"
+            style={[
+              cardSurfaceStyle({ nested: true }),
+              { paddingHorizontal: 10, height: 42, overflow: 'hidden' },
+            ]}
           >
             <Search size={16} color={COLORS.slate} />
             <TextInput
@@ -331,6 +328,7 @@ const CAO_APP_FILTERS: { key: CaoAppsFilter; status?: MobileApplication['status'
 
 /** All CAO zone applications — opened from bottom Apps tab. */
 export function CaoApplicationsScreen({ go }: { go: Go }) {
+  const { themeId } = useTheme();
   const { accessToken } = useAuth();
   const [apps, setApps] = useState<MobileApplication[]>([]);
   const [loading, setLoading] = useState(true);
@@ -405,7 +403,7 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
   }, [apps, tab, q]);
 
   return (
-    <ScreenShell className="bg-[#F8FAFC]">
+    <ScreenShell key={themeId} className="bg-[#F8FAFC]">
       <CaoDownloadOverlay visible={downloading} />
       <AppHeader
         title="Applications"
@@ -419,14 +417,10 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
         <Box className="px-4 pb-2">
           <HStack
             className="items-center"
-            style={{
-              backgroundColor: COLORS.white,
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: COLORS.border,
-              paddingHorizontal: 12,
-              height: 44,
-            }}
+            style={[
+              cardSurfaceStyle({ nested: true }),
+              { paddingHorizontal: 12, height: 44, overflow: 'hidden' },
+            ]}
           >
             <Search size={16} color={COLORS.primary} />
             <TextInput
@@ -458,7 +452,7 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
         ) : error ? (
           <Box
             style={{
-              borderRadius: 14,
+              borderRadius: DESIGN.cardRadius,
               borderWidth: 1,
               borderColor: '#FECACA',
               backgroundColor: '#FEF2F2',
@@ -472,7 +466,7 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
         ) : filtered.length === 0 ? (
           <Box
             style={{
-              borderRadius: 16,
+              borderRadius: DESIGN.radiusLg,
               backgroundColor: COLORS.white,
               paddingVertical: 32,
               paddingHorizontal: 16,
@@ -602,7 +596,7 @@ export function CaoDetailScreen({ go }: { go: Go }) {
       />
       <ScrollView
         key={themeId}
-        contentContainerStyle={{ paddingTop: 12, paddingBottom: 40, gap: 12 }}
+        contentContainerStyle={{ paddingTop: 8, paddingBottom: 28, gap: 8 }}
         showsVerticalScrollIndicator={false}
       >
         {loading ? (
@@ -620,7 +614,7 @@ export function CaoDetailScreen({ go }: { go: Go }) {
             </Text>
           </Box>
         ) : (
-          <VStack style={{ gap: 12 }}>
+          <VStack style={{ gap: 8 }}>
             <ApplicationRecordDetails app={app} />
 
             <Box style={{ marginHorizontal: 16 }}>
@@ -629,7 +623,7 @@ export function CaoDetailScreen({ go }: { go: Go }) {
                 disabled={downloading}
                 className="overflow-hidden active:opacity-90"
                 style={{
-                  borderRadius: 14,
+                  borderRadius: DESIGN.cardRadius,
                   opacity: downloading ? 0.7 : 1,
                   shadowColor: COLORS.primary,
                   shadowOffset: { width: 0, height: 8 },

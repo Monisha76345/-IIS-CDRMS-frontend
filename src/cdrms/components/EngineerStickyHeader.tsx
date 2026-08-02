@@ -20,7 +20,7 @@ import {
   FrostedGlass,
 } from '@/src/cdrms/components/GlassSurface';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
-import { CARDINAL_ACCENT, COLORS, FONTS, GLASS, SPACE, TYPE } from '@/src/cdrms/theme';
+import { CARDINAL_ACCENT, COLORS, FONTS, GLASS, SPACE, TYPE, DESIGN } from '@/src/cdrms/theme';
 
 const CARDINALS = [
   { k: 'N' as const, label: 'North', color: CARDINAL_ACCENT.N },
@@ -151,7 +151,7 @@ function StatBlock({
   return (
     <Box style={{ flex: 1 }}>
       <FrostedGlass
-        borderRadius={12}
+        borderRadius={DESIGN.cardRadius}
         padding={SPACE[2]}
         fill={GLASS.surfaceSolid}
         sheen={false}
@@ -231,7 +231,7 @@ function CompassCell({
   return (
     <Box style={{ width: '47%', flexGrow: 1 }}>
       <FrostedGlass
-        borderRadius={12}
+        borderRadius={DESIGN.cardRadius}
         padding={SPACE[2]}
         fill={GLASS.surfaceSolid}
         sheen={false}

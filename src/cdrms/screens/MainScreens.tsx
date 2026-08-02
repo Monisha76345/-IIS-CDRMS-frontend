@@ -28,10 +28,11 @@ import {
   Upload,
   User,
   UserCheck,
+  Palette,
   type LucideIcon,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
-import { TextInput, Image, Modal } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { TextInput, Image, Modal, ScrollView as RNScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Box } from '@/components/ui/box';
@@ -57,14 +58,16 @@ import {
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import {
   COLORS,
+  DESIGN,
   FONTS,
   GLASS,
   GRADIENT_HEADER,
   SPACE,
   gradientStops,
+  hexAlpha,
 } from '@/src/cdrms/theme';
 import { GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
-import { ThemeToggleButton } from '@/src/cdrms/components/ThemePicker';
+import { ThemePicker, ThemeToggleButton } from '@/src/cdrms/components/ThemePicker';
 import { useTheme } from '@/src/theme/ThemeContext';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go, Screen } from '@/src/cdrms/types';
@@ -83,6 +86,7 @@ import {
 } from '@/src/api/applications';
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
 import { useNotifications } from '@/src/cdrms/hooks/useNotifications';
+import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
 import {
   formatNotifTime,
   navigateFromNotification,
@@ -94,6 +98,7 @@ import {
   setSelectedOfficeAppId,
   consumeEngineerAppsFilter,
   consumeEngineerAppsReturn,
+  consumeFocusProfileTheme,
 } from '@/src/cdrms/officeSelection';
 import { ensureCameraPermission } from '@/src/cdrms/mediaPermission';
 
@@ -261,12 +266,12 @@ export function Dashboard({ go }: { go: Go }) {
       fg: COLORS.primary,
       icon: FileText,
     },
-    {
+        {
       id: 'in_progress',
       label: 'In progress',
       value: inProgressTasks.length,
-      bg: '#FFFBEB',
-      fg: '#B45309',
+      bg: '#FFF7ED',
+      fg: COLORS.warning,
       icon: Edit3,
     },
     {
@@ -316,52 +321,38 @@ export function Dashboard({ go }: { go: Go }) {
       >
         <LinearGradient
           colors={gradientStops(GRADIENT_HEADER)}
-          locations={[0, 0.45, 1]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          locations={[0, 1]}
+          start={DESIGN.headerStart}
+          end={DESIGN.headerEnd}
           style={{
-            paddingBottom: 40,
-            borderBottomLeftRadius: 28,
-            borderBottomRightRadius: 28,
+            paddingBottom: 28,
+            borderBottomLeftRadius: DESIGN.headerRadius,
+            borderBottomRightRadius: DESIGN.headerRadius,
             overflow: 'hidden',
           }}
         >
-          <Box
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              top: -80,
-              right: -40,
-              width: 220,
-              height: 220,
-              borderRadius: 999,
-              borderWidth: 1.5,
-              borderColor: 'rgba(255,255,255,0.14)',
-            }}
-          />
-          <Box
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              top: -40,
-              right: 10,
-              width: 140,
-              height: 140,
-              borderRadius: 999,
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.1)',
-            }}
-          />
-
           <Box className="px-5" style={{ paddingTop: insets.top + 8 }}>
             <HStack className="items-center justify-between">
               <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
                 <Text
                   style={{
-                    fontFamily: FONTS.bold,
-                    fontSize: 22,
-                    lineHeight: 28,
-                    letterSpacing: -0.3,
+                    fontFamily: FONTS.medium,
+                    fontSize: 12,
+                    lineHeight: 16,
+                    letterSpacing: 1.2,
+                    textTransform: 'uppercase',
+                    color: '#DBEAFE',
+                  }}
+                  numberOfLines={1}
+                >
+                  Field survey
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: FONTS.displayBold,
+                    fontSize: 26,
+                    lineHeight: 32,
+                    letterSpacing: -0.4,
                     color: COLORS.white,
                   }}
                   numberOfLines={1}
@@ -374,7 +365,7 @@ export function Dashboard({ go }: { go: Go }) {
                     fontSize: 14,
                     lineHeight: 18,
                     letterSpacing: 0.1,
-                    color: 'rgba(255,255,255,0.88)',
+                    color: '#E0E7FF',
                   }}
                   numberOfLines={1}
                 >
@@ -382,7 +373,7 @@ export function Dashboard({ go }: { go: Go }) {
                 </Text>
               </VStack>
               <HStack className="items-center gap-2">
-                <ThemeToggleButton variant="header" />
+                <ThemeToggleButton variant="header" go={go} />
                 <ProfileMenu
                 gradient
                 userName={displayName(user)}
@@ -420,68 +411,176 @@ export function Dashboard({ go }: { go: Go }) {
           </Box>
         </LinearGradient>
 
-        {/* Filter counts — All tasks · Assigned · In progress · Submitted */}
-        <Box className="px-4" style={{ marginTop: -28 }}>
-          <HStack style={{ gap: 8 }}>
-            {filterCards.map((s) => {
-              const Icon = s.icon;
-              const selected = recentFilter === s.id;
-              return (
-                <Pressable
-                  key={s.id}
-                  onPress={() => setRecentFilter(s.id)}
-                  className="flex-1 active:opacity-90"
-                  style={{
-                    backgroundColor: selected ? COLORS.primary : COLORS.white,
-                    borderRadius: 16,
-                    paddingVertical: 12,
-                    paddingHorizontal: 4,
-                    alignItems: 'center',
-                    shadowColor: selected ? COLORS.primary : COLORS.primaryDeep,
-                    shadowOffset: { width: 0, height: 8 },
-                    shadowOpacity: selected ? 0.22 : 0.1,
-                    shadowRadius: 14,
-                    elevation: 5,
-                    borderWidth: 1,
-                    borderColor: selected ? COLORS.primary : COLORS.border,
-                  }}
-                >
-                  <Box
-                    className="items-center justify-center rounded-full"
+        {/* Filter counts — layout changes with theme family */}
+        <Box className="px-4" style={{ marginTop: 12 }}>
+          {DESIGN.filterVariant === 'tabs' ? (
+            <HStack
+              style={{
+                backgroundColor: COLORS.white,
+                borderRadius: DESIGN.cardRadius,
+                borderBottomWidth: 0,
+                overflow: 'hidden',
+                borderWidth: DESIGN.borderWidth,
+                borderColor: COLORS.border,
+              }}
+            >
+              {filterCards.map((s) => {
+                const selected = recentFilter === s.id;
+                return (
+                  <Pressable
+                    key={s.id}
+                    onPress={() => setRecentFilter(s.id)}
+                    className="flex-1 items-center active:opacity-80"
                     style={{
-                      width: 34,
-                      height: 34,
-                      backgroundColor: selected ? 'rgba(255,255,255,0.22)' : s.bg,
+                      paddingVertical: 12,
+                      borderBottomWidth: selected ? 3 : 0,
+                      borderBottomColor: COLORS.primary,
+                      backgroundColor: selected ? hexAlpha(COLORS.primary, 0.06) : COLORS.white,
                     }}
                   >
-                    <Icon
-                      size={15}
-                      color={selected ? COLORS.white : s.fg}
-                      strokeWidth={2.3}
-                    />
-                  </Box>
-                  <Text
-                    className="mt-1.5 text-[16px] font-extrabold"
-                    style={{ color: selected ? COLORS.white : COLORS.ink }}
+                    <Text
+                      style={{
+                        fontFamily: FONTS.bold,
+                        fontSize: 16,
+                        color: selected ? COLORS.primary : COLORS.ink,
+                      }}
+                    >
+                      {loadingTasks ? '—' : s.value}
+                    </Text>
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        fontFamily: FONTS.semibold,
+                        fontSize: 9,
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.4,
+                        color: selected ? COLORS.primary : COLORS.slate,
+                        marginTop: 2,
+                      }}
+                    >
+                      {s.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </HStack>
+          ) : DESIGN.filterVariant === 'chips' ? (
+            <HStack style={{ flexWrap: 'wrap', gap: 8 }}>
+              {filterCards.map((s) => {
+                const Icon = s.icon;
+                const selected = recentFilter === s.id;
+                return (
+                  <Pressable
+                    key={s.id}
+                    onPress={() => setRecentFilter(s.id)}
+                    className="active:opacity-90"
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                      paddingVertical: 10,
+                      paddingHorizontal: 12,
+                      borderRadius: DESIGN.chipRadius,
+                      backgroundColor: selected ? COLORS.primary : s.bg,
+                      borderWidth: 1,
+                      borderColor: selected ? COLORS.primary : COLORS.border,
+                    }}
                   >
-                    {loadingTasks ? '—' : s.value}
-                  </Text>
-                  <Text
-                    className="text-[9px] font-semibold text-center"
-                    style={{ color: selected ? 'rgba(255,255,255,0.9)' : COLORS.slate, marginTop: 1 }}
-                    numberOfLines={1}
+                    <Icon size={13} color={selected ? COLORS.white : s.fg} strokeWidth={2.3} />
+                    <Text
+                      style={{
+                        fontFamily: FONTS.bold,
+                        fontSize: 14,
+                        color: selected ? COLORS.white : COLORS.ink,
+                      }}
+                    >
+                      {loadingTasks ? '—' : s.value}
+                    </Text>
+                    <Text
+                      style={{
+                        fontFamily: FONTS.semibold,
+                        fontSize: 11,
+                        color: selected ? 'rgba(255,255,255,0.9)' : COLORS.slate,
+                      }}
+                    >
+                      {s.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </HStack>
+          ) : (
+            <HStack style={{ gap: DESIGN.filterVariant === 'pills' ? 6 : 8 }}>
+              {filterCards.map((s) => {
+                const Icon = s.icon;
+                const selected = recentFilter === s.id;
+                const pills = DESIGN.filterVariant === 'pills';
+                const blocks = DESIGN.filterVariant === 'blocks';
+                return (
+                  <Pressable
+                    key={s.id}
+                    onPress={() => setRecentFilter(s.id)}
+                    className="flex-1 active:opacity-90"
+                    style={{
+                      backgroundColor: selected ? COLORS.primary : COLORS.white,
+                      borderRadius: pills ? 999 : DESIGN.chipRadius,
+                      paddingVertical: blocks ? 8 : 10,
+                      paddingHorizontal: 4,
+                      alignItems: 'center',
+                      shadowColor: selected ? COLORS.primaryDeep : COLORS.primary,
+                      shadowOffset: { width: 0, height: pills ? 8 : blocks ? 3 : 10 },
+                      shadowOpacity: selected ? 0.28 : blocks ? 0.06 : 0.07,
+                      shadowRadius: DESIGN.shadowRadius,
+                      elevation: selected ? DESIGN.elevation + 3 : blocks ? 2 : DESIGN.elevation,
+                      borderWidth: 1,
+                      borderColor: selected
+                        ? COLORS.primary
+                        : blocks
+                          ? hexAlpha(COLORS.primary, 0.2)
+                          : COLORS.border,
+                    }}
                   >
-                    {s.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </HStack>
+                    <Box
+                      className="items-center justify-center"
+                      style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: pills || !blocks ? 999 : DESIGN.stepRadius,
+                        backgroundColor: selected ? 'rgba(255,255,255,0.22)' : s.bg,
+                      }}
+                    >
+                      <Icon
+                        size={15}
+                        color={selected ? COLORS.white : s.fg}
+                        strokeWidth={2.3}
+                      />
+                    </Box>
+                    <Text
+                      className="mt-1.5 text-[16px] font-extrabold"
+                      style={{ color: selected ? COLORS.white : COLORS.ink }}
+                    >
+                      {loadingTasks ? '—' : s.value}
+                    </Text>
+                    <Text
+                      className="text-[9px] font-semibold text-center"
+                      style={{
+                        color: selected ? 'rgba(255,255,255,0.9)' : COLORS.slate,
+                        marginTop: 1,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {s.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </HStack>
+          )}
         </Box>
 
         {/* Filtered activity list */}
-        <Box className="px-4 mt-6">
-          <Text className="text-[16px] font-bold mb-3" style={{ color: COLORS.ink }}>
+        <Box className="px-4 mt-3">
+          <Text className="text-[15px] font-bold mb-2" style={{ color: COLORS.ink }}>
             {sectionTitle}
           </Text>
 
@@ -520,16 +619,19 @@ export function Dashboard({ go }: { go: Go }) {
               return (
                 <Box
                   key={a.id}
-                  style={{
-                    backgroundColor: COLORS.white,
-                    borderRadius: 22,
-                    padding: 14,
-                    shadowColor: GLASS.shadow,
-                    shadowOffset: { width: 0, height: 6 },
-                    shadowOpacity: 0.06,
-                    shadowRadius: 12,
-                    elevation: 2,
-                  }}
+                  style={[
+                    cardSurfaceStyle(),
+                    DESIGN.listVariant === 'strip'
+                      ? { borderRadius: 999, padding: 10 }
+                      : DESIGN.listVariant === 'ghost'
+                        ? {
+                            borderRadius: 0,
+                            paddingVertical: 12,
+                            paddingHorizontal: 4,
+                            marginBottom: 0,
+                          }
+                        : { padding: 10 },
+                  ]}
                 >
                   <HStack className="items-start gap-3">
                     <Box
@@ -604,7 +706,7 @@ export function Dashboard({ go }: { go: Go }) {
                             style={{
                               width: 34,
                               height: 34,
-                              borderRadius: 10,
+                              borderRadius: DESIGN.stepRadius,
                               backgroundColor: '#DCFCE7',
                               borderWidth: 1,
                               borderColor: '#BBF7D0',
@@ -625,7 +727,7 @@ export function Dashboard({ go }: { go: Go }) {
                             style={{
                               width: 34,
                               height: 34,
-                              borderRadius: 10,
+                              borderRadius: DESIGN.stepRadius,
                               backgroundColor: GLASS.tintBlue,
                               borderWidth: 1,
                               borderColor: COLORS.border,
@@ -647,7 +749,7 @@ export function Dashboard({ go }: { go: Go }) {
                             style={{
                               width: 34,
                               height: 34,
-                              borderRadius: 10,
+                              borderRadius: DESIGN.stepRadius,
                               backgroundColor: COLORS.primary,
                               opacity: openingId === a.id ? 0.6 : 1,
                             }}
@@ -871,7 +973,7 @@ function ApplicationThumb({ uri }: { uri: string | null }) {
       style={{
         width: 44,
         height: 44,
-        borderRadius: 12,
+        borderRadius: DESIGN.cardRadius,
         backgroundColor: GLASS.tintBlue,
         shadowColor: GLASS.shadow,
         shadowOffset: { width: 0, height: 2 },
@@ -931,7 +1033,7 @@ function ApplicationListCard({
           style={{
             width: 34,
             height: 34,
-            borderRadius: 10,
+            borderRadius: DESIGN.stepRadius,
             backgroundColor: '#DCFCE7',
             borderWidth: 1,
             borderColor: '#BBF7D0',
@@ -951,7 +1053,7 @@ function ApplicationListCard({
           style={{
             width: 34,
             height: 34,
-            borderRadius: 10,
+            borderRadius: DESIGN.stepRadius,
             backgroundColor: GLASS.tintBlue,
             borderWidth: 1,
             borderColor: COLORS.border,
@@ -971,7 +1073,7 @@ function ApplicationListCard({
           style={{
             width: 34,
             height: 34,
-            borderRadius: 10,
+            borderRadius: DESIGN.stepRadius,
             backgroundColor: COLORS.primary,
           }}
         >
@@ -986,7 +1088,7 @@ function ApplicationListCard({
     <Box
       style={{
         backgroundColor: COLORS.white,
-        borderRadius: 16,
+        borderRadius: DESIGN.radiusLg,
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: COLORS.border,
@@ -1054,7 +1156,7 @@ function ApplicationListCard({
                 style={{
                   width: 34,
                   height: 34,
-                  borderRadius: 10,
+                  borderRadius: DESIGN.stepRadius,
                   backgroundColor: GLASS.tintBlue,
                   borderWidth: 1,
                   borderColor: COLORS.border,
@@ -1274,7 +1376,7 @@ export function HistoryScreen({ go }: { go: Go }) {
                 style={{
                   height: 36,
                   paddingHorizontal: 12,
-                  borderRadius: 12,
+                  borderRadius: DESIGN.cardRadius,
                   backgroundColor: COLORS.white,
                   shadowColor: GLASS.shadow,
                   shadowOffset: { width: 0, height: 2 },
@@ -1304,7 +1406,7 @@ export function HistoryScreen({ go }: { go: Go }) {
                     minWidth: 18,
                     height: 18,
                     paddingHorizontal: 4,
-                    borderRadius: 9,
+                    borderRadius: DESIGN.chipRadius,
                     backgroundColor: on ? GLASS.tintBlue : COLORS.muted,
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1334,7 +1436,7 @@ export function HistoryScreen({ go }: { go: Go }) {
               className="items-center py-14 px-6"
               style={{
                 backgroundColor: COLORS.white,
-                borderRadius: 16,
+                borderRadius: DESIGN.radiusLg,
                 shadowColor: GLASS.shadow,
                 shadowOpacity: 0.08,
                 shadowRadius: 12,
@@ -1347,7 +1449,7 @@ export function HistoryScreen({ go }: { go: Go }) {
                 style={{
                   height: 56,
                   width: 56,
-                  borderRadius: 16,
+                  borderRadius: DESIGN.radiusLg,
                   backgroundColor: COLORS.white,
                   shadowColor: GLASS.shadow,
                   shadowOffset: { width: 0, height: 2 },
@@ -1489,6 +1591,19 @@ export function ProfileScreen({ go }: { go: Go }) {
   const profilePhoto = user?.profilePhoto || null;
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [savingPhoto, setSavingPhoto] = useState(false);
+  const scrollRef = useRef<RNScrollView>(null);
+  const themeY = useRef(0);
+
+  useEffect(() => {
+    if (!consumeFocusProfileTheme()) return;
+    const t = setTimeout(() => {
+      scrollRef.current?.scrollTo({
+        y: Math.max(0, themeY.current - 12),
+        animated: true,
+      });
+    }, 280);
+    return () => clearTimeout(t);
+  }, []);
 
   const applyPickedAsset = async (asset: ImagePicker.ImagePickerAsset) => {
     setSavingPhoto(true);
@@ -1653,6 +1768,7 @@ export function ProfileScreen({ go }: { go: Go }) {
 
       <ScrollView
         key={themeId}
+        ref={scrollRef as any}
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 100, paddingTop: 12, gap: 12 }}
         showsVerticalScrollIndicator={false}
@@ -1677,7 +1793,7 @@ export function ProfileScreen({ go }: { go: Go }) {
                   style={{
                     width: 56,
                     height: 56,
-                    borderRadius: 28,
+                    borderRadius: DESIGN.headerRadius,
                     overflow: 'hidden',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1709,7 +1825,7 @@ export function ProfileScreen({ go }: { go: Go }) {
                     bottom: -2,
                     width: 26,
                     height: 26,
-                    borderRadius: 13,
+                    borderRadius: DESIGN.stepRadius,
                     alignItems: 'center',
                     justifyContent: 'center',
                     backgroundColor: COLORS.destructive,
@@ -1729,7 +1845,7 @@ export function ProfileScreen({ go }: { go: Go }) {
                     bottom: -2,
                     width: 26,
                     height: 26,
-                    borderRadius: 13,
+                    borderRadius: DESIGN.stepRadius,
                     alignItems: 'center',
                     justifyContent: 'center',
                     backgroundColor: COLORS.primary,
@@ -1785,7 +1901,7 @@ export function ProfileScreen({ go }: { go: Go }) {
                 className="flex-1 active:opacity-85"
                 style={{
                   height: 36,
-                  borderRadius: 10,
+                  borderRadius: DESIGN.stepRadius,
                   borderWidth: 1,
                   borderColor: COLORS.border,
                   backgroundColor: COLORS.white,
@@ -1807,7 +1923,7 @@ export function ProfileScreen({ go }: { go: Go }) {
                 className="flex-1 active:opacity-85"
                 style={{
                   height: 36,
-                  borderRadius: 10,
+                  borderRadius: DESIGN.stepRadius,
                   borderWidth: 1,
                   borderColor: COLORS.border,
                   backgroundColor: COLORS.white,
@@ -1826,6 +1942,21 @@ export function ProfileScreen({ go }: { go: Go }) {
             </HStack>
           ) : null}
         </GlassSectionCard>
+
+        <Box
+          onLayout={(e) => {
+            themeY.current = e.nativeEvent.layout.y;
+          }}
+        >
+          <GlassSectionCard
+            title="App theme"
+            subtitle="Pick a color for the whole app"
+            icon={Palette}
+            bodyStyle={{ paddingHorizontal: SPACE[3], paddingVertical: SPACE[3], gap: SPACE[2] }}
+          >
+            <ThemePicker />
+          </GlassSectionCard>
+        </Box>
 
         <GlassSectionCard
           title="Personal Information"
@@ -1865,7 +1996,7 @@ export function ProfileScreen({ go }: { go: Go }) {
             className="active:opacity-90"
             style={{
               height: 44,
-              borderRadius: 12,
+              borderRadius: DESIGN.cardRadius,
               borderWidth: 1,
               borderColor: `${COLORS.destructive}40`,
               backgroundColor: `${COLORS.destructive}0D`,
@@ -1903,7 +2034,7 @@ export function ProfileScreen({ go }: { go: Go }) {
               </HStack>
               <Image
                 source={{ uri: profilePhoto }}
-                style={{ width: '100%', height: 300, borderRadius: 12 }}
+                style={{ width: '100%', height: 300, borderRadius: DESIGN.cardRadius }}
                 resizeMode="contain"
               />
             </Box>

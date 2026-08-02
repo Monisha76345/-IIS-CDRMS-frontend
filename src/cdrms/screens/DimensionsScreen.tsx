@@ -16,7 +16,9 @@ import { siteDimensionToFormDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
 import { type Cardinal } from '@/src/cdrms/project/types';
-import { CARDINAL_ACCENT, COLORS, FONTS, GLASS, SPACE } from '@/src/cdrms/theme';
+import { CARDINAL_ACCENT, COLORS, DESIGN, FONTS, GLASS, SPACE } from '@/src/cdrms/theme';
+import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
+import { useTheme } from '@/src/theme/ThemeContext';
 import type { Go } from '@/src/cdrms/types';
 
 const CARDINALS: Cardinal[] = ['N', 'S', 'E', 'W'];
@@ -57,20 +59,14 @@ function DimSideField({
   return (
     <Box style={{ flex: 1 }}>
       <Box
-        style={{
-          borderRadius: 12,
-          padding: SPACE[2],
-          backgroundColor: GLASS.surfaceSolid,
-          borderWidth: 1,
-          borderColor: GLASS.border,
-          borderTopWidth: 2,
-          borderTopColor: accent,
-          shadowColor: '#0F172A',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.08,
-          shadowRadius: 8,
-          elevation: 2,
-        }}
+        style={[
+          cardSurfaceStyle({ nested: true }),
+          {
+            padding: SPACE[2],
+            borderTopWidth: 2,
+            borderTopColor: accent,
+          },
+        ]}
       >
         <HStack style={{ alignItems: 'center', gap: 6, marginBottom: 4 }}>
           <Box
@@ -115,6 +111,7 @@ function DimSideField({
 
 /** Step 3 — Dimensions (web parity) for ZC-assigned engineer tasks. */
 export function DimensionsScreen({ go }: { go: Go }) {
+  const { themeId } = useTheme();
   const { draft, setDimSide, persistBackendStep, reloadBackendDraft } = useProject();
   const isBackendTask = Boolean(draft.backendApplicationId);
   const isOdd = draft.siteDimensionType === 'Odd';
@@ -179,7 +176,7 @@ export function DimensionsScreen({ go }: { go: Go }) {
 
   if (!isBackendTask) {
     return (
-      <SurveyScaffold title="Dimensions" subtitle="" onBack={() => go('bandi')} step={3} total={4} go={go}>
+      <SurveyScaffold key={themeId} title="Dimensions" subtitle="" onBack={() => go('bandi')} step={3} total={4} go={go}>
         <Text className="px-4 py-8 text-center text-slate-500">
           Dimensions step is for assigned ZC tasks.
         </Text>
@@ -189,6 +186,7 @@ export function DimensionsScreen({ go }: { go: Go }) {
 
   return (
     <SurveyScaffold
+      key={themeId}
       title="Site Dimension Sketch"
       subtitle="N / S / E / W · live plot updates"
       surface="premium"

@@ -15,7 +15,7 @@ import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
 import { DIRECTION_META, type Cardinal } from '@/src/cdrms/project/types';
-import { CARDINAL_ACCENT, COLORS, FONTS, GLASS, SPACE } from '@/src/cdrms/theme';
+import { CARDINAL_ACCENT, COLORS, FONTS, GLASS, SPACE, DESIGN } from '@/src/cdrms/theme';
 
 const CARDINALS: Cardinal[] = ['N', 'S', 'E', 'W'];
 
@@ -91,7 +91,7 @@ export function SchedulesEditorCard() {
             <Box
               key={`eng-sched-${k}`}
               style={{
-                borderRadius: 12,
+                borderRadius: DESIGN.cardRadius,
                 padding: SPACE[2],
                 backgroundColor: GLASS.surfaceSolid,
                 borderWidth: 1,
@@ -144,7 +144,7 @@ export function SchedulesEditorCard() {
                     gap: 5,
                     height: 32,
                     paddingHorizontal: 8,
-                    borderRadius: 8,
+                    borderRadius: DESIGN.stepRadius,
                     backgroundColor: isRoad ? GLASS.tintBlue : GLASS.surface,
                     borderWidth: 1,
                     borderColor: isRoad ? accent : GLASS.borderSoft,
@@ -186,7 +186,7 @@ export function SchedulesEditorCard() {
                     flex: 1,
                     minWidth: 72,
                     height: 32,
-                    borderRadius: 8,
+                    borderRadius: DESIGN.stepRadius,
                     borderWidth: 1,
                     borderColor: GLASS.border,
                     backgroundColor: COLORS.white,
@@ -219,7 +219,7 @@ export function SchedulesEditorCard() {
                     style={{
                       width: 52,
                       height: 40,
-                      borderRadius: 8,
+                      borderRadius: DESIGN.stepRadius,
                       backgroundColor: COLORS.white,
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -271,7 +271,7 @@ export function SchedulesEditorCard() {
                         right: -6,
                         width: 20,
                         height: 20,
-                        borderRadius: 10,
+                        borderRadius: DESIGN.stepRadius,
                         backgroundColor: '#DC2626',
                         borderWidth: 1.5,
                         borderColor: '#FFFFFF',

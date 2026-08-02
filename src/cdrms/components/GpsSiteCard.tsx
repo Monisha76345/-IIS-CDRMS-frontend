@@ -30,6 +30,7 @@ import { KarnatakaMap } from '@/src/cdrms/components/KarnatakaMap';
 import { StaticMapPreview } from '@/src/cdrms/components/StaticMapPreview';
 import { KARNATAKA } from '@/src/cdrms/location';
 import { formatCoords, type GpsFix } from '@/src/cdrms/project/types';
+import { COLORS, DESIGN } from '@/src/cdrms/theme';
 
 type Props = {
   height?: number;
@@ -53,7 +54,10 @@ type Props = {
   source?: 'live' | 'captured';
 };
 
-const MAP_RADIUS = 20;
+/** Map corner radius follows active theme layout. */
+function mapRadius() {
+  return DESIGN.cardRadius;
+}
 const MIN_DELTA = 0.0015;
 const MAX_DELTA = 0.35;
 
@@ -135,7 +139,7 @@ export function GpsSiteCard({
       <Box
         className="relative"
         style={{
-          borderRadius: MAP_RADIUS,
+          borderRadius: mapRadius(),
           ...(Platform.OS === 'web' ? { overflow: 'hidden' as const } : null),
         }}
       >
@@ -145,14 +149,14 @@ export function GpsSiteCard({
             <KarnatakaMap
               {...mapProps}
               height={height}
-              rounded={MAP_RADIUS}
+              rounded={mapRadius()}
               interactive={allowMapGestures}
             />
           ) : (
             <StaticMapPreview
               height={height}
               showBadge={false}
-              rounded={MAP_RADIUS}
+              rounded={mapRadius()}
               latitude={lat}
               longitude={lng}
             />
@@ -188,7 +192,7 @@ export function GpsSiteCard({
 
           <Box
             style={{
-              borderRadius: 14,
+              borderRadius: DESIGN.cardRadius,
               overflow: 'hidden',
               backgroundColor: 'rgba(255,255,255,0.96)',
               borderWidth: 1,
@@ -205,9 +209,9 @@ export function GpsSiteCard({
               className="h-9 w-9 items-center justify-center active:opacity-70"
             >
               {refreshing ? (
-                <ActivityIndicator size="small" color="#2563EB" />
+                <ActivityIndicator size="small" color={COLORS.primary} />
               ) : (
-                <RefreshCw size={14} color="#2563EB" strokeWidth={2.3} />
+                <RefreshCw size={14} color={COLORS.primary} strokeWidth={2.3} />
               )}
             </Pressable>
             {liveMap ? (
@@ -218,7 +222,7 @@ export function GpsSiteCard({
                   className="h-9 w-9 items-center justify-center active:opacity-70"
                   accessibilityLabel="Recenter map on site"
                 >
-                  <LocateFixed size={14} color="#2563EB" strokeWidth={2.4} />
+                  <LocateFixed size={14} color={COLORS.primary} strokeWidth={2.4} />
                 </Pressable>
                 <Box style={{ height: 1, backgroundColor: '#E2E8F0' }} />
                 <Pressable
@@ -240,7 +244,7 @@ export function GpsSiteCard({
                   className="h-9 w-9 items-center justify-center active:opacity-70"
                   accessibilityLabel="Open map full screen"
                 >
-                  <Maximize2 size={14} color="#2563EB" strokeWidth={2.4} />
+                  <Maximize2 size={14} color={COLORS.primary} strokeWidth={2.4} />
                 </Pressable>
               </>
             ) : null}
@@ -256,7 +260,7 @@ export function GpsSiteCard({
               right: 56,
               bottom: 10,
               zIndex: 20,
-              borderRadius: 14,
+              borderRadius: DESIGN.cardRadius,
               backgroundColor: 'rgba(255,255,255,0.96)',
               borderWidth: 1,
               borderColor: '#E2E8F0',
@@ -272,7 +276,7 @@ export function GpsSiteCard({
               style={{
                 fontSize: 9,
                 fontWeight: '800',
-                color: '#2563EB',
+                color: COLORS.primary,
                 letterSpacing: 1.2,
                 textTransform: 'uppercase',
                 marginBottom: 6,
@@ -295,7 +299,7 @@ export function GpsSiteCard({
 
       <Box className="mt-3.5 flex-row items-center justify-between px-0.5">
         <Box className="flex-row items-center gap-1.5 flex-1 min-w-0">
-          <MapPin size={13} color="#2563EB" strokeWidth={2.4} />
+          <MapPin size={13} color={COLORS.primary} strokeWidth={2.4} />
           <Text
             className="text-[11px] font-semibold"
             style={{ color: '#64748B' }}
@@ -349,7 +353,7 @@ export function GpsSiteCard({
                     top: 12,
                     left: 14,
                     zIndex: 30,
-                    borderRadius: 14,
+                    borderRadius: DESIGN.cardRadius,
                     overflow: 'hidden',
                     backgroundColor: 'rgba(255,255,255,0.96)',
                     borderWidth: 1,
@@ -361,7 +365,7 @@ export function GpsSiteCard({
                     accessibilityLabel="Recenter map on site"
                     className="h-11 w-11 items-center justify-center active:opacity-70"
                   >
-                    <LocateFixed size={18} color="#2563EB" strokeWidth={2.4} />
+                    <LocateFixed size={18} color={COLORS.primary} strokeWidth={2.4} />
                   </Pressable>
                   <Box style={{ height: 1, backgroundColor: '#E2E8F0' }} />
                   <Pressable
@@ -392,7 +396,7 @@ export function GpsSiteCard({
                     height: 42,
                     minWidth: 42,
                     paddingHorizontal: 12,
-                    borderRadius: 14,
+                    borderRadius: DESIGN.cardRadius,
                     backgroundColor: 'rgba(15,23,42,0.88)',
                     borderWidth: 1,
                     borderColor: 'rgba(255,255,255,0.2)',

@@ -66,7 +66,8 @@ import {
   type StatusCountItem,
 } from '@/src/cdrms/components/StatusCountGrid';
 import { setSelectedOfficeAppId, getSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
-import { COLORS, FONTS, GLASS, GRADIENT_PRIMARY, SPACE, themeStatColors, gradientStops } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GLASS, GRADIENT_PRIMARY, SPACE, themeStatColors, gradientStops, DESIGN } from '@/src/cdrms/theme';
+import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
 import { useTheme } from '@/src/theme/ThemeContext';
 import type { Go } from '@/src/cdrms/types';
 
@@ -189,7 +190,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
           go={go}
         />
 
-        <Box className="px-4 mt-4">
+        <Box className="px-4 mt-2">
           <HStack className="items-center justify-between mb-3">
             <Text className="text-[16px] font-bold flex-1" style={{ color: COLORS.ink }}>
               Application overview
@@ -199,7 +200,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
               className="flex-row items-center gap-1.5 active:opacity-90"
               style={{
                 backgroundColor: COLORS.primary,
-                borderRadius: 12,
+                borderRadius: DESIGN.cardRadius,
                 paddingHorizontal: 12,
                 paddingVertical: 10,
               }}
@@ -217,15 +218,11 @@ export function ZcHomeScreen({ go }: { go: Go }) {
           />
 
           <Box
-            className="mt-4 flex-row items-center"
-            style={{
-              backgroundColor: COLORS.white,
-              borderRadius: 14,
-              borderWidth: 1,
-              borderColor: COLORS.border,
-              paddingHorizontal: 12,
-              height: 44,
-            }}
+            className="mt-2 flex-row items-center"
+            style={[
+              cardSurfaceStyle({ nested: true }),
+              { paddingHorizontal: 12, height: 44, overflow: 'hidden' },
+            ]}
           >
             <Search size={16} color={COLORS.slate} />
             <TextInput
@@ -239,7 +236,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
 
 
 
-          <HStack className="items-center justify-between mt-4 mb-2">
+          <HStack className="items-center justify-between mt-2 mb-1">
             <Text className="text-[15px] font-bold" style={{ color: COLORS.ink }}>
               {sectionLabel}
             </Text>
@@ -359,7 +356,7 @@ function Field({
         blurOnSubmit={blurOnSubmit ?? false}
         style={{
           height: 40,
-          borderRadius: 12,
+          borderRadius: DESIGN.cardRadius,
           borderWidth: 1,
           borderColor: COLORS.border,
           backgroundColor: COLORS.white,
@@ -390,7 +387,7 @@ function PlainSectionCard({
     <Box
       style={{
         marginHorizontal: SPACE.gutter,
-        borderRadius: 16,
+        borderRadius: DESIGN.radiusLg,
         overflow: 'hidden',
         backgroundColor: GLASS.cardSolid,
         borderWidth: 1,
@@ -422,7 +419,7 @@ function PlainSectionCard({
             style={{
               width: 32,
               height: 32,
-              borderRadius: 10,
+              borderRadius: DESIGN.stepRadius,
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: COLORS.white,
@@ -812,7 +809,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                               style={{
                                 width: 18,
                                 height: 18,
-                                borderRadius: 9,
+                                borderRadius: DESIGN.chipRadius,
                                 borderWidth: 2,
                                 borderColor: on ? COLORS.primary : COLORS.border,
                                 alignItems: 'center',
@@ -868,7 +865,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     style={{
                       flex: 1,
                       height: 40,
-                      borderRadius: 10,
+                      borderRadius: DESIGN.stepRadius,
                       borderWidth: 1,
                       borderColor: COLORS.border,
                       backgroundColor: COLORS.white,
@@ -900,7 +897,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     style={{
                       height: 40,
                       paddingHorizontal: 12,
-                      borderRadius: 12,
+                      borderRadius: DESIGN.cardRadius,
                       overflow: 'hidden',
                     }}
                   >
@@ -925,7 +922,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                 {dimOpen ? (
                   <Box
                     style={{
-                      borderRadius: 10,
+                      borderRadius: DESIGN.stepRadius,
                       borderWidth: 1,
                       borderColor: COLORS.border,
                       backgroundColor: COLORS.white,
@@ -977,7 +974,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                       style={{
                         flex: 1,
                         height: 40,
-                        borderRadius: 12,
+                        borderRadius: DESIGN.cardRadius,
                         borderWidth: 1,
                         borderColor: COLORS.border,
                         backgroundColor: COLORS.white,
@@ -993,7 +990,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                       style={{
                         height: 40,
                         paddingHorizontal: 14,
-                        borderRadius: 12,
+                        borderRadius: DESIGN.cardRadius,
                         backgroundColor: COLORS.success,
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -1016,7 +1013,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                       style={{
                         height: 40,
                         paddingHorizontal: 10,
-                        borderRadius: 12,
+                        borderRadius: DESIGN.cardRadius,
                         borderWidth: 1,
                         borderColor: COLORS.border,
                         backgroundColor: COLORS.white,
@@ -1123,7 +1120,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                   }}
                   style={{
                     height: 40,
-                    borderRadius: 12,
+                    borderRadius: DESIGN.cardRadius,
                     borderWidth: 1,
                     borderColor: COLORS.border,
                     backgroundColor: COLORS.white,
@@ -1153,7 +1150,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                 {engOpen && engineers.length > 0 ? (
                   <Box
                     style={{
-                      borderRadius: 12,
+                      borderRadius: DESIGN.cardRadius,
                       borderWidth: 1,
                       borderColor: COLORS.border,
                       backgroundColor: COLORS.white,
@@ -1212,7 +1209,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                   className="flex-1 active:opacity-90"
                   style={{
                     height: 48,
-                    borderRadius: 14,
+                    borderRadius: DESIGN.cardRadius,
                     alignItems: 'center',
                     justifyContent: 'center',
                     borderWidth: 1,
@@ -1227,7 +1224,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                   disabled={saving}
                   className="flex-1 overflow-hidden active:opacity-90"
                   style={{
-                    borderRadius: 14,
+                    borderRadius: DESIGN.cardRadius,
                     opacity: saving ? 0.7 : 1,
                     shadowColor: COLORS.primary,
                     shadowOffset: { width: 0, height: 6 },

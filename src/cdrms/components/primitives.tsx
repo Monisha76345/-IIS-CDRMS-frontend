@@ -37,7 +37,8 @@ import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/src/auth/AuthContext';
 import { resolveAppRole, displayName } from '@/src/auth/roles';
 import { PremiumGradientBackground } from '@/src/cdrms/components/GlassSurface';
-import { COLORS, FONTS, GLASS, GRADIENT_CARD_HEADER, GRADIENT_HEADER, GRADIENT_PRIMARY, SPACE, TYPE, gradientStops } from '@/src/cdrms/theme';
+import { COLORS, DESIGN, FONTS, GLASS, GRADIENT_CARD_HEADER, GRADIENT_HEADER, GRADIENT_PRIMARY, SPACE, TYPE, gradientStops } from '@/src/cdrms/theme';
+import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
 import type { Go, NavTab, Screen } from '@/src/cdrms/types';
 import { useTheme } from '@/src/theme/ThemeContext';
 import { NotificationBell } from '@/src/cdrms/components/NotificationBell';
@@ -45,11 +46,10 @@ import { ThemeToggleButton } from '@/src/cdrms/components/ThemePicker';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 
 /** Edge-pinned tab bar — soft U-notch cradles the center + */
-const BAR_H = 64;
-const FAB_SIZE = 54;
-const FAB_GAP = 7;
+const BAR_H = 58;
+const FAB_SIZE = 50;
+const FAB_GAP = 6;
 const NOTCH_R = FAB_SIZE / 2 + FAB_GAP;
-const TOP_RADIUS = 20;
 
 export function ScreenShell({
   children,
@@ -78,7 +78,7 @@ export function GradientHeader({
   const insets = useSafeAreaInsets();
   const { themeId } = useTheme();
   const gradientColors = colors ?? GRADIENT_CARD_HEADER;
-  const bottomRadius = rounded ? SPACE.radiusLg : 0;
+  const bottomRadius = rounded ? DESIGN.headerRadius : 0;
 
   return (
     <Box
@@ -410,7 +410,9 @@ export function AppHeader({
   zoneLabel?: string | null;
 }) {
   const insets = useSafeAreaInsets();
+  const { themeId } = useTheme();
   const { logout, isAuthenticated, user } = useAuth();
+  const backRadius = DESIGN.stepRadius > 40 ? 999 : DESIGN.stepRadius;
   const role = resolveAppRole(user);
   const isCompactOfficeNav =
     role === 'zc' || role === 'cao' || role === 'super_admin';
@@ -542,8 +544,8 @@ export function AppHeader({
     />
   ) : null;
 
-  const themeBtn = canLogout ? (
-    <ThemeToggleButton variant={gradient ? 'header' : 'plain'} />
+  const themeBtn = canLogout && go ? (
+    <ThemeToggleButton variant={gradient ? 'header' : 'plain'} go={go} />
   ) : null;
 
   const notifBell =
@@ -564,23 +566,24 @@ export function AppHeader({
   if (!gradient) {
     return (
       <Box
+        key={themeId}
         className="bg-card border-b border-border"
         style={{
           paddingTop: insets.top + (compact ? SPACE[1] : SPACE[2]),
           paddingHorizontal: SPACE.gutter,
-          paddingBottom: compact ? SPACE[2] : SPACE[4],
+          paddingBottom: compact ? SPACE[1] : SPACE[2],
         }}
       >
-        <HStack className="items-center justify-between" style={{ gap: SPACE[3] }}>
+        <HStack className="items-center justify-between" style={{ gap: SPACE[2] }}>
           <HStack className="items-center flex-1 min-w-0" style={{ gap: SPACE[2] }}>
             {onBack ? (
               <Pressable
                 onPress={onBack}
                 className="items-center justify-center active:opacity-80"
                 style={{
-                  height: compact ? 36 : 44,
-                  width: compact ? 36 : 44,
-                  borderRadius: 12,
+                  height: compact ? 32 : 38,
+                  width: compact ? 32 : 38,
+                  borderRadius: backRadius,
                   backgroundColor: COLORS.muted,
                 }}
               >
@@ -596,23 +599,23 @@ export function AppHeader({
   }
 
   return (
-    <GradientHeader>
+    <GradientHeader key={themeId}>
       <Box
         style={{
           paddingHorizontal: SPACE.gutter,
-          paddingBottom: welcome && isCompactOfficeNav ? SPACE[3] : welcome ? SPACE[4] : SPACE[6],
+          paddingBottom: welcome && isCompactOfficeNav ? SPACE[2] : welcome ? SPACE[3] : SPACE[4],
         }}
       >
-        <HStack className="items-center justify-between" style={{ paddingTop: SPACE[1], gap: SPACE[3] }}>
-          <HStack className="items-center flex-1 min-w-0" style={{ gap: welcome && isCompactOfficeNav ? SPACE[2] : SPACE[3] }}>
+        <HStack className="items-center justify-between" style={{ paddingTop: SPACE[1], gap: SPACE[2] }}>
+          <HStack className="items-center flex-1 min-w-0" style={{ gap: welcome && isCompactOfficeNav ? SPACE[2] : SPACE[2] }}>
             {onBack ? (
               <Pressable
                 onPress={onBack}
                 className="items-center justify-center active:opacity-80"
                 style={{
-                  height: compact ? 36 : 44,
-                  width: compact ? 36 : 44,
-                  borderRadius: 12,
+                  height: compact ? 32 : 38,
+                  width: compact ? 32 : 38,
+                  borderRadius: backRadius,
                   backgroundColor: 'rgba(255,255,255,0.16)',
                   borderWidth: 1,
                   borderColor: 'rgba(255,255,255,0.22)',
@@ -628,7 +631,7 @@ export function AppHeader({
         {welcome ? (
           <HStack
             className="items-center flex-wrap"
-            style={{ marginTop: isCompactOfficeNav ? SPACE[3] : SPACE[4], gap: 8 }}
+            style={{ marginTop: isCompactOfficeNav ? SPACE[2] : SPACE[2], gap: 6 }}
           >
             {zoneLabel ? <ZoneTag zone={zoneLabel} onGradient /> : null}
             <HStack className="items-center" style={{ gap: 6 }}>
@@ -666,21 +669,15 @@ export function AppCard({
   children: ReactNode;
   className?: string;
 }) {
+  const { themeId } = useTheme();
   return (
     <Card
-      className={`bg-card ${className}`}
-      style={{
-        borderRadius: SPACE.radiusLg,
-        padding: SPACE.cardPad,
-        backgroundColor: COLORS.white,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.1,
-        shadowRadius: 14,
-        elevation: 3,
-      }}
+      key={themeId}
+      className={className}
+      style={[
+        cardSurfaceStyle(),
+        { padding: SPACE.cardPad },
+      ]}
     >
       {children}
     </Card>
@@ -713,13 +710,13 @@ export function AppBtn({
         onPress={onPress}
         className={`w-full overflow-hidden active:opacity-90 ${disabled ? 'opacity-50' : ''} ${className}`}
         style={{
-          height: SPACE.touch,
-          borderRadius: SPACE.radius,
+          height: DESIGN.ctaHeight,
+          borderRadius: DESIGN.buttonRadius,
           shadowColor: COLORS.primaryDeep,
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.28,
-          shadowRadius: 14,
-          elevation: 5,
+          shadowOffset: { width: 0, height: DESIGN.id === 'bold' ? 4 : 8 },
+          shadowOpacity: DESIGN.shadowOpacity + 0.16,
+          shadowRadius: DESIGN.shadowRadius,
+          elevation: DESIGN.elevation + 2,
         }}
       >
         <LinearGradient
@@ -781,8 +778,8 @@ export function AppBtn({
       onPress={onPress}
       className={`w-full flex-row items-center justify-center active:opacity-90 ${disabled ? 'opacity-50' : ''} ${styles[variant]} ${className}`}
       style={{
-        height: SPACE.touch,
-        borderRadius: SPACE.radius,
+        height: DESIGN.ctaHeight,
+        borderRadius: DESIGN.buttonRadius,
         gap: SPACE[2],
         paddingHorizontal: SPACE[4],
       }}
@@ -858,8 +855,12 @@ export const Field = forwardRef<
           gap: compact ? SPACE[2] : SPACE[3],
           minHeight: compact ? 36 : SPACE.touch,
           paddingHorizontal: compact ? SPACE[2] : SPACE[3],
-          borderRadius: compact ? 10 : SPACE.radius,
-          borderWidth: 1.5,
+          borderRadius: compact
+            ? Math.min(DESIGN.buttonRadius, 12)
+            : DESIGN.buttonRadius > 40
+              ? 16
+              : DESIGN.buttonRadius,
+          borderWidth: DESIGN.borderWidth + 0.5,
           backgroundColor: COLORS.white,
           borderColor: COLORS.border,
         }}
@@ -870,7 +871,7 @@ export const Field = forwardRef<
             style={{
               height: compact ? 28 : 36,
               width: compact ? 28 : 36,
-              borderRadius: 10,
+              borderRadius: DESIGN.stepRadius > 40 ? 999 : DESIGN.stepRadius,
               backgroundColor: COLORS.primary,
               alignItems: 'center',
               justifyContent: 'center',
@@ -1167,7 +1168,7 @@ export function BottomNav({
           width={width}
           height={barH}
           notchR={hidePlus ? 0 : NOTCH_R}
-          topRadius={TOP_RADIUS}
+          topRadius={DESIGN.radiusLg}
         />
 
         <HStack style={{ height: BAR_H, alignItems: 'center' }}>

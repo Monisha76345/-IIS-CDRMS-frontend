@@ -9,7 +9,7 @@ import { VStack } from '@/components/ui/vstack';
 import { FrostedGlass } from '@/src/cdrms/components/GlassSurface';
 import type { GeoAddress } from '@/src/cdrms/hooks/useDeviceLocation';
 import type { GpsFix } from '@/src/cdrms/project/types';
-import { COLORS, FONTS, GLASS, SPACE, TYPE } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GLASS, SPACE, TYPE, DESIGN } from '@/src/cdrms/theme';
 
 type LiveGpsPanelProps = {
   gps: GpsFix | null;
@@ -64,7 +64,7 @@ export function LiveGpsPanel({
       style={{
         width: 30,
         height: 30,
-        borderRadius: 8,
+        borderRadius: DESIGN.stepRadius,
         backgroundColor: isPremium ? GLASS.tintBlue : COLORS.white,
         alignItems: 'center',
         justifyContent: 'center',
@@ -99,7 +99,7 @@ export function LiveGpsPanel({
         style={{
           width: 32,
           height: 32,
-          borderRadius: 9,
+          borderRadius: DESIGN.chipRadius,
           backgroundColor: isPremium ? GLASS.tintBlue : COLORS.white,
           alignItems: 'center',
           justifyContent: 'center',
@@ -214,7 +214,7 @@ export function LiveGpsPanel({
       ) : (
         <Box
           style={{
-            borderRadius: 12,
+            borderRadius: DESIGN.cardRadius,
             backgroundColor: COLORS.white,
             paddingHorizontal: 12,
             paddingVertical: 11,
