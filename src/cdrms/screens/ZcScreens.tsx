@@ -52,6 +52,7 @@ import {
 } from '@/src/api/applications';
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
 import { showAppDialog } from '@/src/cdrms/components/AppDialog';
+import { downloadApplicationPdf, openPdfFile } from '@/src/cdrms/lib/downloadApplicationPdf';
 import {
   AppHeader,
   BottomNav,
@@ -168,6 +169,8 @@ export function ZcHomeScreen({ go }: { go: Go }) {
   const sectionLabel =
     tab === 'all' ? 'All applications' : ZC_STATUS_FILTERS.find((f) => f.key === tab)?.label;
 
+
+
   const openDetail = (id: string) => {
     setSelectedOfficeAppId(id);
     go('zc_detail');
@@ -199,55 +202,58 @@ export function ZcHomeScreen({ go }: { go: Go }) {
               className="flex-row items-center gap-1.5 active:opacity-90"
               style={{
                 backgroundColor: COLORS.primary,
-                borderRadius: 12,
                 paddingHorizontal: 12,
-                paddingVertical: 10,
+                paddingVertical: 7,
+                borderRadius: 999,
               }}
             >
-              <FilePlus2 size={15} color={COLORS.white} />
-              <Text className="text-[12px] font-bold text-white">Create</Text>
+              <Text style={{ color: COLORS.white, fontFamily: FONTS.bold, fontSize: 12 }}>
+                + New Application
+              </Text>
             </Pressable>
           </HStack>
 
           <StatusCountGrid
             items={countItems}
             activeKey={tab}
-            columns={2}
-            onSelect={(key) => setTab(key as ZcTab)}
+            onSelect={(k) => setTab(k as ZcTab)}
           />
 
-          <Box
-            className="mt-4 flex-row items-center"
+          <HStack className="items-center justify-between mt-5 mb-2">
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 15, color: COLORS.ink }}>
+              {sectionLabel}
+            </Text>
+            <Pressable onPress={() => void reload()} className="p-1 active:opacity-70">
+              <Text style={{ fontFamily: FONTS.semibold, fontSize: 12, color: COLORS.primary }}>
+                Refresh
+              </Text>
+            </Pressable>
+          </HStack>
+
+          <HStack
+            className="items-center px-3 mb-3"
             style={{
+              height: 42,
+              borderRadius: 12,
               backgroundColor: COLORS.white,
-              borderRadius: 14,
               borderWidth: 1,
               borderColor: COLORS.border,
-              paddingHorizontal: 12,
-              height: 44,
             }}
           >
             <Search size={16} color={COLORS.slate} />
             <TextInput
+              placeholder="Search application no, site no, engineer…"
+              placeholderTextColor={COLORS.slate}
               value={q}
               onChangeText={setQ}
-              placeholder="Search by application no, site, engineer…"
-              placeholderTextColor={COLORS.slate}
-              style={{ flex: 1, marginLeft: 8, fontSize: 13, color: COLORS.ink }}
+              style={{
+                flex: 1,
+                marginLeft: 8,
+                fontFamily: FONTS.medium,
+                fontSize: 13,
+                color: COLORS.ink,
+              }}
             />
-          </Box>
-
-
-
-          <HStack className="items-center justify-between mt-4 mb-2">
-            <Text className="text-[15px] font-bold" style={{ color: COLORS.ink }}>
-              {sectionLabel}
-            </Text>
-            <Pressable onPress={() => void reload()} className="active:opacity-70">
-              <Text className="text-[12px] font-semibold" style={{ color: COLORS.primary }}>
-                Refresh
-              </Text>
-            </Pressable>
           </HStack>
 
           {loading ? (

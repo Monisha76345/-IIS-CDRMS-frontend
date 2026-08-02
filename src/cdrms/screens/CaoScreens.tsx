@@ -41,7 +41,7 @@ import {
 } from '@/src/cdrms/components/StatusCountGrid';
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
 import { getCaoReturnScreen, getSelectedOfficeAppId, setCaoReturnScreen, setSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
-import { downloadApplicationPdf } from '@/src/cdrms/lib/downloadApplicationPdf';
+import { downloadApplicationPdf, openPdfFile } from '@/src/cdrms/lib/downloadApplicationPdf';
 import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 import { COLORS, FONTS, GLASS, GRADIENT_PRIMARY, themeStatColors, gradientStops } from '@/src/cdrms/theme';
 import { useTheme } from '@/src/theme/ThemeContext';
@@ -161,12 +161,16 @@ export function CaoHomeScreen({ go }: { go: Go }) {
       setDownloading(true);
       try {
         const result = await downloadApplicationPdf(app, accessToken);
+        const pdfUri = result.openUri || result.savedPath;
         showAppDialog({
           variant: 'success',
           title: 'Downloaded',
           message: result.message,
-          hideCancel: true,
-          confirmLabel: 'OK',
+          cancelLabel: 'OK',
+          confirmLabel: 'Share',
+          onConfirm: () => {
+            if (pdfUri) void openPdfFile(pdfUri);
+          },
         });
       } catch (e) {
         showAppDialog({
@@ -364,12 +368,16 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
       setDownloading(true);
       try {
         const result = await downloadApplicationPdf(app, accessToken);
+        const pdfUri = result.openUri || result.savedPath;
         showAppDialog({
           variant: 'success',
           title: 'Downloaded',
           message: result.message,
-          hideCancel: true,
-          confirmLabel: 'OK',
+          cancelLabel: 'OK',
+          confirmLabel: 'Share',
+          onConfirm: () => {
+            if (pdfUri) void openPdfFile(pdfUri);
+          },
         });
       } catch (e) {
         showAppDialog({
@@ -568,12 +576,16 @@ export function CaoDetailScreen({ go }: { go: Go }) {
     setDownloading(true);
     try {
       const result = await downloadApplicationPdf(app, accessToken);
+      const pdfUri = result.openUri || result.savedPath;
       showAppDialog({
         variant: 'success',
         title: 'Downloaded',
         message: result.message,
-        hideCancel: true,
-        confirmLabel: 'OK',
+        cancelLabel: 'OK',
+        confirmLabel: 'Share',
+        onConfirm: () => {
+          if (pdfUri) void openPdfFile(pdfUri);
+        },
       });
     } catch (e) {
       showAppDialog({

@@ -25,66 +25,70 @@ export type StatusCountItem = {
 export function StatusCountGrid({
   items,
   activeKey,
+  selectedKey,
   onSelect,
-  columns = 2,
 }: {
   items: StatusCountItem[];
-  activeKey: string;
-  onSelect: (key: string) => void;
-  columns?: 2 | 3 | 4;
+  activeKey?: string;
+  selectedKey?: string;
+  columns?: number;
+  onSelect: (key: any) => void;
 }) {
-  const widthPct = columns === 4 ? '25%' : columns === 3 ? '33.333%' : '50%';
-
+  const currentKey = activeKey ?? selectedKey ?? '';
   return (
-    <HStack className="flex-wrap" style={{ marginHorizontal: -4 }}>
+    <HStack className="flex-wrap gap-2">
       {items.map((item) => {
+        const active = currentKey === item.key;
         const Icon = item.icon;
-        const active = activeKey === item.key;
         return (
-          <Box key={item.key} style={{ width: widthPct, padding: 4 }}>
+          <Box key={item.key} className="flex-1 min-w-[46%]">
             <Pressable
               onPress={() => onSelect(item.key)}
               className="active:opacity-90"
               style={{
-                borderRadius: 12,
-                paddingVertical: 8,
-                paddingHorizontal: 10,
-                backgroundColor: active ? item.tint : COLORS.white,
+                backgroundColor: active ? COLORS.primary : COLORS.white,
+                borderRadius: 14,
+                padding: 12,
                 borderWidth: 1,
-                borderColor: active ? item.tint : COLORS.border,
-                minHeight: 56,
-                justifyContent: 'center',
-                shadowColor: GLASS.shadow,
+                borderColor: active ? COLORS.primary : COLORS.border,
+                shadowColor: '#0F172A',
                 shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: active ? 0.12 : 0.06,
+                shadowOpacity: active ? 0.15 : 0.04,
                 shadowRadius: 6,
-                elevation: active ? 3 : 2,
+                elevation: active ? 4 : 1,
               }}
             >
-              <HStack className="items-center" style={{ gap: 8 }}>
+              <HStack className="items-center justify-between">
                 <Box
                   style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: 8,
+                    width: 38,
+                    height: 38,
+                    borderRadius: 10,
+                    backgroundColor: active ? 'rgba(255,255,255,0.2)' : item.soft,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    backgroundColor: active ? 'rgba(255,255,255,0.22)' : item.soft,
                   }}
                 >
-                  <Icon size={14} color={active ? COLORS.white : item.tint} strokeWidth={2.3} />
+                  <Icon
+                    size={20}
+                    color={active ? COLORS.white : item.tint}
+                    strokeWidth={2.4}
+                  />
                 </Box>
-                <VStack className="flex-1 min-w-0" style={{ gap: 1 }}>
-                  <Text
-                    style={{
-                      fontFamily: FONTS.bold,
-                      fontSize: 18,
-                      lineHeight: 22,
-                      color: active ? COLORS.white : COLORS.ink,
-                    }}
-                  >
-                    {item.count}
-                  </Text>
+                <Text
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 22,
+                    lineHeight: 26,
+                    color: active ? COLORS.white : COLORS.ink,
+                  }}
+                >
+                  {item.count}
+                </Text>
+              </HStack>
+
+              <HStack className="items-center justify-between" style={{ marginTop: 10 }}>
+                <VStack className="flex-1 min-w-0">
                   <Text
                     numberOfLines={1}
                     style={{
@@ -167,12 +171,26 @@ export function OfficeAppRow({
           </HStack>
 
           <HStack className="items-center justify-between" style={{ gap: 8 }}>
-            <Text
-              style={{ fontFamily: FONTS.semibold, fontSize: 12, color: COLORS.slate }}
-              numberOfLines={1}
-            >
-              Site #{siteNo || '—'} · Zone {zoneCode || '—'}
-            </Text>
+            <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
+              <Text
+                style={{ fontFamily: FONTS.semibold, fontSize: 12, color: COLORS.slate }}
+                numberOfLines={1}
+              >
+                Site #{siteNo || '—'} · Zone {zoneCode || '—'}
+              </Text>
+              {dateLine ? (
+                <HStack className="items-center" style={{ gap: 4 }}>
+                  <Clock size={11} color="#64748B" strokeWidth={2} />
+                  <Text
+                    style={{ fontFamily: FONTS.medium, fontSize: 11, color: '#64748B' }}
+                    numberOfLines={1}
+                  >
+                    {dateLine}
+                  </Text>
+                </HStack>
+              ) : null}
+            </VStack>
+
             <HStack className="items-center" style={{ gap: 6 }}>
               {onDownload ? (
                 <Pressable
