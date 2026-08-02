@@ -28,17 +28,20 @@ export type StatusCountItem = {
 export function StatusCountGrid({
   items,
   activeKey,
+  selectedKey,
   onSelect,
   columns = 2,
 }: {
   items: StatusCountItem[];
-  activeKey: string;
+  activeKey?: string;
+  selectedKey?: string;
   onSelect: (key: string) => void;
   columns?: 2 | 3 | 4;
 }) {
   const { themeId } = useTheme();
   const fv = DESIGN.filterVariant;
   const widthPct = columns === 4 ? '25%' : columns === 3 ? '33.333%' : '50%';
+  const currentKey = activeKey ?? selectedKey ?? '';
 
   if (fv === 'tabs') {
     return (
@@ -51,7 +54,7 @@ export function StatusCountGrid({
         }}
       >
         {items.map((item) => {
-          const active = activeKey === item.key;
+          const active = currentKey === item.key;
           return (
             <Pressable
               key={item.key}
@@ -111,7 +114,7 @@ export function StatusCountGrid({
       >
         {items.map((item) => {
           const Icon = item.icon;
-          const active = activeKey === item.key;
+          const active = currentKey === item.key;
           return (
             <Pressable
               key={item.key}
@@ -163,7 +166,7 @@ export function StatusCountGrid({
       <HStack key={themeId} className="flex-wrap" style={{ marginHorizontal: -3 }}>
         {items.map((item) => {
           const Icon = item.icon;
-          const active = activeKey === item.key;
+          const active = currentKey === item.key;
           return (
             <Box key={item.key} style={{ width: widthPct, padding: 3 }}>
               <Pressable
@@ -220,7 +223,7 @@ export function StatusCountGrid({
       <HStack key={themeId} className="flex-wrap" style={{ gap: 6 }}>
         {items.map((item) => {
           const Icon = item.icon;
-          const active = activeKey === item.key;
+          const active = currentKey === item.key;
           return (
             <Pressable
               key={item.key}
@@ -269,7 +272,7 @@ export function StatusCountGrid({
     <HStack key={themeId} className="flex-wrap" style={{ marginHorizontal: -4 }}>
       {items.map((item) => {
         const Icon = item.icon;
-        const active = activeKey === item.key;
+        const active = currentKey === item.key;
         return (
           <Box key={item.key} style={{ width: widthPct, padding: 4 }}>
             <Pressable
