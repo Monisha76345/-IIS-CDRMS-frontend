@@ -1,7 +1,8 @@
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
+import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 import { ensureForegroundLocationPermission } from '@/src/cdrms/locationPermission';
 import type { GpsFix } from '@/src/cdrms/project/types';
 
@@ -161,7 +162,13 @@ export function useDeviceLocation() {
         const message = e instanceof Error ? e.message : 'Could not read GPS';
         setError(message);
         if (!opts?.silent) {
-          Alert.alert('GPS error', message);
+          showAppDialog({
+            variant: 'error',
+            title: 'GPS error',
+            message,
+            hideCancel: true,
+            confirmLabel: 'OK',
+          });
         }
         return null;
       } finally {
@@ -265,7 +272,15 @@ export function useLiveLocation(opts?: LiveLocationOptions) {
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Could not read GPS';
         setError(message);
-        if (!silent) Alert.alert('GPS error', message);
+        if (!silent) {
+          showAppDialog({
+            variant: 'error',
+            title: 'GPS error',
+            message,
+            hideCancel: true,
+            confirmLabel: 'OK',
+          });
+        }
         return null;
       } finally {
         setLoading(false);

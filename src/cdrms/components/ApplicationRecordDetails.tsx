@@ -314,7 +314,7 @@ function ZcDetailsCard({
       <InfoPairRow
         leftLabel="Created by ZC"
         leftValue={app.createdByZcName || '—'}
-        rightLabel="ZC submitted"
+        rightLabel="Assigned"
         rightValue={formatSubmittedDateTime(app.createdAt)}
       />
 
@@ -479,7 +479,13 @@ export function ApplicationRecordDetails({
         <InfoPairRow
           leftLabel="Assigned engineer"
           leftValue={app.assignedEngineerName || '—'}
-          rightLabel="Engineer submitted"
+          rightLabel="Status"
+          rightValue={applicationStatusLabel(app.status) || String(app.status || '—')}
+        />
+        <InfoPairRow
+          leftLabel="Assigned"
+          leftValue={formatSubmittedDateTime(app.createdAt)}
+          rightLabel="Submitted"
           rightValue={formatSubmittedDateTime(app.engineerSubmittedAt)}
         />
 

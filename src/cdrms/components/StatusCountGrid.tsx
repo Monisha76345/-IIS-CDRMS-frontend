@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { Download, Eye, type LucideIcon } from 'lucide-react-native';
+import { Clock, Download, Eye, type LucideIcon } from 'lucide-react-native';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -111,6 +111,7 @@ export function OfficeAppRow({
   zoneCode,
   engineerName,
   status,
+  dateLine,
   onPress,
   onDownload,
 }: {
@@ -119,6 +120,8 @@ export function OfficeAppRow({
   zoneCode: string;
   engineerName?: string | null;
   status: MobileApplicationStatus | string;
+  /** Status-aware date like engineer cards: "Assigned · …" / "Submitted · …" */
+  dateLine?: string | null;
   onPress: () => void;
   onDownload?: () => void;
 }) {
@@ -158,53 +161,17 @@ export function OfficeAppRow({
             >
               {title}
             </Text>
-            <Box style={{ flexShrink: 0, maxWidth: '46%' }}>
+            <Box style={{ flexShrink: 0, marginLeft: 'auto' }}>
               <ApplicationStatusBadge status={status} />
             </Box>
           </HStack>
 
-          <HStack className="items-center" style={{ gap: 8, flexWrap: 'wrap' }}>
-            <Text
-              style={{ fontFamily: FONTS.semibold, fontSize: 12, color: COLORS.ink }}
-              numberOfLines={1}
-            >
-              Site no: {siteNo || '—'}
-            </Text>
-            <HStack className="items-center" style={{ gap: 4 }}>
-              <Text style={{ fontFamily: FONTS.semibold, fontSize: 12, color: COLORS.ink }}>
-                Zone:
-              </Text>
-              <Box
-                style={{
-                  backgroundColor: GLASS.tintBlue,
-                  borderRadius: 8,
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  borderWidth: 1,
-                  borderColor: `${COLORS.primary}40`,
-                }}
-              >
-                <Text
-                  style={{ fontFamily: FONTS.bold, fontSize: 11, color: COLORS.primary }}
-                  numberOfLines={1}
-                >
-                  {zoneCode || '—'}
-                </Text>
-              </Box>
-            </HStack>
-          </HStack>
-
           <HStack className="items-center justify-between" style={{ gap: 8 }}>
             <Text
-              style={{
-                flex: 1,
-                fontFamily: FONTS.medium,
-                fontSize: 12,
-                color: COLORS.slate,
-              }}
+              style={{ fontFamily: FONTS.semibold, fontSize: 12, color: COLORS.slate }}
               numberOfLines={1}
             >
-              Assigned Engineer: {engineerName?.trim() || '—'}
+              Site #{siteNo || '—'} · Zone {zoneCode || '—'}
             </Text>
             <HStack className="items-center" style={{ gap: 6 }}>
               {onDownload ? (

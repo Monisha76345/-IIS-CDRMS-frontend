@@ -1,6 +1,6 @@
 import { Camera, Check, MapPinned, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, Platform, TextInput } from 'react-native';
+import { Platform, TextInput } from 'react-native';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -12,6 +12,7 @@ import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
 import { GlassHeaderBadge, GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
 import { captureSitePhoto } from '@/src/cdrms/hooks/useMediaCapture';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
+import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
 import { DIRECTION_META, type Cardinal } from '@/src/cdrms/project/types';
 import { CARDINAL_ACCENT, COLORS, FONTS, GLASS, SPACE } from '@/src/cdrms/theme';
@@ -42,25 +43,25 @@ export function SchedulesEditorCard() {
   };
 
   const removePhoto = (k: Cardinal) => {
-    Alert.alert(`Remove ${DIRECTION_META[k].label} photo?`, 'This clears the uploaded image.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () => {
-          void (async () => {
-            setClearing(k);
-            try {
-              await clearSurroundingPhoto(k);
-            } catch (err) {
-              alertDraftError(err);
-            } finally {
-              setClearing(null);
-            }
-          })();
-        },
+    showAppDialog({
+      variant: 'error',
+      title: `Remove ${DIRECTION_META[k].label} photo?`,
+      message: 'This clears the uploaded image.',
+      cancelLabel: 'Cancel',
+      confirmLabel: 'Remove',
+      onConfirm: () => {
+        void (async () => {
+          setClearing(k);
+          try {
+            await clearSurroundingPhoto(k);
+          } catch (err) {
+            alertDraftError(err);
+          } finally {
+            setClearing(null);
+          }
+        })();
       },
-    ]);
+    });
   };
 
   const photoCount = CARDINALS.filter((k) => Boolean(draft.surroundingPhotos[k])).length;
@@ -177,7 +178,7 @@ export function SchedulesEditorCard() {
                 <TextInput
                   value={note}
                   onChangeText={(t) => setDirection(k, t)}
-                  placeholder={isRoad ? 'Width' : `${DIRECTION_META[k].label} by`}
+                  placeholder={isRoad ? 'Width (eg:10ft)' : `${DIRECTION_META[k].label} by`}
                   placeholderTextColor="#94A3B8"
                   underlineColorAndroid="transparent"
                   autoCorrect={false}

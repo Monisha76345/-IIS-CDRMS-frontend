@@ -17,7 +17,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   Keyboard,
   KeyboardAvoidingView,
@@ -37,6 +36,7 @@ import { useAuth } from '@/src/auth/AuthContext';
 import { displayName } from '@/src/auth/roles';
 import { ApiError } from '@/src/api/client';
 import {
+  applicationCardDateLine,
   countZcBuckets,
   createApplication,
   createSiteDimension,
@@ -51,6 +51,7 @@ import {
   type SiteDimensionOption,
 } from '@/src/api/applications';
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
+import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 import {
   AppHeader,
   BottomNav,
@@ -135,20 +136,6 @@ export function ZcHomeScreen({ go }: { go: Go }) {
       label: 'Total',
       count: counts.total,
       icon: Layers,
-      ...statColors,
-    },
-    {
-      key: 'assigned',
-      label: 'Assigned',
-      count: counts.assigned,
-      icon: ClipboardList,
-      ...statColors,
-    },
-    {
-      key: 'in_progress',
-      label: 'In progress',
-      count: counts.in_progress,
-      icon: Hourglass,
       ...statColors,
     },
     {
@@ -250,45 +237,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
             />
           </Box>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingTop: 12, paddingBottom: 4, gap: 8 }}
-          >
-            {ZC_STATUS_FILTERS.map((f) => {
-              const on = tab === f.key;
-              const count =
-                f.key === 'all'
-                  ? counts.total
-                  : counts[f.key as Exclude<ZcTab, 'all'>];
-              return (
-                <Pressable
-                  key={f.key}
-                  onPress={() => setTab(f.key)}
-                  style={{
-                    height: 36,
-                    paddingHorizontal: 14,
-                    borderRadius: 999,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: on ? COLORS.primary : COLORS.white,
-                    borderWidth: 1,
-                    borderColor: on ? COLORS.primary : COLORS.border,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontFamily: FONTS.bold,
-                      fontSize: 12,
-                      color: on ? COLORS.white : COLORS.ink,
-                    }}
-                  >
-                    {f.label} · {count}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+
 
           <HStack className="items-center justify-between mt-4 mb-2">
             <Text className="text-[15px] font-bold" style={{ color: COLORS.ink }}>
@@ -320,6 +269,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
                 zoneCode={app.zoneCode}
                 engineerName={app.assignedEngineerName}
                 status={app.status}
+                dateLine={applicationCardDateLine(app)}
                 onPress={() => openDetail(app.id)}
               />
             ))
@@ -630,7 +580,13 @@ export function ZcCreateScreen({ go }: { go: Go }) {
     if (!accessToken) return;
     const normalized = newDimValue.trim().replace(/\s+/g, '');
     if (!/^\d+(\*\d+)+$/.test(normalized)) {
-      Alert.alert('Validation', 'Enter dimensions like 20*40 or 20*40*50*40');
+      showAppDialog({
+        variant: 'warning',
+        title: 'Validation',
+        message: 'Enter dimensions like 20*40 or 20*40*50*40',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
       return;
     }
     const exists = dimensions.some(
@@ -656,9 +612,21 @@ export function ZcCreateScreen({ go }: { go: Go }) {
       setAddingDim(false);
       setNewDimValue('');
       setDimOpen(false);
-      Alert.alert('Saved', `Dimension ${row.label} added to dropdown`);
+      showAppDialog({
+        variant: 'success',
+        title: 'Dimension saved',
+        message: `${row.label} was added to the dropdown.`,
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     } catch (e) {
-      Alert.alert('Error', e instanceof ApiError ? e.message : 'Failed to save dimension');
+      showAppDialog({
+        variant: 'error',
+        title: 'Could not save',
+        message: e instanceof ApiError ? e.message : 'Failed to save dimension',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     } finally {
       setSavingDim(false);
     }
@@ -668,18 +636,50 @@ export function ZcCreateScreen({ go }: { go: Go }) {
 
   const onSubmit = async () => {
     if (!accessToken) return;
-    if (!form.siteNo.trim()) return Alert.alert('Validation', 'Site no is required');
+    if (!form.siteNo.trim()) {
+      return showAppDialog({
+        variant: 'warning',
+        title: 'Validation',
+        message: 'Site no is required',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
+    }
     if (!form.siteDimension.trim()) {
-      return Alert.alert('Validation', 'Site dimension is required (e.g. 20*40)');
+      return showAppDialog({
+        variant: 'warning',
+        title: 'Validation',
+        message: 'Site dimension is required (e.g. 20*40)',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     }
     if (!form.addressArea.trim() || !form.addressBlock.trim() || !form.addressPincode.trim()) {
-      return Alert.alert('Validation', 'Area, block and pincode are mandatory');
+      return showAppDialog({
+        variant: 'warning',
+        title: 'Validation',
+        message: 'Area, block and pincode are mandatory',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     }
     if (form.siteDimensionType === 'Odd' && !form.siteDimensionComment?.trim()) {
-      return Alert.alert('Validation', 'Comment is required for Odd site type');
+      return showAppDialog({
+        variant: 'warning',
+        title: 'Validation',
+        message: 'Comment is required for Odd site type',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     }
     if (!String(form.assignedEngineerUserId || '').trim()) {
-      return Alert.alert('Validation', 'Assign engineer is required');
+      return showAppDialog({
+        variant: 'warning',
+        title: 'Validation',
+        message: 'Assign engineer is required',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     }
 
     setSaving(true);
@@ -697,11 +697,25 @@ export function ZcCreateScreen({ go }: { go: Go }) {
         scheduleWest: form.scheduleWest?.trim() || undefined,
         scheduleEast: form.scheduleEast?.trim() || undefined,
       });
-      Alert.alert('Created', created.applicationNumber, [
-        { text: 'OK', onPress: () => go('zc_home') },
-      ]);
+      setForm(emptyForm);
+      showAppDialog({
+        variant: 'success',
+        title: 'Application created',
+        message: 'The application was assigned to the engineer successfully.',
+        highlightLabel: 'Application number',
+        highlight: created.applicationNumber,
+        cancelLabel: 'Cancel',
+        confirmLabel: 'Done',
+        onConfirm: () => go('zc_home'),
+      });
     } catch (e) {
-      Alert.alert('Error', e instanceof ApiError ? e.message : 'Failed to create application');
+      showAppDialog({
+        variant: 'error',
+        title: 'Could not create',
+        message: e instanceof ApiError ? e.message : 'Failed to create application',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     } finally {
       setSaving(false);
     }
@@ -1244,6 +1258,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
     </ScreenShell>
   );
 }

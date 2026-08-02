@@ -1583,6 +1583,8 @@ export function PhotosScreen({ go }: { go: Go }) {
             </VStack>
           </GlassSectionCard>
 
+          <SiteVideoCaptureCard />
+
           <GlassSectionCard
             icon={MessageSquareText}
             title="Engineer comments *"
@@ -1615,13 +1617,11 @@ export function PhotosScreen({ go }: { go: Go }) {
                 <TextareaInput
                   value={draft.engineerComments}
                   onChangeText={(t) => updateField('engineerComments', t)}
-                  placeholder="width (eg:10ft)"
+                  placeholder="Enter field remarks / comments…"
                 />
               </Textarea>
             </Box>
           </GlassSectionCard>
-
-          <SiteVideoCaptureCard />
         </>
       ) : (
         <>

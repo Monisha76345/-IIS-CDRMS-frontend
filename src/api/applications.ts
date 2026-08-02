@@ -524,6 +524,41 @@ export function engineerTaskProgressPercent(app: MobileApplication): number {
   return Math.min(75, Math.round((completed / 4) * 100));
 }
 
+/** Assigned / submitted / in-progress timestamps for cards and detail views. */
+export function formatApplicationDateTime(iso?: string | null): string {
+  if (!iso?.trim()) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString(undefined, {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
+/**
+ * Single date line for application cards — starts as Assigned, then updates by status.
+ * - assigned → Assigned · {createdAt}
+ * - in_progress → In progress · {updatedAt || createdAt}
+ * - submitted → Submitted · {engineerSubmittedAt}
+ */
+export function applicationCardDateLine(app: MobileApplication): string {
+  const status = normalizeApplicationStatus(app.status) ?? app.status;
+  if (status === 'submitted' || Boolean(app.engineerSubmittedAt?.trim())) {
+    const when = formatApplicationDateTime(app.engineerSubmittedAt);
+    return when === '—' ? 'Submitted' : `Submitted · ${when}`;
+  }
+  if (status === 'in_progress') {
+    const when = formatApplicationDateTime(app.updatedAt || app.createdAt);
+    return when === '—' ? 'In progress' : `In progress · ${when}`;
+  }
+  const when = formatApplicationDateTime(app.createdAt);
+  return when === '—' ? 'Assigned' : `Assigned · ${when}`;
+}
+
 export type ApplicationStatusTone = {
   bg: string;
   fg: string;

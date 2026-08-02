@@ -7,7 +7,6 @@ import {
 } from 'react-native';
 import { Bell } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Alert } from 'react-native';
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Pressable } from '@/components/ui/pressable';
@@ -27,6 +26,7 @@ import {
 import type { AppNotification } from '@/src/api/notifications';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { ApiError } from '@/src/api/client';
+import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 
 type NotificationBellProps = {
   go: Go;
@@ -91,7 +91,13 @@ export function NotificationBell({ go, variant = 'header' }: NotificationBellPro
       await markAll();
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Failed to mark all as read';
-      Alert.alert('Notifications', msg);
+      showAppDialog({
+        variant: 'error',
+        title: 'Notifications',
+        message: msg,
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     } finally {
       setMarkingAll(false);
     }
@@ -111,7 +117,13 @@ export function NotificationBell({ go, variant = 'header' }: NotificationBellPro
       await navigateFromNotification(action, go, openBackendTask);
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Unable to open notification';
-      Alert.alert('Notification', msg);
+      showAppDialog({
+        variant: 'error',
+        title: 'Notification',
+        message: msg,
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     }
   };
 
@@ -120,7 +132,13 @@ export function NotificationBell({ go, variant = 'header' }: NotificationBellPro
       await markOne(notif.id);
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Failed to dismiss notification';
-      Alert.alert('Notifications', msg);
+      showAppDialog({
+        variant: 'error',
+        title: 'Notifications',
+        message: msg,
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     }
   };
 

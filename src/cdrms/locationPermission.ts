@@ -1,5 +1,7 @@
 import * as Location from 'expo-location';
-import { Alert, Linking, Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
+
+import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 
 /** True when foreground location is already allowed. */
 export async function hasForegroundLocationPermission(): Promise<boolean> {
@@ -36,21 +38,19 @@ export async function ensureLocationServicesEnabled(
     }
 
     if (!silent) {
-      Alert.alert(
-        'Turn on Location',
-        Platform.OS === 'android'
-          ? 'Enable Location in Android Settings (High accuracy / GPS), then return to CDRMS so the map can show your position.'
-          : 'Turn on Location Services in Settings, then try again.',
-        [
-          { text: 'Not now', style: 'cancel' },
-          {
-            text: 'Open Settings',
-            onPress: () => {
-              void Linking.openSettings().catch(() => undefined);
-            },
-          },
-        ],
-      );
+      showAppDialog({
+        variant: 'warning',
+        title: 'Turn on Location',
+        message:
+          Platform.OS === 'android'
+            ? 'Enable Location in Android Settings (High accuracy / GPS), then return to CDRMS so the map can show your position.'
+            : 'Turn on Location Services in Settings, then try again.',
+        cancelLabel: 'Not now',
+        confirmLabel: 'Open Settings',
+        onConfirm: () => {
+          void Linking.openSettings().catch(() => undefined);
+        },
+      });
     }
     return false;
   } catch {
@@ -77,21 +77,19 @@ export async function ensureForegroundLocationPermission(
     if (requested.status === 'granted') return true;
 
     if (!silent) {
-      Alert.alert(
-        'Location permission needed',
-        Platform.OS === 'android'
-          ? 'Allow Location for CDRMS (Precise / Fine) so GPS and the map can work.'
-          : 'Allow location access so we can verify your field survey.',
-        [
-          { text: 'Not now', style: 'cancel' },
-          {
-            text: 'Open Settings',
-            onPress: () => {
-              void Linking.openSettings().catch(() => undefined);
-            },
-          },
-        ],
-      );
+      showAppDialog({
+        variant: 'warning',
+        title: 'Location permission needed',
+        message:
+          Platform.OS === 'android'
+            ? 'Allow Location for CDRMS (Precise / Fine) so GPS and the map can work.'
+            : 'Allow location access so we can verify your field survey.',
+        cancelLabel: 'Not now',
+        confirmLabel: 'Open Settings',
+        onConfirm: () => {
+          void Linking.openSettings().catch(() => undefined);
+        },
+      });
     }
     return false;
   } catch {

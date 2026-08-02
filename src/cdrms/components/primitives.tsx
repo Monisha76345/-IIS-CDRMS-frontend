@@ -332,17 +332,9 @@ export function ProfileMenu({
                   ) : null}
 
                   {zoneLabel ? (
-                    <Text
-                      style={{
-                        fontFamily: FONTS.semibold,
-                        fontSize: 10,
-                        color: 'rgba(255,255,255,0.9)',
-                        marginTop: 3,
-                      }}
-                      numberOfLines={1}
-                    >
-                      {zoneLabel}
-                    </Text>
+                    <Box style={{ marginTop: 6, alignSelf: 'flex-start' }}>
+                      <ZoneTag zone={zoneLabel} onGradient />
+                    </Box>
                   ) : null}
                 </View>
               </View>
@@ -420,7 +412,6 @@ export function AppHeader({
   const insets = useSafeAreaInsets();
   const { logout, isAuthenticated, user } = useAuth();
   const role = resolveAppRole(user);
-  const isEngineerOrZc = role === 'engineer' || role === 'zc';
   const isCompactOfficeNav =
     role === 'zc' || role === 'cao' || role === 'super_admin';
   const canLogout = Boolean(showLogout && isAuthenticated && go);
@@ -556,7 +547,7 @@ export function AppHeader({
   ) : null;
 
   const notifBell =
-    go && showNotifications && !(isCompactOfficeNav || isEngineerOrZc) ? (
+    go && showNotifications && role === 'cao' ? (
       <NotificationBell go={go} variant={gradient ? 'header' : 'plain'} />
     ) : null;
 
@@ -634,24 +625,33 @@ export function AppHeader({
           </HStack>
           {rightSlot}
         </HStack>
-        {welcome && !isCompactOfficeNav ? (
-          <HStack className="items-center" style={{ marginTop: SPACE[4], gap: 6 }}>
-            <Clock size={13} color="rgba(255,255,255,0.85)" />
-            <Text
-              style={{
-                fontSize: 11,
-                fontFamily: FONTS.medium,
-                color: 'rgba(255,255,255,0.88)',
-              }}
-              numberOfLines={1}
-            >
-              {new Date().toLocaleDateString(undefined, {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              })}
-            </Text>
+        {welcome ? (
+          <HStack
+            className="items-center flex-wrap"
+            style={{ marginTop: isCompactOfficeNav ? SPACE[3] : SPACE[4], gap: 8 }}
+          >
+            {zoneLabel ? <ZoneTag zone={zoneLabel} onGradient /> : null}
+            <HStack className="items-center" style={{ gap: 6 }}>
+              <Clock size={13} color="rgba(255,255,255,0.85)" />
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontFamily: FONTS.medium,
+                  color: 'rgba(255,255,255,0.88)',
+                }}
+                numberOfLines={1}
+              >
+                {new Date().toLocaleString(undefined, {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: true,
+                })}
+              </Text>
+            </HStack>
           </HStack>
         ) : null}
       </Box>
@@ -1215,6 +1215,82 @@ export function BottomNav({
       </Pressable>
       )}
     </Box>
+  );
+}
+
+/** Theme-aware zone pill — uses COLORS so it updates when the theme changes. */
+export function ZoneTag({
+  zone,
+  onGradient = false,
+}: {
+  zone?: string | null;
+  /** Sit on a gradient header (white chip + primary accent). */
+  onGradient?: boolean;
+}) {
+  const code = zone?.trim();
+  if (!code) return null;
+
+  if (onGradient) {
+    return (
+      <HStack
+        className="items-center"
+        style={{
+          gap: 4,
+          paddingHorizontal: 10,
+          paddingVertical: 5,
+          borderRadius: 999,
+          backgroundColor: COLORS.white,
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.95)',
+          shadowColor: COLORS.primaryDeep,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.18,
+          shadowRadius: 6,
+          elevation: 3,
+        }}
+      >
+        <MapPin size={11} color={COLORS.primary} strokeWidth={2.6} />
+        <Text
+          style={{
+            fontFamily: FONTS.bold,
+            fontSize: 11,
+            letterSpacing: 0.3,
+            color: COLORS.primary,
+          }}
+          numberOfLines={1}
+        >
+          {code}
+        </Text>
+      </HStack>
+    );
+  }
+
+  return (
+    <HStack
+      className="items-center"
+      style={{
+        gap: 4,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 999,
+        backgroundColor: GLASS.tintBlue,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+      }}
+    >
+      <MapPin size={11} color={COLORS.primary} strokeWidth={2.6} />
+      <Text
+        style={{
+          fontFamily: FONTS.bold,
+          fontSize: 11,
+          letterSpacing: 0.3,
+          color: COLORS.primaryDeep,
+        }}
+        numberOfLines={1}
+      >
+        {code}
+      </Text>
+    </HStack>
   );
 }
 

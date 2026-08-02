@@ -2,10 +2,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import {
   AlertTriangle,
   ArrowRight,
+  BarChart2,
   Camera,
   Check,
   Eye,
   EyeOff,
+  Headphones,
   LocateFixed,
   Lock,
   MapPin,
@@ -18,10 +20,10 @@ import {
   RefreshCw,
   ShieldCheck,
   User,
+  UserCheck,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
-  Alert,
   ActivityIndicator,
   Image,
   Keyboard,
@@ -95,6 +97,7 @@ import {
 } from '@/src/cdrms/mediaPermission';
 import {
   COLORS,
+  FONTS,
   GLASS,
   applyAuthTheme,
   AUTH_GRADIENT_HEADER,
@@ -104,6 +107,7 @@ import {
 } from '@/src/cdrms/theme';
 import { useTheme } from '@/src/theme/ThemeContext';
 import { TERMS } from '@/src/cdrms/terminology';
+import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 import type { Go } from '@/src/cdrms/types';
 import { useAuth } from '@/src/auth/AuthContext';
 import { ApiError } from '@/src/api/client';
@@ -411,190 +415,249 @@ export function LoginScreen({ go }: { go: Go }) {
           ? e.message
           : 'Unable to reach API. Set EXPO_PUBLIC_API_URL to your machine IP.';
       setError(msg);
-      Alert.alert('Login failed', msg);
+      showAppDialog({
+        variant: 'error',
+        title: 'Login failed',
+        message: msg,
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <ScreenShell className="bg-background">
+    <ScreenShell className="bg-[#F8FAFC]">
+      {/* Top Vidhana Soudha Blue Background */}
+      <Box style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 360, overflow: 'hidden' }}>
+        <Image
+          source={require('../../../assets/vidhana-soudha-blue.png')}
+          style={{ position: 'absolute', width: '100%', height: 360 }}
+          resizeMode="cover"
+        />
+        <LinearGradient
+          colors={['rgba(2,55,150,0.3)', 'transparent', '#024EC4']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+      </Box>
+
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
       >
-        <LinearGradient
-          pointerEvents="none"
-          colors={gradientStops(AUTH_GRADIENT_HEADER)}
-          locations={[0, 0.55, 1]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 220,
-          }}
-        />
-        <Box
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            top: -48,
-            right: -36,
-            width: 140,
-            height: 140,
-            borderRadius: 999,
-            borderWidth: 1.5,
-            borderColor: 'rgba(255,255,255,0.12)',
-          }}
-        />
-
         <ScrollView
           ref={scrollRef}
           className="flex-1"
-          keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           contentContainerStyle={{
             flexGrow: 1,
-            justifyContent: 'flex-start',
-            paddingHorizontal: 16,
-            paddingTop: insets.top + 12,
-            paddingBottom: Math.max(insets.bottom, 12) + 12,
+            justifyContent: 'center',
+            paddingHorizontal: 20,
+            paddingTop: insets.top + (keyboardOpen ? 12 : 24),
+            paddingBottom: Math.max(insets.bottom, 16) + 140,
           }}
           showsVerticalScrollIndicator={false}
         >
           <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
             <View>
-              <HStack className="items-center" style={{ gap: 12, marginBottom: 10 }}>
+              {/* Brand Header Hero */}
+              <VStack className="items-center" style={{ gap: 6, marginBottom: 20 }}>
                 <Box
                   className="items-center justify-center overflow-hidden"
                   style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 14,
-                    backgroundColor: COLORS.white,
-                    borderWidth: 1,
-                    borderColor: 'rgba(255,255,255,0.45)',
+                    width: 72,
+                    height: 72,
+                    borderRadius: 36,
+                    backgroundColor: '#FFFFFF',
+                    borderWidth: 2.5,
+                    borderColor: 'rgba(255,255,255,0.7)',
                     shadowColor: '#0F172A',
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.14,
-                    shadowRadius: 8,
-                    elevation: 4,
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.2,
+                    shadowRadius: 16,
+                    elevation: 8,
                   }}
                 >
                   <Image
                     source={require('../../../assets/bda-logo.png')}
-                    style={{ width: 38, height: 38 }}
+                    style={{ width: 54, height: 54 }}
                     resizeMode="contain"
-                    accessibilityLabel="BDA Logo"
+                    accessibilityLabel="BDA Seal"
                   />
                 </Box>
-                <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
-                  <Text
-                    style={{
-                      fontSize: 22,
-                      lineHeight: 26,
-                      fontWeight: '800',
-                      letterSpacing: -0.3,
-                      color: COLORS.white,
-                    }}
-                  >
-                    Welcome
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontWeight: '700',
-                      letterSpacing: 1.1,
-                      textTransform: 'uppercase',
-                      color: 'rgba(255,255,255,0.85)',
-                    }}
-                  >
-                    BDA CDRMS Portal
-                  </Text>
-                </VStack>
-              </HStack>
-
-              {!keyboardOpen ? (
                 <Text
                   style={{
-                    marginBottom: 12,
-                    fontSize: 13,
-                    lineHeight: 18,
-                    fontWeight: '500',
-                    color: 'rgba(255,255,255,0.92)',
+                    fontFamily: FONTS.bold,
+                    fontSize: 21,
+                    lineHeight: 26,
+                    letterSpacing: 0.8,
+                    textTransform: 'uppercase',
+                    color: '#FFFFFF',
+                    textAlign: 'center',
+                    marginTop: 2,
                   }}
                 >
-                  Sign in with your CDRMS Login ID to continue.
+                  BDA CDRMS PORTAL
                 </Text>
-              ) : (
-                <Box style={{ height: 8 }} />
-              )}
+                <Text
+                  style={{
+                    fontFamily: FONTS.medium,
+                    fontSize: 13,
+                    color: 'rgba(255,255,255,0.92)',
+                    textAlign: 'center',
+                  }}
+                >
+                  Ministry of Public Works
+                </Text>
+                <Box style={{ width: 32, height: 3.5, borderRadius: 2, backgroundColor: '#EAB308', marginTop: 4 }} />
+              </VStack>
 
+              {/* Login Card */}
               <Box
                 style={{
-                  backgroundColor: COLORS.white,
-                  borderRadius: 16,
-                  paddingHorizontal: 14,
-                  paddingVertical: 14,
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 24,
+                  paddingHorizontal: 20,
+                  paddingTop: 22,
+                  paddingBottom: 22,
                   borderWidth: 1,
-                  borderColor: COLORS.border,
+                  borderColor: 'rgba(226,232,240,0.9)',
                   shadowColor: '#0F172A',
-                  shadowOffset: { width: 0, height: 8 },
-                  shadowOpacity: 0.1,
-                  shadowRadius: 16,
-                  elevation: 5,
+                  shadowOffset: { width: 0, height: 12 },
+                  shadowOpacity: 0.12,
+                  shadowRadius: 20,
+                  elevation: 8,
                 }}
               >
-                <VStack style={{ gap: 12 }}>
-                  <Field
-                    label="Login ID / Email"
-                    icon={User}
-                    value={loginId}
-                    onChangeText={setLoginId}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    autoComplete="off"
-                    textContentType="none"
-                    importantForAutofill="no"
-                    placeholder="Enter login ID or email"
-                    showCheck={false}
-                    returnKeyType="next"
-                    submitBehavior="submit"
-                    blurOnSubmit={false}
-                    onSubmitEditing={() => passwordRef.current?.focus()}
-                  />
-                  <Field
-                    ref={passwordRef}
-                    label="Password"
-                    icon={Lock}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    autoComplete="off"
-                    textContentType="oneTimeCode"
-                    importantForAutofill="no"
-                    passwordRules=""
-                    placeholder="Enter password"
-                    showCheck={false}
-                    returnKeyType="go"
-                    submitBehavior="blurAndSubmit"
-                    blurOnSubmit
-                    onSubmitEditing={() => {
-                      void onSecureLogin();
-                    }}
-                    endAdornment={
+                <Text
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 22,
+                    color: '#0F172A',
+                    textAlign: 'center',
+                  }}
+                >
+                  Welcome Back!
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: FONTS.medium,
+                    fontSize: 13,
+                    color: '#64748B',
+                    textAlign: 'center',
+                    marginTop: 4,
+                    marginBottom: 18,
+                  }}
+                >
+                  Sign in with your Login ID to continue
+                </Text>
+
+                <VStack style={{ gap: 14 }}>
+                  {/* Login ID field */}
+                  <VStack style={{ gap: 6 }}>
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#475569', letterSpacing: 0.5 }}>
+                      LOGIN ID / EMAIL
+                    </Text>
+                    <HStack
+                      className="items-center"
+                      style={{
+                        height: 48,
+                        borderRadius: 14,
+                        borderWidth: 1,
+                        borderColor: '#E2E8F0',
+                        backgroundColor: '#F8FAFC',
+                        paddingHorizontal: 4,
+                      }}
+                    >
+                      <Box
+                        className="items-center justify-center"
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 11,
+                          backgroundColor: '#0256D0',
+                          marginRight: 8,
+                        }}
+                      >
+                        <User size={18} color="#FFFFFF" strokeWidth={2.3} />
+                      </Box>
+                      <TextInput
+                        value={loginId}
+                        onChangeText={setLoginId}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        autoComplete="off"
+                        placeholder="Enter login ID or email"
+                        placeholderTextColor="#94A3B8"
+                        returnKeyType="next"
+                        onSubmitEditing={() => passwordRef.current?.focus()}
+                        style={{
+                          flex: 1,
+                          fontFamily: FONTS.medium,
+                          fontSize: 13,
+                          color: '#0F172A',
+                          paddingRight: 10,
+                        }}
+                      />
+                    </HStack>
+                  </VStack>
+
+                  {/* Password field */}
+                  <VStack style={{ gap: 6 }}>
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#475569', letterSpacing: 0.5 }}>
+                      PASSWORD
+                    </Text>
+                    <HStack
+                      className="items-center"
+                      style={{
+                        height: 48,
+                        borderRadius: 14,
+                        borderWidth: 1,
+                        borderColor: '#E2E8F0',
+                        backgroundColor: '#F8FAFC',
+                        paddingHorizontal: 4,
+                      }}
+                    >
+                      <Box
+                        className="items-center justify-center"
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 11,
+                          backgroundColor: '#0256D0',
+                          marginRight: 8,
+                        }}
+                      >
+                        <Lock size={18} color="#FFFFFF" strokeWidth={2.3} />
+                      </Box>
+                      <TextInput
+                        ref={passwordRef}
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry={!showPassword}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        autoComplete="off"
+                        placeholder="Enter password"
+                        placeholderTextColor="#94A3B8"
+                        returnKeyType="go"
+                        onSubmitEditing={() => void onSecureLogin()}
+                        style={{
+                          flex: 1,
+                          fontFamily: FONTS.medium,
+                          fontSize: 13,
+                          color: '#0F172A',
+                          paddingRight: 8,
+                        }}
+                      />
                       <Pressable
                         onPress={() => setShowPassword((v) => !v)}
-                        hitSlop={10}
-                        accessibilityRole="button"
-                        accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
                         className="h-9 w-9 items-center justify-center rounded-full active:opacity-70"
+                        style={{ marginRight: 4 }}
                       >
                         {showPassword ? (
                           <EyeOff size={18} color="#64748B" />
@@ -602,63 +665,107 @@ export function LoginScreen({ go }: { go: Go }) {
                           <Eye size={18} color="#64748B" />
                         )}
                       </Pressable>
-                    }
-                  />
+                    </HStack>
+                  </VStack>
 
                   {error ? (
-                    <Text className="text-sm text-red-600 font-medium">{error}</Text>
+                    <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: '#DC2626' }}>
+                      {error}
+                    </Text>
                   ) : null}
 
-                  <Checkbox
-                    value="remember"
-                    isChecked={remember}
-                    onChange={(v) => setRemember(!!v)}
-                  >
-                    <CheckboxIndicator>
-                      <CheckboxIcon as={CheckIcon} />
-                    </CheckboxIndicator>
-                    <CheckboxLabel className="text-sm text-muted-foreground font-medium">
-                      Remember this device
-                    </CheckboxLabel>
-                  </Checkbox>
+                  {/* Checkbox + Forgot password row */}
+                  <HStack className="items-center justify-between" style={{ marginTop: 2 }}>
+                    <Checkbox
+                      value="remember"
+                      isChecked={remember}
+                      onChange={(v) => setRemember(!!v)}
+                    >
+                      <CheckboxIndicator
+                        style={{
+                          borderColor: remember ? '#0256D0' : '#94A3B8',
+                          backgroundColor: remember ? '#0256D0' : '#FFFFFF',
+                          borderRadius: 5,
+                        }}
+                      >
+                        <CheckboxIcon as={CheckIcon} />
+                      </CheckboxIndicator>
+                      <CheckboxLabel
+                        style={{
+                          fontFamily: FONTS.medium,
+                          fontSize: 12,
+                          color: '#334155',
+                          marginLeft: 4,
+                        }}
+                      >
+                        Remember this device
+                      </CheckboxLabel>
+                    </Checkbox>
 
-                  <AppBtn onPress={onSecureLogin} icon={Lock} disabled={loading}>
-                    {loading ? 'Signing in…' : 'Secure Login'}
-                  </AppBtn>
+                    <Pressable className="active:opacity-70">
+                      <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: '#0256D0' }}>
+                        Forgot Login ID?
+                      </Text>
+                    </Pressable>
+                  </HStack>
+
+                  {/* Secure Login Button */}
+                  <Pressable
+                    onPress={() => void onSecureLogin()}
+                    disabled={loading}
+                    className="active:opacity-90 overflow-hidden"
+                    style={{ borderRadius: 14, marginTop: 4 }}
+                  >
+                    <LinearGradient
+                      colors={['#0256D0', '#0042B3']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={{
+                        height: 50,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        paddingHorizontal: 16,
+                      }}
+                    >
+                      {loading ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <>
+                          <Lock size={17} color="#FFFFFF" strokeWidth={2.4} />
+                          <Text style={{ fontFamily: FONTS.bold, fontSize: 15, color: '#FFFFFF' }}>
+                            Secure Login
+                          </Text>
+                        </>
+                      )}
+                    </LinearGradient>
+                  </Pressable>
                 </VStack>
               </Box>
-
-              <Pressable
-                className="active:opacity-70 items-center"
-                style={{ marginTop: 12, paddingVertical: 4 }}
-              >
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontWeight: '700',
-                    color: COLORS.primary,
-                  }}
-                >
-                  Forgot Login ID?
-                </Text>
-              </Pressable>
-
-              {!keyboardOpen ? (
-                <Text
-                  style={{
-                    marginTop: 20,
-                    textAlign: 'center',
-                    fontSize: 11,
-                    fontWeight: '500',
-                    color: COLORS.slate,
-                  }}
-                >
-                  {TERMS.app.copyright} · {TERMS.app.version}
-                </Text>
-              ) : null}
             </View>
           </TouchableWithoutFeedback>
         </ScrollView>
+
+        {/* Bottom Full-Width Architectural Skyline Graphic */}
+        {!keyboardOpen ? (
+          <Box
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 130,
+            }}
+          >
+            <Image
+              source={require('../../../assets/skyline-bottom.png')}
+              style={{ width: '100%', height: 130, opacity: 0.95 }}
+              resizeMode="stretch"
+            />
+          </Box>
+        ) : null}
       </KeyboardAvoidingView>
     </ScreenShell>
   );
@@ -1264,7 +1371,13 @@ export function PermissionScreen({ go }: { go: Go }) {
       go('geo');
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Could not enable GPS';
-      Alert.alert('GPS error', message);
+      showAppDialog({
+        variant: 'error',
+        title: 'GPS error',
+        message,
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     } finally {
       setBusy(false);
     }

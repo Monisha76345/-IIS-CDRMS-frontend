@@ -18,8 +18,6 @@ import {
   Lock,
   LogOut,
   Mail,
-  MapPin,
-  MapPinned,
   Phone,
   Search,
   Send,
@@ -33,7 +31,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import { TextInput, Alert, Image, Modal } from 'react-native';
+import { TextInput, Image, Modal } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Box } from '@/components/ui/box';
@@ -52,6 +50,7 @@ import {
   ProfileMenu,
   ScreenShell,
   StatusChip,
+  ZoneTag,
   ListLoader,
   ScreenLoader,
 } from '@/src/cdrms/components/primitives';
@@ -72,16 +71,17 @@ import type { Go, Screen } from '@/src/cdrms/types';
 import { useAuth } from '@/src/auth/AuthContext';
 import { displayName, homeScreenForRole, resolveAppRole } from '@/src/auth/roles';
 import { ApiError } from '@/src/api/client';
+import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 import {
   fetchApplication,
   fetchEngineerTasks,
   fetchMyZoneMeta,
+  applicationCardDateLine,
   engineerResumeScreen,
   engineerTaskProgressPercent,
   type MobileApplication,
 } from '@/src/api/applications';
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
-import { NotificationBell } from '@/src/cdrms/components/NotificationBell';
 import { useNotifications } from '@/src/cdrms/hooks/useNotifications';
 import {
   formatNotifTime,
@@ -118,15 +118,22 @@ function mapTaskCard(app: MobileApplication) {
   return {
     id: app.id,
     project: app.applicationNumber || `Site ${app.siteNo}`,
-    siteNo: app.siteNo ? `Site ${app.siteNo}` : '',
+    siteNo: app.siteNo?.trim() || '',
     status: mapTaskStatus(app.status),
-    date: app.zoneCode,
+    zone: app.zoneCode?.trim() || '',
+    date: applicationCardDateLine(app),
     village: [app.addressArea, app.addressBlock].filter(Boolean).join(', ') || '—',
     image: taskCoverImage(app),
     progress: engineerTaskProgressPercent(app),
     live: true as const,
     apiTask: true as const,
   };
+}
+
+function siteZoneMetaLine(siteNo?: string | null, zone?: string | null) {
+  const site = (siteNo || '').replace(/^Site\s+/i, '').trim() || '—';
+  const z = (zone || '').trim() || '—';
+  return `Site no: ${site}  Zone: ${z}`;
 }
 
 function getAppStatusAccent(status: string): string {
@@ -199,7 +206,13 @@ export function Dashboard({ go }: { go: Go }) {
       go(engineerResumeScreen(app));
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Unable to open task';
-      Alert.alert('Task', msg);
+      showAppDialog({
+        variant: 'error',
+        title: 'Task',
+        message: msg,
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     } finally {
       setOpeningId(null);
     }
@@ -387,27 +400,22 @@ export function Dashboard({ go }: { go: Go }) {
               </HStack>
             </HStack>
 
-            <HStack className="mt-4 items-center flex-wrap" style={{ gap: 6 }}>
-              {zoneLabel ? (
-                <>
-                  <MapPin size={13} color="rgba(255,255,255,0.85)" />
-                  <Text className="text-[11px]" style={{ color: 'rgba(255,255,255,0.88)', fontFamily: FONTS.semibold }}>
-                    {zoneLabel}
-                  </Text>
-                  <Text className="text-[11px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                    ·
-                  </Text>
-                </>
-              ) : null}
-              <Clock size={13} color="rgba(255,255,255,0.85)" />
-              <Text className="text-[11px]" style={{ color: 'rgba(255,255,255,0.88)' }}>
-                {new Date().toLocaleDateString(undefined, {
-                  weekday: 'long',
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </Text>
+            <HStack className="mt-4 items-center flex-wrap" style={{ gap: 8 }}>
+              {zoneLabel ? <ZoneTag zone={zoneLabel} onGradient /> : null}
+              <HStack className="items-center" style={{ gap: 6 }}>
+                <Clock size={13} color="rgba(255,255,255,0.85)" />
+                <Text className="text-[11px]" style={{ color: 'rgba(255,255,255,0.88)' }}>
+                  {new Date().toLocaleString(undefined, {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true,
+                  })}
+                </Text>
+              </HStack>
             </HStack>
           </Box>
         </LinearGradient>
@@ -552,12 +560,25 @@ export function Dashboard({ go }: { go: Go }) {
                             }}
                             numberOfLines={1}
                           >
-                            {[a.siteNo, a.village !== '—' ? a.village : null, a.date]
-                              .filter(Boolean)
-                              .join(' · ')}
+                            {siteZoneMetaLine(a.siteNo, a.zone)}
                           </Text>
+                          {a.date ? (
+                            <Text
+                              style={{
+                                fontFamily: FONTS.medium,
+                                fontSize: 10,
+                                color: COLORS.slate,
+                                marginTop: 3,
+                              }}
+                              numberOfLines={1}
+                            >
+                              {a.date}
+                            </Text>
+                          ) : null}
                         </Pressable>
-                        <StatusChip status={a.status} />
+                        <Box style={{ flexShrink: 0, marginLeft: 8 }}>
+                          <StatusChip status={a.status} />
+                        </Box>
                       </HStack>
 
                       <HStack className="items-center gap-2 mt-3">
@@ -679,7 +700,13 @@ export function NotificationsScreen({ go }: { go: Go }) {
       await markAll();
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Failed to mark all as read';
-      Alert.alert('Notifications', msg);
+      showAppDialog({
+        variant: 'error',
+        title: 'Notifications',
+        message: msg,
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     } finally {
       setMarkingAll(false);
     }
@@ -698,7 +725,13 @@ export function NotificationsScreen({ go }: { go: Go }) {
       await navigateFromNotification(action, go, openBackendTask);
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Unable to open notification';
-      Alert.alert('Notification', msg);
+      showAppDialog({
+        variant: 'error',
+        title: 'Notification',
+        message: msg,
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     }
   };
 
@@ -866,6 +899,7 @@ function ApplicationListCard({
   siteNo,
   status,
   village,
+  zone,
   date,
   image,
   onView,
@@ -875,6 +909,7 @@ function ApplicationListCard({
   siteNo?: string;
   status: string;
   village: string;
+  zone?: string;
   date: string;
   image: string | null;
   onView: () => void;
@@ -882,7 +917,7 @@ function ApplicationListCard({
   onOpen?: () => void;
 }) {
   const accent = getAppStatusAccent(status);
-  const meta = [siteNo, village !== '—' ? village : null].filter(Boolean).join(' · ');
+  const meta = siteZoneMetaLine(siteNo, zone);
   const isSubmitted = status === 'Submitted';
   const isAssigned = status === 'Assigned';
   const isInProgress = status === 'In progress';
@@ -965,33 +1000,29 @@ function ApplicationListCard({
       <HStack>
         <Box style={{ width: 4, backgroundColor: accent, alignSelf: 'stretch' }} />
         <HStack
-          className="flex-1 items-center"
-          style={{ paddingVertical: 14, paddingHorizontal: 14, gap: 12 }}
+          className="flex-1 items-start"
+          style={{ paddingVertical: 12, paddingHorizontal: 12, gap: 10 }}
         >
-          <Pressable onPress={onView} className="active:opacity-92">
+          <Pressable onPress={onView} className="active:opacity-92" style={{ marginTop: 2 }}>
             <ApplicationThumb uri={image} />
           </Pressable>
-          <VStack className="flex-1 min-w-0" style={{ gap: 4 }}>
+          <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
             <Pressable onPress={onView} className="active:opacity-92">
-              <HStack className="items-start justify-between" style={{ gap: 8 }}>
-                <Text
-                  style={{
-                    flex: 1,
-                    fontFamily: FONTS.bold,
-                    fontSize: 15,
-                    lineHeight: 20,
-                    color: COLORS.ink,
-                  }}
-                  numberOfLines={1}
-                >
-                  {project}
-                </Text>
-                <StatusChip status={status} />
-              </HStack>
+              <Text
+                style={{
+                  fontFamily: FONTS.bold,
+                  fontSize: 14,
+                  lineHeight: 19,
+                  color: COLORS.ink,
+                }}
+                numberOfLines={1}
+              >
+                {project}
+              </Text>
 
               {meta ? (
                 <Text
-                  style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink, marginTop: 4 }}
+                  style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink, marginTop: 3 }}
                   numberOfLines={1}
                 >
                   {meta}
@@ -999,8 +1030,8 @@ function ApplicationListCard({
               ) : null}
 
               {date ? (
-                <HStack className="items-center" style={{ gap: 4, marginTop: 6 }}>
-                  <MapPinned size={12} color={COLORS.primary} strokeWidth={2.3} />
+                <HStack className="items-center" style={{ gap: 4, marginTop: 5 }}>
+                  <Clock size={12} color={COLORS.primary} strokeWidth={2.3} />
                   <Text
                     style={{ fontFamily: FONTS.semibold, fontSize: 11, color: COLORS.ink }}
                     numberOfLines={1}
@@ -1012,25 +1043,28 @@ function ApplicationListCard({
             </Pressable>
           </VStack>
 
-          <HStack className="items-center" style={{ gap: 8 }}>
-            <Pressable
-              onPress={onView}
-              accessibilityRole="button"
-              accessibilityLabel="View application"
-              className="active:opacity-85 items-center justify-center"
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 10,
-                backgroundColor: GLASS.tintBlue,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-              }}
-            >
-              <Eye size={15} color={COLORS.primary} strokeWidth={2.4} />
-            </Pressable>
-            {actionBtn}
-          </HStack>
+          <VStack className="items-end justify-between self-stretch" style={{ gap: 8 }}>
+            <StatusChip status={status} />
+            <HStack className="items-center" style={{ gap: 6 }}>
+              <Pressable
+                onPress={onView}
+                accessibilityRole="button"
+                accessibilityLabel="View application"
+                className="active:opacity-85 items-center justify-center"
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 10,
+                  backgroundColor: GLASS.tintBlue,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                }}
+              >
+                <Eye size={15} color={COLORS.primary} strokeWidth={2.4} />
+              </Pressable>
+              {actionBtn}
+            </HStack>
+          </VStack>
         </HStack>
       </HStack>
     </Box>
@@ -1071,7 +1105,13 @@ export function HistoryScreen({ go }: { go: Go }) {
       go(engineerResumeScreen(app));
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Unable to open task';
-      Alert.alert('Task', msg);
+      showAppDialog({
+        variant: 'error',
+        title: 'Task',
+        message: msg,
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     } finally {
       setOpeningId(null);
     }
@@ -1106,9 +1146,19 @@ export function HistoryScreen({ go }: { go: Go }) {
               {
                 id: draft.id,
                 project: draft.projectName.trim() || draft.applicationNumber || 'Untitled draft',
-                siteNo: draft.siteNo ? `Site ${draft.siteNo}` : '',
+                siteNo: draft.siteNo?.trim() || '',
                 status: 'Draft' as string,
-                date: draft.siteNo || '—',
+                zone: draft.zoneCode?.trim() || '',
+                date: draft.updatedAt
+                  ? `Updated · ${new Date(draft.updatedAt).toLocaleString(undefined, {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true,
+                    })}`
+                  : 'Draft',
                 village: draft.village.trim() || '—',
                 image:
                   draft.photos[0]?.uri ||
@@ -1127,11 +1177,15 @@ export function HistoryScreen({ go }: { go: Go }) {
       project: a.projectName,
       siteNo: '',
       status: 'Submitted' as string,
-      date: new Date(a.submittedAt).toLocaleDateString(undefined, {
+      zone: '',
+      date: `Submitted · ${new Date(a.submittedAt).toLocaleString(undefined, {
         day: '2-digit',
         month: 'short',
         year: 'numeric',
-      }),
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      })}`,
       village: a.village,
       image: a.coverImage?.trim() || null,
       live: true as const,
@@ -1153,13 +1207,17 @@ export function HistoryScreen({ go }: { go: Go }) {
             {
               id: draft.id,
               project: draft.projectName.trim() || 'Untitled draft',
-              siteNo: draft.siteNo ? `Site ${draft.siteNo}` : '',
+              siteNo: draft.siteNo?.trim() || '',
               status: 'Draft' as string,
-              date: new Date(draft.updatedAt).toLocaleDateString(undefined, {
+              zone: draft.zoneCode?.trim() || '',
+              date: `Updated · ${new Date(draft.updatedAt).toLocaleString(undefined, {
                 day: '2-digit',
                 month: 'short',
                 year: 'numeric',
-              }),
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+              })}`,
               village: draft.village.trim() || '—',
               image: draftPhoto,
               live: true as const,
@@ -1330,6 +1388,7 @@ export function HistoryScreen({ go }: { go: Go }) {
                 siteNo={'siteNo' in a ? a.siteNo : ''}
                 status={a.status}
                 village={a.village}
+                zone={'zone' in a ? a.zone : ''}
                 date={a.date}
                 image={a.image}
                 onView={() => viewApplication(a.id, a.status, a.live, a.apiTask)}
@@ -1438,7 +1497,13 @@ export function ProfileScreen({ go }: { go: Go }) {
         ? `data:image/jpeg;base64,${asset.base64}`
         : asset.uri;
       await updateProfilePhoto(photoData);
-      Alert.alert('Profile Photo', 'Profile photo updated successfully!');
+      showAppDialog({
+        variant: 'success',
+        title: 'Profile photo',
+        message: 'Profile photo updated successfully.',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     } finally {
       setSavingPhoto(false);
     }
@@ -1464,7 +1529,13 @@ export function ProfileScreen({ go }: { go: Go }) {
     } catch (err) {
       setSavingPhoto(false);
       const msg = err instanceof Error ? err.message : 'Unable to take profile photo';
-      Alert.alert('Camera', msg);
+      showAppDialog({
+        variant: 'error',
+        title: 'Camera',
+        message: msg,
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     }
   };
 
@@ -1472,10 +1543,13 @@ export function ProfileScreen({ go }: { go: Go }) {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert(
-          'Photos permission needed',
-          'Allow photo library access in Settings so you can upload a profile photo.',
-        );
+        showAppDialog({
+          variant: 'warning',
+          title: 'Photos permission needed',
+          message: 'Allow photo library access in Settings so you can upload a profile photo.',
+          hideCancel: true,
+          confirmLabel: 'OK',
+        });
         return;
       }
 
@@ -1493,42 +1567,48 @@ export function ProfileScreen({ go }: { go: Go }) {
     } catch (err) {
       setSavingPhoto(false);
       const msg = err instanceof Error ? err.message : 'Unable to update profile photo';
-      Alert.alert('Gallery', msg);
+      showAppDialog({
+        variant: 'error',
+        title: 'Gallery',
+        message: msg,
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     }
   };
 
   const showPhotoSourceOptions = () => {
-    Alert.alert('Profile photo', 'Choose how to set your photo', [
-      { text: 'Take photo', onPress: () => void handleTakePhoto() },
-      { text: 'Upload from gallery', onPress: () => void handlePickFromGallery() },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    showAppDialog({
+      variant: 'info',
+      title: 'Profile photo',
+      message: 'Choose how to set your photo.',
+      cancelLabel: 'Gallery',
+      confirmLabel: 'Camera',
+      onCancel: () => void handlePickFromGallery(),
+      onConfirm: () => void handleTakePhoto(),
+    });
   };
 
   const handleDeletePhoto = () => {
-    Alert.alert(
-      'Delete Photo',
-      'Are you sure you want to remove your profile photo?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              try {
-                setSavingPhoto(true);
-                await updateProfilePhoto(null);
-                setSavingPhoto(false);
-                setPreviewModalOpen(false);
-              } catch {
-                setSavingPhoto(false);
-              }
-            })();
-          },
-        },
-      ],
-    );
+    showAppDialog({
+      variant: 'error',
+      title: 'Delete photo',
+      message: 'Are you sure you want to remove your profile photo?',
+      cancelLabel: 'Cancel',
+      confirmLabel: 'Delete',
+      onConfirm: () => {
+        void (async () => {
+          try {
+            setSavingPhoto(true);
+            await updateProfilePhoto(null);
+            setSavingPhoto(false);
+            setPreviewModalOpen(false);
+          } catch {
+            setSavingPhoto(false);
+          }
+        })();
+      },
+    });
   };
 
   const u = (user || {}) as any;

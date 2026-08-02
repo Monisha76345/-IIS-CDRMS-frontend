@@ -21,7 +21,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Alert } from 'react-native';
+import { ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { Box } from '@/components/ui/box';
@@ -50,6 +50,7 @@ import { GlassHeaderBadge, GlassSectionCard } from '@/src/cdrms/components/Glass
 import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
 import { ReviewMediaPanel } from '@/src/cdrms/components/ReviewMediaPanel';
 import { ReviewSchedulesPanel } from '@/src/cdrms/components/ReviewSchedulesPanel';
+import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { formatCoords, type Cardinal } from '@/src/cdrms/project/types';
 import { validateDraft, validationSummary } from '@/src/cdrms/project/validation';
@@ -647,7 +648,13 @@ export function ReviewScreen({ go }: { go: Go }) {
 
   const onConfirmSubmit = async () => {
     if (!summary.allOk) {
-      Alert.alert('Incomplete', 'Fix validation issues before submitting.');
+      showAppDialog({
+        variant: 'warning',
+        title: 'Incomplete',
+        message: 'Fix validation issues before submitting.',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
       setConfirm(false);
       go('validate');
       return;
@@ -658,7 +665,13 @@ export function ReviewScreen({ go }: { go: Go }) {
       const result = await submitApplication();
       setConfirm(false);
       if (!result) {
-        Alert.alert('Submit blocked', 'Checklist is incomplete. Return to Validate.');
+        showAppDialog({
+          variant: 'warning',
+          title: 'Submit blocked',
+          message: 'Checklist is incomplete. Return to Validate.',
+          hideCancel: true,
+          confirmLabel: 'OK',
+        });
         go('validate');
         return;
       }
@@ -666,7 +679,13 @@ export function ReviewScreen({ go }: { go: Go }) {
     } catch (e) {
       const msg =
         e instanceof Error ? e.message : 'Submit failed. Check network and try again.';
-      Alert.alert('Submit failed', msg);
+      showAppDialog({
+        variant: 'error',
+        title: 'Submit failed',
+        message: msg,
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -987,15 +1006,6 @@ export function ReviewScreen({ go }: { go: Go }) {
                 }}
               >
                 Validation complete
-              </Text>
-              <Text
-                style={{
-                  fontFamily: FONTS.medium,
-                  fontSize: 11,
-                  color: '#047857',
-                }}
-              >
-                All required particulars are ready for CAO
               </Text>
             </VStack>
           </HStack>

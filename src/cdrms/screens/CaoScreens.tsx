@@ -7,7 +7,7 @@ import {
   Send,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -19,6 +19,7 @@ import { useAuth } from '@/src/auth/AuthContext';
 import { displayName } from '@/src/auth/roles';
 import { ApiError } from '@/src/api/client';
 import {
+  applicationCardDateLine,
   countZcBuckets,
   fetchApplication,
   fetchCaoApplications,
@@ -41,6 +42,7 @@ import {
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
 import { getCaoReturnScreen, getSelectedOfficeAppId, setCaoReturnScreen, setSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
 import { downloadApplicationPdf } from '@/src/cdrms/lib/downloadApplicationPdf';
+import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 import { COLORS, FONTS, GLASS, GRADIENT_PRIMARY, themeStatColors, gradientStops } from '@/src/cdrms/theme';
 import { useTheme } from '@/src/theme/ThemeContext';
 import type { Go } from '@/src/cdrms/types';
@@ -51,26 +53,48 @@ function CaoDownloadOverlay({ visible }: { visible: boolean }) {
       <View
         style={{
           flex: 1,
-          backgroundColor: 'rgba(15, 23, 42, 0.45)',
+          backgroundColor: 'rgba(15, 23, 42, 0.48)',
           alignItems: 'center',
           justifyContent: 'center',
-          paddingHorizontal: 24,
+          paddingHorizontal: 28,
         }}
       >
         <View
           style={{
-            minWidth: 180,
-            borderRadius: 16,
+            width: '100%',
+            maxWidth: 280,
+            borderRadius: 24,
             backgroundColor: COLORS.white,
-            paddingVertical: 22,
+            paddingVertical: 28,
             paddingHorizontal: 24,
             alignItems: 'center',
-            gap: 12,
+            gap: 14,
+            shadowColor: '#0F172A',
+            shadowOffset: { width: 0, height: 16 },
+            shadowOpacity: 0.2,
+            shadowRadius: 28,
+            elevation: 12,
           }}
         >
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={{ fontFamily: FONTS.semibold, fontSize: 14, color: COLORS.ink }}>
+          <View
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: 999,
+              backgroundColor: '#EFF6FF',
+              borderWidth: 1,
+              borderColor: '#BFDBFE',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
+          <Text style={{ fontFamily: FONTS.bold, fontSize: 16, color: COLORS.ink, textAlign: 'center' }}>
             Downloading PDF…
+          </Text>
+          <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.slate, textAlign: 'center' }}>
+            Please wait while the file is prepared.
           </Text>
         </View>
       </View>
@@ -137,9 +161,21 @@ export function CaoHomeScreen({ go }: { go: Go }) {
       setDownloading(true);
       try {
         const result = await downloadApplicationPdf(app, accessToken);
-        Alert.alert('Download complete', result.message);
+        showAppDialog({
+          variant: 'success',
+          title: 'Downloaded',
+          message: result.message,
+          hideCancel: true,
+          confirmLabel: 'OK',
+        });
       } catch (e) {
-        Alert.alert('Download failed', e instanceof Error ? e.message : 'Could not generate PDF');
+        showAppDialog({
+          variant: 'error',
+          title: 'Download failed',
+          message: e instanceof Error ? e.message : 'Could not generate PDF',
+          hideCancel: true,
+          confirmLabel: 'OK',
+        });
       } finally {
         setDownloading(false);
       }
@@ -226,42 +262,7 @@ export function CaoHomeScreen({ go }: { go: Go }) {
             />
           </Box>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingTop: 10, paddingBottom: 2, gap: 8 }}
-          >
-            {CAO_STATUS_FILTERS.map((f) => {
-              const on = tab === f.key;
-              const count = f.key === 'all' ? counts.total : counts.submitted;
-              return (
-                <Pressable
-                  key={f.key}
-                  onPress={() => setTab(f.key)}
-                  style={{
-                    height: 32,
-                    paddingHorizontal: 12,
-                    borderRadius: 999,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: on ? COLORS.primary : COLORS.white,
-                    borderWidth: 1,
-                    borderColor: on ? COLORS.primary : COLORS.border,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontFamily: FONTS.bold,
-                      fontSize: 12,
-                      color: on ? COLORS.white : COLORS.ink,
-                    }}
-                  >
-                    {f.label} · {count}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+
 
           <HStack className="items-center justify-between" style={{ marginTop: 10, marginBottom: 6 }}>
             <Text className="text-[14px] font-bold" style={{ color: COLORS.ink }}>
@@ -293,6 +294,7 @@ export function CaoHomeScreen({ go }: { go: Go }) {
                 zoneCode={app.zoneCode}
                 engineerName={app.assignedEngineerName}
                 status={app.status}
+                dateLine={applicationCardDateLine(app)}
                 onPress={() => {
                   setSelectedOfficeAppId(app.id);
                   setCaoReturnScreen('cao_home');
@@ -362,9 +364,21 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
       setDownloading(true);
       try {
         const result = await downloadApplicationPdf(app, accessToken);
-        Alert.alert('Download complete', result.message);
+        showAppDialog({
+          variant: 'success',
+          title: 'Downloaded',
+          message: result.message,
+          hideCancel: true,
+          confirmLabel: 'OK',
+        });
       } catch (e) {
-        Alert.alert('Download failed', e instanceof Error ? e.message : 'Could not generate PDF');
+        showAppDialog({
+          variant: 'error',
+          title: 'Download failed',
+          message: e instanceof Error ? e.message : 'Could not generate PDF',
+          hideCancel: true,
+          confirmLabel: 'OK',
+        });
       } finally {
         setDownloading(false);
       }
@@ -400,50 +414,7 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
       />
 
       <Box style={{ backgroundColor: '#F8FAFC' }}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingTop: 12,
-            paddingBottom: 8,
-            gap: 8,
-          }}
-        >
-          {CAO_APP_FILTERS.map((f) => {
-            const on = tab === f.key;
-            const count =
-              f.key === 'All'
-                ? apps.length
-                : apps.filter((a) => a.status === f.status).length;
-            return (
-              <Pressable
-                key={f.key}
-                onPress={() => setTab(f.key)}
-                style={{
-                  height: 36,
-                  paddingHorizontal: 14,
-                  borderRadius: 999,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: on ? COLORS.primary : COLORS.white,
-                  borderWidth: 1,
-                  borderColor: on ? COLORS.primary : COLORS.border,
-                }}
-              >
-                <Text
-                  style={{
-                    fontFamily: FONTS.bold,
-                    fontSize: 12,
-                    color: on ? '#FFFFFF' : COLORS.ink,
-                  }}
-                >
-                  {f.key} · {count}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+
 
         <Box className="px-4 pb-2">
           <HStack
@@ -542,6 +513,7 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
               zoneCode={app.zoneCode}
               engineerName={app.assignedEngineerName}
               status={app.status}
+              dateLine={applicationCardDateLine(app)}
               onPress={() => {
                 setSelectedOfficeAppId(app.id);
                 setCaoReturnScreen('cao_apps');
@@ -596,9 +568,21 @@ export function CaoDetailScreen({ go }: { go: Go }) {
     setDownloading(true);
     try {
       const result = await downloadApplicationPdf(app, accessToken);
-      Alert.alert('Download complete', result.message);
+      showAppDialog({
+        variant: 'success',
+        title: 'Downloaded',
+        message: result.message,
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     } catch (e) {
-      Alert.alert('Download failed', e instanceof Error ? e.message : 'Could not generate PDF');
+      showAppDialog({
+        variant: 'error',
+        title: 'Download failed',
+        message: e instanceof Error ? e.message : 'Could not generate PDF',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     } finally {
       setDownloading(false);
     }

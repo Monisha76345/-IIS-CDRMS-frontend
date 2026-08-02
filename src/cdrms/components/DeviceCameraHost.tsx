@@ -17,7 +17,7 @@ import {
   X,
 } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Linking, Modal, Platform, StyleSheet, View } from 'react-native';
+import { Linking, Modal, Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Box } from '@/components/ui/box';
@@ -34,6 +34,7 @@ import {
   type CameraCaptureRequest,
   type CameraFacing,
 } from '@/src/cdrms/camera/cameraCaptureGate';
+import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 import {
   ensureCameraPermission,
   ensureMicrophonePermission,
@@ -200,10 +201,13 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
           : null;
       closeDeviceCamera(toAsset(a.uri, 'video', { durationMs }));
     } catch (e) {
-      Alert.alert(
-        'Library',
-        e instanceof Error ? e.message : 'Could not open photo library'
-      );
+      showAppDialog({
+        variant: 'error',
+        title: 'Library',
+        message: e instanceof Error ? e.message : 'Could not open photo library',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     } finally {
       setBusy(false);
     }
@@ -221,10 +225,13 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
       if (result.canceled || !result.assets?.[0]?.uri) return;
       closeDeviceCamera(toAsset(result.assets[0].uri, 'video'));
     } catch (e) {
-      Alert.alert(
-        'Files',
-        e instanceof Error ? e.message : 'Could not open file picker'
-      );
+      showAppDialog({
+        variant: 'error',
+        title: 'Files',
+        message: e instanceof Error ? e.message : 'Could not open file picker',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     } finally {
       setBusy(false);
     }
@@ -284,12 +291,24 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
         if (!facingLocked) await resolveFromLibrary();
         return;
       }
-      Alert.alert('Camera', message || 'Could not take photo', [
-        { text: 'Cancel', style: 'cancel' },
-        ...(facingLocked
-          ? []
-          : [{ text: 'Use Gallery', onPress: () => void resolveFromLibrary() }]),
-      ]);
+      if (facingLocked) {
+        showAppDialog({
+          variant: 'error',
+          title: 'Camera',
+          message: message || 'Could not take photo',
+          hideCancel: true,
+          confirmLabel: 'OK',
+        });
+      } else {
+        showAppDialog({
+          variant: 'error',
+          title: 'Camera',
+          message: message || 'Could not take photo',
+          cancelLabel: 'Cancel',
+          confirmLabel: 'Use Gallery',
+          onConfirm: () => void resolveFromLibrary(),
+        });
+      }
     } finally {
       setBusy(false);
     }
@@ -351,11 +370,15 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
         await resolveFromLibrary();
         return;
       }
-      Alert.alert('Video', message, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Gallery', onPress: () => void resolveFromLibrary() },
-        { text: 'Files', onPress: () => void resolveFromFiles() },
-      ]);
+      showAppDialog({
+        variant: 'error',
+        title: 'Video',
+        message,
+        cancelLabel: 'Gallery',
+        confirmLabel: 'Files',
+        onCancel: () => void resolveFromLibrary(),
+        onConfirm: () => void resolveFromFiles(),
+      });
     } finally {
       setBusy(false);
     }
@@ -487,18 +510,24 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
                 setCanLiveRecord(false);
                 return;
               }
-              Alert.alert(
-                'Camera unavailable',
-                facingLocked
-                  ? `${err.message || `Could not start ${request.facing === 'front' ? 'front' : 'rear'} camera.`}\n\nAllow Camera in Settings and try again.`
-                  : `${err.message || 'Could not start camera.'}\n\nOn Simulator: I/O → Camera → select your MacBook camera, then try again. Or use Gallery.`,
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  ...(facingLocked
-                    ? []
-                    : [{ text: 'Use Gallery', onPress: () => void resolveFromLibrary() }]),
-                ]
-              );
+              if (facingLocked) {
+                showAppDialog({
+                  variant: 'error',
+                  title: 'Camera unavailable',
+                  message: `${err.message || `Could not start ${request.facing === 'front' ? 'front' : 'rear'} camera.`}\n\nAllow Camera in Settings and try again.`,
+                  hideCancel: true,
+                  confirmLabel: 'OK',
+                });
+              } else {
+                showAppDialog({
+                  variant: 'error',
+                  title: 'Camera unavailable',
+                  message: `${err.message || 'Could not start camera.'}\n\nOn Simulator: I/O → Camera → select your MacBook camera, then try again. Or use Gallery.`,
+                  cancelLabel: 'Cancel',
+                  confirmLabel: 'Use Gallery',
+                  onConfirm: () => void resolveFromLibrary(),
+                });
+              }
             }}
           />
         ) : (
@@ -521,17 +550,15 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
                   void (async () => {
                     const ok = await ensureCameraPermission(true);
                     if (!ok || permissionDenied) {
-                      Alert.alert(
-                        'Enable Camera',
-                        'Open Settings → CDRMS → turn on Camera (and Microphone for video).',
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          {
-                            text: 'Open Settings',
-                            onPress: () => void Linking.openSettings(),
-                          },
-                        ]
-                      );
+                      showAppDialog({
+                        variant: 'warning',
+                        title: 'Enable Camera',
+                        message:
+                          'Open Settings → CDRMS → turn on Camera (and Microphone for video).',
+                        cancelLabel: 'Cancel',
+                        confirmLabel: 'Open Settings',
+                        onConfirm: () => void Linking.openSettings(),
+                      });
                       return;
                     }
                     await requestCameraPermission();

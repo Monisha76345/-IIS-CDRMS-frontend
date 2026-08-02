@@ -47,6 +47,7 @@ import {
   ZcHomeScreen,
 } from '@/src/cdrms/screens/ZcScreens';
 import type { Go, Screen } from '@/src/cdrms/types';
+import { AppDialogHost } from '@/src/cdrms/components/AppDialog';
 import { ScreenLoader } from '@/src/cdrms/components/primitives';
 
 function ScreenTransitionWrapper({
@@ -174,6 +175,7 @@ export function CdrmsApp() {
             {rendered}
           </Box>
         </ScreenTransitionWrapper>
+        <AppDialogHost />
       </Box>
     </ProjectProvider>
   );

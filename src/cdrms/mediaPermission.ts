@@ -1,16 +1,22 @@
 import { Camera } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
-import { Alert, Linking, Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
+
+import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 
 function openAppSettings() {
   void Linking.openSettings().catch(() => undefined);
 }
 
 function showSettingsAlert(title: string, message: string) {
-  Alert.alert(title, message, [
-    { text: 'Not now', style: 'cancel' },
-    { text: 'Open Settings', onPress: openAppSettings },
-  ]);
+  showAppDialog({
+    variant: 'warning',
+    title,
+    message,
+    cancelLabel: 'Not now',
+    confirmLabel: 'Open Settings',
+    onConfirm: openAppSettings,
+  });
 }
 
 /** True when device camera access is already allowed. */
@@ -59,13 +65,19 @@ export async function ensureCameraPermission(silent = false): Promise<boolean> {
         'Camera permission needed',
         Platform.OS === 'android'
           ? 'Allow Camera for CDRMS in Settings so you can take selfies and site photos.'
-          : 'Allow Camera access in Settings → CDRMS so you can take selfies and site photos.'
+          : 'Allow Camera access in Settings → CDRMS so you can take selfies and site photos.',
       );
     }
     return false;
   } catch {
     if (!silent) {
-      Alert.alert('Camera error', 'Could not request camera permission.');
+      showAppDialog({
+        variant: 'error',
+        title: 'Camera error',
+        message: 'Could not request camera permission.',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     }
     return false;
   }
@@ -73,7 +85,7 @@ export async function ensureCameraPermission(silent = false): Promise<boolean> {
 
 /** Request microphone access for inspection video recording with audio. */
 export async function ensureMicrophonePermission(
-  silent = false
+  silent = false,
 ): Promise<boolean> {
   try {
     if (Platform.OS === 'web') return true;
@@ -89,13 +101,19 @@ export async function ensureMicrophonePermission(
         'Microphone permission needed',
         Platform.OS === 'android'
           ? 'Allow Microphone for CDRMS in Settings so inspection videos can record audio.'
-          : 'Allow Microphone access in Settings → CDRMS so inspection videos can record audio.'
+          : 'Allow Microphone access in Settings → CDRMS so inspection videos can record audio.',
       );
     }
     return false;
   } catch {
     if (!silent) {
-      Alert.alert('Microphone error', 'Could not request microphone permission.');
+      showAppDialog({
+        variant: 'error',
+        title: 'Microphone error',
+        message: 'Could not request microphone permission.',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     }
     return false;
   }
@@ -107,14 +125,12 @@ export async function ensureMicrophonePermission(
  */
 export async function ensureMediaCapturePermissions(
   mode: 'photo' | 'video',
-  silent = false
+  silent = false,
 ): Promise<boolean> {
-  const cameraOk = await ensureCameraPermission(silent);
-  if (!cameraOk) return false;
+  const camOk = await ensureCameraPermission(silent);
+  if (!camOk) return false;
   if (mode === 'video') {
-    // Mic is preferred for video-with-audio; still allow camera if mic denied
-    // so silent recording can proceed after the user is warned.
-    await ensureMicrophonePermission(silent);
+    return ensureMicrophonePermission(silent);
   }
   return true;
 }

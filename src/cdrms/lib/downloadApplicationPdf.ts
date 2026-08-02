@@ -1,5 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 import {
   applicationStatusLabel,
@@ -7,12 +8,15 @@ import {
   type MobileApplication,
 } from '@/src/api/applications';
 
+/** Persisted Android SAF URI for the user-chosen Downloads (or other) folder. */
 const PDF_DOWNLOADS_DIR_KEY = 'cdrms_pdf_downloads_dir';
 
 export type PdfDownloadResult = {
   fileName: string;
   savedPath: string;
   message: string;
+  /** Local file:// URI that can be opened / re-shared (sandbox or temp). */
+  openUri?: string;
 };
 
 function escapeHtml(value: string) {
@@ -236,24 +240,135 @@ async function assertPdfFile(uri: string): Promise<number> {
   return size;
 }
 
-/** Save PDF silently into app storage — no folder picker / permission dialogs. */
-async function savePdfToDevice(tempUri: string, fileName: string): Promise<string> {
-  await assertPdfFile(tempUri);
-
+async function keepSandboxCopy(tempUri: string, fileName: string): Promise<string | null> {
   const root = FileSystem.documentDirectory;
-  if (!root) throw new Error('Device storage is not available');
-
+  if (!root) return null;
   const dir = `${root}CDRMS/Downloads/`;
   await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
   const dest = `${dir}${fileName}`;
-
   await FileSystem.deleteAsync(dest, { idempotent: true }).catch(() => undefined);
   await FileSystem.copyAsync({ from: tempUri, to: dest });
-  await assertPdfFile(dest);
   return dest;
 }
 
-/** Generate and save a CDR application PDF directly on the device. */
+async function resolveAndroidDownloadsDir(): Promise<string | null> {
+  const saf = FileSystem.StorageAccessFramework;
+  if (!saf) return null;
+
+  const cached = await SecureStore.getItemAsync(PDF_DOWNLOADS_DIR_KEY).catch(() => null);
+  if (cached) {
+    try {
+      await saf.readDirectoryAsync(cached);
+      return cached;
+    } catch {
+      await SecureStore.deleteItemAsync(PDF_DOWNLOADS_DIR_KEY).catch(() => undefined);
+    }
+  }
+
+  // Prefer the public Download folder when the system supports it.
+  let initialUri: string | undefined;
+  try {
+    initialUri = saf.getUriForDirectoryInRoot('Download');
+  } catch {
+    initialUri = undefined;
+  }
+
+  const permissions = await saf.requestDirectoryPermissionsAsync(initialUri);
+  if (!permissions.granted || !permissions.directoryUri) return null;
+
+  await SecureStore.setItemAsync(PDF_DOWNLOADS_DIR_KEY, permissions.directoryUri).catch(
+    () => undefined,
+  );
+  return permissions.directoryUri;
+}
+
+async function savePdfViaAndroidSaf(
+  tempUri: string,
+  fileName: string,
+): Promise<string | null> {
+  const saf = FileSystem.StorageAccessFramework;
+  if (!saf) return null;
+
+  const dirUri = await resolveAndroidDownloadsDir();
+  if (!dirUri) return null;
+
+  const base64 = await FileSystem.readAsStringAsync(tempUri, {
+    encoding: 'base64',
+  });
+  const destUri = await saf.createFileAsync(dirUri, fileName, 'application/pdf');
+  await FileSystem.writeAsStringAsync(destUri, base64, {
+    encoding: 'base64',
+  });
+  return destUri;
+}
+
+async function sharePdf(uri: string, fileName: string) {
+  let Sharing: typeof import('expo-sharing');
+  try {
+    Sharing = require('expo-sharing');
+  } catch {
+    return false;
+  }
+  if (!(await Sharing.isAvailableAsync())) return false;
+  await Sharing.shareAsync(uri, {
+    mimeType: 'application/pdf',
+    dialogTitle: `Save ${fileName}`,
+    UTI: 'com.adobe.pdf',
+  });
+  return true;
+}
+
+/**
+ * Save PDF to a folder the user can see (Android Downloads via SAF),
+ * then open the system share sheet so they get the usual save / open UI.
+ */
+async function savePdfToDevice(
+  tempUri: string,
+  fileName: string,
+): Promise<{ savedPath: string; openUri: string; message: string }> {
+  await assertPdfFile(tempUri);
+
+  const sandboxUri = (await keepSandboxCopy(tempUri, fileName)) || tempUri;
+  let publicPath: string | null = null;
+
+  if (Platform.OS === 'android') {
+    try {
+      publicPath = await savePdfViaAndroidSaf(tempUri, fileName);
+    } catch {
+      publicPath = null;
+    }
+  }
+
+  // System share / “save to Files / Downloads” sheet — also acts as the
+  // completion UI users expect after a download (Android + iOS).
+  const shared = await sharePdf(sandboxUri, fileName).catch(() => false);
+
+  if (publicPath) {
+    return {
+      savedPath: publicPath,
+      openUri: sandboxUri,
+      message: shared
+        ? `${fileName} saved. Use the share sheet to open or send it.`
+        : `${fileName} saved to your Downloads folder.`,
+    };
+  }
+
+  if (shared) {
+    return {
+      savedPath: sandboxUri,
+      openUri: sandboxUri,
+      message: `${fileName} ready — choose Save to Files / Downloads in the share sheet.`,
+    };
+  }
+
+  return {
+    savedPath: sandboxUri,
+    openUri: sandboxUri,
+    message: `${fileName} saved in the app. Open Files and look under CDRMS / Downloads.`,
+  };
+}
+
+/** Generate and save a CDR application PDF on the device (public Downloads when possible). */
 export async function downloadApplicationPdf(
   app: MobileApplication,
   token: string,
@@ -284,13 +399,13 @@ export async function downloadApplicationPdf(
   }
 
   const fileName = pdfFileName(full);
-  const savedPath = await savePdfToDevice(uri, fileName);
+  const result = await savePdfToDevice(uri, fileName);
   await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => undefined);
-  await SecureStore.deleteItemAsync(PDF_DOWNLOADS_DIR_KEY).catch(() => undefined);
 
   return {
     fileName,
-    savedPath,
-    message: `${fileName} downloaded successfully.`,
+    savedPath: result.savedPath,
+    openUri: result.openUri,
+    message: result.message,
   };
 }

@@ -1,6 +1,5 @@
-import { Alert } from 'react-native';
-
 import { ApiError } from '@/src/api/client';
+import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 
 export function draftErrorMessage(err: unknown, fallback = 'Could not save progress') {
   if (err instanceof ApiError) return err.message;
@@ -17,5 +16,11 @@ export function draftErrorMessage(err: unknown, fallback = 'Could not save progr
 }
 
 export function alertDraftError(err: unknown, fallback?: string) {
-  Alert.alert('Save failed', draftErrorMessage(err, fallback));
+  showAppDialog({
+    variant: 'error',
+    title: 'Save failed',
+    message: draftErrorMessage(err, fallback),
+    hideCancel: true,
+    confirmLabel: 'OK',
+  });
 }

@@ -1,7 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import Constants from 'expo-constants';
-import { Alert, Linking, Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 import { openDeviceCamera } from '@/src/cdrms/camera/cameraCaptureGate';
 import {
@@ -15,6 +15,7 @@ import {
   createDummyVideoAsset,
 } from '@/src/cdrms/hooks/dummyMedia';
 import { ensureMediaCapturePermissions } from '@/src/cdrms/mediaPermission';
+import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 import type { MediaAsset } from '@/src/cdrms/project/types';
 
 function toAsset(
@@ -44,10 +45,14 @@ function permissionOk(status: ImagePicker.PermissionStatus | string): boolean {
 }
 
 function showPermissionAlert(title: string, message: string) {
-  Alert.alert(title, message, [
-    { text: 'Cancel', style: 'cancel' },
-    { text: 'Open Settings', onPress: () => void Linking.openSettings() },
-  ]);
+  showAppDialog({
+    variant: 'warning',
+    title,
+    message,
+    cancelLabel: 'Cancel',
+    confirmLabel: 'Open Settings',
+    onConfirm: () => void Linking.openSettings(),
+  });
 }
 
 /** Sample media only on Simulator / Emulator — never on a real phone. */
@@ -71,7 +76,13 @@ async function ensureLibraryPermission() {
     return false;
   } catch {
     if (Platform.OS === 'ios') return true;
-    Alert.alert('Photos error', 'Could not request photo library permission.');
+    showAppDialog({
+      variant: 'error',
+      title: 'Photos error',
+      message: 'Could not request photo library permission.',
+      hideCancel: true,
+      confirmLabel: 'OK',
+    });
     return false;
   }
 }
@@ -82,7 +93,13 @@ let explainedMacCamOnce = false;
 function explainMacCameraOnce() {
   if (explainedMacCamOnce || Platform.OS !== 'ios') return;
   explainedMacCamOnce = true;
-  Alert.alert('Use MacBook camera', MAC_CAMERA_HINT, [{ text: 'Got it' }]);
+  showAppDialog({
+    variant: 'info',
+    title: 'Use MacBook camera',
+    message: MAC_CAMERA_HINT,
+    hideCancel: true,
+    confirmLabel: 'Got it',
+  });
 }
 
 async function pickPhotoFromLibrary(): Promise<MediaAsset | null> {
@@ -131,12 +148,16 @@ async function captureWithSystemCamera(options?: {
         lockFacing: options?.lockFacing ?? false,
       });
     } catch {
-      Alert.alert(
-        'Camera error',
-        e instanceof Error
-          ? e.message
-          : 'Could not open the camera. Allow Camera in Settings and try again.'
-      );
+      showAppDialog({
+        variant: 'error',
+        title: 'Camera error',
+        message:
+          e instanceof Error
+            ? e.message
+            : 'Could not open the camera. Allow Camera in Settings and try again.',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
       return null;
     }
   }
@@ -236,10 +257,13 @@ export async function pickPhoto(): Promise<MediaAsset | null> {
   try {
     return await pickPhotoFromLibrary();
   } catch (e) {
-    Alert.alert(
-      'Photos error',
-      e instanceof Error ? e.message : 'Could not open photo library'
-    );
+    showAppDialog({
+      variant: 'error',
+      title: 'Photos error',
+      message: e instanceof Error ? e.message : 'Could not open photo library',
+      hideCancel: true,
+      confirmLabel: 'OK',
+    });
     return null;
   }
 }
@@ -258,10 +282,13 @@ export async function pickVideoFromLibrary(): Promise<MediaAsset | null> {
     if (result.canceled || !result.assets?.[0]) return null;
     return toAsset(result.assets[0], 'video');
   } catch (e) {
-    Alert.alert(
-      'Video error',
-      e instanceof Error ? e.message : 'Could not open video library'
-    );
+    showAppDialog({
+      variant: 'error',
+      title: 'Video error',
+      message: e instanceof Error ? e.message : 'Could not open video library',
+      hideCancel: true,
+      confirmLabel: 'OK',
+    });
     return null;
   }
 }
@@ -284,31 +311,39 @@ export async function pickVideoFromFiles(): Promise<MediaAsset | null> {
       createdAt: Date.now(),
     };
   } catch (e) {
-    Alert.alert(
-      'Video error',
-      e instanceof Error ? e.message : 'Could not open file picker'
-    );
+    showAppDialog({
+      variant: 'error',
+      title: 'Video error',
+      message: e instanceof Error ? e.message : 'Could not open file picker',
+      hideCancel: true,
+      confirmLabel: 'OK',
+    });
     return null;
   }
 }
 
 export async function chooseVideoFile(): Promise<MediaAsset | null> {
   return new Promise((resolve) => {
-    Alert.alert('Choose video', 'Select where to pick the inspection video from.', [
-      { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
-      {
-        text: 'Photo library',
-        onPress: () => {
-          void pickVideoFromLibrary().then(resolve);
-        },
+    let settled = false;
+    const finish = (value: MediaAsset | null) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    showAppDialog({
+      variant: 'info',
+      title: 'Choose video',
+      message: 'Select where to pick the inspection video from.',
+      cancelLabel: 'Photo library',
+      confirmLabel: 'Device files',
+      onDismiss: () => finish(null),
+      onCancel: () => {
+        void pickVideoFromLibrary().then(finish);
       },
-      {
-        text: 'Device files',
-        onPress: () => {
-          void pickVideoFromFiles().then(resolve);
-        },
+      onConfirm: () => {
+        void pickVideoFromFiles().then(finish);
       },
-    ]);
+    });
   });
 }
 
@@ -329,7 +364,13 @@ export async function captureVideo(): Promise<MediaAsset | null> {
   if (isLiveVideoBlocked()) {
     if (!explainedVideoOnce) {
       explainedVideoOnce = true;
-      Alert.alert('Video on Simulator', VIRTUAL_CAMERA_MESSAGE, [{ text: 'OK' }]);
+      showAppDialog({
+        variant: 'info',
+        title: 'Video on Simulator',
+        message: VIRTUAL_CAMERA_MESSAGE,
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
     }
     return chooseVideoFile();
   }
