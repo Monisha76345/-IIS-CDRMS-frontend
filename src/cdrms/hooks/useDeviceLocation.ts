@@ -123,6 +123,43 @@ async function readPosition(): Promise<Location.LocationObject> {
 }
 
 /**
+ * One-shot GPS fix for submit-time persistence (no React hook).
+ * Uses the same permission + accuracy path as live Jio/device location.
+ */
+export async function captureCurrentGps(silent = true): Promise<GpsFix | null> {
+  try {
+    const ok = await requestLocationPermission(silent);
+    if (!ok) return null;
+    const position = await readPosition();
+    const { latitude, longitude, accuracy, altitude } = position.coords;
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+    return {
+      latitude,
+      longitude,
+      accuracy,
+      altitude,
+      timestamp: position.timestamp,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** GPS + reverse-geocoded place (step-2 / submit persistence). */
+export async function captureCurrentLocation(
+  silent = true,
+): Promise<LocationResult | null> {
+  try {
+    const gps = await captureCurrentGps(silent);
+    if (!gps) return null;
+    const address = await reverseGeocode(gps.latitude, gps.longitude);
+    return { gps, address };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * One-shot live location (permission → GPS → place name).
  * Matches the simple expo-location flow for iOS + Android.
  */

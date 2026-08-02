@@ -162,9 +162,28 @@ function engineerBlock(app: MobileApplication) {
       ${formRowPair(['Compass', fmt(app.compass)], ['Occupancy', fmt(app.occupancy)])}
       ${formRowPair(['Occupancy reason', fmt(app.occupancyReason)])}
       ${formRowPair([
-        'GPS',
-        fmt(app.latitude && app.longitude ? `${app.latitude}, ${app.longitude}` : null),
+        'Location',
+        fmt(
+          app.engineerGeoAddress?.displayName ||
+            app.engineerGeoAddress?.village ||
+            null,
+        ),
       ])}
+      ${formRowPair([
+        'Area',
+        fmt(
+          [
+            app.engineerGeoAddress?.area,
+            app.engineerGeoAddress?.block,
+            app.engineerGeoAddress?.district,
+            app.engineerGeoAddress?.state,
+            app.engineerGeoAddress?.postalCode,
+          ]
+            .filter(Boolean)
+            .join(' · ') || null,
+        ),
+      ])}
+      ${formRowPair(['Latitude', fmt(app.latitude)], ['Longitude', fmt(app.longitude)])}
       ${formRowPair(['Engineer comments', fmt(app.engineerComments)])}
     ${cardClose()}
   `;

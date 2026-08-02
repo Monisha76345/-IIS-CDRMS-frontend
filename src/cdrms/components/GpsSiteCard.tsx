@@ -49,6 +49,8 @@ type Props = {
   allowMapGestures?: boolean;
   /** Hide footer lat/lng line (place name only). */
   hideCoords?: boolean;
+  /** `captured` = DB/submit pin (CAO); `live` = engineer step-2 watch. */
+  source?: 'live' | 'captured';
 };
 
 const MAP_RADIUS = 20;
@@ -74,15 +76,22 @@ export function GpsSiteCard({
   liveMap = true,
   allowMapGestures = true,
   hideCoords = false,
+  source = 'live',
 }: Props) {
   const padded = variant === 'padded' || variant === 'inset';
+  const isCaptured = source === 'captured';
   const lat = gps?.latitude ?? KARNATAKA.site.latitude;
   const lng = gps?.longitude ?? KARNATAKA.site.longitude;
   const coords = formatCoords(lat, lng);
   const accuracy =
     gps?.accuracy != null ? `±${Math.round(gps.accuracy)}m` : gps ? 'GPS' : 'Waiting';
-  const place = villageLabel || KARNATAKA.site.village;
-  const showSiteCallout = Boolean(syNo || layoutName);
+  // Captured (CAO): never invent ZC/dummy village — GPS coords only.
+  const place = isCaptured
+    ? gps
+      ? `${coords.lat}, ${coords.lng}`
+      : 'No GPS'
+    : villageLabel || KARNATAKA.site.village;
+  const showSiteCallout = !isCaptured && Boolean(syNo || layoutName || siteNo);
 
   const [delta, setDelta] = useState<number>(0.008);
   const [expanded, setExpanded] = useState(false);
@@ -172,7 +181,7 @@ export function GpsSiteCard({
               style={{ backgroundColor: gps ? '#34D399' : '#FBBF24' }}
             />
             <Text className="text-[10px] font-bold text-white" numberOfLines={1}>
-              {gps ? 'LIVE · ' : ''}
+              {gps ? (isCaptured ? 'CAPTURED · ' : 'LIVE · ') : ''}
               {place} · {accuracy}
             </Text>
           </Box>
@@ -302,7 +311,11 @@ export function GpsSiteCard({
             <Clock3 size={11} color="#94A3B8" />
           )}
           <Text className="text-[10px] font-semibold" style={{ color: '#94A3B8' }}>
-            {gps ? `Live · ${formatTime(gps.timestamp)}` : 'Tap refresh for GPS'}
+            {gps
+              ? isCaptured
+                ? 'Saved site GPS'
+                : `Live · ${formatTime(gps.timestamp)}`
+              : 'Tap refresh for GPS'}
           </Text>
         </Box>
       </Box>

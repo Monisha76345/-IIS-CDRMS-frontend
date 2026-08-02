@@ -132,11 +132,34 @@ export function draftFromBackendApplication(app: MobileApplication): ProjectDraf
         ? {
             latitude: Number(app.latitude),
             longitude: Number(app.longitude),
-            accuracy: null,
+            accuracy:
+              typeof app.engineerGeoAddress?.accuracy === 'number'
+                ? app.engineerGeoAddress.accuracy
+                : null,
             altitude: null,
             timestamp: now,
           }
         : null,
+    geoAddress: app.engineerGeoAddress
+      ? {
+          displayName: app.engineerGeoAddress.displayName || '',
+          village: app.engineerGeoAddress.village || app.addressArea || '',
+          taluk: app.engineerGeoAddress.taluk || app.addressBlock || '',
+          district: app.engineerGeoAddress.district || '',
+          state: app.engineerGeoAddress.state || 'Karnataka',
+          street: app.engineerGeoAddress.street,
+          name: app.engineerGeoAddress.name,
+          layoutName: app.engineerGeoAddress.layoutName,
+          area: app.engineerGeoAddress.area,
+          block: app.engineerGeoAddress.block,
+          postalCode: app.engineerGeoAddress.postalCode,
+          country: app.engineerGeoAddress.country,
+          accuracy:
+            typeof app.engineerGeoAddress.accuracy === 'number'
+              ? app.engineerGeoAddress.accuracy
+              : null,
+        }
+      : null,
     directions: {
       N: app.engineerScheduleNotes?.N || '',
       S: app.engineerScheduleNotes?.S || '',

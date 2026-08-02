@@ -23,6 +23,7 @@ import {
   createEmptyDraft,
   makeApplicationId,
   type Cardinal,
+  type EngineerGeoAddress,
   type GpsFix,
   type MediaAsset,
   type ProjectDraft,
@@ -30,8 +31,43 @@ import {
 } from '@/src/cdrms/project/types';
 import { draftFromBackendApplication } from '@/src/cdrms/project/backend-draft';
 import { draftFromApplicationRecord, findSampleApp } from '@/src/cdrms/data';
+import { captureCurrentLocation } from '@/src/cdrms/hooks/useDeviceLocation';
 import { siteDimensionToFormDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { validateDraft, validationSummary } from '@/src/cdrms/project/validation';
+
+function toEngineerGeoAddress(
+  address: {
+    displayName?: string;
+    village?: string;
+    taluk?: string;
+    district?: string;
+    state?: string;
+    street?: string;
+    name?: string;
+    layoutName?: string;
+    area?: string;
+    block?: string;
+    postalCode?: string;
+    country?: string;
+  },
+  accuracy?: number | null,
+): EngineerGeoAddress {
+  return {
+    displayName: address.displayName?.trim() || '',
+    village: address.village?.trim() || '',
+    taluk: address.taluk?.trim() || '',
+    district: address.district?.trim() || '',
+    state: address.state?.trim() || '',
+    street: address.street?.trim() || undefined,
+    name: address.name?.trim() || undefined,
+    layoutName: address.layoutName?.trim() || undefined,
+    area: address.area?.trim() || undefined,
+    block: address.block?.trim() || undefined,
+    postalCode: address.postalCode?.trim() || undefined,
+    country: address.country?.trim() || undefined,
+    accuracy: accuracy ?? null,
+  };
+}
 
 export type BackendDraftStep =
   | 'site'
@@ -83,7 +119,7 @@ type ProjectContextValue = {
   setDimSide: (side: 'N' | 'S' | 'E' | 'W', value: string) => void;
   setGps: (
     gps: GpsFix,
-    address?: Partial<Pick<ProjectDraft, 'village' | 'taluk' | 'district' | 'state'>>,
+    address?: Partial<EngineerGeoAddress>,
   ) => void;
   setBandiVerified: (ok: boolean) => void;
   setBandiRemarks: (value: string) => void;
@@ -311,6 +347,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           body.latitude = String(draft.gps.latitude);
           body.longitude = String(draft.gps.longitude);
         }
+        if (draft.geoAddress) {
+          body.engineerGeoAddress = {
+            ...draft.geoAddress,
+            accuracy: draft.gps?.accuracy ?? draft.geoAddress.accuracy ?? undefined,
+          };
+        }
         body.occupancy = draft.occupancy;
         body.occupancyReason =
           draft.occupancy === 'Occupied' ? draft.occupancyReason.trim() : '';
@@ -450,18 +492,32 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   );
 
   const setGps = useCallback(
-    (
-      gps: GpsFix,
-      address?: Partial<Pick<ProjectDraft, 'village' | 'taluk' | 'district' | 'state'>>,
-    ) => {
-      touch((prev) => ({
-        ...prev,
-        gps,
-        village: address?.village ?? prev.village,
-        taluk: address?.taluk ?? prev.taluk,
-        district: address?.district ?? prev.district,
-        state: address?.state ?? prev.state,
-      }));
+    (gps: GpsFix, address?: Partial<EngineerGeoAddress>) => {
+      touch((prev) => {
+        const nextGeo = address
+          ? toEngineerGeoAddress(
+              {
+                ...prev.geoAddress,
+                ...address,
+                displayName:
+                  address.displayName ??
+                  prev.geoAddress?.displayName ??
+                  address.village ??
+                  prev.village,
+              },
+              gps.accuracy ?? prev.geoAddress?.accuracy,
+            )
+          : prev.geoAddress;
+        return {
+          ...prev,
+          gps,
+          geoAddress: nextGeo,
+          village: address?.village ?? prev.village,
+          taluk: address?.taluk ?? prev.taluk,
+          district: address?.district ?? prev.district,
+          state: address?.state ?? prev.state,
+        };
+      });
     },
     [touch],
   );
@@ -775,7 +831,27 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     // ── Backend ZC→engineer task ─────────────────────────────
     if (draft.backendApplicationId && accessToken) {
       const appId = draft.backendApplicationId;
-      if (!draft.gps) throw new ApiError(400, 'GPS is required');
+
+      // Capture live device/Jio GPS + place at submit time and persist to DB.
+      const liveLoc = await captureCurrentLocation(true);
+      const submitGps = liveLoc?.gps || draft.gps;
+      const submitGeo = liveLoc?.address
+        ? toEngineerGeoAddress(liveLoc.address, liveLoc.gps.accuracy)
+        : draft.geoAddress;
+      if (
+        !submitGps ||
+        !Number.isFinite(submitGps.latitude) ||
+        !Number.isFinite(submitGps.longitude)
+      ) {
+        throw new ApiError(400, 'GPS location is required before submit. Enable location and try again.');
+      }
+      setDraft((prev) => ({
+        ...prev,
+        gps: submitGps,
+        geoAddress: submitGeo,
+        updatedAt: Date.now(),
+      }));
+
       if (draft.occupancy === 'Occupied' && !draft.occupancyReason.trim()) {
         throw new ApiError(400, 'Occupancy reason is required');
       }
@@ -865,8 +941,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       await submitEngineerApplication(accessToken, appId, {
         engineerSiteDetails: siteDetails,
         compass,
-        latitude: String(draft.gps.latitude),
-        longitude: String(draft.gps.longitude),
+        latitude: String(submitGps.latitude),
+        longitude: String(submitGps.longitude),
+        engineerGeoAddress: submitGeo
+          ? {
+              ...submitGeo,
+              accuracy: submitGps.accuracy ?? submitGeo.accuracy ?? undefined,
+            }
+          : undefined,
         occupancy: draft.occupancy,
         occupancyReason:
           draft.occupancy === 'Occupied' ? draft.occupancyReason.trim() || 'Occupied' : undefined,

@@ -148,11 +148,29 @@ export function BandiScreen({ go }: { go: Go }) {
     await refreshLiveGps(false);
   };
 
-  // Keep draft GPS in sync with continuous live device location
+  // Keep draft GPS + reverse-geocode place in sync with live step-2 location
   useEffect(() => {
     if (!liveGps) return;
-    setGps(liveGps);
-  }, [liveGps, setGps]);
+    setGps(
+      liveGps,
+      liveAddress
+        ? {
+            displayName: liveAddress.displayName,
+            village: liveAddress.village,
+            taluk: liveAddress.taluk,
+            district: liveAddress.district,
+            state: liveAddress.state,
+            street: liveAddress.street,
+            name: liveAddress.name,
+            layoutName: liveAddress.layoutName,
+            area: liveAddress.area,
+            block: liveAddress.block,
+            postalCode: liveAddress.postalCode,
+            country: liveAddress.country,
+          }
+        : undefined,
+    );
+  }, [liveGps, liveAddress, setGps]);
 
   const openEdit = (k: Cardinal) => {
     setEditing(k);

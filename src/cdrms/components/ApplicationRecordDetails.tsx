@@ -1,5 +1,4 @@
 import { useState, type ReactNode } from 'react';
-import { Linking } from 'react-native';
 import {
   Building2,
   Eye,
@@ -390,25 +389,54 @@ export function ApplicationRecordDetails({
       schedulePhotos.W,
   );
 
+  const geo = app.engineerGeoAddress || null;
+  const geoPlace =
+    geo?.displayName?.trim() ||
+    geo?.village?.trim() ||
+    geo?.area?.trim() ||
+    '';
+  const geoAreaLine = [geo?.area, geo?.block, geo?.district, geo?.state]
+    .filter(Boolean)
+    .join(' · ');
   const gpsFix = hasGps
     ? {
         latitude: Number(app.latitude),
         longitude: Number(app.longitude),
-        accuracy: null,
+        accuracy: typeof geo?.accuracy === 'number' ? geo.accuracy : null,
         altitude: null,
-        timestamp: Date.now(),
+        timestamp: 0,
       }
     : null;
 
   const engNotes = app.engineerScheduleNotes || {};
   const roadFlags = app.scheduleRoadFlags || {};
+  const isRoadSide = (k: 'N' | 'S' | 'E' | 'W') =>
+    Boolean(roadFlags[k] ?? roadFlags[k.toLowerCase()]);
   const scheduleNote = (k: 'N' | 'S' | 'E' | 'W') => {
-    const note = engNotes[k]?.trim() || '';
-    const road = Boolean(roadFlags[k]);
+    const note = engNotes[k]?.trim() || engNotes[k.toLowerCase()]?.trim() || '';
+    const road = isRoadSide(k);
     if (!note && !road) return '—';
     if (note && road) return `${note} · Road`;
     if (road) return 'Road';
     return note;
+  };
+  /** Same labels as engineer Dimensions step — includes Road so diagram shows the strip. */
+  const diagramSchedule = (k: 'N' | 'S' | 'E' | 'W') => {
+    const eng =
+      engNotes[k]?.trim() || engNotes[k.toLowerCase()]?.trim() || '';
+    const zc =
+      k === 'N'
+        ? app.scheduleNorth
+        : k === 'S'
+          ? app.scheduleSouth
+          : k === 'E'
+            ? app.scheduleEast
+            : app.scheduleWest;
+    const base = eng || (zc || '').trim();
+    const road = isRoadSide(k);
+    if (road && base) return `Road · ${base}`;
+    if (road) return 'Road';
+    return base || null;
   };
 
   const diagramNode = boundary.dims ? (
@@ -421,25 +449,21 @@ export function ApplicationRecordDetails({
       siteNo={app.siteNo}
       totalArea={boundary.total}
       scheduleNorth={
-        boundary.source === 'engineer'
-          ? engNotes.N || app.scheduleNorth
-          : app.scheduleNorth
+        boundary.source === 'engineer' ? diagramSchedule('N') : app.scheduleNorth
       }
       scheduleSouth={
-        boundary.source === 'engineer'
-          ? engNotes.S || app.scheduleSouth
-          : app.scheduleSouth
+        boundary.source === 'engineer' ? diagramSchedule('S') : app.scheduleSouth
       }
       scheduleEast={
-        boundary.source === 'engineer'
-          ? engNotes.E || app.scheduleEast
-          : app.scheduleEast
+        boundary.source === 'engineer' ? diagramSchedule('E') : app.scheduleEast
       }
       scheduleWest={
-        boundary.source === 'engineer'
-          ? engNotes.W || app.scheduleWest
-          : app.scheduleWest
+        boundary.source === 'engineer' ? diagramSchedule('W') : app.scheduleWest
       }
+      roadNorth={boundary.source === 'engineer' ? isRoadSide('N') : undefined}
+      roadSouth={boundary.source === 'engineer' ? isRoadSide('S') : undefined}
+      roadEast={boundary.source === 'engineer' ? isRoadSide('E') : undefined}
+      roadWest={boundary.source === 'engineer' ? isRoadSide('W') : undefined}
     />
   ) : null;
 
@@ -528,49 +552,38 @@ export function ApplicationRecordDetails({
           leftValue={app.compass || '—'}
           rightLabel="Occupancy"
           rightValue={app.occupancy || '—'}
-          last={app.occupancy !== 'Occupied' && !hasGps}
         />
         {app.occupancy === 'Occupied' ? (
-          <InfoRow label="Occupancy reason" value={app.occupancyReason || '—'} last={!hasGps} />
+          <InfoRow label="Occupancy reason" value={app.occupancyReason || '—'} />
         ) : null}
-        {hasGps ? (
-          <>
-            <InfoRow label="GPS location" value={`${app.latitude}, ${app.longitude}`} last={!gpsFix} />
-            {gpsFix ? (
-              <Box style={{ borderRadius: 12, overflow: 'hidden', marginTop: 6 }}>
-                <GpsSiteCard
-                  height={200}
-                  variant="inset"
-                  gps={gpsFix}
-                  syNo={app.siteNo}
-                  villageLabel={app.addressArea}
-                  layoutName={app.addressBlock || app.zoneCode}
-                  liveMap
-                  allowMapGestures
-                />
-              </Box>
-            ) : null}
-            <Pressable
-              onPress={() => {
-                void Linking.openURL(
-                  `https://maps.google.com/?q=${app.latitude},${app.longitude}`,
-                );
-              }}
-              style={{
-                marginTop: 8,
-                paddingVertical: 9,
-                paddingHorizontal: 11,
-                borderRadius: 10,
-                backgroundColor: GLASS.tintBlue,
-                borderWidth: 1,
-                borderColor: `${COLORS.primary}40`,
-              }}
-            >
-              <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.primary }}>
-                Open in Google Maps →
-              </Text>
-            </Pressable>
-          </>
+        <InfoRow
+          label="Location"
+          value={geoPlace || '—'}
+        />
+        {geoAreaLine || geo?.postalCode ? (
+          <InfoRow
+            label="Area"
+            value={[geoAreaLine, geo?.postalCode?.trim()].filter(Boolean).join(' · ') || '—'}
+          />
+        ) : null}
+        <InfoPairRow
+          leftLabel="Latitude"
+          leftValue={app.latitude?.trim() || '—'}
+          rightLabel="Longitude"
+          rightValue={app.longitude?.trim() || '—'}
+          last={!hasGps}
+        />
+        {hasGps && gpsFix ? (
+          <Box style={{ borderRadius: 12, overflow: 'hidden', marginTop: 6 }}>
+            <GpsSiteCard
+              height={200}
+              variant="inset"
+              gps={gpsFix}
+              liveMap
+              allowMapGestures
+              source="captured"
+            />
+          </Box>
         ) : null}
 
         {engineerDiagram ? (

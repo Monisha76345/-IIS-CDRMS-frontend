@@ -70,6 +70,22 @@ export type MobileApplication = {
   compass?: string | null;
   latitude?: string | null;
   longitude?: string | null;
+  /** Reverse-geocoded place from engineer GPS (step 2 / submit). */
+  engineerGeoAddress?: {
+    displayName?: string;
+    village?: string;
+    taluk?: string;
+    district?: string;
+    state?: string;
+    street?: string;
+    name?: string;
+    layoutName?: string;
+    area?: string;
+    block?: string;
+    postalCode?: string;
+    country?: string;
+    accuracy?: number | null;
+  } | null;
   occupancy?: 'Empty' | 'Occupied' | null;
   occupancyReason?: string | null;
   dimNorth?: string | null;
@@ -271,6 +287,9 @@ function normalizeApplication(raw: Record<string, unknown>): MobileApplication {
     compass: raw.compass != null ? String(raw.compass) : null,
     latitude: raw.latitude != null ? String(raw.latitude) : null,
     longitude: raw.longitude != null ? String(raw.longitude) : null,
+    engineerGeoAddress: parseJsonField<MobileApplication['engineerGeoAddress']>(
+      raw.engineerGeoAddress,
+    ),
     occupancy:
       raw.occupancy === 'Empty' || raw.occupancy === 'Occupied' ? raw.occupancy : null,
     occupancyReason: raw.occupancyReason != null ? String(raw.occupancyReason) : null,
@@ -402,6 +421,7 @@ export type EngineerDraftInput = {
   compass?: string;
   latitude?: string;
   longitude?: string;
+  engineerGeoAddress?: MobileApplication['engineerGeoAddress'];
   occupancy?: 'Empty' | 'Occupied';
   occupancyReason?: string;
   dimNorth?: string;

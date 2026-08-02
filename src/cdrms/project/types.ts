@@ -8,6 +8,23 @@ export type GpsFix = {
   timestamp: number;
 };
 
+/** Place details from reverse geocode at engineer GPS capture. */
+export type EngineerGeoAddress = {
+  displayName: string;
+  village: string;
+  taluk: string;
+  district: string;
+  state: string;
+  street?: string;
+  name?: string;
+  layoutName?: string;
+  area?: string;
+  block?: string;
+  postalCode?: string;
+  country?: string;
+  accuracy?: number | null;
+};
+
 export type MediaAsset = {
   id: string;
   uri: string;
@@ -63,6 +80,8 @@ export type ProjectDraft = {
   district: string;
   state: string;
   gps: GpsFix | null;
+  /** Reverse-geocoded place from engineer step-2 GPS (persisted to DB). */
+  geoAddress: EngineerGeoAddress | null;
   bandiVerified: boolean;
   bandiRemarks: string;
   /** Engineer-entered schedule notes (empty until engineer fills). */
@@ -183,6 +202,7 @@ export function createEmptyDraft(): ProjectDraft {
     district: '',
     state: 'Karnataka',
     gps: null,
+    geoAddress: null,
     bandiVerified: false,
     bandiRemarks: '',
     directions: { N: '', S: '', E: '', W: '' },
