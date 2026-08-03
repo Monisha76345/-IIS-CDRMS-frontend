@@ -1,5 +1,6 @@
 import {
   Building2,
+  FileText,
   Hash,
   Lock,
   MapPinned,
@@ -16,7 +17,6 @@ import {
   GlassCardHeader,
   GlassHeaderBadge,
   GlassIcon,
-  GlassSurface,
   FrostedGlass,
 } from '@/src/cdrms/components/GlassSurface';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
@@ -36,10 +36,7 @@ const CARDINALS = [
 export function EngineerStickyHeader() {
   const { draft } = useProject();
   const liveSiteDimension = draft.siteDimensionMaster?.trim() || '—';
-  const address =
-    [draft.addressArea, draft.addressBlock, draft.addressPincode].filter(Boolean).join(', ') ||
-    '—';
-  const refId = draft.applicationNumber || draft.siteNo || 'Assigned site';
+  const appNo = draft.applicationNumber?.trim() || '—';
 
   return (
     <GlassCard>
@@ -65,50 +62,69 @@ export function EngineerStickyHeader() {
           backgroundColor: GLASS.cardSolid,
         }}
       >
+        <StatBlock
+          icon={FileText}
+          label="E-office number"
+          value={draft.eOfficeNumber?.trim() || '—'}
+          color={COLORS.primary}
+          fullWidth
+          inline
+        />
+
         <HStack style={{ gap: SPACE[2] }}>
           <StatBlock
             icon={Hash}
             label="Application number"
-            value={refId}
-            color={COLORS.primary}
+            value={appNo}
+            color="#0891B2"
           />
           <StatBlock
             icon={MapPinned}
             label="Zone"
             value={draft.zoneCode?.trim() || '—'}
-            color="#0891B2"
+            color={COLORS.primary}
           />
         </HStack>
 
-        <GlassSurface padding={SPACE[2]}>
-          <HStack style={{ alignItems: 'center', gap: 6, marginBottom: 4 }}>
-            <GlassIcon icon={MapPinned} color={COLORS.primary} size={13} />
-            <Text style={{ ...TYPE.label, color: COLORS.slate, fontSize: 12, letterSpacing: 0.5 }}>
-              Address
-            </Text>
-          </HStack>
-          <Text
-            style={{
-              fontFamily: FONTS.semibold,
-              fontSize: 15,
-              color: COLORS.ink,
-              lineHeight: 21,
-            }}
-            numberOfLines={4}
-          >
-            {address}
-          </Text>
-        </GlassSurface>
-
         <HStack style={{ gap: SPACE[2] }}>
+          <StatBlock
+            icon={Hash}
+            label="Site no"
+            value={draft.siteNo?.trim() || '—'}
+            color={COLORS.primary}
+          />
           <StatBlock
             icon={Building2}
             label="Site type"
             value={draft.siteDimensionType || '—'}
+            color="#0891B2"
+          />
+        </HStack>
+
+        <StatBlock
+          icon={MapPinned}
+          label="Area"
+          value={draft.addressArea?.trim() || '—'}
+          color={COLORS.primary}
+          fullWidth
+        />
+
+        <HStack style={{ gap: SPACE[2] }}>
+          <StatBlock
+            icon={MapPinned}
+            label="Block"
+            value={draft.addressBlock?.trim() || '—'}
             color={COLORS.primary}
           />
-          <StatBlock icon={Ruler} label="Dimension" value={liveSiteDimension} color="#0891B2" />
+          <StatBlock
+            icon={Hash}
+            label="Pincode"
+            value={draft.addressPincode?.trim() || '—'}
+            color="#0891B2"
+          />
         </HStack>
+
+        <StatBlock icon={Ruler} label="Dimension" value={liveSiteDimension} color="#0891B2" fullWidth />
 
         <FieldRow
           icon={MessageSquareText}
@@ -142,41 +158,88 @@ function StatBlock({
   label,
   value,
   color,
+  fullWidth,
+  tall,
+  inline,
 }: {
   icon: typeof Building2;
   label: string;
   value: string;
   color: string;
+  fullWidth?: boolean;
+  tall?: boolean;
+  /** Label and value on one horizontal row. */
+  inline?: boolean;
 }) {
   return (
-    <Box style={{ flex: 1 }}>
+    <Box style={{ flex: fullWidth ? undefined : 1, width: fullWidth ? '100%' : undefined }}>
       <FrostedGlass
         borderRadius={DESIGN.cardRadius}
-        padding={SPACE[2]}
-        fill={GLASS.surfaceSolid}
+        padding={tall || inline ? SPACE[3] : SPACE[2]}
+        fill={tall || inline ? GLASS.tintBlue : GLASS.surfaceSolid}
         sheen={false}
         style={{ borderTopWidth: 2, borderTopColor: color }}
       >
-        <HStack style={{ alignItems: 'center', gap: 4, marginBottom: 4 }}>
-          <Icon size={12} color={color} strokeWidth={2.2} />
-          <Text
-            style={{
-              fontFamily: FONTS.semibold,
-              fontSize: 12,
-              color: COLORS.slate,
-              textTransform: 'uppercase',
-              letterSpacing: 0.4,
-            }}
-          >
-            {label}
-          </Text>
-        </HStack>
-        <Text
-          style={{ fontFamily: FONTS.bold, fontSize: 16, color: COLORS.ink, letterSpacing: -0.3 }}
-          numberOfLines={1}
-        >
-          {value}
-        </Text>
+        {inline ? (
+          <HStack style={{ alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <HStack style={{ alignItems: 'center', gap: 6, flexShrink: 0 }}>
+              <Icon size={14} color={color} strokeWidth={2.2} />
+              <Text
+                style={{
+                  fontFamily: FONTS.semibold,
+                  fontSize: 12,
+                  color,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.4,
+                }}
+              >
+                {label}
+              </Text>
+            </HStack>
+            <Text
+              style={{
+                fontFamily: FONTS.bold,
+                fontSize: 16,
+                color: COLORS.ink,
+                letterSpacing: 0.3,
+                flex: 1,
+                textAlign: 'right',
+              }}
+              numberOfLines={1}
+            >
+              {value}
+            </Text>
+          </HStack>
+        ) : (
+          <>
+            <HStack style={{ alignItems: 'center', gap: 4, marginBottom: tall ? 8 : 4 }}>
+              <Icon size={tall ? 14 : 12} color={color} strokeWidth={2.2} />
+              <Text
+                style={{
+                  fontFamily: FONTS.semibold,
+                  fontSize: 12,
+                  color: tall ? color : COLORS.slate,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.4,
+                }}
+              >
+                {label}
+              </Text>
+            </HStack>
+            <Text
+              style={{
+                fontFamily: FONTS.bold,
+                fontSize: tall ? 20 : 16,
+                color: COLORS.ink,
+                letterSpacing: tall ? 0.3 : -0.3,
+                lineHeight: tall ? 26 : undefined,
+              }}
+              numberOfLines={fullWidth || tall ? 3 : 1}
+            >
+              {value}
+            </Text>
+          </>
+        )}
       </FrostedGlass>
     </Box>
   );

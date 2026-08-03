@@ -197,7 +197,10 @@ export function HeaderStatusBadge({
 }
 
 /** Pill badge for site dimension type — readable on gradient headers. */
-export function DimTypeBadge({ type }: { type: 'Even' | 'Odd' | string }) {
+export function DimTypeBadge({ type }: { type: 'Even' | 'Odd' | string | null }) {
+  if (!type || type === '—') {
+    return <HeaderStatusBadge label="Enter dims" />;
+  }
   return <HeaderStatusBadge label={type === 'Odd' ? 'Odd' : 'Even'} />;
 }
 

@@ -47,6 +47,8 @@ export type ProjectDraft = {
   /** Backend applications.id — when set, submit goes to Nest API */
   backendApplicationId: string | null;
   applicationNumber: string | null;
+  /** E-office file / reference number from ZC create. */
+  eOfficeNumber: string;
   siteNo: string;
   addressArea: string;
   addressBlock: string;
@@ -172,6 +174,7 @@ export function createEmptyDraft(): ProjectDraft {
     submittedAt: null,
     backendApplicationId: null,
     applicationNumber: null,
+    eOfficeNumber: '',
     siteNo: '',
     addressArea: '',
     addressBlock: '',

@@ -78,11 +78,31 @@ export function computeBoundaryArea(dims: CardinalDims): number {
   return Number((avgNS * avgEW).toFixed(2));
 }
 
+/**
+ * Classify site as Even / Odd from engineer-entered N/S/E/W.
+ * Even = opposite sides equal (N=S and E=W). Requires all four sides > 0.
+ * Returns null while dimensions are incomplete (no ZC fallback).
+ */
+export function deriveSiteTypeFromDims(
+  north?: string | number | null,
+  south?: string | number | null,
+  east?: string | number | null,
+  west?: string | number | null,
+): 'Even' | 'Odd' | null {
+  const n = num(north);
+  const s = num(south);
+  const e = num(east);
+  const w = num(west);
+  if (!(n > 0 && s > 0 && e > 0 && w > 0)) return null;
+  return n === s && e === w ? 'Even' : 'Odd';
+}
+
 export function resolveBoundaryDims(input: {
   dimNorth?: string | number | null;
   dimSouth?: string | number | null;
   dimEast?: string | number | null;
   dimWest?: string | number | null;
+  engineerDimensions?: Record<string, string> | null;
   siteDimension?: string | null;
   totalSiteArea?: string | number | null;
 }): {
@@ -90,12 +110,25 @@ export function resolveBoundaryDims(input: {
   total: number | null;
   source: 'engineer' | 'master' | null;
 } {
-  const engineer: CardinalDims = {
+  const fromFlat: CardinalDims = {
     north: num(input.dimNorth),
     south: num(input.dimSouth),
     east: num(input.dimEast),
     west: num(input.dimWest),
   };
+  const ed = input.engineerDimensions;
+  const fromEngMap: CardinalDims = {
+    north: num(ed?.N ?? ed?.n),
+    south: num(ed?.S ?? ed?.s),
+    east: num(ed?.E ?? ed?.e),
+    west: num(ed?.W ?? ed?.w),
+  };
+  const engineer: CardinalDims = [fromFlat.north, fromFlat.south, fromFlat.east, fromFlat.west].every(
+    (v) => v > 0,
+  )
+    ? fromFlat
+    : fromEngMap;
+
   const hasEngineer = [engineer.north, engineer.south, engineer.east, engineer.west].every(
     (v) => v > 0,
   );

@@ -94,6 +94,7 @@ export function draftFromBackendApplication(app: MobileApplication): ProjectDraf
     applicationId: app.applicationNumber,
     backendApplicationId: app.id,
     applicationNumber: app.applicationNumber,
+    eOfficeNumber: app.eOfficeNumber?.trim() || '',
     siteNo: app.siteNo,
     addressArea: app.addressArea,
     addressBlock: app.addressBlock,

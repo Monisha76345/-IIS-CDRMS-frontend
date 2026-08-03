@@ -19,7 +19,7 @@ import { GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
 import { GpsSiteCard } from '@/src/cdrms/components/GpsSiteCard';
 import { ImagePreviewModal } from '@/src/cdrms/components/ImagePreviewModal';
 import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
-import { resolveBoundaryDims } from '@/src/cdrms/lib/resolveBoundaryDims';
+import { resolveBoundaryDims, deriveSiteTypeFromDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { COLORS, DESIGN, FONTS, GLASS, SPACE } from '@/src/cdrms/theme';
 import { useTheme } from '@/src/theme/ThemeContext';
 
@@ -90,6 +90,53 @@ function InfoRow({
       ) : (
         <Box style={{ marginTop: 3 }}>{value}</Box>
       )}
+    </Box>
+  );
+}
+
+/** Full-width highlight for E-office number — key + value on one row. */
+function EOfficeHighlight({ value }: { value: string }) {
+  return (
+    <Box
+      style={{
+        marginBottom: 4,
+        marginTop: 2,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        borderRadius: DESIGN.cardRadius,
+        backgroundColor: GLASS.tintBlue,
+        borderWidth: 1,
+        borderColor: `${COLORS.primary}33`,
+      }}
+    >
+      <HStack style={{ alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <Text
+          style={{
+            fontFamily: FONTS.bold,
+            fontWeight: '800',
+            fontSize: 12,
+            color: COLORS.primary,
+            textTransform: 'uppercase',
+            letterSpacing: 0.5,
+            flexShrink: 0,
+          }}
+        >
+          E-office number
+        </Text>
+        <Text
+          style={{
+            fontFamily: FONTS.bold,
+            fontSize: 16,
+            color: COLORS.ink,
+            letterSpacing: 0.3,
+            flex: 1,
+            textAlign: 'right',
+          }}
+          numberOfLines={1}
+        >
+          {value || '—'}
+        </Text>
+      </HStack>
     </Box>
   );
 }
@@ -265,6 +312,7 @@ function ZcDetailsCard({
 }) {
   return (
     <SectionCard title="ZC details" subtitle="Submitted by Zonal Commissioner" icon={Building2}>
+      <EOfficeHighlight value={app.eOfficeNumber?.trim() || '—'} />
       <InfoPairRow
         leftLabel="Application no"
         leftValue={app.applicationNumber}
@@ -283,23 +331,24 @@ function ZcDetailsCard({
         rightLabel="Zone"
         rightValue={app.zoneCode || '—'}
       />
+      <InfoRow label="Area" value={app.addressArea || '—'} />
       <InfoPairRow
-        leftLabel="Area"
-        leftValue={app.addressArea || '—'}
-        rightLabel="Block"
-        rightValue={app.addressBlock || '—'}
-      />
-      <InfoPairRow
-        leftLabel="Pincode"
-        leftValue={app.addressPincode || '—'}
-        rightLabel="Assigned CAO"
-        rightValue={app.assignedCaoName || '—'}
+        leftLabel="Block"
+        leftValue={app.addressBlock || '—'}
+        rightLabel="Pincode"
+        rightValue={app.addressPincode || '—'}
       />
       <InfoPairRow
         leftLabel="Created by ZC"
         leftValue={app.createdByZcName || '—'}
-        rightLabel="Assigned"
-        rightValue={formatSubmittedDateTime(app.createdAt)}
+        rightLabel="Assigned CAO"
+        rightValue={app.assignedCaoName || '—'}
+      />
+      <InfoPairRow
+        leftLabel="Assigned on"
+        leftValue={formatSubmittedDateTime(app.createdAt)}
+        rightLabel="Engineer"
+        rightValue={app.assignedEngineerName || '—'}
       />
 
       <SectionLabel>Schedules</SectionLabel>
@@ -343,9 +392,20 @@ export function ApplicationRecordDetails({
   const { themeId } = useTheme();
   const [preview, setPreview] = useState<{ uri: string; title: string } | null>(null);
 
-  const siteType = app.siteDimensionType || '—';
+  const zcSiteType = app.siteDimensionType || '—';
+  const engDims = app.engineerDimensions;
+  const measuredType = deriveSiteTypeFromDims(
+    app.dimNorth || engDims?.N,
+    app.dimSouth || engDims?.S,
+    app.dimEast || engDims?.E,
+    app.dimWest || engDims?.W,
+  );
   const hasGps = Boolean(app.latitude && app.longitude);
   const boundary = resolveBoundaryDims(app);
+  const diagramOdd =
+    boundary.source === 'engineer'
+      ? measuredType === 'Odd' || measuredType === null
+      : zcSiteType === 'Odd';
 
   const photos = (app.photoUrls || []).filter((u) => Boolean(u?.trim()));
   const rawSchedule = app.schedulePhotoUrls || {};
@@ -431,7 +491,7 @@ export function ApplicationRecordDetails({
       south={boundary.dims.south}
       east={boundary.dims.east}
       west={boundary.dims.west}
-      odd={siteType === 'Odd'}
+      odd={diagramOdd}
       siteNo={app.siteNo}
       totalArea={boundary.total}
       scheduleNorth={
@@ -465,7 +525,7 @@ export function ApplicationRecordDetails({
     schedulePhotos.W;
 
   const zcCard = (
-    <ZcDetailsCard app={app} siteType={siteType} diagram={zcDiagram} />
+    <ZcDetailsCard app={app} siteType={zcSiteType} diagram={zcDiagram} />
   );
 
   if (!showEmptyEngineer && !hasEngineerCapture) {
@@ -568,6 +628,12 @@ export function ApplicationRecordDetails({
         {engineerDiagram ? (
           <>
             <SectionLabel>Dimensions</SectionLabel>
+            <InfoPairRow
+              leftLabel="Measured site type"
+              leftValue={measuredType || '—'}
+              rightLabel="Total area"
+              rightValue={app.totalSiteArea ? String(app.totalSiteArea) : boundary.total != null ? String(boundary.total) : '—'}
+            />
             <Box style={{ marginTop: 4 }}>{engineerDiagram}</Box>
           </>
         ) : null}
@@ -575,6 +641,12 @@ export function ApplicationRecordDetails({
         {!engineerDiagram && boundary.source === 'engineer' ? (
           <>
             <SectionLabel>Dimensions</SectionLabel>
+            <InfoPairRow
+              leftLabel="Measured site type"
+              leftValue={measuredType || '—'}
+              rightLabel="Total area"
+              rightValue={app.totalSiteArea ? String(app.totalSiteArea) : '—'}
+            />
             <InfoPairRow
               leftLabel="Dim N"
               leftValue={app.dimNorth != null && app.dimNorth !== '' ? String(app.dimNorth) : '—'}
@@ -586,11 +658,8 @@ export function ApplicationRecordDetails({
               leftValue={app.dimEast != null && app.dimEast !== '' ? String(app.dimEast) : '—'}
               rightLabel="Dim W"
               rightValue={app.dimWest != null && app.dimWest !== '' ? String(app.dimWest) : '—'}
-              last={!app.totalSiteArea}
+              last
             />
-            {app.totalSiteArea ? (
-              <InfoRow label="Total site area" value={app.totalSiteArea} last />
-            ) : null}
           </>
         ) : null}
 

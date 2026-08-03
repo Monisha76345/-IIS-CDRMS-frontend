@@ -310,6 +310,8 @@ function Field({
   error,
   multiline,
   numberOfLines,
+  keyboardType,
+  maxLength,
 }: {
   label: string;
   value: string;
@@ -324,6 +326,8 @@ function Field({
   error?: string;
   multiline?: boolean;
   numberOfLines?: number;
+  keyboardType?: 'default' | 'number-pad' | 'numeric' | 'phone-pad';
+  maxLength?: number;
 }) {
   const inputRef = useRef<TextInput>(null);
   const inputHeight = multiline ? Math.max(96, (numberOfLines ?? 4) * 22) : 40;
@@ -352,6 +356,8 @@ function Field({
         numberOfLines={multiline ? numberOfLines ?? 4 : 1}
         textAlignVertical={multiline ? 'top' : 'center'}
         scrollEnabled={multiline ? true : undefined}
+        keyboardType={keyboardType}
+        maxLength={maxLength}
         onFocus={() => {
           setTimeout(() => {
             inputRef.current?.measureInWindow((_x, y, _w, h) => {
@@ -747,8 +753,8 @@ export function ZcCreateScreen({ go }: { go: Go }) {
     const pin = form.addressPincode.trim();
     if (!pin) {
       next.addressPincode = 'Pincode is required';
-    } else if (!/^\d{4,10}$/.test(pin)) {
-      next.addressPincode = 'Enter a valid pincode (4–10 digits)';
+    } else if (!/^[1-9][0-9]{5}$/.test(pin)) {
+      next.addressPincode = 'Enter a valid 6-digit Indian PIN code (cannot start with 0)';
     }
 
     if (form.siteDimensionType === 'Odd' && !form.siteDimensionComment?.trim()) {
@@ -1175,10 +1181,14 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                   <Field
                     label="Pincode"
                     required
+                    placeholder="e.g. 560001"
                     value={form.addressPincode}
                     error={fieldErrors.addressPincode}
+                    keyboardType="number-pad"
+                    maxLength={6}
                     onChange={(v) => {
-                      setForm((f) => ({ ...f, addressPincode: v }));
+                      const digits = v.replace(/\D/g, '').slice(0, 6);
+                      setForm((f) => ({ ...f, addressPincode: digits }));
                       clearFieldError('addressPincode');
                     }}
                     onFocus={onFieldFocus}

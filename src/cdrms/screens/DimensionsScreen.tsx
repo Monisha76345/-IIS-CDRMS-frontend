@@ -12,7 +12,7 @@ import {
   SurveyScaffold,
   FooterContinueBtn,
 } from '@/src/cdrms/components/SurveyLayout';
-import { siteDimensionToFormDims } from '@/src/cdrms/lib/resolveBoundaryDims';
+import { siteDimensionToFormDims, deriveSiteTypeFromDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
 import { type Cardinal } from '@/src/cdrms/project/types';
@@ -116,7 +116,14 @@ export function DimensionsScreen({ go }: { go: Go }) {
   const { themeId } = useTheme();
   const { draft, setDimSide, persistBackendStep, reloadBackendDraft } = useProject();
   const isBackendTask = Boolean(draft.backendApplicationId);
-  const isOdd = draft.siteDimensionType === 'Odd';
+  const measuredType = deriveSiteTypeFromDims(
+    draft.dimNorth,
+    draft.dimSouth,
+    draft.dimEast,
+    draft.dimWest,
+  );
+  /** Live plot: Odd (or incomplete) uses irregular sketch; Even only when opposite sides match. */
+  const isOdd = measuredType !== 'Even';
   const [stepSaving, setStepSaving] = useState(false);
   const clearedZcSeed = useRef(false);
 
@@ -237,7 +244,7 @@ export function DimensionsScreen({ go }: { go: Go }) {
         icon={Ruler}
         title="Site Dimension Sketch *"
         subtitle={sketchSubtitle}
-        badge={<DimTypeBadge type={draft.siteDimensionType} />}
+        badge={<DimTypeBadge type={measuredType} />}
       >
         <VStack style={{ gap: SPACE[2] }}>
           <HStack style={{ gap: SPACE[2] }}>
