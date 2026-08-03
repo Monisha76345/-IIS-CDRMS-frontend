@@ -261,9 +261,12 @@ export function CaoHomeScreen({ go }: { go: Go }) {
               {sectionLabel}
             </Text>
             <Pressable onPress={() => void reload()} className="active:opacity-70">
-              <Text className="text-[12px] font-semibold" style={{ color: COLORS.primary }}>
-                Refresh
-              </Text>
+              <HStack className="items-center" style={{ gap: 4 }}>
+                <RefreshCw size={13} color={COLORS.primary} strokeWidth={2.4} />
+                <Text className="text-[12px] font-semibold" style={{ color: COLORS.primary }}>
+                  Refresh
+                </Text>
+              </HStack>
             </Pressable>
           </HStack>
 
