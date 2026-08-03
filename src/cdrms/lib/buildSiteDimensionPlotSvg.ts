@@ -78,14 +78,15 @@ function arrowHeadSvg(at: Pt, toward: Pt, color: string): string {
   return `<polygon points="${at.x},${at.y} ${bx + px * half},${by + py * half} ${bx - px * half},${by - py * half}" fill="${color}" />`;
 }
 
-function roadGlyphSvg(x: number, y: number, width = 42, height = 14): string {
+/** Road strip (asphalt + dashed center) — parity with BoundariesDiagram RoadGlyph. */
+function roadGlyphSvg(x: number, y: number, width = 140, height = 14): string {
   const left = x - width / 2;
   const top = y - height / 2;
   return `
-    <rect x="${left}" y="${top}" width="${width}" height="${height}" rx="2" ry="2" fill="#4B5563" stroke="#1F2937" stroke-width="0.6" />
-    <line x1="${left + 1.2}" y1="${top + 1.4}" x2="${left + width - 1.2}" y2="${top + 1.4}" stroke="#9CA3AF" stroke-width="0.55" />
-    <line x1="${left + 1.2}" y1="${top + height - 1.4}" x2="${left + width - 1.2}" y2="${top + height - 1.4}" stroke="#9CA3AF" stroke-width="0.55" />
-    <line x1="${left + 2.5}" y1="${y}" x2="${left + width - 2.5}" y2="${y}" stroke="#FBBF24" stroke-width="1.1" stroke-dasharray="3.2 2.2" />
+    <rect x="${left}" y="${top}" width="${width}" height="${height}" rx="3" ry="3" fill="#374151" stroke="#1F2937" stroke-width="0.8" />
+    <line x1="${left + 1.2}" y1="${top + 1.4}" x2="${left + width - 1.2}" y2="${top + 1.4}" stroke="#9CA3AF" stroke-width="0.6" />
+    <line x1="${left + 1.2}" y1="${top + height - 1.4}" x2="${left + width - 1.2}" y2="${top + height - 1.4}" stroke="#9CA3AF" stroke-width="0.6" />
+    <line x1="${left + 4}" y1="${y}" x2="${left + width - 4}" y2="${y}" stroke="#FBBF24" stroke-width="1.1" stroke-dasharray="3.2 2.2" />
   `;
 }
 
@@ -123,51 +124,35 @@ export function buildSiteDimensionPlotSvg(input: SiteDimensionPlotSvgInput): str
   const { edges, verts, showCrop } = plot;
   const center = centroidOf(verts);
   const ext = 13;
-  const labelPadX = 118;
-  const labelPadY = 88;
+  const dimReach = ext + 8;
+  const besideReach = 54;
+  const besideLabelGap = 42;
+  const COMPASS_LETTER_OFFSET = 32;
 
   let vbMinX = -160;
   let vbMinY = -140;
   let vbW = 320;
   let vbH = 280;
 
-  if (edges.length > 0) {
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    for (const ed of edges) {
-      for (const p of [ed.p0, ed.p1]) {
-        minX = Math.min(minX, p.x);
-        minY = Math.min(minY, p.y);
-        maxX = Math.max(maxX, p.x);
-        maxY = Math.max(maxY, p.y);
-      }
-    }
-    minX -= ext + 8;
-    maxX += ext + 8;
-    minY -= ext + 8;
-    maxY += ext + 8;
-    const contentCx = (minX + maxX) / 2;
-    const contentCy = (minY + maxY) / 2;
-    const contentW = maxX - minX;
-    const contentH = maxY - minY;
-    vbW = Math.max(280, contentW + labelPadX * 2);
-    vbH = Math.max(250, contentH + labelPadY * 2);
-    vbMinX = contentCx - vbW / 2;
-    vbMinY = contentCy - vbH / 2;
-  }
-
   const plotHw = Math.max(...verts.map((p) => Math.abs(p.x)));
   const plotHh = Math.max(...verts.map((p) => Math.abs(p.y)));
   const poly = verts.map((p) => `${p.x},${p.y}`).join(' ');
 
-  const westLetterX = -plotHw - 22;
-  const eastLetterX = plotHw + 22;
-  const westBesideX = vbMinX + 28;
-  const eastBesideX = vbMinX + vbW - 28;
-  const northBesideY = vbMinY + 24;
-  const southBesideY = vbMinY + vbH - 22;
+  if (edges.length > 0) {
+    const halfW = plotHw + dimReach + COMPASS_LETTER_OFFSET + besideReach;
+    const halfH = plotHh + dimReach + COMPASS_LETTER_OFFSET + besideReach;
+    vbW = Math.max(240, halfW * 2);
+    vbH = Math.max(210, halfH * 2);
+    vbMinX = -vbW / 2;
+    vbMinY = -vbH / 2;
+  }
+
+  const westLetterX = -plotHw - COMPASS_LETTER_OFFSET;
+  const eastLetterX = plotHw + COMPASS_LETTER_OFFSET;
+  const westBesideX = -plotHw - dimReach - 34;
+  const eastBesideX = plotHw + dimReach + 34;
+  const northBesideY = -plotHh - dimReach - besideLabelGap;
+  const southBesideY = plotHh + dimReach + besideLabelGap;
 
   function besidePos(letter: keyof typeof DIM_COLORS) {
     switch (letter) {
@@ -240,10 +225,25 @@ export function buildSiteDimensionPlotSvg(input: SiteDimensionPlotSvgInput): str
           </g>
           ${
             besideLabel && nb
-              ? `<g transform="rotate(${nb.rot} ${nb.cx} ${nb.cy})">
-                  ${isRoad ? roadGlyphSvg(nb.cx, nb.cy - 15) : ''}
-                  <text x="${nb.cx}" y="${isRoad ? nb.cy + 9 : nb.cy}" text-anchor="middle" dominant-baseline="middle" fill="${color}" font-size="15" font-weight="700" font-family="Arial,sans-serif">${esc(besideLabel)}</text>
-                </g>`
+              ? (() => {
+                  const roadY =
+                    ed.letter === 'S'
+                      ? nb.cy + 6
+                      : ed.letter === 'N'
+                        ? nb.cy - 6
+                        : nb.cy - 15;
+                  const textY = isRoad
+                    ? ed.letter === 'S'
+                      ? nb.cy + 24
+                      : ed.letter === 'N'
+                        ? nb.cy - 24
+                        : nb.cy + 9
+                    : nb.cy;
+                  return `<g transform="rotate(${nb.rot} ${nb.cx} ${nb.cy})">
+                  ${isRoad ? roadGlyphSvg(nb.cx, roadY) : ''}
+                  <text x="${nb.cx}" y="${textY}" text-anchor="middle" dominant-baseline="middle" fill="${color}" font-size="15" font-weight="700" font-family="Arial,sans-serif">${esc(besideLabel)}</text>
+                </g>`;
+                })()
               : ''
           }
         </g>
@@ -292,15 +292,50 @@ export function buildSiteDimensionPlotSvg(input: SiteDimensionPlotSvgInput): str
   `;
 }
 
+function isRoadSide(flags: Record<string, boolean>, k: 'N' | 'S' | 'E' | 'W') {
+  return Boolean(flags[k] ?? flags[k.toLowerCase()]);
+}
+
+function diagramScheduleForApp(
+  app: {
+    engineerScheduleNotes?: Record<string, string> | null;
+    scheduleNorth?: string | null;
+    scheduleSouth?: string | null;
+    scheduleEast?: string | null;
+    scheduleWest?: string | null;
+    scheduleRoadFlags?: Record<string, boolean> | null;
+  },
+  k: 'N' | 'S' | 'E' | 'W',
+) {
+  const engNotes = app.engineerScheduleNotes ?? {};
+  const flags = app.scheduleRoadFlags ?? {};
+  const eng = engNotes[k]?.trim() || engNotes[k.toLowerCase()]?.trim() || '';
+  const zc =
+    k === 'N'
+      ? app.scheduleNorth
+      : k === 'S'
+        ? app.scheduleSouth
+        : k === 'E'
+          ? app.scheduleEast
+          : app.scheduleWest;
+  const base = eng || (zc || '').trim();
+  const road = isRoadSide(flags, k);
+  if (road && base) return `Road · ${base}`;
+  if (road) return 'Road';
+  return base || null;
+}
+
 export function buildSiteDimensionPlotSvgFromApp(app: {
   dimNorth?: string | number | null;
   dimSouth?: string | number | null;
   dimEast?: string | number | null;
   dimWest?: string | number | null;
+  engineerDimensions?: Record<string, string> | null;
   siteDimension?: string | null;
   totalSiteArea?: string | number | null;
   siteDimensionType?: string | null;
   siteNo?: string | number | null;
+  engineerScheduleNotes?: Record<string, string> | null;
   scheduleNorth?: string | null;
   scheduleSouth?: string | null;
   scheduleEast?: string | null;
@@ -310,6 +345,7 @@ export function buildSiteDimensionPlotSvgFromApp(app: {
   const boundary = resolveBoundaryDims(app);
   if (!boundary.dims) return null;
   const flags = app.scheduleRoadFlags ?? {};
+  const useEngineerSchedules = boundary.source === 'engineer';
   return buildSiteDimensionPlotSvg({
     north: boundary.dims.north,
     south: boundary.dims.south,
@@ -318,13 +354,13 @@ export function buildSiteDimensionPlotSvgFromApp(app: {
     odd: app.siteDimensionType === 'Odd',
     siteNo: app.siteNo,
     totalArea: boundary.total,
-    scheduleNorth: app.scheduleNorth,
-    scheduleSouth: app.scheduleSouth,
-    scheduleEast: app.scheduleEast,
-    scheduleWest: app.scheduleWest,
-    roadNorth: flags.N ?? flags.n,
-    roadSouth: flags.S ?? flags.s,
-    roadEast: flags.E ?? flags.e,
-    roadWest: flags.W ?? flags.w,
+    scheduleNorth: useEngineerSchedules ? diagramScheduleForApp(app, 'N') : app.scheduleNorth,
+    scheduleSouth: useEngineerSchedules ? diagramScheduleForApp(app, 'S') : app.scheduleSouth,
+    scheduleEast: useEngineerSchedules ? diagramScheduleForApp(app, 'E') : app.scheduleEast,
+    scheduleWest: useEngineerSchedules ? diagramScheduleForApp(app, 'W') : app.scheduleWest,
+    roadNorth: useEngineerSchedules ? isRoadSide(flags, 'N') : Boolean(flags.N ?? flags.n),
+    roadSouth: useEngineerSchedules ? isRoadSide(flags, 'S') : Boolean(flags.S ?? flags.s),
+    roadEast: useEngineerSchedules ? isRoadSide(flags, 'E') : Boolean(flags.E ?? flags.e),
+    roadWest: useEngineerSchedules ? isRoadSide(flags, 'W') : Boolean(flags.W ?? flags.w),
   });
 }

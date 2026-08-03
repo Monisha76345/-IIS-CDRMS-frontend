@@ -4,12 +4,14 @@ import * as Sharing from 'expo-sharing';
 import { Linking, Platform } from 'react-native';
 
 import {
-  applicationStatusLabel,
+  applicationStatusDisplayLabel,
+  applicationStatusTone,
   fetchApplication,
   type MobileApplication,
 } from '@/src/api/applications';
 import { API_BASE_URL } from '@/src/api/config';
 import { buildSiteDimensionPlotSvg } from '@/src/cdrms/lib/buildSiteDimensionPlotSvg';
+import { deriveSiteTypeFromDims, resolveBoundaryDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { BDA_LOGO_BASE64 } from './bdaLogoBase64';
 
 /** Persisted Android SAF URI for the user-chosen Downloads (or other) folder. */
@@ -70,9 +72,36 @@ function formatDateTime(value?: string | null) {
   });
 }
 
+function isRoadSide(app: MobileApplication, side: 'N' | 'S' | 'E' | 'W') {
+  const flags = app.scheduleRoadFlags || {};
+  return Boolean(flags[side] ?? flags[side.toLowerCase()]);
+}
+
+/** Same schedule labels as the in-app BoundariesDiagram (includes road strip). */
+function diagramSchedule(app: MobileApplication, side: 'N' | 'S' | 'E' | 'W') {
+  const engNotes = app.engineerScheduleNotes || {};
+  const eng = engNotes[side]?.trim() || engNotes[side.toLowerCase()]?.trim() || '';
+  const zc =
+    side === 'N'
+      ? app.scheduleNorth
+      : side === 'S'
+        ? app.scheduleSouth
+        : side === 'E'
+          ? app.scheduleEast
+          : app.scheduleWest;
+  const base = eng || (zc || '').trim();
+  const road = isRoadSide(app, side);
+  if (road && base) return `Road · ${base}`;
+  if (road) return 'Road';
+  return base || null;
+}
+
 function scheduleNoteLine(app: MobileApplication, side: 'N' | 'S' | 'E' | 'W') {
-  const note = app.engineerScheduleNotes?.[side]?.trim() || '';
-  const road = Boolean(app.scheduleRoadFlags?.[side]);
+  const note =
+    app.engineerScheduleNotes?.[side]?.trim() ||
+    app.engineerScheduleNotes?.[side.toLowerCase()]?.trim() ||
+    '';
+  const road = isRoadSide(app, side);
   if (!note && !road) return '—';
   if (note && road) return `${note} · Road`;
   if (road) return 'Road';
@@ -127,9 +156,30 @@ async function fetchImageAsBase64(url: string, token: string): Promise<string | 
   return null;
 }
 
-function cardOpen(title: string) {
+function statusBadgeHtml(status: string | null | undefined) {
+  const label = applicationStatusDisplayLabel(status);
+  const tone = applicationStatusTone(status);
+  return `<span style="display:inline-block;background:${tone.bg};color:${tone.fg};border:1px solid ${tone.border};padding:2px 8px;border-radius:999px;font-size:8.5px;font-weight:bold;letter-spacing:0.2px;">${escapeHtml(label)}</span>`;
+}
+
+function siteTypeBadgeHtml(type: string | null | undefined) {
+  if (!type?.trim() || type === '—') return fmt(null);
+  const odd = type === 'Odd';
+  const bg = odd ? '#FFE4E6' : '#D1FAE5';
+  const fg = odd ? '#BE123C' : '#047857';
+  const border = odd ? '#FDA4AF' : '#A7F3D0';
+  return `<span style="display:inline-block;background:${bg};color:${fg};border:1px solid ${border};padding:2px 8px;border-radius:8px;font-size:9px;font-weight:bold;">${escapeHtml(odd ? 'Odd' : 'Even')}</span>`;
+}
+
+function cardOpen(title: string, status?: string | null) {
+  const badge = status ? statusBadgeHtml(status) : '';
   return `<table width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #cbd5e1;margin:0 0 8px;background:#fff;border-radius:6px;overflow:hidden;">
-    <tr><td style="background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:bold;padding:5px 8px;border-bottom:1px solid #dbeafe;">${escapeHtml(title)}</td></tr>
+    <tr><td style="background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:bold;padding:7px 10px;border-bottom:1px solid #dbeafe;">
+      <table width="100%" cellspacing="0" cellpadding="0"><tr>
+        <td style="vertical-align:middle;">${escapeHtml(title)}</td>
+        <td style="text-align:right;vertical-align:middle;width:120px;">${badge}</td>
+      </tr></table>
+    </td></tr>
     <tr><td style="padding:0;">
       <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">`;
 }
@@ -140,9 +190,9 @@ function cardClose() {
 
 function formRowPair(a: [string, string], b?: [string, string]) {
   const cellL =
-    'width:20%;background:#f8fafc;color:#64748b;font-weight:600;font-size:8.5px;border-top:1px solid #e2e8f0;padding:4px 6px;vertical-align:top;text-transform:uppercase;letter-spacing:0.2px;';
+    'width:20%;background:#f8fafc;color:#64748b;font-weight:600;font-size:8.5px;border-top:1px solid #e2e8f0;padding:5px 7px;vertical-align:top;text-transform:uppercase;letter-spacing:0.2px;';
   const cellV =
-    'width:30%;color:#0f172a;font-size:9.5px;font-weight:700;border-top:1px solid #e2e8f0;padding:4px 6px;vertical-align:top;';
+    'width:30%;color:#0f172a;font-size:9.5px;font-weight:700;border-top:1px solid #e2e8f0;padding:5px 7px;vertical-align:top;line-height:1.35;';
   if (b) {
     return `<tr>
       <td style="${cellL}">${escapeHtml(a[0])}</td><td style="${cellV}">${a[1]}</td>
@@ -152,100 +202,147 @@ function formRowPair(a: [string, string], b?: [string, string]) {
   return `<tr><td style="${cellL}">${escapeHtml(a[0])}</td><td style="${cellV}" colspan="3">${a[1]}</td></tr>`;
 }
 
-function zcFormTable(app: MobileApplication, engineer: string, address: string) {
+function sectionSubHeader(title: string) {
   return `
-    ${cardOpen('ZC details')}
-      ${formRowPair(['Application no', fmt(app.applicationNumber)], ['Status', fmt(applicationStatusLabel(app.status))])}
+    <tr>
+      <td colspan="4" style="background:#eff6ff;color:#1d4ed8;font-size:9.5px;font-weight:bold;padding:6px 8px;border-top:1px solid #cbd5e1;border-bottom:1px solid #dbeafe;text-transform:uppercase;letter-spacing:0.4px;">
+        ${escapeHtml(title)}
+      </td>
+    </tr>
+  `;
+}
+
+function compactPlotSvgForPdf(svg: string) {
+  // Match in-app BoundariesDiagram minimum height (~220px) for readable labels.
+  return svg.replace(/height="340"/, 'height="220"');
+}
+
+function zcFormTable(app: MobileApplication) {
+  const eOfficeRow = `
+    <tr>
+      <td colspan="4" style="padding:8px 10px;background:#eff6ff;border-bottom:1px solid #dbeafe;">
+        <table width="100%" cellspacing="0" cellpadding="0"><tr>
+          <td style="color:#1d4ed8;font-weight:bold;font-size:8.5px;text-transform:uppercase;letter-spacing:0.3px;">E-office number</td>
+          <td style="text-align:right;color:#0f172a;font-weight:bold;font-size:11px;">${fmt(app.eOfficeNumber)}</td>
+        </tr></table>
+      </td>
+    </tr>
+  `;
+
+  const zcCommentsBlock = app.siteDimensionComment?.trim()
+    ? `
+      ${sectionSubHeader('ZC comments')}
+      <tr><td colspan="4" style="padding:8px 10px;color:#0f172a;font-size:9.5px;font-weight:600;line-height:1.4;border-top:1px solid #e2e8f0;">${fmt(app.siteDimensionComment)}</td></tr>
+    `
+    : '';
+
+  return `
+    ${cardOpen('ZC details', app.status)}
+      ${eOfficeRow}
+      ${formRowPair(['Application no', fmt(app.applicationNumber)])}
       ${formRowPair(['Site no', fmt(app.siteNo)], ['Site type', fmt(app.siteDimensionType)])}
-      ${formRowPair(['Site dimension', fmt(app.siteDimension)], ['Zone', fmt(`${app.zoneCode} (#${app.zoneId})`)])}
-      ${formRowPair(['Area', fmt(app.addressArea)], ['Block', fmt(app.addressBlock)])}
-      ${formRowPair(['Pincode', fmt(app.addressPincode)], ['Assigned CAO', fmt(app.assignedCaoName)])}
-      ${formRowPair(['Created by ZC', fmt(app.createdByZcName)], ['ZC submitted', fmt(formatDateTime(app.createdAt))])}
-      ${formRowPair(['Assigned engineer', fmt(engineer)])}
-      ${formRowPair(['Address', fmt(address || '—')])}
-      ${formRowPair(['Schedule N', fmt(app.scheduleNorth)], ['Schedule S', fmt(app.scheduleSouth)])}
-      ${formRowPair(['Schedule W', fmt(app.scheduleWest)], ['Schedule E', fmt(app.scheduleEast)])}
-      ${formRowPair(['ZC comments', fmt(app.siteDimensionComment)])}
+      ${formRowPair(['Site dimension', fmt(app.siteDimension)], ['Zone', fmt(app.zoneCode)])}
+      ${formRowPair(['Area', fmt(app.addressArea)])}
+      ${formRowPair(['Block', fmt(app.addressBlock)], ['Pincode', fmt(app.addressPincode)])}
+      ${formRowPair(['Created by ZC', fmt(app.createdByZcName)], ['Assigned on', fmt(formatDateTime(app.createdAt))])}
+      ${formRowPair(['Assigned engineer', fmt(app.assignedEngineerName)])}
+      ${sectionSubHeader('Schedules')}
+      ${formRowPair(['North', fmt(app.scheduleNorth)], ['South', fmt(app.scheduleSouth)])}
+      ${formRowPair(['West', fmt(app.scheduleWest)], ['East', fmt(app.scheduleEast)])}
+      ${zcCommentsBlock}
     ${cardClose()}
   `;
 }
 
 function engineerBlock(app: MobileApplication) {
-  let n = Number(app.dimNorth || app.engineerDimensions?.N) || 0;
-  let s = Number(app.dimSouth || app.engineerDimensions?.S) || 0;
-  let e = Number(app.dimEast || app.engineerDimensions?.E) || 0;
-  let w = Number(app.dimWest || app.engineerDimensions?.W) || 0;
+  const boundary = resolveBoundaryDims(app);
 
-  if ((n <= 0 || e <= 0) && app.siteDimension) {
-    const parts = app.siteDimension
-      .split(/[*xX×]/)
-      .map((p) => Number(p.trim()))
-      .filter((v) => !Number.isNaN(v) && v > 0);
-    if (parts.length >= 2) {
-      if (n <= 0) n = parts[0];
-      if (s <= 0) s = parts[0];
-      if (e <= 0) e = parts[1];
-      if (w <= 0) w = parts[1];
-    }
-  }
+  const svgXml = boundary.dims
+    ? buildSiteDimensionPlotSvg({
+        north: boundary.dims.north,
+        south: boundary.dims.south,
+        east: boundary.dims.east,
+        west: boundary.dims.west,
+        odd: app.siteDimensionType === 'Odd',
+        siteNo: app.siteNo,
+        totalArea: boundary.total,
+        scheduleNorth: diagramSchedule(app, 'N'),
+        scheduleSouth: diagramSchedule(app, 'S'),
+        scheduleEast: diagramSchedule(app, 'E'),
+        scheduleWest: diagramSchedule(app, 'W'),
+        roadNorth: isRoadSide(app, 'N'),
+        roadSouth: isRoadSide(app, 'S'),
+        roadEast: isRoadSide(app, 'E'),
+        roadWest: isRoadSide(app, 'W'),
+      })
+    : null;
 
-  const svgXml = buildSiteDimensionPlotSvg({
-    north: n,
-    south: s,
-    east: e,
-    west: w,
-    odd: app.siteDimensionType === 'Odd',
-    siteNo: app.siteNo,
-    totalArea: Number(app.totalSiteArea) || null,
-    scheduleNorth: app.scheduleNorth,
-    scheduleSouth: app.scheduleSouth,
-    scheduleEast: app.scheduleEast,
-    scheduleWest: app.scheduleWest,
-    roadNorth: Boolean(app.scheduleRoadFlags?.N),
-    roadSouth: Boolean(app.scheduleRoadFlags?.S),
-    roadEast: Boolean(app.scheduleRoadFlags?.E),
-    roadWest: Boolean(app.scheduleRoadFlags?.W),
-  });
-
-  const cleanSvg = svgXml ? svgXml.replace(/<div class="plot-footer">[\s\S]*?<\/div>\s*$/, '') : '';
+  const cleanSvg = svgXml
+    ? compactPlotSvgForPdf(svgXml.replace(/<div class="plot-footer">[\s\S]*?<\/div>\s*$/, ''))
+    : '';
   const areaSqFt = app.totalSiteArea ? Number(app.totalSiteArea) : null;
   const areaSqM = areaSqFt ? (areaSqFt * 0.092903).toFixed(2) : null;
-
-  const sectionSubHeader = (title: string) => `
-    <tr>
-      <td colspan="4" style="background:#eff6ff;color:#1d4ed8;font-size:9px;font-weight:bold;padding:4px 6px;border-top:1px solid #cbd5e1;border-bottom:1px solid #dbeafe;text-transform:uppercase;letter-spacing:0.4px;">
-        ${escapeHtml(title)}
-      </td>
-    </tr>
-  `;
+  const totalAreaLabel = areaSqFt
+    ? `${areaSqFt.toFixed(2)} Sq.Ft${areaSqM ? ` (${areaSqM} Sq.M)` : ''}`
+    : null;
+  const measuredType = deriveSiteTypeFromDims(
+    app.dimNorth || app.engineerDimensions?.N,
+    app.dimSouth || app.engineerDimensions?.S,
+    app.dimEast || app.engineerDimensions?.E,
+    app.dimWest || app.engineerDimensions?.W,
+  );
+  const occupancyReasonRow =
+    app.occupancy === 'Occupied'
+      ? formRowPair(['Occupancy reason', fmt(app.occupancyReason)])
+      : '';
+  const geoAreaLine = [
+    app.engineerGeoAddress?.area,
+    app.engineerGeoAddress?.block,
+    app.engineerGeoAddress?.district,
+    app.engineerGeoAddress?.state,
+    app.engineerGeoAddress?.postalCode,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const commentsBlock = app.engineerComments?.trim()
+    ? `
+      ${sectionSubHeader('Comments')}
+      <tr><td colspan="4" style="padding:8px 10px;color:#0f172a;font-size:9.5px;font-weight:600;line-height:1.4;border-top:1px solid #e2e8f0;">${fmt(app.engineerComments)}</td></tr>
+    `
+    : '';
 
   const dimSideBySideHtml = `
     <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#ffffff;">
       <tr>
-        <td style="width:44%;vertical-align:middle;text-align:center;padding:6px;border-right:1px solid #e2e8f0;background:#ffffff;">
+        <td style="width:46%;vertical-align:middle;text-align:center;padding:8px 10px;border-right:1px solid #e2e8f0;background:#ffffff;">
           ${
             cleanSvg
-              ? `<div style="max-width:210px;margin:0 auto;">${cleanSvg}</div>`
-              : '<div style="font-size:9px;color:#94a3b8;font-style:italic;">No plot diagram</div>'
+              ? `<div style="width:100%;max-width:250px;height:220px;margin:0 auto;">${cleanSvg}</div>`
+              : '<div style="font-size:8.5px;color:#94a3b8;font-style:italic;padding:12px 0;">No plot diagram</div>'
           }
         </td>
-        <td style="width:56%;vertical-align:top;padding:0;background:#ffffff;">
+        <td style="width:54%;vertical-align:top;padding:0;background:#ffffff;">
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-            ${formRowPair(['Site dimension', fmt(app.siteDimension)], ['Total area', fmt(app.totalSiteArea ? `${app.totalSiteArea} Sq.Ft` : null)])}
-            ${formRowPair(['Dim North', fmt(n || app.dimNorth)], ['Dim South', fmt(s || app.dimSouth)])}
-            ${formRowPair(['Dim East', fmt(e || app.dimEast)], ['Dim West', fmt(w || app.dimWest)])}
+            ${formRowPair(
+              ['Dim North', fmt(boundary.dims?.north || app.dimNorth)],
+              ['Dim South', fmt(boundary.dims?.south || app.dimSouth)],
+            )}
+            ${formRowPair(
+              ['Dim East', fmt(boundary.dims?.east || app.dimEast)],
+              ['Dim West', fmt(boundary.dims?.west || app.dimWest)],
+            )}
           </table>
           ${
             areaSqFt
               ? `
-            <div style="margin:5px 6px;padding:4px 6px;background:#fefce8;border:1px solid #fef08a;border-radius:4px;color:#854d0e;font-size:8.5px;font-weight:bold;text-align:center;">
-              TOTAL AREA: ${areaSqFt.toFixed(2)} Sq. Ft ${areaSqM ? `(${areaSqM} Sq. M)` : ''}
+            <div style="margin:5px 6px;padding:5px 7px;background:#fefce8;border:1px solid #fef08a;border-radius:4px;color:#854d0e;font-size:8.5px;font-weight:bold;text-align:center;">
+              TOTAL AREA: ${areaSqFt.toFixed(2)} Sq.Ft ${areaSqM ? `(${areaSqM} Sq.M)` : ''}
             </div>
           `
               : ''
           }
-          <div style="margin:5px 6px;padding:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;">
-            <div style="font-size:8px;font-weight:bold;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;border-bottom:1px solid #e2e8f0;padding-bottom:2px;">
+          <div style="margin:5px 6px;padding:6px 7px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;">
+            <div style="font-size:8px;font-weight:bold;color:#475569;text-transform:uppercase;letter-spacing:0.35px;margin-bottom:4px;border-bottom:1px solid #e2e8f0;padding-bottom:3px;">
               Boundary &amp; Schedule Overview
             </div>
             <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-size:8.5px;">
@@ -262,9 +359,11 @@ function engineerBlock(app: MobileApplication) {
                 <td style="padding:2px 4px;color:#0f172a;font-weight:700;">${fmt(scheduleNoteLine(app, 'W'))}</td>
               </tr>
             </table>
-            <div style="margin-top:4px;padding-top:4px;border-top:1px solid #e2e8f0;font-size:8px;color:#64748b;display:flex;justify-content:space-between;">
+            <div style="margin-top:4px;padding-top:4px;border-top:1px solid #e2e8f0;font-size:8px;color:#64748b;line-height:1.35;">
               <span><strong>Type:</strong> ${escapeHtml(app.siteDimensionType || 'Even')}</span>
+              &nbsp;·&nbsp;
               <span><strong>Site:</strong> #${escapeHtml(app.siteNo || '—')}</span>
+              &nbsp;·&nbsp;
               <span><strong>Zone:</strong> ${escapeHtml(app.zoneCode || '—')}</span>
             </div>
           </div>
@@ -273,24 +372,50 @@ function engineerBlock(app: MobileApplication) {
     </table>
   `;
 
+  const dimensionsBlock = `
+      ${sectionSubHeader('Dimensions')}
+      <tr>
+        <td colspan="4" style="padding:0;border-top:1px solid #e2e8f0;page-break-inside:avoid;break-inside:avoid;">
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;page-break-inside:avoid;break-inside:avoid;">
+            ${formRowPair(
+              ['Measured site type', siteTypeBadgeHtml(measuredType)],
+              ['Total area', fmt(totalAreaLabel)],
+            )}
+            <tr>
+              <td colspan="4" style="padding:0;background:#ffffff;border-top:1px solid #e2e8f0;">
+                ${dimSideBySideHtml}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+  `;
+
   return `
-    ${cardOpen('Engineer details')}
-      ${formRowPair(['Assigned engineer', fmt(app.assignedEngineerName)], ['Engineer submitted', fmt(formatDateTime(app.engineerSubmittedAt))])}
-      ${formRowPair(['Site verification', fmt(app.engineerSiteDetails)])}
+    ${cardOpen('Engineer details', app.status)}
+      ${formRowPair(['Assigned on', fmt(formatDateTime(app.createdAt))], ['Submitted on', fmt(formatDateTime(app.engineerSubmittedAt))])}
 
       ${sectionSubHeader('Schedules')}
       ${formRowPair(
-        ['Schedule N', fmt(scheduleNoteLine(app, 'N'))],
-        ['Schedule S', fmt(scheduleNoteLine(app, 'S'))],
+        ['North', fmt(scheduleNoteLine(app, 'N'))],
+        ['South', fmt(scheduleNoteLine(app, 'S'))],
       )}
       ${formRowPair(
-        ['Schedule W', fmt(scheduleNoteLine(app, 'W'))],
-        ['Schedule E', fmt(scheduleNoteLine(app, 'E'))],
+        ['West', fmt(scheduleNoteLine(app, 'W'))],
+        ['East', fmt(scheduleNoteLine(app, 'E'))],
+      )}
+      ${formRowPair(
+        ['Road N', fmt(isRoadSide(app, 'N') ? 'Yes' : 'No')],
+        ['Road S', fmt(isRoadSide(app, 'S') ? 'Yes' : 'No')],
+      )}
+      ${formRowPair(
+        ['Road W', fmt(isRoadSide(app, 'W') ? 'Yes' : 'No')],
+        ['Road E', fmt(isRoadSide(app, 'E') ? 'Yes' : 'No')],
       )}
 
       ${sectionSubHeader('Compass & GPS')}
       ${formRowPair(['Compass', fmt(app.compass)], ['Occupancy', fmt(app.occupancy)])}
-      ${formRowPair(['Occupancy reason', fmt(app.occupancyReason)])}
+      ${occupancyReasonRow}
       ${formRowPair([
         'Location',
         fmt(
@@ -299,31 +424,11 @@ function engineerBlock(app: MobileApplication) {
             null,
         ),
       ])}
-      ${formRowPair([
-        'Area',
-        fmt(
-          [
-            app.engineerGeoAddress?.area,
-            app.engineerGeoAddress?.block,
-            app.engineerGeoAddress?.district,
-            app.engineerGeoAddress?.state,
-            app.engineerGeoAddress?.postalCode,
-          ]
-            .filter(Boolean)
-            .join(' · ') || null,
-        ),
-      ])}
+      ${geoAreaLine ? formRowPair(['Area', fmt(geoAreaLine)]) : ''}
       ${formRowPair(['Latitude', fmt(app.latitude)], ['Longitude', fmt(app.longitude)])}
 
-      ${sectionSubHeader('Site Dimensions & Plot Diagram')}
-      <tr>
-        <td colspan="4" style="padding:0;background:#ffffff;border-top:1px solid #e2e8f0;">
-          ${dimSideBySideHtml}
-        </td>
-      </tr>
-
-      ${sectionSubHeader('Field Remarks')}
-      ${formRowPair(['Engineer comments', fmt(app.engineerComments)])}
+      ${dimensionsBlock}
+      ${commentsBlock}
     ${cardClose()}
   `;
 }
@@ -375,11 +480,11 @@ async function photosMediaBlock(app: MobileApplication, token: string): Promise<
   }
 
   let html = `
-    <div style="page-break-before:always !important;break-before:page !important;margin-top:10px;border:1px solid #cbd5e1;border-radius:6px;overflow:hidden;background:#ffffff;">
-      <div style="background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:bold;padding:6px 10px;border-bottom:1px solid #dbeafe;">
-        Site Photos &amp; Field Media (${resolvedPhotos.length} photos)
+    <div style="margin-top:10px;border:1px solid #cbd5e1;border-radius:6px;overflow:hidden;background:#ffffff;page-break-inside:avoid;break-inside:avoid;">
+      <div style="background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:bold;padding:7px 10px;border-bottom:1px solid #dbeafe;">
+        Photos &amp; Media (${resolvedPhotos.length} photos)
       </div>
-      <div style="padding:6px;">
+      <div style="padding:8px;">
   `;
 
   if (resolvedPhotos.length > 0) {
@@ -389,19 +494,19 @@ async function photosMediaBlock(app: MobileApplication, token: string): Promise<
       const p2 = resolvedPhotos[i + 1];
       html += `<tr>`;
       html += `
-        <td style="width:50%;padding:4px;vertical-align:top;">
-          <div style="border:1px solid #e2e8f0;border-radius:5px;padding:4px;background:#f8fafc;text-align:center;">
-            <img src="${p1.b64}" style="max-width:100%;height:140px;object-fit:cover;border-radius:4px;display:block;margin:0 auto;" alt="${escapeHtml(p1.label)}" />
-            <div style="font-size:8.5px;font-weight:bold;color:#334155;margin-top:4px;">${escapeHtml(p1.label)}</div>
+        <td style="width:50%;padding:5px;vertical-align:top;">
+          <div style="border:1px solid #e2e8f0;border-radius:6px;padding:6px;background:#f8fafc;text-align:center;">
+            <img src="${p1.b64}" style="max-width:100%;height:118px;object-fit:cover;border-radius:4px;display:block;margin:0 auto;" alt="${escapeHtml(p1.label)}" />
+            <div style="font-size:8.5px;font-weight:bold;color:#334155;margin-top:5px;line-height:1.3;">${escapeHtml(p1.label)}</div>
           </div>
         </td>
       `;
       if (p2) {
         html += `
-          <td style="width:50%;padding:4px;vertical-align:top;">
-            <div style="border:1px solid #e2e8f0;border-radius:5px;padding:4px;background:#f8fafc;text-align:center;">
-              <img src="${p2.b64}" style="max-width:100%;height:140px;object-fit:cover;border-radius:4px;display:block;margin:0 auto;" alt="${escapeHtml(p2.label)}" />
-              <div style="font-size:8.5px;font-weight:bold;color:#334155;margin-top:4px;">${escapeHtml(p2.label)}</div>
+          <td style="width:50%;padding:5px;vertical-align:top;">
+            <div style="border:1px solid #e2e8f0;border-radius:6px;padding:6px;background:#f8fafc;text-align:center;">
+              <img src="${p2.b64}" style="max-width:100%;height:118px;object-fit:cover;border-radius:4px;display:block;margin:0 auto;" alt="${escapeHtml(p2.label)}" />
+              <div style="font-size:8.5px;font-weight:bold;color:#334155;margin-top:5px;line-height:1.3;">${escapeHtml(p2.label)}</div>
             </div>
           </td>
         `;
@@ -415,7 +520,7 @@ async function photosMediaBlock(app: MobileApplication, token: string): Promise<
 
   if (hasVideo) {
     html += `
-      <div style="margin-top:6px;padding:5px 8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:4px;color:#15803d;font-size:9px;font-weight:bold;">
+      <div style="margin-top:8px;padding:6px 10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:4px;color:#15803d;font-size:9px;font-weight:bold;">
         ✓ Site Walk-Through Video Recorded
       </div>
     `;
@@ -430,13 +535,6 @@ async function photosMediaBlock(app: MobileApplication, token: string): Promise<
 }
 
 async function buildHtml(app: MobileApplication, token: string): Promise<string> {
-  const address = [app.addressArea, app.addressBlock, app.addressPincode]
-    .filter(Boolean)
-    .join(', ');
-  const engineer = [app.assignedEngineerName || 'Engineer', app.assignedEngineerLoginId]
-    .filter(Boolean)
-    .join(' · ');
-
   const mediaHtml = await photosMediaBlock(app, token);
 
   return `<!DOCTYPE html>
@@ -448,7 +546,7 @@ async function buildHtml(app: MobileApplication, token: string): Promise<string>
   <style>
     @page {
       size: A4;
-      margin: 8mm;
+      margin: 7mm;
     }
     body {
       margin: 0;
@@ -456,35 +554,39 @@ async function buildHtml(app: MobileApplication, token: string): Promise<string>
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       color: #0f172a;
       font-size: 9px;
-      line-height: 1.3;
+      line-height: 1.35;
       background: #ffffff;
+    }
+    .pdf-dim-block {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+    svg {
+      max-height: 220px !important;
+      height: 220px !important;
+      width: 100% !important;
     }
   </style>
 </head>
-<body style="margin:0;padding:8px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:9px;line-height:1.3;background:#ffffff;">
+<body style="margin:0;padding:8px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;font-size:9px;line-height:1.35;background:#ffffff;">
 
   <!-- Header Banner with BDA Logo -->
-  <table width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 8px;background:#0256d0;border-radius:6px;overflow:hidden;">
+  <table width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 10px;background:#0256d0;border-radius:8px;overflow:hidden;">
     <tr>
-      <td style="padding:8px 10px;vertical-align:middle;">
+      <td style="padding:10px 12px;vertical-align:middle;">
         <table width="100%" cellspacing="0" cellpadding="0">
           <tr>
-            <td style="width:40px;vertical-align:middle;">
-              <div style="width:36px;height:36px;border-radius:18px;background:#ffffff;display:flex;align-items:center;justify-content:center;padding:2px;box-sizing:border-box;">
-                <img src="${BDA_LOGO_BASE64}" style="width:30px;height:30px;object-fit:contain;" alt="BDA Logo" />
-              </div>
+            <td style="width:44px;vertical-align:middle;">
+              <img src="${BDA_LOGO_BASE64}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;display:block;background:#ffffff;" alt="BDA Logo" />
             </td>
-            <td style="vertical-align:middle;padding-left:8px;">
+            <td style="vertical-align:middle;padding-left:10px;">
               <div style="color:#93c5fd;font-size:8px;font-weight:bold;letter-spacing:0.8px;text-transform:uppercase;">BANGALORE DEVELOPMENT AUTHORITY</div>
-              <div style="color:#ffffff;font-size:15px;font-weight:bold;line-height:18px;">CDRMS SITE SURVEY REPORT</div>
-              <div style="color:#e0e7ff;font-size:9px;margin-top:1px;">Ministry of Public Works · </div>
+              <div style="color:#ffffff;font-size:15px;font-weight:bold;line-height:18px;margin-top:1px;">CDRMS SITE SURVEY REPORT</div>
+              <div style="color:#e0e7ff;font-size:9px;margin-top:2px;">Ministry of Public Works</div>
             </td>
             <td style="text-align:right;vertical-align:middle;">
-              <div style="background:#ffffff;color:#0256d0;font-size:9.5px;font-weight:bold;padding:3px 8px;border-radius:14px;display:inline-block;">
+              <div style="background:#ffffff;color:#0256d0;font-size:9.5px;font-weight:bold;padding:4px 10px;border-radius:14px;display:inline-block;">
                 ${escapeHtml(app.applicationNumber)}
-              </div>
-              <div style="color:#dbeafe;font-size:8.5px;font-weight:bold;margin-top:2px;">
-                Status: ${escapeHtml(applicationStatusLabel(app.status))}
               </div>
             </td>
           </tr>
@@ -493,11 +595,11 @@ async function buildHtml(app: MobileApplication, token: string): Promise<string>
     </tr>
   </table>
 
-  ${zcFormTable(app, engineer, address)}
+  ${zcFormTable(app)}
   ${engineerBlock(app)}
   ${mediaHtml}
 
-  <div style="margin-top:8px;padding-top:4px;border-top:1px solid #cbd5e1;color:#64748b;font-size:8px;text-align:center;">
+  <div style="margin-top:10px;padding-top:6px;border-top:1px solid #cbd5e1;color:#64748b;font-size:8px;text-align:center;line-height:1.4;">
     Generated by CDRMS Mobile Portal · Bangalore Development Authority · ${escapeHtml(new Date().toLocaleString())}
   </div>
 </body>
