@@ -400,13 +400,22 @@ export function OfficeAppRow({
 
   const meta = (
     <Text
-      style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.slate }}
+      style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.ink }}
       numberOfLines={1}
     >
       Site #{siteNo || '—'} · Zone {zoneCode || '—'}
       {engineerName ? ` · ${engineerName}` : ''}
     </Text>
   );
+
+  const dateRow = dateLine ? (
+    <HStack className="items-center" style={{ gap: 4 }}>
+      <Clock size={12} color={COLORS.primary} strokeWidth={2.3} />
+      <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}>
+        {dateLine}
+      </Text>
+    </HStack>
+  ) : null;
 
   if (lv === 'ghost') {
     return (
@@ -434,14 +443,7 @@ export function OfficeAppRow({
               <ApplicationStatusBadge status={status} />
             </HStack>
             {meta}
-            {dateLine ? (
-              <HStack className="items-center" style={{ gap: 4 }}>
-                <Clock size={11} color={COLORS.slate} />
-                <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.slate }}>
-                  {dateLine}
-                </Text>
-              </HStack>
-            ) : null}
+            {dateRow}
           </VStack>
           {actions}
         </HStack>
@@ -615,14 +617,7 @@ export function OfficeAppRow({
             {meta}
             {actions}
           </HStack>
-          {dateLine ? (
-            <HStack className="items-center" style={{ gap: 4 }}>
-              <Clock size={11} color={COLORS.slate} />
-              <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.slate }}>
-                {dateLine}
-              </Text>
-            </HStack>
-          ) : null}
+          {dateRow}
         </VStack>
       </HStack>
     </Pressable>
