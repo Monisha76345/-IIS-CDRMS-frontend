@@ -12,10 +12,11 @@ import { HStack } from '@/components/ui/hstack';
 import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import { type MobileApplication, applicationStatusLabel } from '@/src/api/applications';
+import { type MobileApplication } from '@/src/api/applications';
 import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
+import { ApplicationStatusBadge } from '@/src/cdrms/components/ApplicationStatusBadge';
 import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
-import { GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
+import { DimTypeBadge, GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
 import { GpsSiteCard } from '@/src/cdrms/components/GpsSiteCard';
 import { ImagePreviewModal } from '@/src/cdrms/components/ImagePreviewModal';
 import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
@@ -27,11 +28,13 @@ function SectionCard({
   title,
   subtitle,
   icon,
+  badge,
   children,
 }: {
   title: string;
   subtitle?: string;
   icon: LucideIcon;
+  badge?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -39,12 +42,28 @@ function SectionCard({
       title={title}
       subtitle={subtitle ?? 'Application record'}
       icon={icon}
+      badge={badge}
       bodyStyle={{ paddingHorizontal: SPACE[3], paddingVertical: SPACE[2], gap: 0 }}
     >
       {children}
     </GlassSectionCard>
   );
 }
+
+const FIELD_LABEL_STYLE = {
+  fontFamily: FONTS.bold,
+  fontWeight: '800' as const,
+  fontSize: 13,
+  color: '#0F172A',
+  textTransform: 'uppercase' as const,
+  letterSpacing: 0.45,
+};
+
+const EMPHASIS_FIELD_LABEL_STYLE = {
+  ...FIELD_LABEL_STYLE,
+  fontSize: 14,
+  letterSpacing: 0.55,
+};
 
 function InfoRow({
   label,
@@ -63,16 +82,7 @@ function InfoRow({
         borderBottomColor: GLASS.divider,
       }}
     >
-      <Text
-        style={{
-          fontFamily: FONTS.bold,
-          fontWeight: '800',
-          fontSize: 12,
-          color: '#0F172A',
-          textTransform: 'uppercase',
-          letterSpacing: 0.4,
-        }}
-      >
+      <Text style={FIELD_LABEL_STYLE}>
         {label}
       </Text>
       {typeof value === 'string' || typeof value === 'number' ? (
@@ -141,19 +151,41 @@ function EOfficeHighlight({ value }: { value: string }) {
   );
 }
 
+function renderFieldValue(value: ReactNode) {
+  if (typeof value === 'string' || typeof value === 'number') {
+    return (
+      <Text
+        style={{
+          fontFamily: FONTS.medium,
+          fontSize: 13,
+          color: COLORS.ink,
+          marginTop: 2,
+          lineHeight: 17,
+        }}
+      >
+        {value || '—'}
+      </Text>
+    );
+  }
+  return <Box style={{ marginTop: 2 }}>{value ?? '—'}</Box>;
+}
+
 function InfoPairRow({
   leftLabel,
   leftValue,
   rightLabel,
   rightValue,
   last,
+  emphasisLabels = false,
 }: {
   leftLabel: string;
-  leftValue: string;
+  leftValue: ReactNode;
   rightLabel: string;
-  rightValue: string;
+  rightValue: ReactNode;
   last?: boolean;
+  emphasisLabels?: boolean;
 }) {
+  const labelStyle = emphasisLabels ? EMPHASIS_FIELD_LABEL_STYLE : FIELD_LABEL_STYLE;
   return (
     <HStack
       style={{
@@ -164,54 +196,16 @@ function InfoPairRow({
       }}
     >
       <Box style={{ flex: 1 }}>
-        <Text
-          style={{
-            fontFamily: FONTS.bold,
-            fontWeight: '800',
-            fontSize: 12,
-            color: '#0F172A',
-            textTransform: 'uppercase',
-            letterSpacing: 0.4,
-          }}
-        >
+        <Text style={labelStyle}>
           {leftLabel}
         </Text>
-        <Text
-          style={{
-            fontFamily: FONTS.medium,
-            fontSize: 13,
-            color: COLORS.ink,
-            marginTop: 2,
-            lineHeight: 17,
-          }}
-        >
-          {leftValue || '—'}
-        </Text>
+        {renderFieldValue(leftValue)}
       </Box>
       <Box style={{ flex: 1 }}>
-        <Text
-          style={{
-            fontFamily: FONTS.bold,
-            fontWeight: '800',
-            fontSize: 12,
-            color: '#0F172A',
-            textTransform: 'uppercase',
-            letterSpacing: 0.4,
-          }}
-        >
+        <Text style={labelStyle}>
           {rightLabel}
         </Text>
-        <Text
-          style={{
-            fontFamily: FONTS.medium,
-            fontSize: 13,
-            color: COLORS.ink,
-            marginTop: 2,
-            lineHeight: 17,
-          }}
-        >
-          {rightValue || '—'}
-        </Text>
+        {renderFieldValue(rightValue)}
       </Box>
     </HStack>
   );
@@ -233,12 +227,9 @@ function MediaThumb({
       {showLabel ? (
         <Text
           style={{
-            fontFamily: FONTS.bold,
-            fontSize: 9,
-            color: COLORS.ink,
+            ...FIELD_LABEL_STYLE,
+            fontSize: 10,
             marginBottom: 4,
-            textTransform: 'uppercase',
-            letterSpacing: 0.3,
             textAlign: 'center',
           }}
           numberOfLines={1}
@@ -282,18 +273,36 @@ function formatSubmittedDateTime(iso?: string | null): string {
   });
 }
 
-function SectionLabel({ children }: { children: string }) {
+function SectionLabel({ children, accent = false }: { children: string; accent?: boolean }) {
   return (
     <Text
       style={{
         fontFamily: FONTS.bold,
         fontWeight: '800',
         fontSize: 12,
-        color: COLORS.ink,
+        color: accent ? COLORS.primary : COLORS.ink,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
         marginTop: 12,
         marginBottom: 6,
+      }}
+    >
+      {children}
+    </Text>
+  );
+}
+
+function MediaSectionHeading({ children }: { children: string }) {
+  return (
+    <Text
+      style={{
+        fontFamily: FONTS.bold,
+        fontWeight: '800',
+        fontSize: 12,
+        color: COLORS.primary,
+        marginBottom: 6,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
       }}
     >
       {children}
@@ -311,14 +320,14 @@ function ZcDetailsCard({
   diagram?: ReactNode;
 }) {
   return (
-    <SectionCard title="ZC details" subtitle="Submitted by Zonal Commissioner" icon={Building2}>
+    <SectionCard
+      title="ZC details"
+      subtitle="Submitted by Zonal Commissioner"
+      icon={Building2}
+      badge={<ApplicationStatusBadge status={app.status} size="md" />}
+    >
       <EOfficeHighlight value={app.eOfficeNumber?.trim() || '—'} />
-      <InfoPairRow
-        leftLabel="Application no"
-        leftValue={app.applicationNumber}
-        rightLabel="Status"
-        rightValue={applicationStatusLabel(app.status) || String(app.status || '—')}
-      />
+      <InfoRow label="Application no" value={app.applicationNumber} />
       <InfoPairRow
         leftLabel="Site no"
         leftValue={app.siteNo}
@@ -341,17 +350,12 @@ function ZcDetailsCard({
       <InfoPairRow
         leftLabel="Created by ZC"
         leftValue={app.createdByZcName || '—'}
-        rightLabel="Assigned CAO"
-        rightValue={app.assignedCaoName || '—'}
+        rightLabel="Assigned on"
+        rightValue={formatSubmittedDateTime(app.createdAt)}
       />
-      <InfoPairRow
-        leftLabel="Assigned on"
-        leftValue={formatSubmittedDateTime(app.createdAt)}
-        rightLabel="Engineer"
-        rightValue={app.assignedEngineerName || '—'}
-      />
+      <InfoRow label="Assigned engineer" value={app.assignedEngineerName || '—'} />
 
-      <SectionLabel>Schedules</SectionLabel>
+      <SectionLabel accent>Schedules</SectionLabel>
       <InfoPairRow
         leftLabel="North"
         leftValue={app.scheduleNorth || '—'}
@@ -367,11 +371,27 @@ function ZcDetailsCard({
       />
 
       {app.siteDimensionComment?.trim() ? (
-        <InfoRow
-          label="ZC comments"
-          value={app.siteDimensionComment}
-          last={!diagram}
-        />
+        <>
+          <SectionLabel accent>ZC comments</SectionLabel>
+          <Box
+            style={{
+              paddingVertical: 7,
+              borderBottomWidth: diagram ? 1 : 0,
+              borderBottomColor: GLASS.divider,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: FONTS.medium,
+                fontSize: 13,
+                color: COLORS.ink,
+                lineHeight: 17,
+              }}
+            >
+              {app.siteDimensionComment}
+            </Text>
+          </Box>
+        </>
       ) : null}
 
       {diagram ? <Box style={{ marginTop: 8 }}>{diagram}</Box> : null}
@@ -528,6 +548,14 @@ export function ApplicationRecordDetails({
     <ZcDetailsCard app={app} siteType={zcSiteType} diagram={zcDiagram} />
   );
 
+  const measuredSiteTypeValue = measuredType ? (
+    <Box style={{ alignSelf: 'flex-start' }}>
+      <DimTypeBadge type={measuredType} />
+    </Box>
+  ) : (
+    '—'
+  );
+
   if (!showEmptyEngineer && !hasEngineerCapture) {
     return (
       <VStack key={themeId} style={{ gap: Math.max(6, DESIGN.sectionGap - 2) }}>
@@ -545,21 +573,20 @@ export function ApplicationRecordDetails({
     <VStack key={themeId} style={{ gap: Math.max(6, DESIGN.sectionGap - 2) }}>
       {zcCard}
 
-      <SectionCard title="Engineer details" subtitle="Submitted by field engineer" icon={Ruler}>
+      <SectionCard
+        title="Engineer details"
+        subtitle="Submitted by field engineer"
+        icon={Ruler}
+        badge={<ApplicationStatusBadge status={app.status} size="md" />}
+      >
         <InfoPairRow
-          leftLabel="Assigned engineer"
-          leftValue={app.assignedEngineerName || '—'}
-          rightLabel="Status"
-          rightValue={applicationStatusLabel(app.status) || String(app.status || '—')}
-        />
-        <InfoPairRow
-          leftLabel="Assigned"
+          leftLabel="Assigned on"
           leftValue={formatSubmittedDateTime(app.createdAt)}
-          rightLabel="Submitted"
+          rightLabel="Submitted on"
           rightValue={formatSubmittedDateTime(app.engineerSubmittedAt)}
         />
 
-        <SectionLabel>Schedules</SectionLabel>
+        <SectionLabel accent>Schedules</SectionLabel>
         <InfoPairRow
           leftLabel="North"
           leftValue={scheduleNote('N')}
@@ -585,7 +612,7 @@ export function ApplicationRecordDetails({
           rightValue={roadFlags.E ? 'Yes' : 'No'}
         />
 
-        <SectionLabel>Compass & GPS</SectionLabel>
+        <SectionLabel accent>Compass & GPS</SectionLabel>
         <InfoPairRow
           leftLabel="Compass"
           leftValue={app.compass || '—'}
@@ -627,12 +654,13 @@ export function ApplicationRecordDetails({
 
         {engineerDiagram ? (
           <>
-            <SectionLabel>Dimensions</SectionLabel>
+            <SectionLabel accent>Dimensions</SectionLabel>
             <InfoPairRow
               leftLabel="Measured site type"
-              leftValue={measuredType || '—'}
+              leftValue={measuredSiteTypeValue}
               rightLabel="Total area"
               rightValue={app.totalSiteArea ? String(app.totalSiteArea) : boundary.total != null ? String(boundary.total) : '—'}
+              emphasisLabels
             />
             <Box style={{ marginTop: 4 }}>{engineerDiagram}</Box>
           </>
@@ -640,12 +668,13 @@ export function ApplicationRecordDetails({
 
         {!engineerDiagram && boundary.source === 'engineer' ? (
           <>
-            <SectionLabel>Dimensions</SectionLabel>
+            <SectionLabel accent>Dimensions</SectionLabel>
             <InfoPairRow
               leftLabel="Measured site type"
-              leftValue={measuredType || '—'}
+              leftValue={measuredSiteTypeValue}
               rightLabel="Total area"
               rightValue={app.totalSiteArea ? String(app.totalSiteArea) : '—'}
+              emphasisLabels
             />
             <InfoPairRow
               leftLabel="Dim N"
@@ -665,7 +694,7 @@ export function ApplicationRecordDetails({
 
         {hasMedia || app.videoUrl ? (
           <>
-            <SectionLabel>Photos & Media</SectionLabel>
+            <SectionLabel accent>Photos & Media</SectionLabel>
             <Box
               style={{
                 borderRadius: 14,
@@ -701,19 +730,7 @@ export function ApplicationRecordDetails({
               <VStack style={{ gap: 12 }}>
                 {app.selfieUrl ? (
                   <Box>
-                    <Text
-                      style={{
-                        fontFamily: FONTS.bold,
-                        fontWeight: '800',
-                        fontSize: 12,
-                        color: COLORS.ink,
-                        marginBottom: 6,
-                        textTransform: 'uppercase',
-                        letterSpacing: 0.5,
-                      }}
-                    >
-                      Selfie
-                    </Text>
+                    <MediaSectionHeading>Selfie</MediaSectionHeading>
                     <HStack className="flex-wrap" style={{ gap: 6 }}>
                       <MediaThumb
                         label="Selfie"
@@ -727,19 +744,7 @@ export function ApplicationRecordDetails({
 
                 {photos.length > 0 ? (
                   <Box>
-                    <Text
-                      style={{
-                        fontFamily: FONTS.bold,
-                        fontWeight: '800',
-                        fontSize: 12,
-                        color: COLORS.ink,
-                        marginBottom: 6,
-                        textTransform: 'uppercase',
-                        letterSpacing: 0.5,
-                      }}
-                    >
-                      Site photos
-                    </Text>
+                    <MediaSectionHeading>Site photos</MediaSectionHeading>
                     <HStack className="flex-wrap" style={{ gap: 6 }}>
                       {photos.map((url, i) => (
                         <MediaThumb
@@ -755,19 +760,7 @@ export function ApplicationRecordDetails({
 
                 {schedulePhotos.N || schedulePhotos.S || schedulePhotos.E || schedulePhotos.W ? (
                   <Box>
-                    <Text
-                      style={{
-                        fontFamily: FONTS.bold,
-                        fontWeight: '800',
-                        fontSize: 12,
-                        color: COLORS.ink,
-                        marginBottom: 6,
-                        textTransform: 'uppercase',
-                        letterSpacing: 0.5,
-                      }}
-                    >
-                      Schedule photos
-                    </Text>
+                    <MediaSectionHeading>Site schedule photos</MediaSectionHeading>
                     <HStack className="flex-wrap" style={{ gap: 6 }}>
                       {(
                         [
@@ -794,19 +787,7 @@ export function ApplicationRecordDetails({
 
                 {app.videoUrl ? (
                   <Box>
-                    <Text
-                      style={{
-                        fontFamily: FONTS.bold,
-                        fontWeight: '800',
-                        fontSize: 12,
-                        color: COLORS.ink,
-                        marginBottom: 6,
-                        textTransform: 'uppercase',
-                        letterSpacing: 0.5,
-                      }}
-                    >
-                      Site video
-                    </Text>
+                    <MediaSectionHeading>Site video</MediaSectionHeading>
                     <Box
                       style={{
                         borderRadius: DESIGN.cardRadius,
@@ -826,7 +807,7 @@ export function ApplicationRecordDetails({
 
         {app.engineerComments ? (
           <>
-            <SectionLabel>Comments</SectionLabel>
+            <SectionLabel accent>Comments</SectionLabel>
             <InfoRow label="Engineer remarks" value={app.engineerComments} last />
           </>
         ) : null}

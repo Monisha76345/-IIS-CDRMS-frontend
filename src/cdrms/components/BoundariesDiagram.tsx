@@ -368,26 +368,6 @@ export function BoundariesDiagram({
               {odd ? 'Odd' : 'Even'}
             </Text>
           </Box>
-          {siteNo != null && String(siteNo).trim() !== '' ? (
-            <Box
-              style={{
-                maxWidth: 100,
-                borderRadius: 8,
-                backgroundColor: COLORS.white,
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-              }}
-            >
-              <Text
-                style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.ink }}
-                numberOfLines={1}
-              >
-                {String(siteNo)}
-              </Text>
-            </Box>
-          ) : null}
         </HStack>
       </HStack>
       ) : null}
