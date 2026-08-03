@@ -47,7 +47,7 @@ import { ThemeToggleButton } from '@/src/cdrms/components/ThemePicker';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 
 /** Edge-pinned tab bar — soft U-notch cradles the center + */
-const BAR_H = 58;
+const BAR_H = 64;
 const FAB_SIZE = 50;
 const FAB_GAP = 6;
 const NOTCH_R = FAB_SIZE / 2 + FAB_GAP;
@@ -1032,7 +1032,7 @@ export function BottomNav({
     { k: 'home', label: 'Home', icon: Home, target: homeTarget },
     ...(isCompactOfficeNav
       ? []
-      : [{ k: 'apps' as const, label: 'Apps', icon: FileText, target: appsTarget }]),
+      : [{ k: 'apps' as const, label: 'Applications', icon: FileText, target: appsTarget }]),
   ];
 
   const rightItems: Array<{
@@ -1070,19 +1070,19 @@ export function BottomNav({
         className="flex-1 items-center justify-center active:opacity-70"
         style={{ height: BAR_H }}
       >
-        <Box className="items-center justify-center relative" style={{ height: 28, width: 44 }}>
+        <Box className="items-center justify-center relative" style={{ height: 24, width: 44 }}>
           {isProfileTab ? (
             <Box
               style={{
-                width: 26,
-                height: 26,
-                borderRadius: 13,
+                width: 24,
+                height: 24,
+                borderRadius: 12,
                 overflow: 'hidden',
                 alignItems: 'center',
                 justifyContent: 'center',
                 backgroundColor: profilePhoto ? COLORS.muted : COLORS.primary,
                 borderWidth: on ? 2 : 1,
-                borderColor: on ? COLORS.primary : COLORS.slate,
+                borderColor: on ? COLORS.primary : COLORS.ink,
               }}
             >
               {profilePhoto ? (
@@ -1095,9 +1095,9 @@ export function BottomNav({
                 <Text
                   style={{
                     fontFamily: FONTS.bold,
-                    fontSize: 12,
+                    fontSize: 11,
                     color: COLORS.white,
-                    lineHeight: 12,
+                    lineHeight: 11,
                   }}
                 >
                   {profileInitials}
@@ -1107,7 +1107,7 @@ export function BottomNav({
           ) : (
             <Icon
               size={22}
-              color={on ? COLORS.primary : COLORS.slate}
+              color={on ? COLORS.primary : COLORS.ink}
               strokeWidth={on ? 2.4 : 1.9}
             />
           )}
@@ -1129,15 +1129,17 @@ export function BottomNav({
             </Box>
           ) : null}
         </Box>
-        <Box
+        <Text
           style={{
-            marginTop: 5,
-            width: on ? 18 : 0,
-            height: 3,
-            borderRadius: 999,
-            backgroundColor: COLORS.primary,
+            marginTop: 3,
+            fontFamily: on ? FONTS.semibold : FONTS.medium,
+            fontSize: 10,
+            lineHeight: 12,
+            color: on ? COLORS.primary : COLORS.ink,
           }}
-        />
+        >
+          {it.label}
+        </Text>
       </Pressable>
     );
   };
