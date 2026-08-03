@@ -19,7 +19,6 @@ import {
   LogOut,
   Mail,
   Phone,
-  Search,
   Send,
   Settings,
   ShieldCheck,
@@ -32,7 +31,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { TextInput, Image, Modal, ScrollView as RNScrollView } from 'react-native';
+import { Image, Modal, ScrollView as RNScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Box } from '@/components/ui/box';
@@ -42,6 +41,7 @@ import { ScrollView } from '@/components/ui/scroll-view';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
+import { SearchField } from '@/src/cdrms/components/SearchField';
 import {
   AppCard,
   AppHeader,
@@ -860,16 +860,16 @@ export function NotificationsScreen({ go }: { go: Go }) {
         contentContainerStyle={{ paddingBottom: 120 }}
       >
         <Box className="px-5 pt-4">
-          <HStack className="items-center gap-3 h-12 px-4 rounded-2xl bg-card shadow-sm">
-            <Search size={16} color={COLORS.slate} />
-            <TextInput
-              placeholder="Search notifications"
-              placeholderTextColor={COLORS.slate}
-              value={query}
-              onChangeText={setQuery}
-              className="flex-1 text-sm text-foreground"
-            />
-          </HStack>
+          <SearchField
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search notifications"
+            nested={false}
+            height={48}
+            className="rounded-2xl bg-card shadow-sm"
+            style={{ paddingHorizontal: 16 }}
+            inputStyle={{ fontSize: 14 }}
+          />
 
           <VStack className="mt-4" space="sm">
             {loading && items.length === 0 ? (

@@ -3,11 +3,10 @@ import {
   FileText,
   Layers,
   RefreshCw,
-  Search,
   Send,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -43,8 +42,8 @@ import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationReco
 import { getCaoReturnScreen, getSelectedOfficeAppId, setCaoReturnScreen, setSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
 import { downloadApplicationPdf, openPdfFile } from '@/src/cdrms/lib/downloadApplicationPdf';
 import { showAppDialog } from '@/src/cdrms/components/AppDialog';
+import { SearchField } from '@/src/cdrms/components/SearchField';
 import { COLORS, FONTS, GLASS, GRADIENT_PRIMARY, themeStatColors, gradientStops, DESIGN } from '@/src/cdrms/theme';
-import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
 import { useTheme } from '@/src/theme/ThemeContext';
 import type { Go } from '@/src/cdrms/types';
 
@@ -246,22 +245,14 @@ export function CaoHomeScreen({ go }: { go: Go }) {
             onSelect={(key) => setTab(key as CaoTab)}
           />
 
-          <Box
-            className="mt-2 flex-row items-center"
-            style={[
-              cardSurfaceStyle({ nested: true }),
-              { paddingHorizontal: 10, height: 42, overflow: 'hidden' },
-            ]}
-          >
-            <Search size={16} color={COLORS.slate} />
-            <TextInput
-              value={q}
-              onChangeText={setQ}
-              placeholder="Search application, site, engineer…"
-              placeholderTextColor={COLORS.slate}
-              style={{ flex: 1, marginLeft: 8, fontSize: 13, color: COLORS.ink }}
-            />
-          </Box>
+          <SearchField
+            className="mt-2"
+            value={q}
+            onChangeText={setQ}
+            placeholder="Search application, site, engineer…"
+            height={42}
+            style={{ paddingHorizontal: 10 }}
+          />
 
 
 
@@ -423,31 +414,17 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
 
 
         <Box className="px-4 pb-2">
-          <HStack
-            className="items-center"
-            style={[
-              cardSurfaceStyle({ nested: true }),
-              { paddingHorizontal: 12, height: 44, overflow: 'hidden' },
-            ]}
-          >
-            <Search size={16} color={COLORS.primary} />
-            <TextInput
-              value={q}
-              onChangeText={setQ}
-              placeholder="Search application, site, engineer…"
-              placeholderTextColor="#94A3B8"
-              style={{
-                flex: 1,
-                marginLeft: 8,
-                fontFamily: FONTS.medium,
-                fontSize: 13,
-                color: COLORS.ink,
-              }}
-            />
-            <Pressable onPress={() => void reload()} accessibilityLabel="Refresh">
-              <RefreshCw size={15} color={COLORS.primary} strokeWidth={2.4} />
-            </Pressable>
-          </HStack>
+          <SearchField
+            value={q}
+            onChangeText={setQ}
+            placeholder="Search application, site, engineer…"
+            iconColor={COLORS.primary}
+            endAdornment={
+              <Pressable onPress={() => void reload()} accessibilityLabel="Refresh">
+                <RefreshCw size={15} color={COLORS.primary} strokeWidth={2.4} />
+              </Pressable>
+            }
+          />
         </Box>
       </Box>
 

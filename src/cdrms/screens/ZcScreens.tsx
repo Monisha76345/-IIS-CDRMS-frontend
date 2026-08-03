@@ -9,7 +9,6 @@ import {
   Plus,
   Ruler,
   Send,
-  Search,
   UserCheck,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -54,6 +53,7 @@ import {
 } from '@/src/api/applications';
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
 import { showAppDialog } from '@/src/cdrms/components/AppDialog';
+import { SearchField } from '@/src/cdrms/components/SearchField';
 import {
   AppHeader,
   BottomNav,
@@ -219,22 +219,12 @@ export function ZcHomeScreen({ go }: { go: Go }) {
             onSelect={(key) => setTab(key as ZcTab)}
           />
 
-          <Box
-            className="mt-2 flex-row items-center"
-            style={[
-              cardSurfaceStyle({ nested: true }),
-              { paddingHorizontal: 12, height: 44, overflow: 'hidden' },
-            ]}
-          >
-            <Search size={16} color={COLORS.slate} />
-            <TextInput
-              value={q}
-              onChangeText={setQ}
-              placeholder="Search by application no, site, engineer…"
-              placeholderTextColor={COLORS.slate}
-              style={{ flex: 1, marginLeft: 8, fontSize: 13, color: COLORS.ink }}
-            />
-          </Box>
+          <SearchField
+            className="mt-2"
+            value={q}
+            onChangeText={setQ}
+            placeholder="Search by application no, site, engineer…"
+          />
 
 
 
