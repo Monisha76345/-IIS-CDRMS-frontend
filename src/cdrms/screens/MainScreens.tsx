@@ -67,7 +67,7 @@ import {
   hexAlpha,
 } from '@/src/cdrms/theme';
 import { GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
-import { ThemePicker, ThemeToggleButton } from '@/src/cdrms/components/ThemePicker';
+import { ThemePicker } from '@/src/cdrms/components/ThemePicker';
 import { useTheme } from '@/src/theme/ThemeContext';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go, Screen } from '@/src/cdrms/types';
@@ -373,7 +373,7 @@ export function Dashboard({ go }: { go: Go }) {
                 </Text>
               </VStack>
               <HStack className="items-center gap-2">
-                <ThemeToggleButton variant="header" go={go} />
+                {zoneLabel ? <ZoneTag zone={zoneLabel} onGradient /> : null}
                 <ProfileMenu
                 gradient
                 userName={displayName(user)}
@@ -392,7 +392,6 @@ export function Dashboard({ go }: { go: Go }) {
             </HStack>
 
             <HStack className="mt-4 items-center flex-wrap" style={{ gap: 8 }}>
-              {zoneLabel ? <ZoneTag zone={zoneLabel} onGradient /> : null}
               <HStack className="items-center" style={{ gap: 6 }}>
                 <Clock size={13} color="rgba(255,255,255,0.85)" />
                 <Text className="text-[11px]" style={{ color: 'rgba(255,255,255,0.88)' }}>

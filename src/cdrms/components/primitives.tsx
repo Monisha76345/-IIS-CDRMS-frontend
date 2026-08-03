@@ -547,9 +547,13 @@ export function AppHeader({
     />
   ) : null;
 
-  const themeBtn = canLogout && go ? (
-    <ThemeToggleButton variant={gradient ? 'header' : 'plain'} go={go} />
-  ) : null;
+  const zoneBtn =
+    welcome && zoneLabel ? <ZoneTag zone={zoneLabel} onGradient /> : null;
+
+  const themeBtn =
+    canLogout && go && !welcome ? (
+      <ThemeToggleButton variant={gradient ? 'header' : 'plain'} go={go} />
+    ) : null;
 
   const notifBell =
     go && showNotifications && role === 'cao' ? (
@@ -557,10 +561,11 @@ export function AppHeader({
     ) : null;
 
   const rightSlot =
-    right || notifBell || themeBtn || logoutBtn ? (
+    right || notifBell || zoneBtn || themeBtn || logoutBtn ? (
       <HStack className="items-center gap-2">
         {right}
         {notifBell}
+        {zoneBtn}
         {themeBtn}
         {logoutBtn}
       </HStack>
@@ -636,7 +641,6 @@ export function AppHeader({
             className="items-center flex-wrap"
             style={{ marginTop: isCompactOfficeNav ? SPACE[2] : SPACE[2], gap: 6 }}
           >
-            {zoneLabel ? <ZoneTag zone={zoneLabel} onGradient /> : null}
             <HStack className="items-center" style={{ gap: 6 }}>
               <Clock size={13} color="rgba(255,255,255,0.85)" />
               <Text
