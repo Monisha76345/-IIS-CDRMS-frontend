@@ -6,7 +6,6 @@ import {
   Send,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -40,66 +39,27 @@ import {
 } from '@/src/cdrms/components/StatusCountGrid';
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
 import { getCaoReturnScreen, getSelectedOfficeAppId, setCaoReturnScreen, setSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
-import { downloadApplicationPdf, openPdfFile } from '@/src/cdrms/lib/downloadApplicationPdf';
-import { showAppDialog } from '@/src/cdrms/components/AppDialog';
+import { downloadApplicationPdfWithFeedback } from '@/src/cdrms/lib/downloadApplicationPdfWithFeedback';
 import { SearchField } from '@/src/cdrms/components/SearchField';
 import { COLORS, FONTS, GLASS, GRADIENT_PRIMARY, themeStatColors, gradientStops, DESIGN } from '@/src/cdrms/theme';
 import { useTheme } from '@/src/theme/ThemeContext';
 import type { Go } from '@/src/cdrms/types';
 
-function CaoDownloadOverlay({ visible }: { visible: boolean }) {
-  return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: 'rgba(15, 23, 42, 0.48)',
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingHorizontal: 28,
-        }}
-      >
-        <View
-          style={{
-            width: '100%',
-            maxWidth: 280,
-            borderRadius: DESIGN.cardRadius,
-            backgroundColor: COLORS.white,
-            paddingVertical: 28,
-            paddingHorizontal: 24,
-            alignItems: 'center',
-            gap: 14,
-            shadowColor: '#0F172A',
-            shadowOffset: { width: 0, height: 16 },
-            shadowOpacity: 0.2,
-            shadowRadius: 28,
-            elevation: 12,
-          }}
-        >
-          <View
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: 999,
-              backgroundColor: '#EFF6FF',
-              borderWidth: 1,
-              borderColor: '#BFDBFE',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <ActivityIndicator size="large" color={COLORS.primary} />
-          </View>
-          <Text style={{ fontFamily: FONTS.bold, fontSize: 16, color: COLORS.ink, textAlign: 'center' }}>
-            Downloading PDF…
-          </Text>
-          <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.slate, textAlign: 'center' }}>
-            Please wait while the file is prepared.
-          </Text>
-        </View>
-      </View>
-    </Modal>
-  );
+async function runPdfDownload(
+  app: MobileApplication,
+  accessToken: string,
+  downloading: boolean,
+  setDownloading: (value: boolean) => void,
+) {
+  if (!accessToken || downloading) return;
+  setDownloading(true);
+  try {
+    await downloadApplicationPdfWithFeedback(app, accessToken);
+  } catch {
+    // Error is shown in the top download banner.
+  } finally {
+    setDownloading(false);
+  }
 }
 
 function addressLine(app: MobileApplication) {
@@ -156,34 +116,8 @@ export function CaoHomeScreen({ go }: { go: Go }) {
   }, [reload]);
 
   const handleDownloadApp = useCallback(
-    async (app: MobileApplication) => {
-      if (!accessToken || downloading) return;
-      setDownloading(true);
-      try {
-        const result = await downloadApplicationPdf(app, accessToken);
-        const pdfUri = result.openUri || result.savedPath;
-        showAppDialog({
-          variant: 'success',
-          title: 'Downloaded',
-          message: result.message,
-          cancelLabel: 'OK',
-          confirmLabel: 'Share',
-          onConfirm: () => {
-            if (pdfUri) void openPdfFile(pdfUri);
-          },
-        });
-      } catch (e) {
-        showAppDialog({
-          variant: 'error',
-          title: 'Download failed',
-          message: e instanceof Error ? e.message : 'Could not generate PDF',
-          hideCancel: true,
-          confirmLabel: 'OK',
-        });
-      } finally {
-        setDownloading(false);
-      }
-    },
+    (app: MobileApplication) =>
+      runPdfDownload(app, accessToken!, downloading, setDownloading),
     [accessToken, downloading],
   );
 
@@ -215,7 +149,6 @@ export function CaoHomeScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-background">
-      <CaoDownloadOverlay visible={downloading} />
       <ScrollView
         key={themeId}
         className="flex-1"
@@ -355,34 +288,8 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
   }, [reload]);
 
   const handleDownloadApp = useCallback(
-    async (app: MobileApplication) => {
-      if (!accessToken || downloading) return;
-      setDownloading(true);
-      try {
-        const result = await downloadApplicationPdf(app, accessToken);
-        const pdfUri = result.openUri || result.savedPath;
-        showAppDialog({
-          variant: 'success',
-          title: 'Downloaded',
-          message: result.message,
-          cancelLabel: 'OK',
-          confirmLabel: 'Share',
-          onConfirm: () => {
-            if (pdfUri) void openPdfFile(pdfUri);
-          },
-        });
-      } catch (e) {
-        showAppDialog({
-          variant: 'error',
-          title: 'Download failed',
-          message: e instanceof Error ? e.message : 'Could not generate PDF',
-          hideCancel: true,
-          confirmLabel: 'OK',
-        });
-      } finally {
-        setDownloading(false);
-      }
-    },
+    (app: MobileApplication) =>
+      runPdfDownload(app, accessToken!, downloading, setDownloading),
     [accessToken, downloading],
   );
 
@@ -406,7 +313,6 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell key={themeId} className="bg-[#F8FAFC]">
-      <CaoDownloadOverlay visible={downloading} />
       <AppHeader
         title="Applications"
         subtitle={`${submittedApps(apps).length} submitted · view & download only`}
@@ -545,38 +451,13 @@ export function CaoDetailScreen({ go }: { go: Go }) {
       .finally(() => setLoading(false));
   }, [accessToken]);
 
-  const handleDownload = async () => {
-    if (!app || !accessToken || downloading) return;
-    setDownloading(true);
-    try {
-      const result = await downloadApplicationPdf(app, accessToken);
-      const pdfUri = result.openUri || result.savedPath;
-      showAppDialog({
-        variant: 'success',
-        title: 'Downloaded',
-        message: result.message,
-        cancelLabel: 'OK',
-        confirmLabel: 'Share',
-        onConfirm: () => {
-          if (pdfUri) void openPdfFile(pdfUri);
-        },
-      });
-    } catch (e) {
-      showAppDialog({
-        variant: 'error',
-        title: 'Download failed',
-        message: e instanceof Error ? e.message : 'Could not generate PDF',
-        hideCancel: true,
-        confirmLabel: 'OK',
-      });
-    } finally {
-      setDownloading(false);
-    }
+  const handleDownload = () => {
+    if (!app || !accessToken) return;
+    void runPdfDownload(app, accessToken, downloading, setDownloading);
   };
 
   return (
     <ScreenShell className="bg-background">
-      <CaoDownloadOverlay visible={downloading} />
       <AppHeader
         title="View Application"
         subtitle={app?.applicationNumber || 'Application details'}

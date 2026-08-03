@@ -2,6 +2,7 @@ import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
 import { RootNavigator } from '@/src/navigation/RootNavigator';
 import { AuthProvider } from '@/src/auth/AuthContext';
 import { DeviceCameraHost } from '@/src/cdrms/components/DeviceCameraHost';
+import { PdfDownloadBannerHost } from '@/src/cdrms/components/PdfDownloadBannerHost';
 import { useCdrmsFonts } from '@/src/cdrms/fonts';
 import { COLORS } from '@/src/cdrms/theme';
 import { ThemeProvider } from '@/src/theme/ThemeContext';
@@ -61,6 +62,7 @@ export default function App() {
             <AuthProvider>
               <ThemeProvider>
                 <RootNavigator />
+                <PdfDownloadBannerHost />
                 <DeviceCameraHost />
               </ThemeProvider>
             </AuthProvider>
