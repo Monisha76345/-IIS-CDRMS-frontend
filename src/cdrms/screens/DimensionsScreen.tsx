@@ -6,7 +6,7 @@ import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
-import { GlassHeaderBadge, GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
+import { DimTypeBadge, GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
 import { Field } from '@/src/cdrms/components/primitives';
 import {
   SurveyScaffold,
@@ -62,17 +62,19 @@ function DimSideField({
         style={[
           cardSurfaceStyle({ nested: true }),
           {
-            padding: SPACE[2],
+            paddingHorizontal: 10,
+            paddingTop: 8,
+            paddingBottom: 8,
             borderTopWidth: 2,
             borderTopColor: accent,
           },
         ]}
       >
-        <HStack style={{ alignItems: 'center', gap: 6, marginBottom: 4 }}>
+        <HStack style={{ alignItems: 'center', gap: 8, marginBottom: 4 }}>
           <Box
             style={{
-              width: 22,
-              height: 22,
+              width: 30,
+              height: 30,
               borderRadius: 999,
               alignItems: 'center',
               justifyContent: 'center',
@@ -81,13 +83,13 @@ function DimSideField({
               borderColor: '#BFDBFE',
             }}
           >
-            <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: accent }}>{side}</Text>
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: accent }}>{side}</Text>
           </Box>
           <Text
             style={{
-              fontFamily: FONTS.semibold,
-              fontSize: 10,
-              color: COLORS.slate,
+              fontFamily: FONTS.bold,
+              fontSize: 14,
+              color: accent,
               textTransform: 'uppercase',
               letterSpacing: 0.5,
             }}
@@ -97,7 +99,7 @@ function DimSideField({
         </HStack>
         <Field
           compact
-          label=" "
+          label=""
           value={value}
           onChangeText={onChangeText}
           placeholder={`Enter ${side}`}
@@ -154,6 +156,8 @@ export function DimensionsScreen({ go }: { go: Go }) {
     return [n || '—', e || '—', s || '—', w || '—'].join('*');
   })();
 
+  const siteNoLabel = (draft.siteNo.trim() || draft.surveyNo.trim() || '').trim();
+
   const dimsReady = [draft.dimNorth, draft.dimSouth, draft.dimEast, draft.dimWest].every(
     (v) => Number(v) > 0,
   );
@@ -161,6 +165,16 @@ export function DimensionsScreen({ go }: { go: Go }) {
   const filledCount = [draft.dimNorth, draft.dimSouth, draft.dimEast, draft.dimWest].filter(
     (v) => Number(v) > 0,
   ).length;
+
+  const sketchSubtitle = (() => {
+    if (!dimsReady) {
+      return siteNoLabel
+        ? `Site No ${siteNoLabel} · ${filledCount}/4 sides · plot updates as you type`
+        : `${filledCount}/4 sides · plot updates as you type`;
+    }
+    if (siteNoLabel) return `Live plot · Site No ${siteNoLabel} · ${liveSiteDimension}`;
+    return `Live plot · ${liveSiteDimension}`;
+  })();
 
   const schedulesAround = useMemo(() => {
     const out: Record<Cardinal, string> = { N: '', S: '', E: '', W: '' };
@@ -222,18 +236,8 @@ export function DimensionsScreen({ go }: { go: Go }) {
       <GlassSectionCard
         icon={Ruler}
         title="Site Dimension Sketch *"
-        subtitle={
-          dimsReady
-            ? `Live plot · ${liveSiteDimension}`
-            : `${filledCount}/4 sides · plot updates as you type`
-        }
-        badge={
-          <GlassHeaderBadge>
-            <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
-              {isOdd ? 'Odd' : 'Even'}
-            </Text>
-          </GlassHeaderBadge>
-        }
+        subtitle={sketchSubtitle}
+        badge={<DimTypeBadge type={draft.siteDimensionType} />}
       >
         <VStack style={{ gap: SPACE[2] }}>
           <HStack style={{ gap: SPACE[2] }}>
@@ -270,6 +274,7 @@ export function DimensionsScreen({ go }: { go: Go }) {
             east={Number(draft.dimEast) || 0}
             west={Number(draft.dimWest) || 0}
             odd={isOdd}
+            siteNo={siteNoLabel || null}
             scheduleNorth={schedulesAround.N || null}
             scheduleSouth={schedulesAround.S || null}
             scheduleEast={schedulesAround.E || null}

@@ -150,17 +150,17 @@ export const SPACE = {
 function buildType() {
   return {
     caption: {
-      fontFamily: FONTS.medium,
-      fontSize: 12,
-      lineHeight: 16,
-      letterSpacing: 0.2,
+      fontFamily: FONTS.semibold,
+      fontSize: 13,
+      lineHeight: 18,
+      letterSpacing: 0.15,
       color: COLORS.ink,
     },
     label: {
-      fontFamily: FONTS.semibold,
-      fontSize: 12,
-      lineHeight: 16,
-      letterSpacing: 0.8,
+      fontFamily: FONTS.bold,
+      fontSize: 13,
+      lineHeight: 17,
+      letterSpacing: 0.6,
       textTransform: 'uppercase' as const,
       color: COLORS.ink,
     },

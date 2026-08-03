@@ -328,8 +328,8 @@ function Field({
     <VStack style={[{ marginBottom: 0 }, style]}>
       <Text
         style={{
-          fontFamily: FONTS.semibold,
-          fontSize: 11,
+          fontFamily: FONTS.bold,
+          fontSize: 13,
           color: COLORS.slate,
           marginBottom: 5,
           letterSpacing: 0.2,
@@ -447,8 +447,8 @@ function PlainSectionCard({
             {subtitle ? (
               <Text
                 style={{
-                  fontFamily: FONTS.medium,
-                  fontSize: 11,
+                  fontFamily: FONTS.semibold,
+                  fontSize: 13,
                   color: COLORS.slate,
                 }}
                 numberOfLines={1}
@@ -787,7 +787,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     <Text
                       style={{
                         fontFamily: FONTS.semibold,
-                        fontSize: 11,
+                        fontSize: 13,
                         color: COLORS.slate,
                         marginBottom: 5,
                         letterSpacing: 0.2,
@@ -846,7 +846,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                 <Text
                   style={{
                     fontFamily: FONTS.semibold,
-                    fontSize: 11,
+                    fontSize: 13,
                     color: COLORS.slate,
                     marginBottom: 5,
                     letterSpacing: 0.2,
@@ -1021,7 +1021,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                         justifyContent: 'center',
                       }}
                     >
-                      <Text style={{ fontFamily: FONTS.semibold, fontSize: 12, color: COLORS.slate }}>
+                      <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.slate }}>
                         Cancel
                       </Text>
                     </Pressable>

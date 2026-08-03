@@ -2032,7 +2032,7 @@ export function GeoScreen({ go }: { go: Go }) {
                 </Box>
               </HStack>
 
-              <Box className="mt-4 pt-4 border-t border-border">
+              <Box className="mt-2 pt-2 border-t border-border">
                 <HStack className="items-center justify-between">
                   <Text className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
                     Geo status

@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { CheckCircle2, Trash2, Video } from 'lucide-react-native';
+import { Trash2, Video } from 'lucide-react-native';
 import { useState } from 'react';
 
 import { Box } from '@/components/ui/box';
@@ -7,7 +7,7 @@ import { HStack } from '@/components/ui/hstack';
 import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import { GlassHeaderBadge, GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
+import { GlassSectionCard, HeaderStatusBadge } from '@/src/cdrms/components/GlassSurface';
 import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
 import { captureVideo } from '@/src/cdrms/hooks/useMediaCapture';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
@@ -59,16 +59,7 @@ export function SiteVideoCaptureCard() {
           ? `Recorded ${recordedLabel}`
           : 'Record a site video (max 50 MB)'
       }
-      badge={
-        draft.video ? (
-          <GlassHeaderBadge>
-            <CheckCircle2 size={10} color="#FFFFFF" strokeWidth={2.5} />
-            <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
-              Ready
-            </Text>
-          </GlassHeaderBadge>
-        ) : undefined
-      }
+      badge={draft.video ? <HeaderStatusBadge label="Ready" /> : undefined}
     >
       <VStack style={{ gap: SPACE[2] }}>
         <Box
@@ -141,7 +132,7 @@ export function SiteVideoCaptureCard() {
               <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}>
                 Site walk-through
               </Text>
-              <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: COLORS.slate }}>
+              <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.slate }}>
                 Max 50 MB · stored on device
               </Text>
             </VStack>

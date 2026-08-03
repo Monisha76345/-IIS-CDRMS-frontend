@@ -205,27 +205,10 @@ const LAYOUTS: Record<LayoutId, ThemeLayout> = {
 
 const THEME_LAYOUT: Record<ThemeId, LayoutId> = {
   blue: 'classic',
+  navy: 'classic',
+  azure: 'classic',
   sky: 'classic',
   indigo: 'classic',
-  azure: 'classic',
-  teal: 'nature',
-  emerald: 'nature',
-  mint: 'nature',
-  forest: 'nature',
-  pink: 'soft',
-  blush: 'soft',
-  peach: 'soft',
-  lavender: 'soft',
-  fuchsia: 'soft',
-  rose: 'bold',
-  coral: 'bold',
-  amber: 'bold',
-  wine: 'bold',
-  plum: 'bold',
-  slate: 'minimal',
-  zinc: 'minimal',
-  stone: 'minimal',
-  charcoal: 'minimal',
 };
 
 export function layoutIdForTheme(themeId: ThemeId): LayoutId {

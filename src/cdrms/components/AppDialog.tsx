@@ -199,8 +199,8 @@ function AppDialogView({
                 {config.highlightLabel?.trim() ? (
                   <Text
                     style={{
-                      fontFamily: FONTS.medium,
-                      fontSize: 11,
+                      fontFamily: FONTS.semibold,
+                      fontSize: 13,
                       color: COLORS.slate,
                       textAlign: 'center',
                       marginBottom: 4,

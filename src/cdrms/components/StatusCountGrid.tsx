@@ -78,8 +78,8 @@ export function StatusCountGrid({
               <Text
                 numberOfLines={1}
                 style={{
-                  fontFamily: FONTS.semibold,
-                  fontSize: 10,
+                  fontFamily: FONTS.bold,
+                  fontSize: 12,
                   textTransform: 'uppercase',
                   letterSpacing: 0.4,
                   color: active ? item.tint : COLORS.slate,
@@ -146,8 +146,8 @@ export function StatusCountGrid({
                 <Text
                   numberOfLines={1}
                   style={{
-                    fontFamily: FONTS.semibold,
-                    fontSize: 10,
+                    fontFamily: FONTS.bold,
+                    fontSize: 12,
                     color: active ? 'rgba(255,255,255,0.9)' : COLORS.slate,
                   }}
                 >
@@ -203,8 +203,8 @@ export function StatusCountGrid({
                 <Text
                   numberOfLines={1}
                   style={{
-                    fontFamily: FONTS.semibold,
-                    fontSize: 10,
+                    fontFamily: FONTS.bold,
+                    fontSize: 12,
                     color: active ? 'rgba(255,255,255,0.95)' : COLORS.slate,
                   }}
                 >
@@ -321,8 +321,8 @@ export function StatusCountGrid({
                   <Text
                     numberOfLines={1}
                     style={{
-                      fontFamily: FONTS.semibold,
-                      fontSize: 11,
+                      fontFamily: FONTS.bold,
+                      fontSize: 13,
                       color: active ? 'rgba(255,255,255,0.95)' : COLORS.ink,
                     }}
                   >
@@ -400,7 +400,7 @@ export function OfficeAppRow({
 
   const meta = (
     <Text
-      style={{ fontFamily: FONTS.semibold, fontSize: 12, color: COLORS.slate }}
+      style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.slate }}
       numberOfLines={1}
     >
       Site #{siteNo || '—'} · Zone {zoneCode || '—'}
@@ -437,7 +437,7 @@ export function OfficeAppRow({
             {dateLine ? (
               <HStack className="items-center" style={{ gap: 4 }}>
                 <Clock size={11} color={COLORS.slate} />
-                <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: COLORS.slate }}>
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.slate }}>
                   {dateLine}
                 </Text>
               </HStack>
@@ -618,7 +618,7 @@ export function OfficeAppRow({
           {dateLine ? (
             <HStack className="items-center" style={{ gap: 4 }}>
               <Clock size={11} color={COLORS.slate} />
-              <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: COLORS.slate }}>
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.slate }}>
                 {dateLine}
               </Text>
             </HStack>
@@ -639,7 +639,7 @@ export function DetailRow({ label, value }: { label: string; value: ReactNode })
         borderBottomColor: COLORS.border,
       }}
     >
-      <Text style={{ flex: 1, fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}>
+      <Text style={{ flex: 1, fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.ink }}>
         {label}
       </Text>
       {typeof value === 'string' || typeof value === 'number' ? (

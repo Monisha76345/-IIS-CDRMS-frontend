@@ -308,7 +308,7 @@ export function ProfileMenu({
                       <Text
                         style={{
                           fontFamily: FONTS.medium ?? FONTS.regular,
-                          fontSize: 11,
+                          fontSize: 13,
                           color: 'rgba(255,255,255,0.85)',
                         }}
                         numberOfLines={1}
@@ -322,7 +322,7 @@ export function ProfileMenu({
                     <Text
                       style={{
                         fontFamily: FONTS.regular,
-                        fontSize: 10,
+                        fontSize: 12,
                         color: 'rgba(255,255,255,0.65)',
                         marginTop: 2,
                       }}
@@ -746,7 +746,7 @@ export function AppBtn({
               color: COLORS.white,
               textAlign: 'center',
               flexShrink: 1,
-              ...(compact ? { fontSize: 11, letterSpacing: 0, lineHeight: 14 } : null),
+              ...(compact ? { fontSize: 12, letterSpacing: 0, lineHeight: 15 } : null),
             }}
           >
             {children}
@@ -829,27 +829,29 @@ export const Field = forwardRef<
   const hasValue = Boolean(displayValue || normalize(defaultValue));
   const isEditable = props.editable ?? true;
 
-  const labelStyle = compact ? { ...TYPE.label, fontSize: 10 } : TYPE.label;
+  const labelStyle = compact ? { ...TYPE.label, fontSize: 12 } : TYPE.label;
 
   return (
     <View style={{ gap: compact ? 4 : SPACE[2] }} collapsable={false}>
-      {typeof label === 'string' && label.includes('*') ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-          <Text style={labelStyle}>{label.replace(/\s*\*\s*/g, '')}</Text>
-          <Text
-            style={{
-              fontSize: compact ? 13 : 14,
-              fontWeight: 'bold',
-              color: '#DC2626',
-              lineHeight: 16,
-            }}
-          >
-            *
-          </Text>
-        </View>
-      ) : (
-        <Text style={labelStyle}>{label}</Text>
-      )}
+      {typeof label === 'string' && label.trim() !== '' ? (
+        label.includes('*') ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+            <Text style={labelStyle}>{label.replace(/\s*\*\s*/g, '')}</Text>
+            <Text
+              style={{
+                fontSize: compact ? 13 : 14,
+                fontWeight: 'bold',
+                color: '#DC2626',
+                lineHeight: 16,
+              }}
+            >
+              *
+            </Text>
+          </View>
+        ) : (
+          <Text style={labelStyle}>{label}</Text>
+        )
+      ) : null}
       <View
         collapsable={false}
         style={{
@@ -903,7 +905,7 @@ export const Field = forwardRef<
               minHeight: compact ? 32 : 44,
               paddingVertical: compact ? 6 : 12,
               paddingHorizontal: 0,
-              fontSize: compact ? 14 : 15,
+              fontSize: 15,
               fontFamily: FONTS.semibold,
               color: COLORS.ink,
               ...(Platform.OS === 'web'
@@ -1097,7 +1099,7 @@ export function BottomNav({
                 <Text
                   style={{
                     fontFamily: FONTS.bold,
-                    fontSize: 10,
+                    fontSize: 12,
                     color: COLORS.white,
                     lineHeight: 12,
                   }}
@@ -1257,7 +1259,7 @@ export function ZoneTag({
         <Text
           style={{
             fontFamily: FONTS.bold,
-            fontSize: 11,
+            fontSize: 12,
             letterSpacing: 0.3,
             color: COLORS.primary,
           }}
@@ -1286,7 +1288,7 @@ export function ZoneTag({
       <Text
         style={{
           fontFamily: FONTS.bold,
-          fontSize: 11,
+          fontSize: 12,
           letterSpacing: 0.3,
           color: COLORS.primaryDeep,
         }}
@@ -1306,7 +1308,8 @@ export function StatusChip({ status }: { status: string }) {
     Returned: { bg: '#FFEDD5', fg: '#C2410C' },
     Rejected: { bg: '#FEE2E2', fg: '#DC2626' },
     Draft: { bg: GLASS.tintBlue, fg: COLORS.primaryDeep },
-    'In progress': { bg: '#F1F5F9', fg: '#334155' },
+    'In progress': { bg: '#FEE2E2', fg: '#DC2626' },
+    in_progress: { bg: '#FEE2E2', fg: '#DC2626' },
     Assigned: { bg: GLASS.tintBlue, fg: COLORS.primary },
   };
   const s = styles[status] || { bg: '#F1F5F9', fg: '#0F172A' };
@@ -1319,7 +1322,7 @@ export function StatusChip({ status }: { status: string }) {
         backgroundColor: s.bg,
       }}
     >
-      <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: s.fg }}>
+      <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: s.fg }}>
         {status}
       </Text>
     </Box>

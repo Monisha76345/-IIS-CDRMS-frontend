@@ -270,8 +270,8 @@ export function Dashboard({ go }: { go: Go }) {
       id: 'in_progress',
       label: 'In progress',
       value: inProgressTasks.length,
-      bg: '#FFF7ED',
-      fg: COLORS.warning,
+      bg: '#FEE2E2',
+      fg: '#DC2626',
       icon: Edit3,
     },
     {
@@ -498,8 +498,8 @@ export function Dashboard({ go }: { go: Go }) {
                     </Text>
                     <Text
                       style={{
-                        fontFamily: FONTS.semibold,
-                        fontSize: 11,
+                        fontFamily: FONTS.bold,
+                        fontSize: 12,
                         color: selected ? 'rgba(255,255,255,0.9)' : COLORS.slate,
                       }}
                     >
@@ -646,7 +646,7 @@ export function Dashboard({ go }: { go: Go }) {
                           <Text
                             style={{
                               fontFamily: FONTS.bold,
-                              fontSize: 13,
+                              fontSize: 15,
                               color: COLORS.ink,
                             }}
                             numberOfLines={1}
@@ -655,8 +655,8 @@ export function Dashboard({ go }: { go: Go }) {
                           </Text>
                           <Text
                             style={{
-                              fontFamily: FONTS.medium,
-                              fontSize: 11,
+                              fontFamily: FONTS.semibold,
+                              fontSize: 13,
                               color: COLORS.ink,
                               marginTop: 2,
                             }}
@@ -667,10 +667,10 @@ export function Dashboard({ go }: { go: Go }) {
                           {a.date ? (
                             <Text
                               style={{
-                                fontFamily: FONTS.medium,
-                                fontSize: 10,
-                                color: COLORS.slate,
-                                marginTop: 3,
+                                fontFamily: FONTS.bold,
+                                fontSize: 12,
+                                color: COLORS.ink,
+                                marginTop: 2,
                               }}
                               numberOfLines={1}
                             >
@@ -683,7 +683,7 @@ export function Dashboard({ go }: { go: Go }) {
                         </Box>
                       </HStack>
 
-                      <HStack className="items-center gap-2 mt-3">
+                      <HStack className="items-center gap-2" style={{ marginTop: 8 }}>
                         <Box
                           className="flex-1 rounded-full overflow-hidden"
                           style={{ height: 6, backgroundColor: GLASS.tintBlue }}
@@ -697,7 +697,7 @@ export function Dashboard({ go }: { go: Go }) {
                             }}
                           />
                         </Box>
-                        <Text className="text-[10px] font-bold" style={{ color: COLORS.primary }}>
+                        <Text className="text-xs font-bold" style={{ color: COLORS.primary }}>
                           {pct}%
                         </Text>
                         {a.status === 'Submitted' ? (
@@ -916,7 +916,7 @@ export function NotificationsScreen({ go }: { go: Go }) {
                             hitSlop={8}
                             className="active:opacity-70 shrink-0"
                           >
-                            <Text className="text-[10px] font-bold" style={{ color: COLORS.primary }}>
+                            <Text className="text-xs font-bold" style={{ color: COLORS.primary }}>
                               Dismiss
                             </Text>
                           </Pressable>
@@ -1124,7 +1124,7 @@ function ApplicationListCard({
 
               {meta ? (
                 <Text
-                  style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink, marginTop: 3 }}
+                  style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.ink, marginTop: 3 }}
                   numberOfLines={1}
                 >
                   {meta}
@@ -1135,7 +1135,7 @@ function ApplicationListCard({
                 <HStack className="items-center" style={{ gap: 4, marginTop: 5 }}>
                   <Clock size={12} color={COLORS.primary} strokeWidth={2.3} />
                   <Text
-                    style={{ fontFamily: FONTS.semibold, fontSize: 11, color: COLORS.ink }}
+                    style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}
                     numberOfLines={1}
                   >
                     {date}
@@ -1280,14 +1280,14 @@ export function HistoryScreen({ go }: { go: Go }) {
       siteNo: '',
       status: 'Submitted' as string,
       zone: '',
-      date: `Submitted · ${new Date(a.submittedAt).toLocaleString(undefined, {
+      date: new Date(a.submittedAt).toLocaleString(undefined, {
         day: '2-digit',
         month: 'short',
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
         hour12: true,
-      })}`,
+      }),
       village: a.village,
       image: a.coverImage?.trim() || null,
       live: true as const,
@@ -1412,7 +1412,7 @@ export function HistoryScreen({ go }: { go: Go }) {
                     justifyContent: 'center',
                   }}
                 >
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: COLORS.ink }}>
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.ink }}>
                     {count == null ? '—' : count}
                   </Text>
                 </Box>
@@ -1879,15 +1879,15 @@ export function ProfileScreen({ go }: { go: Go }) {
                   }}
                 >
                   <CheckCircle2 size={10} color={COLORS.success} strokeWidth={2.5} />
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: COLORS.success }}>
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.success }}>
                     Active
                   </Text>
                 </Box>
               </HStack>
-              <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.slate }} numberOfLines={1}>
+              <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.slate }} numberOfLines={1}>
                 {roleTitle} · {zone}
               </Text>
-              <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: COLORS.ink }} numberOfLines={1}>
+              <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.ink }} numberOfLines={1}>
                 Login ID: {loginId}
               </Text>
             </VStack>
@@ -1943,21 +1943,6 @@ export function ProfileScreen({ go }: { go: Go }) {
           ) : null}
         </GlassSectionCard>
 
-        <Box
-          onLayout={(e) => {
-            themeY.current = e.nativeEvent.layout.y;
-          }}
-        >
-          <GlassSectionCard
-            title="App theme"
-            subtitle="Pick a color for the whole app"
-            icon={Palette}
-            bodyStyle={{ paddingHorizontal: SPACE[3], paddingVertical: SPACE[3], gap: SPACE[2] }}
-          >
-            <ThemePicker />
-          </GlassSectionCard>
-        </Box>
-
         <GlassSectionCard
           title="Personal Information"
           subtitle="Officer details"
@@ -1986,6 +1971,21 @@ export function ProfileScreen({ go }: { go: Go }) {
             last
           />
         </GlassSectionCard>
+
+        <Box
+          onLayout={(e) => {
+            themeY.current = e.nativeEvent.layout.y;
+          }}
+        >
+          <GlassSectionCard
+            title="App theme"
+            subtitle="Pick a color for the whole app"
+            icon={Palette}
+            bodyStyle={{ paddingHorizontal: SPACE[3], paddingVertical: SPACE[3], gap: SPACE[2] }}
+          >
+            <ThemePicker />
+          </GlassSectionCard>
+        </Box>
 
         <Box style={{ marginHorizontal: SPACE.gutter }}>
           <Pressable
@@ -2080,20 +2080,20 @@ function ProfilePairRow({
       <Box style={{ flex: 1 }}>
         <Text
           style={{
-            fontFamily: FONTS.medium,
-            fontSize: 10,
-            color: COLORS.slate,
+            fontFamily: FONTS.bold,
+            fontSize: 12,
+            color: COLORS.ink,
             textTransform: 'uppercase',
-            letterSpacing: 0.3,
+            letterSpacing: 0.4,
           }}
         >
           {leftLabel}
         </Text>
         <Text
           style={{
-            fontFamily: FONTS.semibold,
+            fontFamily: FONTS.medium,
             fontSize: 13,
-            color: COLORS.ink,
+            color: COLORS.slate,
             marginTop: 2,
             lineHeight: 17,
           }}
@@ -2104,20 +2104,20 @@ function ProfilePairRow({
       <Box style={{ flex: 1 }}>
         <Text
           style={{
-            fontFamily: FONTS.medium,
-            fontSize: 10,
-            color: COLORS.slate,
+            fontFamily: FONTS.bold,
+            fontSize: 12,
+            color: COLORS.ink,
             textTransform: 'uppercase',
-            letterSpacing: 0.3,
+            letterSpacing: 0.4,
           }}
         >
           {rightLabel}
         </Text>
         <Text
           style={{
-            fontFamily: FONTS.semibold,
+            fontFamily: FONTS.medium,
             fontSize: 13,
-            color: COLORS.ink,
+            color: COLORS.slate,
             marginTop: 2,
             lineHeight: 17,
           }}

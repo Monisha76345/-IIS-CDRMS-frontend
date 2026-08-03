@@ -39,6 +39,43 @@ const COMPACT_SCROLL_THRESHOLD = 48;
 const STICKY_FOOTER_HEIGHT = 52;
 const FOOTER_SCROLL_BUFFER = 2;
 
+/** Geometric completed-step mark — not a generic lucide check. */
+function StepDoneMark({ size = 14, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  const short = size * 0.32;
+  const long = size * 0.62;
+  const thickness = Math.max(2.4, size * 0.18);
+  return (
+    <Box style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      {/* Short arm */}
+      <Box
+        style={{
+          position: 'absolute',
+          width: short,
+          height: thickness,
+          borderRadius: thickness,
+          backgroundColor: color,
+          left: size * 0.12,
+          top: size * 0.5,
+          transform: [{ rotate: '45deg' }],
+        }}
+      />
+      {/* Long arm */}
+      <Box
+        style={{
+          position: 'absolute',
+          width: long,
+          height: thickness,
+          borderRadius: thickness,
+          backgroundColor: color,
+          left: size * 0.28,
+          top: size * 0.42,
+          transform: [{ rotate: '-48deg' }],
+        }}
+      />
+    </Box>
+  );
+}
+
 /** Five distinct steppers — one per design family (Classic / Soft / Bold / Nature / Minimal). */
 export function StepRail({
   step,
@@ -85,8 +122,8 @@ export function StepRail({
                   numberOfLines={1}
                   style={{
                     fontFamily: FONTS.bold,
-                    fontSize: 11,
-                    letterSpacing: 0.6,
+                    fontSize: 12,
+                    letterSpacing: 0.5,
                     textTransform: 'uppercase',
                     color: active ? COLORS.primary : done ? COLORS.ink : COLORS.slate,
                   }}
@@ -138,24 +175,24 @@ export function StepRail({
                       : hexAlpha(COLORS.primary, 0.25),
                 }}
               >
-                <Text
-                  style={{
-                    fontFamily: FONTS.bold,
-                    fontSize: 16,
-                    color: active
-                      ? COLORS.white
-                      : done
-                        ? COLORS.success
-                        : COLORS.primaryDeep,
-                  }}
-                >
-                  {done && !active ? '✓' : i + 1}
-                </Text>
+                {done && !active ? (
+                  <StepDoneMark size={16} color={COLORS.success} />
+                ) : (
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 16,
+                      color: active ? COLORS.white : COLORS.primaryDeep,
+                    }}
+                  >
+                    {i + 1}
+                  </Text>
+                )}
                 <Text
                   numberOfLines={1}
                   style={{
                     fontFamily: FONTS.bold,
-                    fontSize: 10,
+                    fontSize: 12,
                     color: active
                       ? COLORS.white
                       : done
@@ -225,17 +262,21 @@ export function StepRail({
                     elevation: active ? 5 : 0,
                   }}
                 >
-                  <Icon
-                    size={18}
-                    color={active || done ? COLORS.white : COLORS.primary}
-                    strokeWidth={2.4}
-                  />
+                  {done && !active ? (
+                    <StepDoneMark size={16} color="#FFFFFF" />
+                  ) : (
+                    <Icon
+                      size={18}
+                      color={active ? COLORS.white : COLORS.primary}
+                      strokeWidth={2.4}
+                    />
+                  )}
                 </Box>
                 <Text
                   numberOfLines={1}
                   style={{
-                    fontFamily: FONTS.semibold,
-                    fontSize: 9,
+                    fontFamily: FONTS.bold,
+                    fontSize: 11,
                     color: active ? COLORS.primary : done ? COLORS.ink : COLORS.slate,
                   }}
                 >
@@ -287,17 +328,21 @@ export function StepRail({
                       transform: [{ rotate: active ? '0deg' : '0deg' }],
                     }}
                   >
-                    <Icon
-                      size={15}
-                      color={active || done ? COLORS.white : COLORS.primary}
-                      strokeWidth={2.3}
-                    />
+                    {done && !active ? (
+                      <StepDoneMark size={15} color="#FFFFFF" />
+                    ) : (
+                      <Icon
+                        size={15}
+                        color={active ? COLORS.white : COLORS.primary}
+                        strokeWidth={2.3}
+                      />
+                    )}
                   </Box>
                   <Text
                     numberOfLines={1}
                     style={{
-                      fontFamily: FONTS.semibold,
-                      fontSize: 10,
+                      fontFamily: FONTS.bold,
+                      fontSize: 12,
                       color: active ? COLORS.primaryDeep : COLORS.slate,
                     }}
                   >
@@ -364,14 +409,13 @@ export function StepRail({
                       : done
                         ? COLORS.success
                         : COLORS.muted,
-                    borderWidth: active || done ? 0 : 2,
-                    borderColor: COLORS.border,
+                    borderWidth: done && !active ? 2.5 : active ? 0 : 2,
+                    borderColor:
+                      done && !active ? '#BBF7D0' : active ? 'transparent' : COLORS.border,
                   }}
                 >
                   {done && !active ? (
-                    <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.white }}>
-                      ✓
-                    </Text>
+                    <StepDoneMark size={15} color="#FFFFFF" />
                   ) : active ? (
                     <Icon size={15} color={COLORS.white} strokeWidth={2.5} />
                   ) : (
@@ -384,7 +428,7 @@ export function StepRail({
                   numberOfLines={1}
                   style={{
                     fontFamily: FONTS.bold,
-                    fontSize: 10,
+                    fontSize: 12,
                     color: active ? COLORS.primary : done ? COLORS.ink : COLORS.slate,
                   }}
                 >
@@ -534,7 +578,7 @@ export function SurveyHero({
                   <Text
                     style={{
                       fontFamily: FONTS.bold,
-                      fontSize: 10,
+                      fontSize: 12,
                       letterSpacing: 0.6,
                       color: COLORS.white,
                       textTransform: 'uppercase',
@@ -546,8 +590,8 @@ export function SurveyHero({
                 {badge ? (
                   <Text
                     style={{
-                      fontFamily: FONTS.medium,
-                      fontSize: 10,
+                      fontFamily: FONTS.semibold,
+                      fontSize: 12,
                       color: '#DBEAFE',
                     }}
                     numberOfLines={1}

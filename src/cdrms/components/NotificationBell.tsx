@@ -327,7 +327,7 @@ export function NotificationBell({ go, variant = 'header' }: NotificationBellPro
                                   hitSlop={8}
                                   className="active:opacity-70 shrink-0"
                                 >
-                                  <Text className="text-[10px] font-bold" style={{ color: COLORS.primary }}>
+                                  <Text className="text-xs font-bold" style={{ color: COLORS.primary }}>
                                     Dismiss
                                   </Text>
                                 </Pressable>

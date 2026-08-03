@@ -49,9 +49,10 @@ export function LiveGpsPanel({
     undefined;
   const accuracyLabel =
     gps?.accuracy != null ? `±${Math.round(gps.accuracy)} m` : null;
-  const areaLine = [address?.area, address?.block, address?.district, address?.state]
-    .filter(Boolean)
-    .join(' · ');
+  const rawParts = [address?.area, address?.block, address?.district, address?.state]
+    .map((s) => s?.trim())
+    .filter(Boolean) as string[];
+  const areaLine = Array.from(new Set(rawParts)).join(' · ');
   const pinCode = address?.postalCode?.trim();
 
   const showOuterHeader = !hideTitleHeader && Boolean(title);
@@ -159,10 +160,11 @@ export function LiveGpsPanel({
 
         <Text
           style={{
-            ...TYPE.bodyStrong,
-            fontSize: isPremium ? 12 : 13,
+            fontFamily: FONTS.bold,
+            fontWeight: '800',
+            fontSize: 15,
             color: COLORS.ink,
-            lineHeight: isPremium ? 17 : 18,
+            lineHeight: 21,
             flexShrink: 1,
           }}
         >

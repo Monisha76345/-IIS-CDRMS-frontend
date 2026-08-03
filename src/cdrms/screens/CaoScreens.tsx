@@ -94,7 +94,7 @@ function CaoDownloadOverlay({ visible }: { visible: boolean }) {
           <Text style={{ fontFamily: FONTS.bold, fontSize: 16, color: COLORS.ink, textAlign: 'center' }}>
             Downloading PDF…
           </Text>
-          <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.slate, textAlign: 'center' }}>
+          <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.slate, textAlign: 'center' }}>
             Please wait while the file is prepared.
           </Text>
         </View>

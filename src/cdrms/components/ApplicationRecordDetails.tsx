@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import {
   Building2,
+  Camera,
   Eye,
   Ruler,
   type LucideIcon,
@@ -64,11 +65,12 @@ function InfoRow({
     >
       <Text
         style={{
-          fontFamily: FONTS.medium,
-          fontSize: 10,
-          color: COLORS.slate,
+          fontFamily: FONTS.bold,
+          fontWeight: '800',
+          fontSize: 12,
+          color: '#0F172A',
           textTransform: 'uppercase',
-          letterSpacing: 0.3,
+          letterSpacing: 0.4,
         }}
       >
         {label}
@@ -76,7 +78,7 @@ function InfoRow({
       {typeof value === 'string' || typeof value === 'number' ? (
         <Text
           style={{
-            fontFamily: FONTS.semibold,
+            fontFamily: FONTS.medium,
             fontSize: 13,
             color: COLORS.ink,
             marginTop: 2,
@@ -117,18 +119,19 @@ function InfoPairRow({
       <Box style={{ flex: 1 }}>
         <Text
           style={{
-            fontFamily: FONTS.medium,
-            fontSize: 10,
-            color: COLORS.slate,
+            fontFamily: FONTS.bold,
+            fontWeight: '800',
+            fontSize: 12,
+            color: '#0F172A',
             textTransform: 'uppercase',
-            letterSpacing: 0.3,
+            letterSpacing: 0.4,
           }}
         >
           {leftLabel}
         </Text>
         <Text
           style={{
-            fontFamily: FONTS.semibold,
+            fontFamily: FONTS.medium,
             fontSize: 13,
             color: COLORS.ink,
             marginTop: 2,
@@ -141,18 +144,19 @@ function InfoPairRow({
       <Box style={{ flex: 1 }}>
         <Text
           style={{
-            fontFamily: FONTS.medium,
-            fontSize: 10,
-            color: COLORS.slate,
+            fontFamily: FONTS.bold,
+            fontWeight: '800',
+            fontSize: 12,
+            color: '#0F172A',
             textTransform: 'uppercase',
-            letterSpacing: 0.3,
+            letterSpacing: 0.4,
           }}
         >
           {rightLabel}
         </Text>
         <Text
           style={{
-            fontFamily: FONTS.semibold,
+            fontFamily: FONTS.medium,
             fontSize: 13,
             color: COLORS.ink,
             marginTop: 2,
@@ -170,70 +174,49 @@ function MediaThumb({
   label,
   uri,
   onView,
+  showLabel = true,
 }: {
   label: string;
   uri: string;
   onView: () => void;
+  showLabel?: boolean;
 }) {
   return (
-    <Box style={{ width: '23%' }}>
-      <Text
+    <Box style={{ width: '22%' }}>
+      {showLabel ? (
+        <Text
+          style={{
+            fontFamily: FONTS.bold,
+            fontSize: 9,
+            color: COLORS.ink,
+            marginBottom: 4,
+            textTransform: 'uppercase',
+            letterSpacing: 0.3,
+            textAlign: 'center',
+          }}
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
+      ) : null}
+      <Pressable
+        onPress={onView}
+        className="active:opacity-80"
+        accessibilityLabel={`View ${label}`}
         style={{
-          fontFamily: FONTS.bold,
-          fontSize: 9,
-          color: COLORS.primaryDeep,
-          marginBottom: 3,
-          textTransform: 'uppercase',
-          letterSpacing: 0.3,
-        }}
-        numberOfLines={1}
-      >
-        {label}
-      </Text>
-      <Box
-        style={{
-          borderRadius: DESIGN.stepRadius,
+          borderRadius: 999,
           overflow: 'hidden',
-          borderWidth: 1,
+          borderWidth: 1.5,
           borderColor: GLASS.border,
           backgroundColor: COLORS.muted,
         }}
       >
-        <Box style={{ position: 'relative' }}>
-          <ApiMediaImage
-            uri={uri}
-            style={{ width: '100%', aspectRatio: 1, backgroundColor: GLASS.divider }}
-            resizeMode="cover"
-          />
-          <Pressable
-            onPress={onView}
-            accessibilityLabel={`View ${label}`}
-            style={{
-              position: 'absolute',
-              top: 0,
-              right: 0,
-              bottom: 0,
-              left: 0,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'rgba(15, 23, 42, 0.4)',
-            }}
-          >
-            <Box
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: DESIGN.stepRadius,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: COLORS.white,
-              }}
-            >
-              <Eye size={14} color={COLORS.primary} strokeWidth={2.3} />
-            </Box>
-          </Pressable>
-        </Box>
-      </Box>
+        <ApiMediaImage
+          uri={uri}
+          style={{ width: '100%', aspectRatio: 1, backgroundColor: GLASS.divider, borderRadius: 999 }}
+          resizeMode="cover"
+        />
+      </Pressable>
     </Box>
   );
 }
@@ -257,12 +240,13 @@ function SectionLabel({ children }: { children: string }) {
     <Text
       style={{
         fontFamily: FONTS.bold,
-        fontSize: 11,
-        color: COLORS.primaryDeep,
+        fontWeight: '800',
+        fontSize: 12,
+        color: COLORS.ink,
         textTransform: 'uppercase',
-        letterSpacing: 0.4,
-        marginTop: 10,
-        marginBottom: 4,
+        letterSpacing: 0.5,
+        marginTop: 12,
+        marginBottom: 6,
       }}
     >
       {children}
@@ -515,13 +499,6 @@ export function ApplicationRecordDetails({
           rightValue={formatSubmittedDateTime(app.engineerSubmittedAt)}
         />
 
-        {app.engineerSiteDetails ? (
-          <>
-            <SectionLabel>Site details</SectionLabel>
-            <InfoRow label="Verification notes" value={app.engineerSiteDetails} />
-          </>
-        ) : null}
-
         <SectionLabel>Schedules</SectionLabel>
         <InfoPairRow
           leftLabel="North"
@@ -617,114 +594,163 @@ export function ApplicationRecordDetails({
           </>
         ) : null}
 
-        {hasMedia ? (
+        {hasMedia || app.videoUrl ? (
           <>
-            <SectionLabel>Photos</SectionLabel>
-            <VStack style={{ gap: 12 }}>
-              {app.selfieUrl ? (
-                <Box>
-                  <Text
-                    style={{
-                      fontFamily: FONTS.bold,
-                      fontSize: 10,
-                      color: COLORS.slate,
-                      marginBottom: 6,
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.4,
-                    }}
-                  >
-                    Selfie
-                  </Text>
-                  <HStack className="flex-wrap" style={{ gap: 6 }}>
-                    <MediaThumb
-                      label="Selfie"
-                      uri={app.selfieUrl}
-                      onView={() => setPreview({ uri: app.selfieUrl!, title: 'Selfie' })}
-                    />
-                  </HStack>
-                </Box>
-              ) : null}
-
-              {photos.length > 0 ? (
-                <Box>
-                  <Text
-                    style={{
-                      fontFamily: FONTS.bold,
-                      fontSize: 10,
-                      color: COLORS.slate,
-                      marginBottom: 6,
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.4,
-                    }}
-                  >
-                    Site photos
-                  </Text>
-                  <HStack className="flex-wrap" style={{ gap: 6 }}>
-                    {photos.map((url, i) => (
-                      <MediaThumb
-                        key={`photo-${i}-${url}`}
-                        label={`Photo ${i + 1}`}
-                        uri={url}
-                        onView={() => setPreview({ uri: url, title: `Site photo ${i + 1}` })}
-                      />
-                    ))}
-                  </HStack>
-                </Box>
-              ) : null}
-
-              {schedulePhotos.N || schedulePhotos.S || schedulePhotos.E || schedulePhotos.W ? (
-                <Box>
-                  <Text
-                    style={{
-                      fontFamily: FONTS.bold,
-                      fontSize: 10,
-                      color: COLORS.slate,
-                      marginBottom: 6,
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.4,
-                    }}
-                  >
-                    Schedule photos
-                  </Text>
-                  <HStack className="flex-wrap" style={{ gap: 6 }}>
-                    {(
-                      [
-                        ['N', 'North'],
-                        ['S', 'South'],
-                        ['E', 'East'],
-                        ['W', 'West'],
-                      ] as const
-                    ).map(([key, label]) =>
-                      schedulePhotos[key] ? (
-                        <MediaThumb
-                          key={key}
-                          label={label}
-                          uri={schedulePhotos[key]}
-                          onView={() =>
-                            setPreview({ uri: schedulePhotos[key], title: `${label} photo` })
-                          }
-                        />
-                      ) : null,
-                    )}
-                  </HStack>
-                </Box>
-              ) : null}
-            </VStack>
-          </>
-        ) : null}
-
-        {app.videoUrl ? (
-          <>
-            <SectionLabel>Site video</SectionLabel>
+            <SectionLabel>Photos & Media</SectionLabel>
             <Box
               style={{
-                borderRadius: DESIGN.cardRadius,
-                overflow: 'hidden',
-                aspectRatio: 16 / 9,
-                backgroundColor: COLORS.ink,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                backgroundColor: COLORS.white,
+                padding: 12,
+                marginTop: 4,
+                gap: 12,
               }}
             >
-              <SiteVideoPlayer uri={app.videoUrl} />
+              <HStack className="items-center justify-between" style={{ marginBottom: 2 }}>
+                <HStack className="items-center" style={{ gap: 8 }}>
+                  <Box
+                    style={{
+                      height: 30,
+                      width: 30,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: 9,
+                      backgroundColor: COLORS.primary,
+                    }}
+                  >
+                    <Camera size={14} color="#FFFFFF" strokeWidth={2.35} />
+                  </Box>
+                  <Text style={{ fontFamily: FONTS.bold, fontWeight: '800', fontSize: 15, color: COLORS.ink }}>
+                    Captured photos & video
+                  </Text>
+                </HStack>
+              </HStack>
+              <Box style={{ height: 1, backgroundColor: GLASS.divider, marginVertical: 4 }} />
+
+              <VStack style={{ gap: 12 }}>
+                {app.selfieUrl ? (
+                  <Box>
+                    <Text
+                      style={{
+                        fontFamily: FONTS.bold,
+                        fontWeight: '800',
+                        fontSize: 12,
+                        color: COLORS.ink,
+                        marginBottom: 6,
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                      }}
+                    >
+                      Selfie
+                    </Text>
+                    <HStack className="flex-wrap" style={{ gap: 6 }}>
+                      <MediaThumb
+                        label="Selfie"
+                        showLabel={false}
+                        uri={app.selfieUrl}
+                        onView={() => setPreview({ uri: app.selfieUrl!, title: 'Selfie' })}
+                      />
+                    </HStack>
+                  </Box>
+                ) : null}
+
+                {photos.length > 0 ? (
+                  <Box>
+                    <Text
+                      style={{
+                        fontFamily: FONTS.bold,
+                        fontWeight: '800',
+                        fontSize: 12,
+                        color: COLORS.ink,
+                        marginBottom: 6,
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                      }}
+                    >
+                      Site photos
+                    </Text>
+                    <HStack className="flex-wrap" style={{ gap: 6 }}>
+                      {photos.map((url, i) => (
+                        <MediaThumb
+                          key={`photo-${i}-${url}`}
+                          label={`Photo ${i + 1}`}
+                          uri={url}
+                          onView={() => setPreview({ uri: url, title: `Site photo ${i + 1}` })}
+                        />
+                      ))}
+                    </HStack>
+                  </Box>
+                ) : null}
+
+                {schedulePhotos.N || schedulePhotos.S || schedulePhotos.E || schedulePhotos.W ? (
+                  <Box>
+                    <Text
+                      style={{
+                        fontFamily: FONTS.bold,
+                        fontWeight: '800',
+                        fontSize: 12,
+                        color: COLORS.ink,
+                        marginBottom: 6,
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                      }}
+                    >
+                      Schedule photos
+                    </Text>
+                    <HStack className="flex-wrap" style={{ gap: 6 }}>
+                      {(
+                        [
+                          ['N', 'North'],
+                          ['S', 'South'],
+                          ['E', 'East'],
+                          ['W', 'West'],
+                        ] as const
+                      ).map(([key, label]) =>
+                        schedulePhotos[key] ? (
+                          <MediaThumb
+                            key={key}
+                            label={label}
+                            uri={schedulePhotos[key]}
+                            onView={() =>
+                              setPreview({ uri: schedulePhotos[key], title: `${label} photo` })
+                            }
+                          />
+                        ) : null,
+                      )}
+                    </HStack>
+                  </Box>
+                ) : null}
+
+                {app.videoUrl ? (
+                  <Box>
+                    <Text
+                      style={{
+                        fontFamily: FONTS.bold,
+                        fontWeight: '800',
+                        fontSize: 12,
+                        color: COLORS.ink,
+                        marginBottom: 6,
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                      }}
+                    >
+                      Site video
+                    </Text>
+                    <Box
+                      style={{
+                        borderRadius: DESIGN.cardRadius,
+                        overflow: 'hidden',
+                        aspectRatio: 16 / 9,
+                        backgroundColor: COLORS.ink,
+                      }}
+                    >
+                      <SiteVideoPlayer uri={app.videoUrl} />
+                    </Box>
+                  </Box>
+                ) : null}
+              </VStack>
             </Box>
           </>
         ) : null}

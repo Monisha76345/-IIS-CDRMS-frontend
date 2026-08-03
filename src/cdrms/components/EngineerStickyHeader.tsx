@@ -48,9 +48,9 @@ export function EngineerStickyHeader() {
         subtitle="Assigned by Zonal Commissioner"
         icon={Building2}
         badge={
-          <GlassHeaderBadge>
-            <Lock size={10} color="#FFFFFF" strokeWidth={2.5} />
-            <Text style={{ fontFamily: FONTS.semibold, fontSize: 10, color: '#FFFFFF' }}>
+          <GlassHeaderBadge tone="neutral">
+            <Lock size={10} color="#334155" strokeWidth={2.5} />
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: '#334155' }}>
               View only
             </Text>
           </GlassHeaderBadge>
@@ -83,7 +83,7 @@ export function EngineerStickyHeader() {
         <GlassSurface padding={SPACE[2]}>
           <HStack style={{ alignItems: 'center', gap: 6, marginBottom: 4 }}>
             <GlassIcon icon={MapPinned} color={COLORS.primary} size={13} />
-            <Text style={{ ...TYPE.label, color: COLORS.slate, fontSize: 10, letterSpacing: 0.6 }}>
+            <Text style={{ ...TYPE.label, color: COLORS.slate, fontSize: 12, letterSpacing: 0.5 }}>
               Address
             </Text>
           </HStack>
@@ -117,7 +117,7 @@ export function EngineerStickyHeader() {
         />
 
         <VStack style={{ gap: SPACE[2] }}>
-          <Text style={{ ...TYPE.label, color: COLORS.slate, fontSize: 10, letterSpacing: 0.8 }}>
+          <Text style={{ ...TYPE.label, color: COLORS.slate, fontSize: 12, letterSpacing: 0.6 }}>
             Site Schedules
           </Text>
           <HStack style={{ flexWrap: 'wrap', gap: 6 }}>
@@ -162,7 +162,7 @@ function StatBlock({
           <Text
             style={{
               fontFamily: FONTS.semibold,
-              fontSize: 10,
+              fontSize: 12,
               color: COLORS.slate,
               textTransform: 'uppercase',
               letterSpacing: 0.4,
@@ -198,7 +198,7 @@ function FieldRow({
         <Text
           style={{
             fontFamily: FONTS.semibold,
-            fontSize: 10,
+            fontSize: 12,
             color: COLORS.slate,
             textTransform: 'uppercase',
             letterSpacing: 0.5,
@@ -250,12 +250,12 @@ function CompassCell({
               borderColor: '#BFDBFE',
             }}
           >
-            <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color }}>{letter}</Text>
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color }}>{letter}</Text>
           </Box>
           <Text
             style={{
-              fontFamily: FONTS.medium,
-              fontSize: 10,
+              fontFamily: FONTS.semibold,
+              fontSize: 12,
               color: COLORS.slate,
               textTransform: 'uppercase',
               letterSpacing: 0.3,

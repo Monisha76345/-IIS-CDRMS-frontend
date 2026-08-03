@@ -236,13 +236,13 @@ export function buildSiteDimensionPlotSvg(input: SiteDimensionPlotSvgInput): str
           ${arrowHeadSvg(t1, mid, color)}
           ${arrowHeadSvg(t2, mid, color)}
           <g transform="rotate(${labelRot} ${mid.x} ${mid.y})">
-            <text x="${mid.x}" y="${mid.y}" text-anchor="middle" dominant-baseline="middle" fill="#0f172a" font-size="14" font-weight="800" font-family="Arial,sans-serif">${esc(dimText)}</text>
+            <text x="${mid.x}" y="${mid.y}" text-anchor="middle" dominant-baseline="middle" fill="#0f172a" font-size="17" font-weight="800" font-family="Arial,sans-serif">${esc(dimText)}</text>
           </g>
           ${
             besideLabel && nb
               ? `<g transform="rotate(${nb.rot} ${nb.cx} ${nb.cy})">
                   ${isRoad ? roadGlyphSvg(nb.cx, nb.cy - 15) : ''}
-                  <text x="${nb.cx}" y="${isRoad ? nb.cy + 9 : nb.cy}" text-anchor="middle" dominant-baseline="middle" fill="${color}" font-size="13" font-weight="700" font-family="Arial,sans-serif">${esc(besideLabel)}</text>
+                  <text x="${nb.cx}" y="${isRoad ? nb.cy + 9 : nb.cy}" text-anchor="middle" dominant-baseline="middle" fill="${color}" font-size="15" font-weight="700" font-family="Arial,sans-serif">${esc(besideLabel)}</text>
                 </g>`
               : ''
           }
@@ -260,11 +260,17 @@ export function buildSiteDimensionPlotSvg(input: SiteDimensionPlotSvgInput): str
   return `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbMinX} ${vbMinY} ${vbW} ${vbH}" width="100%" height="340" preserveAspectRatio="xMidYMid meet">
       <rect x="${vbMinX}" y="${vbMinY}" width="${vbW}" height="${vbH}" fill="#FAFBFC" />
-      <text x="0" y="${-plotHh - 28}" text-anchor="middle" dominant-baseline="middle" fill="${DIM_COLORS.N}" font-size="16" font-weight="800" font-family="Arial,sans-serif">N</text>
-      <text x="${eastLetterX}" y="0" text-anchor="middle" dominant-baseline="middle" fill="${DIM_COLORS.E}" font-size="16" font-weight="800" font-family="Arial,sans-serif">E</text>
-      <text x="0" y="${plotHh + 28}" text-anchor="middle" dominant-baseline="middle" fill="${DIM_COLORS.S}" font-size="16" font-weight="800" font-family="Arial,sans-serif">S</text>
-      <text x="${westLetterX}" y="0" text-anchor="middle" dominant-baseline="middle" fill="${DIM_COLORS.W}" font-size="16" font-weight="800" font-family="Arial,sans-serif">W</text>
+      <text x="0" y="${-plotHh - 28}" text-anchor="middle" dominant-baseline="middle" fill="${DIM_COLORS.N}" font-size="20" font-weight="800" font-family="Arial,sans-serif">N</text>
+      <text x="${eastLetterX}" y="0" text-anchor="middle" dominant-baseline="middle" fill="${DIM_COLORS.E}" font-size="20" font-weight="800" font-family="Arial,sans-serif">E</text>
+      <text x="0" y="${plotHh + 28}" text-anchor="middle" dominant-baseline="middle" fill="${DIM_COLORS.S}" font-size="20" font-weight="800" font-family="Arial,sans-serif">S</text>
+      <text x="${westLetterX}" y="0" text-anchor="middle" dominant-baseline="middle" fill="${DIM_COLORS.W}" font-size="20" font-weight="800" font-family="Arial,sans-serif">W</text>
       <polygon points="${poly}" fill="#f8fafc" stroke="none" />
+      ${
+        siteNoLabel
+          ? `<text x="0" y="-9" text-anchor="middle" dominant-baseline="middle" fill="#64748B" font-size="11" font-weight="700" font-family="Arial,sans-serif">Site No</text>
+      <text x="0" y="10" text-anchor="middle" dominant-baseline="middle" fill="#0F172A" font-size="16" font-weight="800" font-family="Arial,sans-serif">${siteNoLabel}</text>`
+          : ''
+      }
       ${edges
         .map(
           (ed) =>

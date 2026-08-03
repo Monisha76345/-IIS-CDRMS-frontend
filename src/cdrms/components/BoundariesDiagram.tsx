@@ -231,9 +231,9 @@ export function BoundariesDiagram({
   const ext = 13;
   const dimReach = ext + 8;
   /** Outward room for rotated Beside labels (symmetric around plot origin). */
-  const besideReach = 48;
+  const besideReach = 54;
   /** Extra gap below N / above S compass letters before beside + road labels. */
-  const besideLabelGap = 44;
+  const besideLabelGap = 42;
 
   let vbMinX = -160;
   let vbMinY = -140;
@@ -249,7 +249,7 @@ export function BoundariesDiagram({
   const poly = verts.map((p) => `${p.x},${p.y}`).join(' ');
 
   /** Same outward gap for N/S and E/W compass letters (keeps letters off dimension numbers). */
-  const COMPASS_LETTER_OFFSET = 28;
+  const COMPASS_LETTER_OFFSET = 32;
 
   if (edges.length > 0) {
     // Plot is built around (0,0) — keep viewBox symmetric so the diagram stays centered in the card.
@@ -349,7 +349,7 @@ export function BoundariesDiagram({
           >
             <Ruler size={13} color="#fff" strokeWidth={2.35} />
           </Box>
-          <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}>
+          <Text style={{ fontFamily: FONTS.bold, fontWeight: '800', fontSize: 15, color: COLORS.ink }}>
             Site dimensions
           </Text>
         </HStack>
@@ -357,14 +357,14 @@ export function BoundariesDiagram({
           <Box
             style={{
               borderRadius: 8,
-              backgroundColor: COLORS.white,
+              backgroundColor: odd ? '#FFE4E6' : '#D1FAE5',
               paddingHorizontal: 10,
               paddingVertical: 5,
               borderWidth: 1,
-              borderColor: COLORS.border,
+              borderColor: odd ? '#FDA4AF' : '#A7F3D0',
             }}
           >
-            <Text style={{ fontFamily: FONTS.semibold, fontSize: 10, color: COLORS.ink }}>
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: odd ? '#BE123C' : '#047857' }}>
               {odd ? 'Odd' : 'Even'}
             </Text>
           </Box>
@@ -381,7 +381,7 @@ export function BoundariesDiagram({
               }}
             >
               <Text
-                style={{ fontFamily: FONTS.semibold, fontSize: 10, color: COLORS.ink }}
+                style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.ink }}
                 numberOfLines={1}
               >
                 {String(siteNo)}
@@ -443,7 +443,7 @@ export function BoundariesDiagram({
                   textAnchor="middle"
                   alignmentBaseline="middle"
                   fill={DIM_COLORS.N}
-                  fontSize={16}
+                  fontSize={20}
                   fontWeight="800"
                 >
                   N
@@ -454,7 +454,7 @@ export function BoundariesDiagram({
                   textAnchor="middle"
                   alignmentBaseline="middle"
                   fill={DIM_COLORS.E}
-                  fontSize={16}
+                  fontSize={20}
                   fontWeight="800"
                 >
                   E
@@ -465,7 +465,7 @@ export function BoundariesDiagram({
                   textAnchor="middle"
                   alignmentBaseline="middle"
                   fill={DIM_COLORS.S}
-                  fontSize={16}
+                  fontSize={20}
                   fontWeight="800"
                 >
                   S
@@ -476,13 +476,39 @@ export function BoundariesDiagram({
                   textAnchor="middle"
                   alignmentBaseline="middle"
                   fill={DIM_COLORS.W}
-                  fontSize={16}
+                  fontSize={20}
                   fontWeight="800"
                 >
                   W
                 </SvgText>
 
                 <Polygon points={poly} fill="#f8fafc" stroke="none" />
+                {siteNo != null && String(siteNo).trim() !== '' ? (
+                  <G>
+                    <SvgText
+                      x={center.x}
+                      y={center.y - 9}
+                      textAnchor="middle"
+                      alignmentBaseline="middle"
+                      fill={COLORS.slate}
+                      fontSize={11}
+                      fontWeight="700"
+                    >
+                      Site No
+                    </SvgText>
+                    <SvgText
+                      x={center.x}
+                      y={center.y + 10}
+                      textAnchor="middle"
+                      alignmentBaseline="middle"
+                      fill={COLORS.ink}
+                      fontSize={16}
+                      fontWeight="800"
+                    >
+                      {String(siteNo).trim()}
+                    </SvgText>
+                  </G>
+                ) : null}
                 {edges.map((ed) => (
                   <Line
                     key={`edge-${ed.letter}`}
@@ -627,7 +653,7 @@ export function BoundariesDiagram({
                           textAnchor="middle"
                           alignmentBaseline="middle"
                           fill="#0f172a"
-                          fontSize={14}
+                          fontSize={17}
                           fontWeight="800"
                         >
                           {dimText}
@@ -664,7 +690,7 @@ export function BoundariesDiagram({
                             textAnchor="middle"
                             alignmentBaseline="middle"
                             fill={color}
-                            fontSize={13}
+                            fontSize={15}
                             fontWeight="700"
                           >
                             {besideLabel}
@@ -712,7 +738,7 @@ export function BoundariesDiagram({
                     }}
                   />
                   <Text
-                    style={{ fontFamily: FONTS.semibold, fontSize: 10, color: COLORS.ink }}
+                    style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.ink }}
                     numberOfLines={1}
                   >
                     {`${dir} · ${COMPASS_FULL[dir]}`}
@@ -734,7 +760,7 @@ export function BoundariesDiagram({
               >
                 <HStack style={{ alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
                   <VStack style={{ gap: 1 }}>
-                    <Text style={{ fontFamily: FONTS.medium, fontSize: 10, color: '#92400E', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    <Text style={{ fontFamily: FONTS.semibold, fontSize: 12, color: '#92400E', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                       Total Area
                     </Text>
                     <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#78350F' }}>

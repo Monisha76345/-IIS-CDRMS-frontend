@@ -9,7 +9,7 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { ImagePreviewModal } from '@/src/cdrms/components/ImagePreviewModal';
 import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
-import { GlassHeaderBadge, GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
+import { GlassSectionCard, HeaderStatusBadge } from '@/src/cdrms/components/GlassSurface';
 import { captureSitePhoto } from '@/src/cdrms/hooks/useMediaCapture';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { showAppDialog } from '@/src/cdrms/components/AppDialog';
@@ -71,13 +71,7 @@ export function SchedulesEditorCard() {
       title="Site Schedules *"
       subtitle="Check the box if road exists and upload image"
       icon={MapPinned}
-      badge={
-        <GlassHeaderBadge>
-          <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
-            {photoCount}/4
-          </Text>
-        </GlassHeaderBadge>
-      }
+      badge={<HeaderStatusBadge label={`${photoCount}/4`} tone="info" />}
     >
       <VStack style={{ gap: SPACE[2] }}>
         {CARDINALS.map((k) => {
@@ -167,7 +161,7 @@ export function SchedulesEditorCard() {
                   <Text
                     style={{
                       fontFamily: FONTS.bold,
-                      fontSize: 10,
+                      fontSize: 12,
                       color: isRoad ? accent : COLORS.ink,
                     }}
                   >
@@ -178,7 +172,7 @@ export function SchedulesEditorCard() {
                 <TextInput
                   value={note}
                   onChangeText={(t) => setDirection(k, t)}
-                  placeholder={isRoad ? 'Width (eg:10ft)' : `${DIRECTION_META[k].label} by`}
+                  placeholder={isRoad ? 'Width (eg:30ft)' : `${DIRECTION_META[k].label} by`}
                   placeholderTextColor="#94A3B8"
                   underlineColorAndroid="transparent"
                   autoCorrect={false}

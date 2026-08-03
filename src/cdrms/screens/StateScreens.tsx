@@ -46,7 +46,7 @@ import {
   SurveyScaffold,
   WorkspaceHeader,
 } from '@/src/cdrms/components/SurveyLayout';
-import { GlassHeaderBadge, GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
+import { GlassSectionCard, HeaderStatusBadge } from '@/src/cdrms/components/GlassSurface';
 import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
 import { ReviewMediaPanel } from '@/src/cdrms/components/ReviewMediaPanel';
 import { ReviewSchedulesPanel } from '@/src/cdrms/components/ReviewSchedulesPanel';
@@ -364,8 +364,8 @@ function ReviewSectionCard({
               >
                 <Text
                   style={{
-                    fontFamily: FONTS.medium,
-                    fontSize: 10,
+                    fontFamily: FONTS.semibold,
+                    fontSize: 12,
                     color: COLORS.slate,
                     letterSpacing: 0.4,
                     textTransform: 'uppercase',
@@ -411,13 +411,7 @@ function ReviewSectionCard({
         icon={Icon}
         title={title}
         subtitle={subtitle}
-        badge={
-          <GlassHeaderBadge>
-            <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
-              {reviewStepBadge(stepLabel, stepTotal)}
-            </Text>
-          </GlassHeaderBadge>
-        }
+        badge={<HeaderStatusBadge label={reviewStepBadge(stepLabel, stepTotal)} tone="info" />}
       >
         {body}
       </GlassSectionCard>
@@ -570,7 +564,9 @@ export function ReviewScreen({ go }: { go: Go }) {
           stepLabel: 'STEP 03',
           icon: Ruler,
           title: 'Dimensions',
-          subtitle: plotDimsReady ? `Live plot · ${fullDimDisplay}` : 'Site measurements',
+          subtitle: plotDimsReady
+            ? `Live plot · Site No ${draft.siteNo.trim() || draft.surveyNo.trim() || '—'} · ${fullDimDisplay}`
+            : 'Site measurements',
           iconBg: '#4F46E5',
           rows: filterReviewRows([{ label: 'Dimensions', value: fullDimDisplay }]),
           plot: plotDimsReady,
@@ -810,11 +806,10 @@ export function ReviewScreen({ go }: { go: Go }) {
               : surveyLine || 'Final check before CAO review'
           }
           badge={
-            <GlassHeaderBadge>
-              <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
-                {draft.status === 'submitted' ? 'SUBMITTED' : 'DRAFT'}
-              </Text>
-            </GlassHeaderBadge>
+            <HeaderStatusBadge
+              label={draft.status === 'submitted' ? 'SUBMITTED' : 'DRAFT'}
+              tone={draft.status === 'submitted' ? 'success' : 'warning'}
+            />
           }
         >
           <HStack style={{ flexWrap: 'wrap', gap: 6 }}>

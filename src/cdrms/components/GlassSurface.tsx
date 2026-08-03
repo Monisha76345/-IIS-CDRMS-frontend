@@ -123,21 +123,82 @@ export function GlassCard({
 }
 
 /** Pill badge for section headers — always high-contrast on primary. */
-export function GlassHeaderBadge({ children }: { children: ReactNode }) {
+const HEADER_BADGE_TONES = {
+  /** Solid on gradient — for icons / short metrics. */
+  default: { bg: COLORS.primaryDeep, fg: '#FFFFFF', border: 'transparent' },
+  success: { bg: '#ECFDF5', fg: '#047857', border: '#A7F3D0' },
+  warning: { bg: '#FFF7ED', fg: '#C2410C', border: '#FDBA74' },
+  danger: { bg: '#FEF2F2', fg: '#B91C1C', border: '#FECACA' },
+  info: { bg: '#EFF6FF', fg: '#1D4ED8', border: '#BFDBFE' },
+  neutral: { bg: '#F8FAFC', fg: '#334155', border: '#E2E8F0' },
+} as const;
+
+export type HeaderBadgeTone = keyof typeof HEADER_BADGE_TONES;
+
+export function GlassHeaderBadge({
+  children,
+  tone = 'default',
+}: {
+  children: ReactNode;
+  tone?: HeaderBadgeTone;
+}) {
+  const t = HEADER_BADGE_TONES[tone] ?? HEADER_BADGE_TONES.default;
   return (
     <HStack
       style={{
         alignItems: 'center',
         gap: 4,
-        paddingHorizontal: 7,
-        paddingVertical: 4,
-        borderRadius: DESIGN.chipRadius > 40 ? 999 : DESIGN.chipRadius,
-        backgroundColor: COLORS.primaryDeep,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 999,
+        backgroundColor: t.bg,
+        borderWidth: tone === 'default' ? 0 : 1.5,
+        borderColor: t.border,
       }}
     >
       {children}
     </HStack>
   );
+}
+
+/** Colored status chip for card headers (Empty / Occupied / Done / …). */
+export function HeaderStatusBadge({
+  label,
+  tone: toneOverride,
+}: {
+  label: string;
+  tone?: HeaderBadgeTone;
+}) {
+  const key = label.trim().toLowerCase();
+  const tone: HeaderBadgeTone =
+    toneOverride ??
+    (key === 'empty' || key === 'done' || key === 'ready' || key === 'even'
+      ? 'success'
+      : key === 'occupied'
+        ? 'warning'
+        : key === 'odd'
+          ? 'danger'
+          : 'info');
+  const fg = HEADER_BADGE_TONES[tone].fg;
+  return (
+    <GlassHeaderBadge tone={tone}>
+      <Text
+        style={{
+          fontFamily: FONTS.bold,
+          fontSize: 12,
+          color: fg,
+          letterSpacing: 0.2,
+        }}
+      >
+        {label}
+      </Text>
+    </GlassHeaderBadge>
+  );
+}
+
+/** Pill badge for site dimension type — readable on gradient headers. */
+export function DimTypeBadge({ type }: { type: 'Even' | 'Odd' | string }) {
+  return <HeaderStatusBadge label={type === 'Odd' ? 'Odd' : 'Even'} />;
 }
 
 /** Solid theme gradient for section headers — no transparent orbs / overlays. */
@@ -177,7 +238,8 @@ function SectionHeaderTitle({
   const label = required ? title.replace(/\s*\*\s*$/, '') : title;
   const titleColor = onDark ? '#FFFFFF' : COLORS.ink;
   const subColor = onDark ? '#E2E8F0' : COLORS.slate;
-  const starColor = onDark ? '#FECACA' : COLORS.destructive;
+  /** Always vivid red so * stays visible on gradient and light headers. */
+  const starColor = COLORS.destructive;
   const iconBg = onDark ? COLORS.primaryDeep : COLORS.primary;
   const iconFg = '#FFFFFF';
 
@@ -205,7 +267,7 @@ function SectionHeaderTitle({
         <HStack style={{ alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <Text
             style={{
-              fontFamily: FONTS.bold,
+              fontFamily: FONTS.displayBold,
               fontSize: 15,
               color: titleColor,
               letterSpacing: -0.2,
@@ -216,8 +278,8 @@ function SectionHeaderTitle({
           {required ? (
             <Text
               style={{
-                fontFamily: FONTS.bold,
-                fontSize: 15,
+                fontFamily: FONTS.displayBold,
+                fontSize: 16,
                 color: starColor,
                 letterSpacing: -0.2,
               }}
@@ -229,8 +291,8 @@ function SectionHeaderTitle({
         {subtitle ? (
           <Text
             style={{
-              fontFamily: FONTS.medium,
-              fontSize: 11,
+              fontFamily: FONTS.semibold,
+              fontSize: 13,
               color: subColor,
             }}
           >

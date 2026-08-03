@@ -117,7 +117,7 @@ export function ReviewMediaPanel({ variant = 'default' }: { variant?: 'default' 
               />
             </Pressable>
           ) : (
-            <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.slate }}>
+            <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.slate }}>
               No selfie captured
             </Text>
           )}
@@ -163,7 +163,7 @@ export function ReviewMediaPanel({ variant = 'default' }: { variant?: 'default' 
               ))}
             </Box>
           ) : (
-            <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.slate }}>
+            <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.slate }}>
               No extra site photos
             </Text>
           )}
@@ -188,7 +188,7 @@ export function ReviewMediaPanel({ variant = 'default' }: { variant?: 'default' 
               />
             </Box>
           ) : (
-            <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.slate }}>
+            <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.slate }}>
               No video captured
             </Text>
           )}

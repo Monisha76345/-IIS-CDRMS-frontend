@@ -27,17 +27,13 @@ import { useTheme } from '@/src/theme/ThemeContext';
 import type { ThemeId } from '@/src/cdrms/themePresets';
 import type { Go } from '@/src/cdrms/types';
 
-/** Profile grid groups — same order as THEME_OPTIONS. */
+/** Profile grid groups — Ocean Blue, Navy, Azure, Sky. */
 const PROFILE_THEME_GROUPS: ReadonlyArray<{
   id: LayoutId;
   title: string;
   ids: readonly ThemeId[];
 }> = [
-  { id: 'classic', title: 'Classic', ids: ['blue', 'sky', 'indigo', 'azure'] },
-  { id: 'nature', title: 'Nature', ids: ['teal', 'emerald', 'mint', 'forest'] },
-  { id: 'soft', title: 'Soft', ids: ['pink', 'blush', 'peach', 'lavender'] },
-  { id: 'bold', title: 'Bold', ids: ['rose', 'coral', 'amber', 'wine'] },
-  { id: 'minimal', title: 'Minimal', ids: ['slate', 'zinc', 'stone', 'charcoal'] },
+  { id: 'classic', title: 'App Themes', ids: ['blue', 'navy', 'azure', 'sky'] },
 ];
 
 /**
@@ -218,7 +214,7 @@ export function ThemeToggleButton({
               marginBottom: 10,
             }}
           >
-            Tap a color · More on Profile
+            Tap a color to switch theme
           </Text>
 
           <HStack style={{ gap: 8, alignItems: 'flex-start' }}>
@@ -266,40 +262,6 @@ export function ThemeToggleButton({
                 </Pressable>
               );
             })}
-
-            {/* Extra control → Profile full theme list */}
-            <Pressable
-              onPress={openMoreThemes}
-              accessibilityLabel="More themes on profile"
-              className="active:opacity-85"
-              style={{ alignItems: 'center', gap: 4, flex: 1 }}
-            >
-              <Box
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 999,
-                  backgroundColor: COLORS.muted,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
-                }}
-              >
-                <Ellipsis size={18} color={COLORS.primary} strokeWidth={2.4} />
-              </Box>
-              <Text
-                numberOfLines={1}
-                style={{
-                  fontFamily: FONTS.bold,
-                  fontSize: 9,
-                  color: COLORS.primary,
-                  textAlign: 'center',
-                }}
-              >
-                More
-              </Text>
-            </Pressable>
           </HStack>
         </Animated.View>
       </Modal>
@@ -338,7 +300,7 @@ export function ThemePicker() {
       >
         Color + layout style change together across the app.
       </Text>
-      <Text style={{ fontFamily: FONTS.semibold, fontSize: 10, color: COLORS.primary }}>
+      <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.primary }}>
         Design: {layout.label} — {layout.blurb}
       </Text>
 
@@ -415,7 +377,7 @@ export function ThemePicker() {
         </VStack>
       ))}
 
-      <Text style={{ fontFamily: FONTS.medium, fontSize: 10, color: COLORS.slate }}>
+      <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.slate }}>
         Current: {getThemeOption(themeId).label}
       </Text>
     </VStack>

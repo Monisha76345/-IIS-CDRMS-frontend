@@ -560,23 +560,20 @@ export function formatApplicationDateTime(iso?: string | null): string {
 }
 
 /**
- * Single date line for application cards — starts as Assigned, then updates by status.
- * - assigned → Assigned · {createdAt}
- * - in_progress → In progress · {updatedAt || createdAt}
- * - submitted → Submitted · {engineerSubmittedAt}
+ * Date/time line for application cards (no status prefix — badge already shows status).
+ * - submitted → engineerSubmittedAt
+ * - in_progress → updatedAt || createdAt
+ * - assigned → createdAt
  */
 export function applicationCardDateLine(app: MobileApplication): string {
   const status = normalizeApplicationStatus(app.status) ?? app.status;
   if (status === 'submitted' || Boolean(app.engineerSubmittedAt?.trim())) {
-    const when = formatApplicationDateTime(app.engineerSubmittedAt);
-    return when === '—' ? 'Submitted' : `Submitted · ${when}`;
+    return formatApplicationDateTime(app.engineerSubmittedAt);
   }
   if (status === 'in_progress') {
-    const when = formatApplicationDateTime(app.updatedAt || app.createdAt);
-    return when === '—' ? 'In progress' : `In progress · ${when}`;
+    return formatApplicationDateTime(app.updatedAt || app.createdAt);
   }
-  const when = formatApplicationDateTime(app.createdAt);
-  return when === '—' ? 'Assigned' : `Assigned · ${when}`;
+  return formatApplicationDateTime(app.createdAt);
 }
 
 export type ApplicationStatusTone = {
@@ -598,8 +595,8 @@ export function applicationStatusTone(
   if (raw === 'assigned') {
     return { bg: '#E0F2FE', fg: '#075985', bar: '#0EA5E9', border: '#BAE6FD' };
   }
-  if (raw === 'in_progress' || raw === 'inprogress') {
-    return { bg: '#FFFBEB', fg: '#92400E', bar: '#F59E0B', border: '#FDE68A' };
+  if (raw === 'in_progress' || raw === 'inprogress' || raw === 'in-progress') {
+    return { bg: '#FEE2E2', fg: '#DC2626', bar: '#EF4444', border: '#FCA5A5' };
   }
   if (raw === 'submitted' || raw === 'pending_cao' || raw === 'pending') {
     return { bg: '#F5F3FF', fg: '#5B21B6', bar: '#8B5CF6', border: '#DDD6FE' };

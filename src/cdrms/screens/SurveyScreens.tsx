@@ -42,7 +42,7 @@ import { Textarea, TextareaInput } from '@/components/ui/textarea';
 import { VStack } from '@/components/ui/vstack';
 import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
 import { ImagePreviewModal } from '@/src/cdrms/components/ImagePreviewModal';
-import { FrostedGlass, GlassHeaderBadge, GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
+import { FrostedGlass, GlassHeaderBadge, GlassSectionCard, HeaderStatusBadge } from '@/src/cdrms/components/GlassSurface';
 import { LiveCompassDial } from '@/src/cdrms/components/LiveCompassDial';
 import { LiveGpsPanel } from '@/src/cdrms/components/LiveGpsPanel';
 import { SchedulesEditorCard } from '@/src/cdrms/components/SchedulesEditorCard';
@@ -311,15 +311,11 @@ export function BandiScreen({ go }: { go: Go }) {
               ? `Live ${draft.compassReading} · turn phone to update`
               : 'Hold phone flat — live sensor on real device'
           }
-          badge={
-            compassFace ? (
-              <GlassHeaderBadge>
-                <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
-                  {compassFace}
-                </Text>
-              </GlassHeaderBadge>
-            ) : undefined
-          }
+            badge={
+              compassFace ? (
+                <HeaderStatusBadge label={compassFace} tone="info" />
+              ) : undefined
+            }
         >
           <LiveCompassDial />
         </GlassSectionCard>
@@ -350,22 +346,22 @@ export function BandiScreen({ go }: { go: Go }) {
             subtitle=""
             badge={
               mapGps ? (
-                <GlassHeaderBadge>
+                <GlassHeaderBadge tone="success">
                   <Box
                     style={{
                       width: 6,
                       height: 6,
                       borderRadius: 3,
-                      backgroundColor: COLORS.success,
+                      backgroundColor: '#047857',
                     }}
                   />
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: '#047857' }}>
                     {`±${Math.round(mapGps.accuracy ?? 6)}m`}
                   </Text>
                 </GlassHeaderBadge>
               ) : geoBusy ? (
-                <GlassHeaderBadge>
-                  <ActivityIndicator size={10} color="#FFFFFF" />
+                <GlassHeaderBadge tone="info">
+                  <ActivityIndicator size={10} color="#1D4ED8" />
                 </GlassHeaderBadge>
               ) : undefined
             }
@@ -438,8 +434,8 @@ export function BandiScreen({ go }: { go: Go }) {
                     </HStack>
 
                     <HStack className="items-center justify-between">
-                      <Text style={{ ...TYPE.caption, color: COLORS.slate, fontSize: 11 }}>Latitude</Text>
-                      <Text style={{ ...TYPE.bodyStrong, fontSize: 12, color: COLORS.ink }}>
+                      <Text style={{ fontFamily: FONTS.bold, color: COLORS.ink, fontSize: 13 }}>Latitude</Text>
+                      <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink, fontWeight: '800' }}>
                         {mapGps ? mapGps.latitude.toFixed(6) : '—'}
                       </Text>
                     </HStack>
@@ -447,8 +443,8 @@ export function BandiScreen({ go }: { go: Go }) {
                     <Box style={{ height: 1, backgroundColor: GLASS.divider }} />
 
                     <HStack className="items-center justify-between">
-                      <Text style={{ ...TYPE.caption, color: COLORS.slate, fontSize: 11 }}>Longitude</Text>
-                      <Text style={{ ...TYPE.bodyStrong, fontSize: 12, color: COLORS.ink }}>
+                      <Text style={{ fontFamily: FONTS.bold, color: COLORS.ink, fontSize: 13 }}>Longitude</Text>
+                      <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink, fontWeight: '800' }}>
                         {mapGps ? mapGps.longitude.toFixed(6) : '—'}
                       </Text>
                     </HStack>
@@ -493,13 +489,7 @@ export function BandiScreen({ go }: { go: Go }) {
                   : 'Required before continuing'
             }
             badge={
-              draft.occupancy ? (
-                <GlassHeaderBadge>
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
-                    {draft.occupancy}
-                  </Text>
-                </GlassHeaderBadge>
-              ) : undefined
+              draft.occupancy ? <HeaderStatusBadge label={draft.occupancy} /> : undefined
             }
           >
             <FrostedGlass
@@ -516,6 +506,10 @@ export function BandiScreen({ go }: { go: Go }) {
               <HStack style={{ gap: SPACE[3], alignItems: 'center' }}>
                 {(['Empty', 'Occupied'] as const).map((opt) => {
                   const on = draft.occupancy === opt;
+                  const empty = opt === 'Empty';
+                  const activeBg = empty ? '#ECFDF5' : '#FFF7ED';
+                  const activeBorder = empty ? '#6EE7B7' : '#FDBA74';
+                  const activeFg = empty ? '#047857' : '#C2410C';
                   return (
                     <Pressable
                       key={opt}
@@ -532,9 +526,9 @@ export function BandiScreen({ go }: { go: Go }) {
                         paddingVertical: SPACE[2],
                         paddingHorizontal: SPACE[2],
                         borderRadius: DESIGN.stepRadius,
-                        backgroundColor: on ? GLASS.tintBlue : GLASS.surface,
-                        borderWidth: 1,
-                        borderColor: on ? COLORS.primary : GLASS.border,
+                        backgroundColor: on ? activeBg : GLASS.surface,
+                        borderWidth: 1.5,
+                        borderColor: on ? activeBorder : GLASS.border,
                       }}
                     >
                       <Box
@@ -543,7 +537,7 @@ export function BandiScreen({ go }: { go: Go }) {
                           height: 16,
                           borderRadius: DESIGN.stepRadius,
                           borderWidth: 2,
-                          borderColor: on ? COLORS.primary : '#94A3B8',
+                          borderColor: on ? activeFg : '#94A3B8',
                           backgroundColor: COLORS.white,
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -555,16 +549,16 @@ export function BandiScreen({ go }: { go: Go }) {
                               width: 8,
                               height: 8,
                               borderRadius: 4,
-                              backgroundColor: COLORS.primary,
+                              backgroundColor: activeFg,
                             }}
                           />
                         ) : null}
                       </Box>
                       <Text
                         style={{
-                          fontFamily: FONTS.semibold,
+                          fontFamily: FONTS.bold,
                           fontSize: 13,
-                          color: on ? COLORS.primary : COLORS.ink,
+                          color: on ? activeFg : COLORS.ink,
                         }}
                       >
                         {opt}
@@ -1372,14 +1366,7 @@ export function PhotosScreen({ go }: { go: Go }) {
             title="Selfie *"
             subtitle=""
             badge={
-              draft.selfie ? (
-                <GlassHeaderBadge>
-                  <CheckCircle2 size={10} color="#FFFFFF" strokeWidth={2.5} />
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
-                    Done
-                  </Text>
-                </GlassHeaderBadge>
-              ) : undefined
+              draft.selfie ? <HeaderStatusBadge label="Done" /> : undefined
             }
           >
             {draft.selfie ? (
@@ -1435,7 +1422,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                           backgroundColor: COLORS.primary,
                         }}
                       >
-                        <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
+                        <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#FFFFFF' }}>
                           Retake
                         </Text>
                       </Pressable>
@@ -1500,11 +1487,10 @@ export function PhotosScreen({ go }: { go: Go }) {
                 : `${draft.photos.length} of ${maxPhotos} uploaded`
             }
             badge={
-              <GlassHeaderBadge>
-                <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
-                  {draft.photos.length}/{maxPhotos}
-                </Text>
-              </GlassHeaderBadge>
+              <HeaderStatusBadge
+                label={`${draft.photos.length}/${maxPhotos}`}
+                tone="info"
+              />
             }
           >
             <VStack style={{ gap: SPACE[2] }}>
@@ -1578,8 +1564,8 @@ export function PhotosScreen({ go }: { go: Go }) {
                   >
                     <Text
                       style={{
-                        fontFamily: FONTS.medium,
-                        fontSize: 11,
+                        fontFamily: FONTS.semibold,
+                        fontSize: 13,
                         color: COLORS.slate,
                         textAlign: 'center',
                         lineHeight: 16,
@@ -1601,11 +1587,7 @@ export function PhotosScreen({ go }: { go: Go }) {
             subtitle=""
             badge={
               draft.engineerComments.trim() ? (
-                <GlassHeaderBadge>
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: '#FFFFFF' }}>
-                    Done
-                  </Text>
-                </GlassHeaderBadge>
+                <HeaderStatusBadge label="Done" />
               ) : undefined
             }
           >
@@ -1687,7 +1669,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                       Selfie captured
                     </Text>
                   </HStack>
-                  <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: '#64748B' }}>
+                  <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: '#64748B' }}>
                     Engineer verification photo ready
                   </Text>
                   <HStack style={{ gap: SPACE[2], marginTop: 2 }}>
@@ -1767,7 +1749,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                 Uploaded site photos
               </Text>
               <Text
-                style={{ fontFamily: FONTS.medium, fontSize: 12, color: '#64748B', lineHeight: 17 }}
+                style={{ fontFamily: FONTS.semibold, fontSize: 13, color: '#64748B', lineHeight: 17 }}
               >
                 {draft.photos.length === 0
                   ? 'No extra site photos yet'
@@ -1900,7 +1882,7 @@ export function PhotosScreen({ go }: { go: Go }) {
               <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}>
                 Ready on device
               </Text>
-              <Text style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}>
+              <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.ink }}>
                 {draft.photos.length} photo{draft.photos.length === 1 ? '' : 's'} stored locally
               </Text>
             </VStack>
@@ -2070,7 +2052,7 @@ export function VideoScreen({ go }: { go: Go }) {
                   Site Walk-through
                 </Text>
                 <Text
-                  style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}
+                  style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.ink }}
                   numberOfLines={1}
                 >
                   Recorded {recordedLabel}
@@ -2172,7 +2154,7 @@ export function VideoScreen({ go }: { go: Go }) {
                 Video ready
               </Text>
               <Text
-                style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink, marginTop: 2 }}
+                style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.ink, marginTop: 2 }}
               >
                 Max size 50 MB · stored on this device
               </Text>

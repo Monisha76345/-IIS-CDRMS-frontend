@@ -109,7 +109,7 @@ export function ReviewSchedulesPanel({ variant = 'default' }: { variant?: 'defau
                   <Text
                     style={{
                       fontFamily: FONTS.bold,
-                      fontSize: 10,
+                      fontSize: 12,
                       color: isRoad ? accent : COLORS.ink,
                     }}
                   >
