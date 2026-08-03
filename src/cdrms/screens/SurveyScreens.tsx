@@ -254,16 +254,10 @@ export function BandiScreen({ go }: { go: Go }) {
       }
       surface={isBackendTask ? 'premium' : 'default'}
       onBack={() => {
-        void (async () => {
-          if (isBackendTask) {
-            try {
-              await reloadBackendDraft();
-            } catch {
-              /* still navigate */
-            }
-          }
-          go('project');
-        })();
+        go('project', { replace: true });
+        if (isBackendTask) {
+          void reloadBackendDraft().catch(() => undefined);
+        }
       }}
       step={2}
       total={isBackendTask ? 4 : 5}
@@ -1312,16 +1306,10 @@ export function PhotosScreen({ go }: { go: Go }) {
       }
       surface={isBackendTask ? 'premium' : 'default'}
       onBack={() => {
-        void (async () => {
-          if (isBackendTask) {
-            try {
-              await reloadBackendDraft();
-            } catch {
-              /* still navigate */
-            }
-          }
-          go(backScreen);
-        })();
+        go(backScreen, { replace: true });
+        if (isBackendTask) {
+          void reloadBackendDraft().catch(() => undefined);
+        }
       }}
       step={4}
       total={isBackendTask ? 4 : 5}

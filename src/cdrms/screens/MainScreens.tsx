@@ -1343,7 +1343,7 @@ export function HistoryScreen({ go }: { go: Go }) {
             : `${filtered.length} application${filtered.length === 1 ? '' : 's'}`
         }
         go={go}
-        onBack={backTarget ? () => go(backTarget) : undefined}
+        onBack={() => go(backTarget ?? 'dashboard', { replace: true })}
       />
 
       <Box style={{ backgroundColor: COLORS.soft }}>

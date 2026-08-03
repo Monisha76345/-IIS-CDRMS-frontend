@@ -191,14 +191,8 @@ export function DimensionsScreen({ go }: { go: Go }) {
       subtitle="N / S / E / W · live plot updates"
       surface="premium"
       onBack={() => {
-        void (async () => {
-          try {
-            await reloadBackendDraft();
-          } catch {
-            /* still navigate */
-          }
-          go('bandi');
-        })();
+        go('bandi', { replace: true });
+        void reloadBackendDraft().catch(() => undefined);
       }}
       step={3}
       total={4}

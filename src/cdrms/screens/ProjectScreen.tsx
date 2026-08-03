@@ -299,16 +299,11 @@ export function ProjectScreen({ go }: { go: Go }) {
       }
       surface={isBackendTask ? 'premium' : 'default'}
       onBack={() => {
-        void (async () => {
-          if (isBackendTask) {
-            try {
-              await reloadBackendDraft();
-            } catch {
-              /* still leave */
-            }
-          }
-          go(isResubmit || isBackendTask ? 'history' : 'dashboard');
-        })();
+        // Navigate immediately — never block back on draft reload.
+        go(isResubmit || isBackendTask ? 'history' : 'dashboard', { replace: true });
+        if (isBackendTask) {
+          void reloadBackendDraft().catch(() => undefined);
+        }
       }}
       step={1}
       total={isBackendTask ? 4 : 5}

@@ -31,6 +31,11 @@ export type Screen =
   | 'profile'
   | 'error';
 
-export type Go = (screen: Screen) => void;
+export type GoOptions = {
+  /** Don't push the current screen onto the back stack (use for back / leave). */
+  replace?: boolean;
+};
+
+export type Go = (screen: Screen, opts?: GoOptions) => void;
 
 export type NavTab = 'home' | 'apps' | 'notif' | 'profile';

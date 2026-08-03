@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Box } from '@/components/ui/box';
 import { ProjectProvider } from '@/src/cdrms/project/ProjectContext';
@@ -49,6 +49,26 @@ import {
 import type { Go, Screen } from '@/src/cdrms/types';
 import { AppDialogHost } from '@/src/cdrms/components/AppDialog';
 import { ScreenLoader } from '@/src/cdrms/components/primitives';
+import { useHardwareBackFallback } from '@/src/cdrms/hooks/useHardwareBack';
+
+/** Role homes / auth entry — don't keep prior screens behind these. */
+const STACK_RESET_SCREENS: ReadonlySet<Screen> = new Set([
+  'splash',
+  'login',
+  'dashboard',
+  'zc_home',
+  'cao_home',
+  'history',
+  'cao_apps',
+]);
+
+const AUTH_SCREENS: ReadonlySet<Screen> = new Set([
+  'splash',
+  'login',
+  'otp',
+  'permission',
+  'geo',
+]);
 
 function ScreenTransitionWrapper({
   screen,
@@ -58,12 +78,7 @@ function ScreenTransitionWrapper({
   children: React.ReactNode;
 }) {
   const [transitioning, setTransitioning] = useState(false);
-  const isAuthScreen =
-    screen === 'splash' ||
-    screen === 'login' ||
-    screen === 'otp' ||
-    screen === 'permission' ||
-    screen === 'geo';
+  const isAuthScreen = AUTH_SCREENS.has(screen);
 
   useEffect(() => {
     if (isAuthScreen) {
@@ -77,26 +92,76 @@ function ScreenTransitionWrapper({
     return () => clearTimeout(timer);
   }, [screen, isAuthScreen]);
 
-  if (transitioning && !isAuthScreen) {
-    return <ScreenLoader fullScreen />;
-  }
-
-  return <>{children}</>;
+  return (
+    <Box className="flex-1">
+      {children}
+      {transitioning && !isAuthScreen ? (
+        <Box
+          className="absolute inset-0 items-center justify-center"
+          style={{ backgroundColor: '#FFFFFF', zIndex: 50 }}
+          pointerEvents="auto"
+        >
+          <ScreenLoader fullScreen />
+        </Box>
+      ) : null}
+    </Box>
+  );
 }
 
 export function CdrmsApp() {
   const { isAuthenticated } = useAuth();
   const [screen, setScreen] = useState<Screen>('splash');
+  const historyRef = useRef<Screen[]>([]);
+  const authedRef = useRef(isAuthenticated);
+  authedRef.current = isAuthenticated;
 
-  const go: Go = useCallback((s) => {
-    setScreen(s);
+  const go: Go = useCallback((next, opts) => {
+    setScreen((current) => {
+      if (current === next) return current;
+
+      const replace = Boolean(opts?.replace);
+
+      // Landing on role home from auth — clear back stack so device back exits.
+      if (
+        STACK_RESET_SCREENS.has(next) &&
+        (AUTH_SCREENS.has(current) || STACK_RESET_SCREENS.has(current))
+      ) {
+        historyRef.current = [];
+      } else if (STACK_RESET_SCREENS.has(next) && next !== 'login' && next !== 'splash') {
+        // Switching bottom-nav homes / leaving a flow for home — reset stack.
+        historyRef.current = [];
+      } else if (replace) {
+        // In-app / hardware back within a flow — do not grow the stack.
+      } else {
+        historyRef.current.push(current);
+        if (historyRef.current.length > 40) {
+          historyRef.current = historyRef.current.slice(-40);
+        }
+      }
+      return next;
+    });
   }, []);
+
+  // Screens without an in-app back (profile / notifications tabs): pop history.
+  useHardwareBackFallback(() => {
+    const prev = historyRef.current.pop();
+    if (!prev) return false;
+    // Avoid bouncing back into auth from an authenticated session.
+    if (!authedRef.current && !AUTH_SCREENS.has(prev) && prev !== 'login') {
+      setScreen('login');
+      historyRef.current = [];
+      return true;
+    }
+    setScreen(prev);
+    return true;
+  });
 
   // If session is cleared while on an app / gate screen, return to login.
   // Never keep the user on permission/geo without an active login.
   useEffect(() => {
     if (isAuthenticated) return;
     if (screen === 'splash' || screen === 'login' || screen === 'otp') return;
+    historyRef.current = [];
     setScreen('login');
   }, [isAuthenticated, screen]);
 

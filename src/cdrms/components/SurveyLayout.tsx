@@ -23,6 +23,7 @@ import { ScrollView } from '@/components/ui/scroll-view';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { ScreenShell } from '@/src/cdrms/components/primitives';
+import { useHardwareBack } from '@/src/cdrms/hooks/useHardwareBack';
 import { ENGINEER_SURVEY_STEPS, SURVEY_STEPS } from '@/src/cdrms/terminology';
 import { COLORS, DESIGN, FONTS, GRADIENT_HEADER, GRADIENT_PRIMARY, GLASS, SPACE, TYPE, gradientStops, hexAlpha } from '@/src/cdrms/theme';
 import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
@@ -809,6 +810,8 @@ export function SurveyScaffold({
   const keyboardOpenRef = useRef(false);
   const isPremium = surface === 'premium';
   const { themeId } = useTheme();
+  /** Device back button mirrors the survey header back control. */
+  useHardwareBack(onBack);
 
   useEffect(() => {
     // keyboardWill* fires before layout settles — freeze compact header early.

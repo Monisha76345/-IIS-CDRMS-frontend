@@ -23,6 +23,7 @@ import {
   View,
   type TextInputProps,
 } from 'react-native';
+import { useHardwareBack } from '@/src/cdrms/hooks/useHardwareBack';
 import type { View as RNView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -412,6 +413,8 @@ export function AppHeader({
   const insets = useSafeAreaInsets();
   const { themeId } = useTheme();
   const { logout, isAuthenticated, user } = useAuth();
+  /** Device back button mirrors the in-app header back control. */
+  useHardwareBack(onBack);
   const backRadius = DESIGN.stepRadius > 40 ? 999 : DESIGN.stepRadius;
   const role = resolveAppRole(user);
   const isCompactOfficeNav =
