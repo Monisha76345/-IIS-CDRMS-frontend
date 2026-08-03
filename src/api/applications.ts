@@ -40,6 +40,7 @@ export type ApplicationHistoryItem = {
 export type MobileApplication = {
   id: string;
   applicationNumber: string;
+  eOfficeNumber?: string | null;
   siteNo: string;
   addressArea: string;
   addressBlock: string;
@@ -125,6 +126,7 @@ export type CaoCounts = {
 };
 
 export type CreateApplicationInput = {
+  eOfficeNumber: string;
   siteNo: string;
   addressArea: string;
   addressBlock: string;
@@ -245,6 +247,7 @@ function normalizeApplication(raw: Record<string, unknown>): MobileApplication {
   return {
     id: String(raw.id ?? ''),
     applicationNumber: String(raw.applicationNumber ?? ''),
+    eOfficeNumber: raw.eOfficeNumber != null ? String(raw.eOfficeNumber) : null,
     siteNo: String(raw.siteNo ?? ''),
     addressArea: String(raw.addressArea ?? ''),
     addressBlock: String(raw.addressBlock ?? ''),

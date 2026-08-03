@@ -477,7 +477,7 @@ async function buildHtml(app: MobileApplication, token: string): Promise<string>
             <td style="vertical-align:middle;padding-left:8px;">
               <div style="color:#93c5fd;font-size:8px;font-weight:bold;letter-spacing:0.8px;text-transform:uppercase;">BANGALORE DEVELOPMENT AUTHORITY</div>
               <div style="color:#ffffff;font-size:15px;font-weight:bold;line-height:18px;">CDRMS SITE SURVEY REPORT</div>
-              <div style="color:#e0e7ff;font-size:9px;margin-top:1px;">Ministry of Public Works · Government of Karnataka</div>
+              <div style="color:#e0e7ff;font-size:9px;margin-top:1px;">Ministry of Public Works · </div>
             </td>
             <td style="text-align:right;vertical-align:middle;">
               <div style="background:#ffffff;color:#0256d0;font-size:9.5px;font-weight:bold;padding:3px 8px;border-radius:14px;display:inline-block;">

@@ -860,11 +860,7 @@ export const Field = forwardRef<
           gap: compact ? SPACE[2] : SPACE[3],
           minHeight: compact ? 36 : SPACE.touch,
           paddingHorizontal: compact ? SPACE[2] : SPACE[3],
-          borderRadius: compact
-            ? Math.min(DESIGN.buttonRadius, 12)
-            : DESIGN.buttonRadius > 40
-              ? 16
-              : DESIGN.buttonRadius,
+          borderRadius: compact ? 6 : 8,
           borderWidth: DESIGN.borderWidth + 0.5,
           backgroundColor: COLORS.white,
           borderColor: COLORS.border,

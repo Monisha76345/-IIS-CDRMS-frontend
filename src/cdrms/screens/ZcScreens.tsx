@@ -20,7 +20,9 @@ import {
   Dimensions,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
+  ScrollView as RNNativeScrollView,
   TextInput,
   View,
   type ScrollView as RNScrollView,
@@ -285,6 +287,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
 }
 
 const emptyForm: CreateApplicationInput = {
+  eOfficeNumber: '',
   siteNo: '',
   addressArea: '',
   addressBlock: '',
@@ -310,6 +313,9 @@ function Field({
   blurOnSubmit,
   style,
   required,
+  error,
+  multiline,
+  numberOfLines,
 }: {
   label: string;
   value: string;
@@ -321,16 +327,20 @@ function Field({
   blurOnSubmit?: boolean;
   style?: object;
   required?: boolean;
+  error?: string;
+  multiline?: boolean;
+  numberOfLines?: number;
 }) {
   const inputRef = useRef<TextInput>(null);
+  const inputHeight = multiline ? Math.max(96, (numberOfLines ?? 4) * 22) : 40;
 
   return (
     <VStack style={[{ marginBottom: 0 }, style]}>
       <Text
         style={{
           fontFamily: FONTS.bold,
-          fontSize: 13,
-          color: COLORS.slate,
+          fontSize: 14,
+          color: COLORS.ink,
           marginBottom: 5,
           letterSpacing: 0.2,
         }}
@@ -344,28 +354,48 @@ function Field({
         onChangeText={onChange}
         placeholder={placeholder}
         placeholderTextColor={COLORS.slate}
+        multiline={multiline}
+        numberOfLines={multiline ? numberOfLines ?? 4 : 1}
+        textAlignVertical={multiline ? 'top' : 'center'}
+        scrollEnabled={multiline ? true : undefined}
         onFocus={() => {
           setTimeout(() => {
             inputRef.current?.measureInWindow((_x, y, _w, h) => {
-              onFocus?.({ y, height: h || 40 });
+              onFocus?.({ y, height: h || inputHeight });
             });
           }, Platform.OS === 'ios' ? 50 : 100);
         }}
-        returnKeyType={returnKeyType ?? 'next'}
+        returnKeyType={returnKeyType ?? (multiline ? 'default' : 'next')}
         onSubmitEditing={onSubmitEditing}
-        blurOnSubmit={blurOnSubmit ?? false}
+        blurOnSubmit={blurOnSubmit ?? !multiline}
         style={{
-          height: 40,
-          borderRadius: DESIGN.cardRadius,
-          borderWidth: 1,
-          borderColor: COLORS.border,
+          height: inputHeight,
+          minHeight: inputHeight,
+          maxHeight: inputHeight,
+          borderRadius: 8,
+          borderWidth: 1.5,
+          borderColor: error ? COLORS.destructive : '#94A3B8',
           backgroundColor: COLORS.white,
           paddingHorizontal: 12,
+          paddingTop: multiline ? 10 : undefined,
+          paddingBottom: multiline ? 10 : undefined,
           fontSize: 13,
           color: COLORS.ink,
           fontFamily: FONTS.medium,
         }}
       />
+      {error ? (
+        <Text
+          style={{
+            marginTop: 4,
+            fontSize: 11,
+            color: COLORS.destructive,
+            fontFamily: FONTS.medium,
+          }}
+        >
+          {error}
+        </Text>
+      ) : null}
     </VStack>
   );
 }
@@ -433,7 +463,7 @@ function PlainSectionCard({
             <Text
               style={{
                 fontFamily: FONTS.bold,
-                fontSize: 13,
+                fontSize: 16,
                 color: COLORS.ink,
                 letterSpacing: -0.1,
               }}
@@ -473,6 +503,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
   const keyboardHeightRef = useRef(0);
   const [zone, setZone] = useState<MyZoneMeta | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<string, string>>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [zoneError, setZoneError] = useState<string | null>(null);
@@ -482,22 +513,65 @@ export function ZcCreateScreen({ go }: { go: Go }) {
   const [newDimValue, setNewDimValue] = useState('');
   const [savingDim, setSavingDim] = useState(false);
   const [engOpen, setEngOpen] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const dimTriggerRef = useRef<View>(null);
+  const engTriggerRef = useRef<View>(null);
+  const [dimAnchor, setDimAnchor] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [engAnchor, setEngAnchor] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+
+  const DROPDOWN_ITEM_H = 41;
+  const DROPDOWN_MAX_ITEMS = 5;
+  const dropdownListHeight = (count: number) => {
+    if (count <= 0) return 44;
+    return Math.min(count, DROPDOWN_MAX_ITEMS) * DROPDOWN_ITEM_H;
+  };
+
+  const openDimDropdown = () => {
+    if (dimOpen) {
+      setDimOpen(false);
+      return;
+    }
+    dimTriggerRef.current?.measureInWindow((x, y, width, height) => {
+      setDimAnchor({ x, y, width, height });
+      setDimOpen(true);
+      setAddingDim(false);
+      setEngOpen(false);
+    });
+  };
+
+  const openEngDropdown = () => {
+    if (engOpen) {
+      setEngOpen(false);
+      return;
+    }
+    engTriggerRef.current?.measureInWindow((x, y, width, height) => {
+      setEngAnchor({ x, y, width, height });
+      setEngOpen(true);
+      setDimOpen(false);
+      setAddingDim(false);
+    });
+  };
 
   useEffect(() => {
     const show = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
       (e) => {
-        const h = e.endCoordinates?.height ?? 0;
-        keyboardHeightRef.current = h;
-        setKeyboardHeight(h);
+        keyboardHeightRef.current = e.endCoordinates?.height ?? 0;
       },
     );
     const hide = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
         keyboardHeightRef.current = 0;
-        setKeyboardHeight(0);
       },
     );
     return () => {
@@ -609,6 +683,12 @@ export function ZcCreateScreen({ go }: { go: Go }) {
       setAddingDim(false);
       setNewDimValue('');
       setDimOpen(false);
+      setFieldErrors((prev) => {
+        if (!prev.siteDimension) return prev;
+        const next = { ...prev };
+        delete next.siteDimension;
+        return next;
+      });
       showAppDialog({
         variant: 'success',
         title: 'Dimension saved',
@@ -631,58 +711,84 @@ export function ZcCreateScreen({ go }: { go: Go }) {
 
   const selectedEngineer = engineers.find((e) => e.userId === form.assignedEngineerUserId);
 
+  const clearFieldError = useCallback((key: string) => {
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
+  const validateForm = useCallback((): boolean => {
+    const next: Partial<Record<string, string>> = {};
+    const eOffice = form.eOfficeNumber.trim();
+    if (!eOffice) {
+      next.eOfficeNumber = 'E-office number is required';
+    } else if (eOffice.length < 3) {
+      next.eOfficeNumber = 'Enter a valid e-office number (min 3 characters)';
+    }
+
+    if (!form.siteNo.trim()) {
+      next.siteNo = 'Site no is required';
+    }
+
+    if (!form.siteDimensionType) {
+      next.siteDimensionType = 'Site type is required';
+    }
+
+    if (!form.siteDimension.trim()) {
+      next.siteDimension = 'Site dimension is required (e.g. 20*40)';
+    } else if (!/^\d+(\*\d+)+$/.test(form.siteDimension.trim().replace(/\s+/g, ''))) {
+      next.siteDimension = 'Use format like 20*40 or 20*40*50*40';
+    }
+
+    if (!form.addressArea.trim()) {
+      next.addressArea = 'Area is required';
+    }
+    if (!form.addressBlock.trim()) {
+      next.addressBlock = 'Block is required';
+    }
+
+    const pin = form.addressPincode.trim();
+    if (!pin) {
+      next.addressPincode = 'Pincode is required';
+    } else if (!/^\d{4,10}$/.test(pin)) {
+      next.addressPincode = 'Enter a valid pincode (4–10 digits)';
+    }
+
+    if (form.siteDimensionType === 'Odd' && !form.siteDimensionComment?.trim()) {
+      next.siteDimensionComment = 'Comments are required for Odd site type';
+    }
+
+    if (!String(form.assignedEngineerUserId || '').trim()) {
+      next.assignedEngineerUserId = 'Assign engineer is required';
+    }
+
+    setFieldErrors(next);
+    const first = Object.values(next)[0];
+    if (first) {
+      showAppDialog({
+        variant: 'warning',
+        title: 'Validation',
+        message: first,
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
+      return false;
+    }
+    return true;
+  }, [form]);
+
   const onSubmit = async () => {
     if (!accessToken) return;
-    if (!form.siteNo.trim()) {
-      return showAppDialog({
-        variant: 'warning',
-        title: 'Validation',
-        message: 'Site no is required',
-        hideCancel: true,
-        confirmLabel: 'OK',
-      });
-    }
-    if (!form.siteDimension.trim()) {
-      return showAppDialog({
-        variant: 'warning',
-        title: 'Validation',
-        message: 'Site dimension is required (e.g. 20*40)',
-        hideCancel: true,
-        confirmLabel: 'OK',
-      });
-    }
-    if (!form.addressArea.trim() || !form.addressBlock.trim() || !form.addressPincode.trim()) {
-      return showAppDialog({
-        variant: 'warning',
-        title: 'Validation',
-        message: 'Area, block and pincode are mandatory',
-        hideCancel: true,
-        confirmLabel: 'OK',
-      });
-    }
-    if (form.siteDimensionType === 'Odd' && !form.siteDimensionComment?.trim()) {
-      return showAppDialog({
-        variant: 'warning',
-        title: 'Validation',
-        message: 'Comment is required for Odd site type',
-        hideCancel: true,
-        confirmLabel: 'OK',
-      });
-    }
-    if (!String(form.assignedEngineerUserId || '').trim()) {
-      return showAppDialog({
-        variant: 'warning',
-        title: 'Validation',
-        message: 'Assign engineer is required',
-        hideCancel: true,
-        confirmLabel: 'OK',
-      });
-    }
+    if (!validateForm()) return;
 
     setSaving(true);
     try {
       const created = await createApplication(accessToken, {
         ...form,
+        eOfficeNumber: form.eOfficeNumber.trim(),
         siteNo: form.siteNo.trim(),
         addressArea: form.addressArea.trim(),
         addressBlock: form.addressBlock.trim(),
@@ -695,6 +801,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
         scheduleEast: form.scheduleEast?.trim() || undefined,
       });
       setForm(emptyForm);
+      setFieldErrors({});
       showAppDialog({
         variant: 'success',
         title: 'Application created',
@@ -706,10 +813,15 @@ export function ZcCreateScreen({ go }: { go: Go }) {
         onConfirm: () => go('zc_home'),
       });
     } catch (e) {
+      const msg =
+        e instanceof ApiError ? e.message : 'Failed to create application';
+      if (/e-office/i.test(msg) || /already used/i.test(msg)) {
+        setFieldErrors((prev) => ({ ...prev, eOfficeNumber: msg }));
+      }
       showAppDialog({
         variant: 'error',
         title: 'Could not create',
-        message: e instanceof ApiError ? e.message : 'Failed to create application',
+        message: msg,
         hideCancel: true,
         confirmLabel: 'OK',
       });
@@ -731,9 +843,9 @@ export function ZcCreateScreen({ go }: { go: Go }) {
         showLogout={false}
       />
       {/*
-        iOS: light padding avoidance.
-        Android: do NOT use behavior="height" — it shrinks the whole page upward.
-        Use keyboard-height padding + scroll only the focused field into view.
+        Avoid stacking KeyboardAvoidingView + live keyboard padding — that
+        expands/compresses the form while scrolling when the keyboard dismisses.
+        Use a stable bottom inset; scroll focused fields into view via ensureVisible.
       */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -746,14 +858,18 @@ export function ZcCreateScreen({ go }: { go: Go }) {
           style={{ flex: 1 }}
           contentContainerStyle={{
             paddingTop: 12,
-            paddingBottom: Math.max(24 + insets.bottom, keyboardHeight + 12),
+            paddingBottom: 32 + insets.bottom,
             gap: 12,
+            flexGrow: 1,
           }}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
           nestedScrollEnabled
+          scrollEnabled={!dimOpen && !engOpen}
           showsVerticalScrollIndicator
           scrollEventThrottle={16}
+          bounces={false}
+          overScrollMode="never"
           onScroll={(e) => {
             scrollYRef.current = e.nativeEvent.contentOffset.y;
           }}
@@ -775,20 +891,36 @@ export function ZcCreateScreen({ go }: { go: Go }) {
           ) : (
             <VStack style={{ gap: 12 }}>
               <PlainSectionCard title="Site details" icon={Ruler}>
+                <Field
+                  label="E-office number"
+                  required
+                  placeholder="Enter e-office number"
+                  value={form.eOfficeNumber}
+                  error={fieldErrors.eOfficeNumber}
+                  onChange={(v) => {
+                    setForm((f) => ({ ...f, eOfficeNumber: v }));
+                    clearFieldError('eOfficeNumber');
+                  }}
+                  style={{ marginBottom: 10 }}
+                />
                 <HStack style={{ gap: 8, marginBottom: 10 }}>
                   <Field
                     label="Site no"
                     required
                     value={form.siteNo}
-                    onChange={(v) => setForm((f) => ({ ...f, siteNo: v }))}
+                    error={fieldErrors.siteNo}
+                    onChange={(v) => {
+                      setForm((f) => ({ ...f, siteNo: v }));
+                      clearFieldError('siteNo');
+                    }}
                     style={{ flex: 1 }}
                   />
                   <VStack style={{ flex: 1 }}>
                     <Text
                       style={{
-                        fontFamily: FONTS.semibold,
-                        fontSize: 13,
-                        color: COLORS.slate,
+                        fontFamily: FONTS.bold,
+                        fontSize: 14,
+                        color: COLORS.ink,
                         marginBottom: 5,
                         letterSpacing: 0.2,
                       }}
@@ -802,7 +934,11 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                         return (
                           <Pressable
                             key={opt}
-                            onPress={() => setForm((f) => ({ ...f, siteDimensionType: opt }))}
+                            onPress={() => {
+                              setForm((f) => ({ ...f, siteDimensionType: opt }));
+                              clearFieldError('siteDimensionType');
+                              if (opt !== 'Odd') clearFieldError('siteDimensionComment');
+                            }}
                             style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}
                           >
                             <View
@@ -840,14 +976,26 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                         );
                       })}
                     </HStack>
+                    {fieldErrors.siteDimensionType ? (
+                      <Text
+                        style={{
+                          marginTop: 4,
+                          fontSize: 11,
+                          color: COLORS.destructive,
+                          fontFamily: FONTS.medium,
+                        }}
+                      >
+                        {fieldErrors.siteDimensionType}
+                      </Text>
+                    ) : null}
                   </VStack>
                 </HStack>
 
                 <Text
                   style={{
-                    fontFamily: FONTS.semibold,
-                    fontSize: 13,
-                    color: COLORS.slate,
+                    fontFamily: FONTS.bold,
+                    fontSize: 14,
+                    color: COLORS.ink,
                     marginBottom: 5,
                     letterSpacing: 0.2,
                   }}
@@ -855,19 +1003,16 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                   Site dimension
                   <Text style={{ color: COLORS.destructive, fontFamily: FONTS.bold }}> *</Text>
                 </Text>
-                <HStack style={{ gap: 8, marginBottom: dimOpen || addingDim ? 6 : 0, alignItems: 'center' }}>
+                <HStack style={{ gap: 8, marginBottom: addingDim ? 6 : 0, alignItems: 'center' }}>
                   <Pressable
-                    onPress={() => {
-                      setDimOpen((o) => !o);
-                      setAddingDim(false);
-                      setEngOpen(false);
-                    }}
+                    ref={dimTriggerRef as any}
+                    onPress={openDimDropdown}
                     style={{
                       flex: 1,
                       height: 40,
-                      borderRadius: DESIGN.stepRadius,
-                      borderWidth: 1,
-                      borderColor: COLORS.border,
+                      borderRadius: 8,
+                      borderWidth: 1.5,
+                      borderColor: fieldErrors.siteDimension ? COLORS.destructive : '#94A3B8',
                       backgroundColor: COLORS.white,
                       paddingHorizontal: 11,
                       flexDirection: 'row',
@@ -897,7 +1042,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     style={{
                       height: 40,
                       paddingHorizontal: 12,
-                      borderRadius: DESIGN.cardRadius,
+                      borderRadius: 8,
                       overflow: 'hidden',
                     }}
                   >
@@ -918,53 +1063,22 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     </LinearGradient>
                   </Pressable>
                 </HStack>
-
-                {dimOpen ? (
-                  <Box
+                {fieldErrors.siteDimension ? (
+                  <Text
                     style={{
-                      borderRadius: DESIGN.stepRadius,
-                      borderWidth: 1,
-                      borderColor: COLORS.border,
-                      backgroundColor: COLORS.white,
-                      marginBottom: 0,
-                      overflow: 'hidden',
-                      maxHeight: 180,
+                      marginTop: 4,
+                      marginBottom: 2,
+                      fontSize: 11,
+                      color: COLORS.destructive,
+                      fontFamily: FONTS.medium,
                     }}
                   >
-                    <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled">
-                      {dimensions.length === 0 ? (
-                        <Text style={{ padding: 10, color: COLORS.slate, fontSize: 12 }}>
-                          No dimensions yet. Tap Add to create one.
-                        </Text>
-                      ) : (
-                        dimensions.map((d) => (
-                          <Pressable
-                            key={d.id || d.label}
-                            onPress={() => {
-                              setForm((f) => ({ ...f, siteDimension: d.label }));
-                              setDimOpen(false);
-                            }}
-                            style={{
-                              paddingHorizontal: 11,
-                              paddingVertical: 10,
-                              borderBottomWidth: 1,
-                              borderBottomColor: GLASS.divider,
-                              backgroundColor:
-                                form.siteDimension === d.label ? GLASS.tintBlue : COLORS.white,
-                            }}
-                          >
-                            <Text style={{ fontSize: 13, color: COLORS.ink, fontFamily: FONTS.semibold }}>
-                              {d.label}
-                            </Text>
-                          </Pressable>
-                        ))
-                      )}
-                    </ScrollView>
-                  </Box>
+                    {fieldErrors.siteDimension}
+                  </Text>
                 ) : null}
 
                 {addingDim ? (
-                  <HStack style={{ gap: 8, marginTop: dimOpen ? 8 : 0, alignItems: 'center' }}>
+                  <HStack style={{ gap: 8, alignItems: 'center' }}>
                     <TextInput
                       value={newDimValue}
                       onChangeText={setNewDimValue}
@@ -974,9 +1088,9 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                       style={{
                         flex: 1,
                         height: 40,
-                        borderRadius: DESIGN.cardRadius,
-                        borderWidth: 1,
-                        borderColor: COLORS.border,
+                        borderRadius: 8,
+                        borderWidth: 1.5,
+                        borderColor: '#94A3B8',
                         backgroundColor: COLORS.white,
                         paddingHorizontal: 12,
                         fontSize: 13,
@@ -990,20 +1104,30 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                       style={{
                         height: 40,
                         paddingHorizontal: 14,
-                        borderRadius: DESIGN.cardRadius,
-                        backgroundColor: COLORS.success,
-                        alignItems: 'center',
-                        justifyContent: 'center',
+                        borderRadius: 8,
+                        overflow: 'hidden',
                         opacity: savingDim ? 0.7 : 1,
                       }}
                     >
-                      {savingDim ? (
-                        <ActivityIndicator size="small" color={COLORS.white} />
-                      ) : (
-                        <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.white }}>
-                          Save
-                        </Text>
-                      )}
+                      <LinearGradient
+                        colors={gradientStops(GRADIENT_PRIMARY)}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={{
+                          height: 40,
+                          paddingHorizontal: 14,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {savingDim ? (
+                          <ActivityIndicator size="small" color={COLORS.white} />
+                        ) : (
+                          <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.white }}>
+                            Save
+                          </Text>
+                        )}
+                      </LinearGradient>
                     </Pressable>
                     <Pressable
                       onPress={() => {
@@ -1012,7 +1136,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                       }}
                       style={{
                         height: 40,
-                        paddingHorizontal: 10,
+                        paddingHorizontal: 12,
                         borderRadius: DESIGN.cardRadius,
                         borderWidth: 1,
                         borderColor: COLORS.border,
@@ -1021,7 +1145,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                         justifyContent: 'center',
                       }}
                     >
-                      <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.slate }}>
+                      <Text style={{ fontFamily: FONTS.semibold, fontSize: 12, color: COLORS.slate }}>
                         Cancel
                       </Text>
                     </Pressable>
@@ -1030,39 +1154,41 @@ export function ZcCreateScreen({ go }: { go: Go }) {
               </PlainSectionCard>
 
               <PlainSectionCard title="Address" icon={MapPin}>
-                <HStack style={{ gap: 8, marginBottom: 10 }}>
-                  <Field
-                    label="Area"
-                    required
-                    value={form.addressArea}
-                    onChange={(v) => setForm((f) => ({ ...f, addressArea: v }))}
-                    style={{ flex: 1 }}
-                  />
+                <Field
+                  label="Area"
+                  required
+                  value={form.addressArea}
+                  error={fieldErrors.addressArea}
+                  onChange={(v) => {
+                    setForm((f) => ({ ...f, addressArea: v }));
+                    clearFieldError('addressArea');
+                  }}
+                  style={{ marginBottom: 10 }}
+                />
+                <HStack style={{ gap: 8 }}>
                   <Field
                     label="Block"
                     required
                     value={form.addressBlock}
-                    onChange={(v) => setForm((f) => ({ ...f, addressBlock: v }))}
+                    error={fieldErrors.addressBlock}
+                    onChange={(v) => {
+                      setForm((f) => ({ ...f, addressBlock: v }));
+                      clearFieldError('addressBlock');
+                    }}
                     onFocus={onFieldFocus}
                     style={{ flex: 1 }}
                   />
-                </HStack>
-                <HStack style={{ gap: 8 }}>
                   <Field
                     label="Pincode"
                     required
                     value={form.addressPincode}
-                    onChange={(v) => setForm((f) => ({ ...f, addressPincode: v }))}
+                    error={fieldErrors.addressPincode}
+                    onChange={(v) => {
+                      setForm((f) => ({ ...f, addressPincode: v }));
+                      clearFieldError('addressPincode');
+                    }}
                     onFocus={onFieldFocus}
                     returnKeyType="next"
-                    style={{ flex: 1 }}
-                  />
-                  <Field
-                    label={form.siteDimensionType === 'Odd' ? 'Comments' : 'Comments'}
-                    required={form.siteDimensionType === 'Odd'}
-                    value={form.siteDimensionComment || ''}
-                    onChange={(v) => setForm((f) => ({ ...f, siteDimensionComment: v }))}
-                    onFocus={onFieldFocus}
                     style={{ flex: 1 }}
                   />
                 </HStack>
@@ -1112,17 +1238,18 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                 required
               >
                 <Pressable
+                  ref={engTriggerRef as any}
                   onPress={() => {
                     if (engineers.length === 0) return;
-                    setEngOpen((o) => !o);
-                    setDimOpen(false);
-                    setAddingDim(false);
+                    openEngDropdown();
                   }}
                   style={{
                     height: 40,
-                    borderRadius: DESIGN.cardRadius,
-                    borderWidth: 1,
-                    borderColor: COLORS.border,
+                    borderRadius: 8,
+                    borderWidth: 1.5,
+                    borderColor: fieldErrors.assignedEngineerUserId
+                      ? COLORS.destructive
+                      : '#94A3B8',
                     backgroundColor: COLORS.white,
                     paddingHorizontal: 12,
                     flexDirection: 'row',
@@ -1147,60 +1274,48 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                   </Text>
                   <ChevronDown size={16} color={COLORS.slate} />
                 </Pressable>
-                {engOpen && engineers.length > 0 ? (
-                  <Box
+                {fieldErrors.assignedEngineerUserId ? (
+                  <Text
                     style={{
-                      borderRadius: DESIGN.cardRadius,
-                      borderWidth: 1,
-                      borderColor: COLORS.border,
-                      backgroundColor: COLORS.white,
-                      marginTop: 6,
-                      overflow: 'hidden',
-                      maxHeight: 180,
+                      marginTop: 4,
+                      fontSize: 11,
+                      color: COLORS.destructive,
+                      fontFamily: FONTS.medium,
                     }}
                   >
-                    <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled">
-                      {engineers.map((eng) => {
-                        const on = form.assignedEngineerUserId === eng.userId;
-                        return (
-                          <Pressable
-                            key={eng.userId}
-                            onPress={() => {
-                              setForm((f) => ({
-                                ...f,
-                                assignedEngineerUserId: eng.userId,
-                              }));
-                              setEngOpen(false);
-                            }}
-                            style={{
-                              paddingHorizontal: 12,
-                              paddingVertical: 10,
-                              borderBottomWidth: 1,
-                              borderBottomColor: GLASS.divider,
-                              backgroundColor: on ? GLASS.tintBlue : COLORS.white,
-                            }}
-                          >
-                            <Text
-                              style={{
-                                fontSize: 13,
-                                fontFamily: FONTS.semibold,
-                                color: on ? COLORS.primary : COLORS.ink,
-                              }}
-                            >
-                              {eng.name}
-                              {eng.postName ? ` · ${eng.postName}` : ''}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </ScrollView>
-                  </Box>
+                    {fieldErrors.assignedEngineerUserId}
+                  </Text>
                 ) : null}
                 {engineers.length === 0 ? (
                   <Text style={{ marginTop: 6, color: COLORS.warning, fontSize: 11, fontFamily: FONTS.medium }}>
                     No engineers with an active post mapping in this zone.
                   </Text>
                 ) : null}
+              </PlainSectionCard>
+
+              <PlainSectionCard
+                title="Comments"
+                icon={ClipboardList}
+                required={form.siteDimensionType === 'Odd'}
+              >
+                <Field
+                  label="Comments"
+                  required={form.siteDimensionType === 'Odd'}
+                  placeholder={
+                    form.siteDimensionType === 'Odd'
+                      ? 'Required for Odd site type'
+                      : 'Optional comments'
+                  }
+                  value={form.siteDimensionComment || ''}
+                  error={fieldErrors.siteDimensionComment}
+                  multiline
+                  numberOfLines={5}
+                  onChange={(v) => {
+                    setForm((f) => ({ ...f, siteDimensionComment: v }));
+                    clearFieldError('siteDimensionComment');
+                  }}
+                  onFocus={onFieldFocus}
+                />
               </PlainSectionCard>
 
               <HStack style={{ gap: 10, marginHorizontal: SPACE.gutter, marginTop: 4 }}>
@@ -1256,6 +1371,172 @@ export function ZcCreateScreen({ go }: { go: Go }) {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      <Modal
+        transparent
+        animationType="fade"
+        visible={dimOpen}
+        onRequestClose={() => setDimOpen(false)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(15,23,42,0.2)' }}
+          onPress={() => setDimOpen(false)}
+          accessibilityRole="button"
+          accessibilityLabel="Close site dimension menu"
+        />
+        {dimAnchor ? (
+          <View
+            style={{
+              position: 'absolute',
+              top: (() => {
+                const screenH = Dimensions.get('window').height;
+                const h = dropdownListHeight(dimensions.length);
+                const below = dimAnchor.y + dimAnchor.height + 4;
+                if (below + h > screenH - 12) {
+                  return Math.max(12, dimAnchor.y - h - 4);
+                }
+                return below;
+              })(),
+              left: dimAnchor.x,
+              width: dimAnchor.width,
+              height: dropdownListHeight(dimensions.length),
+              borderRadius: DESIGN.cardRadius,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              backgroundColor: COLORS.white,
+              overflow: 'hidden',
+              shadowColor: '#0F172A',
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.16,
+              shadowRadius: 16,
+              elevation: 12,
+            }}
+          >
+            <RNNativeScrollView
+              keyboardShouldPersistTaps="handled"
+              bounces={dimensions.length > DROPDOWN_MAX_ITEMS}
+              showsVerticalScrollIndicator={dimensions.length > DROPDOWN_MAX_ITEMS}
+              nestedScrollEnabled
+            >
+              {dimensions.length === 0 ? (
+                <Text style={{ padding: 12, color: COLORS.slate, fontSize: 12, fontFamily: FONTS.medium }}>
+                  No dimensions yet. Tap Add to create one.
+                </Text>
+              ) : (
+                dimensions.map((d, index) => (
+                  <Pressable
+                    key={d.id || d.label}
+                    onPress={() => {
+                      setForm((f) => ({ ...f, siteDimension: d.label }));
+                      clearFieldError('siteDimension');
+                      setDimOpen(false);
+                    }}
+                    style={{
+                      height: DROPDOWN_ITEM_H,
+                      paddingHorizontal: 12,
+                      justifyContent: 'center',
+                      borderBottomWidth: index === dimensions.length - 1 ? 0 : 1,
+                      borderBottomColor: GLASS.divider,
+                      backgroundColor:
+                        form.siteDimension === d.label ? GLASS.tintBlue : COLORS.white,
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, color: COLORS.ink, fontFamily: FONTS.semibold }}>
+                      {d.label}
+                    </Text>
+                  </Pressable>
+                ))
+              )}
+            </RNNativeScrollView>
+          </View>
+        ) : null}
+      </Modal>
+
+      <Modal
+        transparent
+        animationType="fade"
+        visible={engOpen}
+        onRequestClose={() => setEngOpen(false)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(15,23,42,0.2)' }}
+          onPress={() => setEngOpen(false)}
+          accessibilityRole="button"
+          accessibilityLabel="Close engineer menu"
+        />
+        {engAnchor ? (
+          <View
+            style={{
+              position: 'absolute',
+              top: (() => {
+                const screenH = Dimensions.get('window').height;
+                const h = dropdownListHeight(engineers.length);
+                const below = engAnchor.y + engAnchor.height + 4;
+                if (below + h > screenH - 12) {
+                  return Math.max(12, engAnchor.y - h - 4);
+                }
+                return below;
+              })(),
+              left: engAnchor.x,
+              width: engAnchor.width,
+              height: dropdownListHeight(engineers.length),
+              borderRadius: 8,
+              borderWidth: 1.5,
+              borderColor: '#94A3B8',
+              backgroundColor: COLORS.white,
+              overflow: 'hidden',
+              shadowColor: '#0F172A',
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.16,
+              shadowRadius: 16,
+              elevation: 12,
+            }}
+          >
+            <RNNativeScrollView
+              keyboardShouldPersistTaps="handled"
+              bounces={engineers.length > DROPDOWN_MAX_ITEMS}
+              showsVerticalScrollIndicator={engineers.length > DROPDOWN_MAX_ITEMS}
+              nestedScrollEnabled
+            >
+              {engineers.map((eng, index) => {
+                const on = form.assignedEngineerUserId === eng.userId;
+                return (
+                  <Pressable
+                    key={eng.userId}
+                    onPress={() => {
+                      setForm((f) => ({
+                        ...f,
+                        assignedEngineerUserId: eng.userId,
+                      }));
+                      clearFieldError('assignedEngineerUserId');
+                      setEngOpen(false);
+                    }}
+                    style={{
+                      height: DROPDOWN_ITEM_H,
+                      paddingHorizontal: 12,
+                      justifyContent: 'center',
+                      borderBottomWidth: index === engineers.length - 1 ? 0 : 1,
+                      borderBottomColor: GLASS.divider,
+                      backgroundColor: on ? GLASS.tintBlue : COLORS.white,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontFamily: FONTS.semibold,
+                        color: on ? COLORS.primary : COLORS.ink,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {eng.name}
+                      {eng.postName ? ` · ${eng.postName}` : ''}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </RNNativeScrollView>
+          </View>
+        ) : null}
+      </Modal>
     </ScreenShell>
   );
 }

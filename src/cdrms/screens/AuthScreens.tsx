@@ -373,7 +373,9 @@ export function LoginScreen({ go }: { go: Go }) {
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [focusedInput, setFocusedInput] = useState<'loginId' | 'password' | null>(null);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const loginIdRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
   const scrollRef = useRef<RNScrollView>(null);
 
@@ -429,18 +431,38 @@ export function LoginScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-[#F8FAFC]">
-      {/* Top Vidhana Soudha Blue Background */}
-      <Box style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 360, overflow: 'hidden' }}>
-        <Image
-          source={require('../../../assets/vidhana-soudha-blue.png')}
-          style={{ position: 'absolute', width: '100%', height: 360 }}
-          resizeMode="cover"
-        />
+      {/* Background Header Ambient Glow & Gradient */}
+      <Box pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 380, overflow: 'hidden' }}>
         <LinearGradient
-          colors={['rgba(2,55,150,0.3)', 'transparent', '#024EC4']}
+          colors={['#0A3E96', '#0256D0', '#0042B3']}
           start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
+          end={{ x: 1, y: 1 }}
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+        {/* Soft floating background orb decorative overlays */}
+        <Box
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: -60,
+            right: -60,
+            width: 220,
+            height: 220,
+            borderRadius: 110,
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+          }}
+        />
+        <Box
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            bottom: -40,
+            left: -40,
+            width: 180,
+            height: 180,
+            borderRadius: 90,
+            backgroundColor: 'rgba(255, 255, 255, 0.06)',
+          }}
         />
       </Box>
 
@@ -453,319 +475,338 @@ export function LoginScreen({ go }: { go: Go }) {
           ref={scrollRef}
           className="flex-1"
           keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
             flexGrow: 1,
             justifyContent: 'center',
             paddingHorizontal: 20,
-            paddingTop: insets.top + (keyboardOpen ? 12 : 24),
-            paddingBottom: Math.max(insets.bottom, 16) + 140,
+            paddingTop: insets.top + (keyboardOpen ? 12 : 28),
+            paddingBottom: Math.max(insets.bottom, 16) + 24,
           }}
           showsVerticalScrollIndicator={false}
         >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-            <View>
-              {/* Brand Header Hero */}
-              <VStack className="items-center" style={{ gap: 6, marginBottom: 20 }}>
-                <Box
-                  className="items-center justify-center overflow-hidden"
-                  style={{
-                    width: 72,
-                    height: 72,
-                    borderRadius: 36,
-                    backgroundColor: '#FFFFFF',
-                    borderWidth: 2.5,
-                    borderColor: 'rgba(255,255,255,0.7)',
-                    shadowColor: '#0F172A',
-                    shadowOffset: { width: 0, height: 8 },
-                    shadowOpacity: 0.2,
-                    shadowRadius: 16,
-                    elevation: 8,
-                  }}
-                >
-                  <Image
-                    source={require('../../../assets/bda-logo.png')}
-                    style={{ width: 54, height: 54 }}
-                    resizeMode="contain"
-                    accessibilityLabel="BDA Seal"
-                  />
-                </Box>
-                <Text
-                  style={{
-                    fontFamily: FONTS.bold,
-                    fontSize: 21,
-                    lineHeight: 26,
-                    letterSpacing: 0.8,
-                    textTransform: 'uppercase',
-                    color: '#FFFFFF',
-                    textAlign: 'center',
-                    marginTop: 2,
-                  }}
-                >
-                  BDA CDRMS PORTAL
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: FONTS.medium,
-                    fontSize: 13,
-                    color: 'rgba(255,255,255,0.92)',
-                    textAlign: 'center',
-                  }}
-                >
-                  Ministry of Public Works
-                </Text>
-                <Box style={{ width: 32, height: 3.5, borderRadius: 2, backgroundColor: '#EAB308', marginTop: 4 }} />
-              </VStack>
-
-              {/* Login Card */}
+          <View>
+            {/* Brand Header Hero */}
+            <VStack className="items-center" style={{ gap: 6, marginBottom: 22 }}>
               <Box
+                className="items-center justify-center overflow-hidden"
                 style={{
+                  width: 96,
+                  height: 96,
+                  borderRadius: 48,
                   backgroundColor: '#FFFFFF',
-                  borderRadius: 24,
-                  paddingHorizontal: 20,
-                  paddingTop: 22,
-                  paddingBottom: 22,
-                  borderWidth: 1,
-                  borderColor: 'rgba(226,232,240,0.9)',
-                  shadowColor: '#0F172A',
-                  shadowOffset: { width: 0, height: 12 },
-                  shadowOpacity: 0.12,
-                  shadowRadius: 20,
+                  borderWidth: 3,
+                  borderColor: 'rgba(255, 255, 255, 0.85)',
+                  shadowColor: '#000000',
+                  shadowOffset: { width: 0, height: 6 },
+                  shadowOpacity: 0.18,
+                  shadowRadius: 14,
                   elevation: 8,
                 }}
               >
-                <Text
-                  style={{
-                    fontFamily: FONTS.bold,
-                    fontSize: 22,
-                    color: '#0F172A',
-                    textAlign: 'center',
-                  }}
-                >
-                  Welcome Back!
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: FONTS.medium,
-                    fontSize: 13,
-                    color: '#64748B',
-                    textAlign: 'center',
-                    marginTop: 4,
-                    marginBottom: 18,
-                  }}
-                >
-                  Sign in with your Login ID to continue
-                </Text>
+                <Image
+                  source={require('../../../assets/bda-logo.png')}
+                  style={{ width: 78, height: 78 }}
+                  resizeMode="contain"
+                  accessibilityLabel="BDA Seal"
+                />
+              </Box>
 
-                <VStack style={{ gap: 14 }}>
-                  {/* Login ID field */}
-                  <VStack style={{ gap: 6 }}>
-                    <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#475569', letterSpacing: 0.5 }}>
-                      LOGIN ID / EMAIL
-                    </Text>
-                    <HStack
-                      className="items-center"
-                      style={{
-                        height: 48,
-                        borderRadius: 14,
-                        borderWidth: 1,
-                        borderColor: '#E2E8F0',
-                        backgroundColor: '#F8FAFC',
-                        paddingHorizontal: 4,
-                      }}
-                    >
-                      <Box
-                        className="items-center justify-center"
-                        style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 11,
-                          backgroundColor: '#0256D0',
-                          marginRight: 8,
-                        }}
-                      >
-                        <User size={18} color="#FFFFFF" strokeWidth={2.3} />
-                      </Box>
-                      <TextInput
-                        value={loginId}
-                        onChangeText={setLoginId}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        autoComplete="off"
-                        placeholder="Enter login ID or email"
-                        placeholderTextColor="#94A3B8"
-                        returnKeyType="next"
-                        onSubmitEditing={() => passwordRef.current?.focus()}
-                        style={{
-                          flex: 1,
-                          fontFamily: FONTS.medium,
-                          fontSize: 13,
-                          color: '#0F172A',
-                          paddingRight: 10,
-                        }}
-                      />
-                    </HStack>
-                  </VStack>
+              <Text
+                style={{
+                  fontFamily: FONTS.bold,
+                  fontSize: 22,
+                  lineHeight: 28,
+                  letterSpacing: 1,
+                  textTransform: 'uppercase',
+                  color: '#FFFFFF',
+                  textAlign: 'center',
+                  marginTop: 4,
+                }}
+              >
+                BDA CDRMS PORTAL
+              </Text>
+              <Text
+                style={{
+                  fontFamily: FONTS.medium,
+                  fontSize: 13,
+                  color: 'rgba(255, 255, 255, 0.92)',
+                  textAlign: 'center',
+                }}
+              >
+                Ministry of Public Works
+              </Text>
+            </VStack>
 
-                  {/* Password field */}
-                  <VStack style={{ gap: 6 }}>
-                    <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#475569', letterSpacing: 0.5 }}>
-                      PASSWORD
-                    </Text>
-                    <HStack
-                      className="items-center"
-                      style={{
-                        height: 48,
-                        borderRadius: 14,
-                        borderWidth: 1,
-                        borderColor: '#E2E8F0',
-                        backgroundColor: '#F8FAFC',
-                        paddingHorizontal: 4,
-                      }}
-                    >
-                      <Box
-                        className="items-center justify-center"
-                        style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 11,
-                          backgroundColor: '#0256D0',
-                          marginRight: 8,
-                        }}
-                      >
-                        <Lock size={18} color="#FFFFFF" strokeWidth={2.3} />
-                      </Box>
-                      <TextInput
-                        ref={passwordRef}
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry={!showPassword}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        autoComplete="off"
-                        placeholder="Enter password"
-                        placeholderTextColor="#94A3B8"
-                        returnKeyType="go"
-                        onSubmitEditing={() => void onSecureLogin()}
-                        style={{
-                          flex: 1,
-                          fontFamily: FONTS.medium,
-                          fontSize: 13,
-                          color: '#0F172A',
-                          paddingRight: 8,
-                        }}
-                      />
-                      <Pressable
-                        onPress={() => setShowPassword((v) => !v)}
-                        className="h-9 w-9 items-center justify-center rounded-full active:opacity-70"
-                        style={{ marginRight: 4 }}
-                      >
-                        {showPassword ? (
-                          <EyeOff size={18} color="#64748B" />
-                        ) : (
-                          <Eye size={18} color="#64748B" />
-                        )}
-                      </Pressable>
-                    </HStack>
-                  </VStack>
+            {/* Login Card */}
+            <Animated.View
+              entering={FadeInDown.duration(500)}
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: 24,
+                paddingHorizontal: 22,
+                paddingTop: 24,
+                paddingBottom: 24,
+                borderWidth: 1,
+                borderColor: 'rgba(226, 232, 240, 0.9)',
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: 0.1,
+                shadowRadius: 24,
+                elevation: 6,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: FONTS.bold,
+                  fontSize: 22,
+                  color: '#0F172A',
+                  textAlign: 'center',
+                }}
+              >
+                Welcome Back!
+              </Text>
+              <Text
+                style={{
+                  fontFamily: FONTS.medium,
+                  fontSize: 13,
+                  color: '#64748B',
+                  textAlign: 'center',
+                  marginTop: 4,
+                  marginBottom: 20,
+                }}
+              >
+                Sign in with your Login ID to continue
+              </Text>
 
-                  {error ? (
-                    <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: '#DC2626' }}>
-                      {error}
-                    </Text>
-                  ) : null}
-
-                  {/* Checkbox + Forgot password row */}
-                  <HStack className="items-center justify-between" style={{ marginTop: 2 }}>
-                    <Checkbox
-                      value="remember"
-                      isChecked={remember}
-                      onChange={(v) => setRemember(!!v)}
-                    >
-                      <CheckboxIndicator
-                        style={{
-                          borderColor: remember ? '#0256D0' : '#94A3B8',
-                          backgroundColor: remember ? '#0256D0' : '#FFFFFF',
-                          borderRadius: 5,
-                        }}
-                      >
-                        <CheckboxIcon as={CheckIcon} />
-                      </CheckboxIndicator>
-                      <CheckboxLabel
-                        style={{
-                          fontFamily: FONTS.medium,
-                          fontSize: 12,
-                          color: '#334155',
-                          marginLeft: 4,
-                        }}
-                      >
-                        Remember this device
-                      </CheckboxLabel>
-                    </Checkbox>
-
-                    <Pressable className="active:opacity-70">
-                      <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: '#0256D0' }}>
-                        Forgot Login ID?
-                      </Text>
-                    </Pressable>
-                  </HStack>
-
-                  {/* Secure Login Button */}
+              <VStack style={{ gap: 16 }}>
+                {/* Login ID field */}
+                <VStack style={{ gap: 6 }}>
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#475569', letterSpacing: 0.5 }}>
+                    LOGIN ID / EMAIL
+                  </Text>
                   <Pressable
-                    onPress={() => void onSecureLogin()}
-                    disabled={loading}
-                    className="active:opacity-90 overflow-hidden"
-                    style={{ borderRadius: 14, marginTop: 4 }}
+                    onPress={() => loginIdRef.current?.focus()}
+                    style={{
+                      height: 50,
+                      borderRadius: 10,
+                      borderWidth: 1.5,
+                      borderColor: focusedInput === 'loginId' ? '#0256D0' : '#E2E8F0',
+                      backgroundColor: focusedInput === 'loginId' ? '#FFFFFF' : '#F8FAFC',
+                      paddingHorizontal: 8,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      shadowColor: focusedInput === 'loginId' ? '#0256D0' : 'transparent',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: focusedInput === 'loginId' ? 0.12 : 0,
+                      shadowRadius: 6,
+                    }}
                   >
-                    <LinearGradient
-                      colors={['#0256D0', '#0042B3']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
+                    <Box
+                      pointerEvents="none"
+                      className="items-center justify-center"
                       style={{
-                        height: 50,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 8,
-                        paddingHorizontal: 16,
+                        width: 36,
+                        height: 36,
+                        borderRadius: 8,
+                        backgroundColor: focusedInput === 'loginId' ? '#EFF6FF' : '#F1F5F9',
+                        marginRight: 10,
                       }}
                     >
-                      {loading ? (
-                        <ActivityIndicator color="#FFFFFF" size="small" />
-                      ) : (
-                        <>
-                          <Lock size={17} color="#FFFFFF" strokeWidth={2.4} />
-                          <Text style={{ fontFamily: FONTS.bold, fontSize: 15, color: '#FFFFFF' }}>
-                            Secure Login
-                          </Text>
-                        </>
-                      )}
-                    </LinearGradient>
+                      <User size={18} color="#0256D0" strokeWidth={2.2} />
+                    </Box>
+                    <TextInput
+                      ref={loginIdRef}
+                      value={loginId}
+                      onChangeText={setLoginId}
+                      onFocus={() => setFocusedInput('loginId')}
+                      onBlur={() => setFocusedInput(null)}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      autoComplete="off"
+                      placeholder="Enter login ID or email"
+                      placeholderTextColor="#94A3B8"
+                      returnKeyType="next"
+                      onSubmitEditing={() => passwordRef.current?.focus()}
+                      style={{
+                        flex: 1,
+                        height: '100%',
+                        fontFamily: FONTS.medium,
+                        fontSize: 14,
+                        color: '#0F172A',
+                        paddingRight: 10,
+                        paddingVertical: 0,
+                      }}
+                    />
                   </Pressable>
                 </VStack>
-              </Box>
-            </View>
-          </TouchableWithoutFeedback>
-        </ScrollView>
 
-        {/* Bottom Full-Width Architectural Skyline Graphic */}
-        {!keyboardOpen ? (
-          <Box
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: 130,
-            }}
-          >
-            <Image
-              source={require('../../../assets/skyline-bottom.png')}
-              style={{ width: '100%', height: 130, opacity: 0.95 }}
-              resizeMode="stretch"
-            />
-          </Box>
-        ) : null}
+                {/* Password field */}
+                <VStack style={{ gap: 6 }}>
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#475569', letterSpacing: 0.5 }}>
+                    PASSWORD
+                  </Text>
+                  <Pressable
+                    onPress={() => passwordRef.current?.focus()}
+                    style={{
+                      height: 50,
+                      borderRadius: 10,
+                      borderWidth: 1.5,
+                      borderColor: focusedInput === 'password' ? '#0256D0' : '#E2E8F0',
+                      backgroundColor: focusedInput === 'password' ? '#FFFFFF' : '#F8FAFC',
+                      paddingHorizontal: 8,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      shadowColor: focusedInput === 'password' ? '#0256D0' : 'transparent',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: focusedInput === 'password' ? 0.12 : 0,
+                      shadowRadius: 6,
+                    }}
+                  >
+                    <Box
+                      pointerEvents="none"
+                      className="items-center justify-center"
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 8,
+                        backgroundColor: focusedInput === 'password' ? '#EFF6FF' : '#F1F5F9',
+                        marginRight: 10,
+                      }}
+                    >
+                      <Lock size={18} color="#0256D0" strokeWidth={2.2} />
+                    </Box>
+                    <TextInput
+                      ref={passwordRef}
+                      value={password}
+                      onChangeText={setPassword}
+                      onFocus={() => setFocusedInput('password')}
+                      onBlur={() => setFocusedInput(null)}
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      autoComplete="off"
+                      placeholder="Enter password"
+                      placeholderTextColor="#94A3B8"
+                      returnKeyType="go"
+                      onSubmitEditing={() => void onSecureLogin()}
+                      style={{
+                        flex: 1,
+                        height: '100%',
+                        fontFamily: FONTS.medium,
+                        fontSize: 14,
+                        color: '#0F172A',
+                        paddingRight: 8,
+                        paddingVertical: 0,
+                      }}
+                    />
+                    <Pressable
+                      onPress={() => setShowPassword((v) => !v)}
+                      className="h-9 w-9 items-center justify-center rounded-full active:opacity-70"
+                      style={{ marginRight: 2 }}
+                    >
+                      {showPassword ? (
+                        <EyeOff size={18} color="#64748B" />
+                      ) : (
+                        <Eye size={18} color="#64748B" />
+                      )}
+                    </Pressable>
+                  </Pressable>
+                </VStack>
+
+                {error ? (
+                  <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: '#DC2626' }}>
+                    {error}
+                  </Text>
+                ) : null}
+
+                {/* Checkbox + Forgot password row */}
+                <HStack className="items-center justify-between" style={{ marginTop: 2 }}>
+                  <Checkbox
+                    value="remember"
+                    isChecked={remember}
+                    onChange={(v) => setRemember(!!v)}
+                  >
+                    <CheckboxIndicator
+                      style={{
+                        borderColor: remember ? '#0256D0' : '#94A3B8',
+                        backgroundColor: remember ? '#0256D0' : '#FFFFFF',
+                        borderRadius: 5,
+                      }}
+                    >
+                      <CheckboxIcon as={CheckIcon} />
+                    </CheckboxIndicator>
+                    <CheckboxLabel
+                      style={{
+                        fontFamily: FONTS.medium,
+                        fontSize: 12,
+                        color: '#334155',
+                        marginLeft: 4,
+                      }}
+                    >
+                      Remember this device
+                    </CheckboxLabel>
+                  </Checkbox>
+
+                  <Pressable className="active:opacity-70">
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: '#0256D0' }}>
+                      Forgot Login ID?
+                    </Text>
+                  </Pressable>
+                </HStack>
+
+                {/* Secure Login Button */}
+                <Pressable
+                  onPress={() => void onSecureLogin()}
+                  disabled={loading}
+                  className="active:opacity-90 overflow-hidden"
+                  style={{
+                    borderRadius: 14,
+                    marginTop: 6,
+                    shadowColor: '#0256D0',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 10,
+                    elevation: 4,
+                  }}
+                >
+                  <LinearGradient
+                    colors={['#0256D0', '#0042B3']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={{
+                      height: 52,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      paddingHorizontal: 16,
+                    }}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <>
+                        <Lock size={17} color="#FFFFFF" strokeWidth={2.4} />
+                        <Text style={{ fontFamily: FONTS.bold, fontSize: 15, color: '#FFFFFF' }}>
+                          Secure Login
+                        </Text>
+                        <ArrowRight size={17} color="#FFFFFF" strokeWidth={2.4} />
+                      </>
+                    )}
+                  </LinearGradient>
+                </Pressable>
+              </VStack>
+            </Animated.View>
+
+            {/* Bottom Security Footer */}
+            <VStack className="items-center" style={{ marginTop: 24, gap: 4 }}>
+              <Text style={{ fontFamily: FONTS.medium, fontSize: 10, color: '#94A3B8' }}>
+                Bangalore Development Authority © 2026
+              </Text>
+            </VStack>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </ScreenShell>
   );
@@ -1863,268 +1904,267 @@ export function GeoScreen({ go }: { go: Go }) {
                   onTouchEnd={() => setMapGesturing(false)}
                   onTouchCancel={() => setMapGesturing(false)}
                 >
-                    <KarnatakaMap
-                      height={GEO_MAP_HEIGHT}
-                      rounded={0}
-                      mode="site"
-                      showBadge={false}
-                      interactive
-                      latitude={currentLat}
-                      longitude={currentLng}
-                      latitudeDelta={mapDelta}
-                      recenterKey={mapRecenterKey}
-                    />
+                  <KarnatakaMap
+                    height={GEO_MAP_HEIGHT}
+                    rounded={0}
+                    mode="site"
+                    showBadge={false}
+                    interactive
+                    latitude={currentLat}
+                    longitude={currentLng}
+                    latitudeDelta={mapDelta}
+                    recenterKey={mapRecenterKey}
+                  />
 
-                    <Box
-                      className="absolute top-3 left-3 right-3 flex-row items-start justify-between"
-                      style={{ zIndex: 5 }}
-                      pointerEvents="box-none"
-                    >
-                      <Animated.View
-                        entering={FadeInRight.delay(220).duration(420)}
-                        pointerEvents="none"
-                        style={{
-                          paddingHorizontal: 10,
-                          paddingVertical: 7,
-                          borderRadius: 999,
-                          backgroundColor: 'rgba(15,23,42,0.86)',
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 7,
-                          maxWidth: '62%',
-                        }}
-                      >
-                        <Box
-                          className="h-2 w-2 rounded-full"
-                          style={{
-                            backgroundColor: outside
-                              ? COLORS.destructive
-                              : isBusy
-                                ? COLORS.warning
-                                : '#34D399',
-                          }}
-                        />
-                        <Text className="text-[10px] font-bold text-white" numberOfLines={1}>
-                          {outside
-                            ? `${stateName} · Outside fence`
-                            : isBusy
-                              ? `${stateName} · Acquiring GPS…`
-                              : `${stateName} · GPS Locked ${
-                                  currentAccuracy
-                                    ? `±${Math.round(currentAccuracy)}m`
-                                    : ''
-                                }`}
-                        </Text>
-                      </Animated.View>
-
-                      <Box
-                        style={{
-                          borderRadius: 14,
-                          overflow: 'hidden',
-                          backgroundColor: 'rgba(255,255,255,0.96)',
-                          borderWidth: 1,
-                          borderColor: '#E2E8F0',
-                          shadowColor: '#000',
-                          shadowOpacity: 0.12,
-                          shadowRadius: 8,
-                          shadowOffset: { width: 0, height: 3 },
-                        }}
-                      >
-                        <Pressable
-                          onPress={() => {
-                            setMapDelta(0.008);
-                            setMapRecenterKey((k) => k + 1);
-                          }}
-                          className="h-10 w-10 items-center justify-center active:opacity-70"
-                          accessibilityLabel="Recenter map"
-                        >
-                          <LocateFixed size={15} color="#2563EB" strokeWidth={2.4} />
-                        </Pressable>
-                        <Box style={{ height: 1, backgroundColor: '#E2E8F0' }} />
-                        <Pressable
-                          onPress={() =>
-                            setMapDelta((d) => Math.max(GEO_MAP_MIN_DELTA, d * 0.45))
-                          }
-                          className="h-10 w-10 items-center justify-center active:opacity-70"
-                          accessibilityLabel="Zoom in"
-                        >
-                          <Plus size={16} color="#334155" strokeWidth={2.4} />
-                        </Pressable>
-                        <Box style={{ height: 1, backgroundColor: '#E2E8F0' }} />
-                        <Pressable
-                          onPress={() =>
-                            setMapDelta((d) => Math.min(GEO_MAP_MAX_DELTA, d * 2.2))
-                          }
-                          className="h-10 w-10 items-center justify-center active:opacity-70"
-                          accessibilityLabel="Zoom out"
-                        >
-                          <Minus size={16} color="#334155" strokeWidth={2.4} />
-                        </Pressable>
-                      </Box>
-                    </Box>
-
+                  <Box
+                    className="absolute top-3 left-3 right-3 flex-row items-start justify-between"
+                    style={{ zIndex: 5 }}
+                    pointerEvents="box-none"
+                  >
                     <Animated.View
-                      entering={FadeInUp.delay(280).duration(420)}
+                      entering={FadeInRight.delay(220).duration(420)}
+                      pointerEvents="none"
                       style={{
-                        position: 'absolute',
-                        left: 12,
-                        bottom: 12,
-                        zIndex: 5,
                         paddingHorizontal: 10,
                         paddingVertical: 7,
-                        borderRadius: 12,
-                        backgroundColor: 'rgba(255,255,255,0.95)',
-                        borderWidth: 1,
-                        borderColor: '#E2E8F0',
+                        borderRadius: 999,
+                        backgroundColor: 'rgba(15,23,42,0.86)',
                         flexDirection: 'row',
                         alignItems: 'center',
-                        gap: 6,
+                        gap: 7,
+                        maxWidth: '62%',
                       }}
-                      pointerEvents="none"
                     >
-                      <MapPin size={12} color={COLORS.primary} />
-                      <Text className="text-[10px] font-bold text-foreground">
-                        {villageName}
+                      <Box
+                        className="h-2 w-2 rounded-full"
+                        style={{
+                          backgroundColor: outside
+                            ? COLORS.destructive
+                            : isBusy
+                              ? COLORS.warning
+                              : '#34D399',
+                        }}
+                      />
+                      <Text className="text-[10px] font-bold text-white" numberOfLines={1}>
+                        {outside
+                          ? `${stateName} · Outside fence`
+                          : isBusy
+                            ? `${stateName} · Acquiring GPS…`
+                            : `${stateName} · GPS Locked ${currentAccuracy
+                              ? `±${Math.round(currentAccuracy)}m`
+                              : ''
+                            }`}
                       </Text>
                     </Animated.View>
+
+                    <Box
+                      style={{
+                        borderRadius: 14,
+                        overflow: 'hidden',
+                        backgroundColor: 'rgba(255,255,255,0.96)',
+                        borderWidth: 1,
+                        borderColor: '#E2E8F0',
+                        shadowColor: '#000',
+                        shadowOpacity: 0.12,
+                        shadowRadius: 8,
+                        shadowOffset: { width: 0, height: 3 },
+                      }}
+                    >
+                      <Pressable
+                        onPress={() => {
+                          setMapDelta(0.008);
+                          setMapRecenterKey((k) => k + 1);
+                        }}
+                        className="h-10 w-10 items-center justify-center active:opacity-70"
+                        accessibilityLabel="Recenter map"
+                      >
+                        <LocateFixed size={15} color="#2563EB" strokeWidth={2.4} />
+                      </Pressable>
+                      <Box style={{ height: 1, backgroundColor: '#E2E8F0' }} />
+                      <Pressable
+                        onPress={() =>
+                          setMapDelta((d) => Math.max(GEO_MAP_MIN_DELTA, d * 0.45))
+                        }
+                        className="h-10 w-10 items-center justify-center active:opacity-70"
+                        accessibilityLabel="Zoom in"
+                      >
+                        <Plus size={16} color="#334155" strokeWidth={2.4} />
+                      </Pressable>
+                      <Box style={{ height: 1, backgroundColor: '#E2E8F0' }} />
+                      <Pressable
+                        onPress={() =>
+                          setMapDelta((d) => Math.min(GEO_MAP_MAX_DELTA, d * 2.2))
+                        }
+                        className="h-10 w-10 items-center justify-center active:opacity-70"
+                        accessibilityLabel="Zoom out"
+                      >
+                        <Minus size={16} color="#334155" strokeWidth={2.4} />
+                      </Pressable>
+                    </Box>
                   </Box>
+
+                  <Animated.View
+                    entering={FadeInUp.delay(280).duration(420)}
+                    style={{
+                      position: 'absolute',
+                      left: 12,
+                      bottom: 12,
+                      zIndex: 5,
+                      paddingHorizontal: 10,
+                      paddingVertical: 7,
+                      borderRadius: 12,
+                      backgroundColor: 'rgba(255,255,255,0.95)',
+                      borderWidth: 1,
+                      borderColor: '#E2E8F0',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                    pointerEvents="none"
+                  >
+                    <MapPin size={12} color={COLORS.primary} />
+                    <Text className="text-[10px] font-bold text-foreground">
+                      {villageName}
+                    </Text>
+                  </Animated.View>
+                </Box>
               </AppCard>
             </Animated.View>
           </Animated.View>
 
           <Box className="px-5">
-          <Animated.View
-            entering={FadeInUp.delay(120).duration(500).springify().damping(15)}
-            style={{ marginTop: 14 }}
-          >
-            <AppCard>
-              <HStack className="items-stretch">
-                <Box className="flex-1 pr-3">
-                  <HStack className="items-center gap-1.5 mb-1.5">
-                    <Navigation size={12} color={COLORS.primary} />
-                    <Text className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
-                      Current Location
+            <Animated.View
+              entering={FadeInUp.delay(120).duration(500).springify().damping(15)}
+              style={{ marginTop: 14 }}
+            >
+              <AppCard>
+                <HStack className="items-stretch">
+                  <Box className="flex-1 pr-3">
+                    <HStack className="items-center gap-1.5 mb-1.5">
+                      <Navigation size={12} color={COLORS.primary} />
+                      <Text className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
+                        Current Location
+                      </Text>
+                    </HStack>
+                    <Text className="font-extrabold text-[13px] text-foreground leading-5">
+                      {villageName}
                     </Text>
-                  </HStack>
-                  <Text className="font-extrabold text-[13px] text-foreground leading-5">
-                    {villageName}
-                  </Text>
-                  <Text className="text-xs text-muted-foreground mt-0.5">
-                    {districtName}, {stateName}
-                  </Text>
-                </Box>
-
-                <Box className="w-px bg-border self-stretch mx-1" />
-
-                <Box className="flex-1 pl-3">
-                  <HStack className="items-center gap-1.5 mb-1.5">
-                    <MapPinned size={12} color={COLORS.primary} />
-                    <Text className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
-                      Assigned Zone
+                    <Text className="text-xs text-muted-foreground mt-0.5">
+                      {districtName}, {stateName}
                     </Text>
-                  </HStack>
-                  <Text className="font-extrabold text-[13px] text-foreground">
-                    {zoneLabel}
-                  </Text>
-                  <Text className="text-xs text-muted-foreground mt-0.5">
-                    Radius {FENCE_RADIUS_FT} ft
-                  </Text>
-                </Box>
-              </HStack>
+                  </Box>
 
-              <Box className="mt-2 pt-2 border-t border-border">
-                <HStack className="items-center justify-between">
-                  <Text className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
-                    Geo status
-                  </Text>
-                  <Animated.View style={badgeStyle}>
-                    {isBusy && !outside ? (
-                      <Box
-                        className="px-2.5 py-1 rounded-full"
-                        style={{ backgroundColor: '#FEF3C7' }}
-                      >
-                        <Text className="text-[11px] font-bold" style={{ color: '#B45309' }}>
-                          Checking
-                        </Text>
-                      </Box>
-                    ) : (
-                      <StatusChip status={outside ? 'Rejected' : 'Verified'} />
-                    )}
-                  </Animated.View>
+                  <Box className="w-px bg-border self-stretch mx-1" />
+
+                  <Box className="flex-1 pl-3">
+                    <HStack className="items-center gap-1.5 mb-1.5">
+                      <MapPinned size={12} color={COLORS.primary} />
+                      <Text className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
+                        Assigned Zone
+                      </Text>
+                    </HStack>
+                    <Text className="font-extrabold text-[13px] text-foreground">
+                      {zoneLabel}
+                    </Text>
+                    <Text className="text-xs text-muted-foreground mt-0.5">
+                      Radius {FENCE_RADIUS_FT} ft
+                    </Text>
+                  </Box>
                 </HStack>
-              </Box>
-            </AppCard>
-          </Animated.View>
 
-          <Animated.View entering={FadeInUp.delay(220).duration(480)} style={{ marginTop: 14 }}>
-            {outside ? (
-              <Animated.View entering={FadeInDown.duration(360).springify().damping(15)}>
-                <AppCard className="bg-destructive/5 border border-destructive/20">
-                  <HStack className="items-start gap-3">
-                    <IconBox size="lg" className="bg-destructive/15">
-                      <AlertTriangle size={20} color={COLORS.destructive} />
-                    </IconBox>
-                    <VStack className="flex-1">
-                      <Text className="font-extrabold text-destructive">
-                        Outside Assigned Location
-                      </Text>
-                      <Text className="text-xs text-muted-foreground mt-1 leading-5">
-                        You drifted beyond the {FENCE_RADIUS_FT} ft geo-fence. Refresh GPS to
-                        re-lock, or continue anyway.
-                      </Text>
-                    </VStack>
+                <Box className="mt-2 pt-2 border-t border-border">
+                  <HStack className="items-center justify-between">
+                    <Text className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
+                      Geo status
+                    </Text>
+                    <Animated.View style={badgeStyle}>
+                      {isBusy && !outside ? (
+                        <Box
+                          className="px-2.5 py-1 rounded-full"
+                          style={{ backgroundColor: '#FEF3C7' }}
+                        >
+                          <Text className="text-[11px] font-bold" style={{ color: '#B45309' }}>
+                            Checking
+                          </Text>
+                        </Box>
+                      ) : (
+                        <StatusChip status={outside ? 'Rejected' : 'Verified'} />
+                      )}
+                    </Animated.View>
                   </HStack>
-                  <HStack className="mt-4 gap-2">
-                    <Box className="flex-1">
+                </Box>
+              </AppCard>
+            </Animated.View>
+
+            <Animated.View entering={FadeInUp.delay(220).duration(480)} style={{ marginTop: 14 }}>
+              {outside ? (
+                <Animated.View entering={FadeInDown.duration(360).springify().damping(15)}>
+                  <AppCard className="bg-destructive/5 border border-destructive/20">
+                    <HStack className="items-start gap-3">
+                      <IconBox size="lg" className="bg-destructive/15">
+                        <AlertTriangle size={20} color={COLORS.destructive} />
+                      </IconBox>
+                      <VStack className="flex-1">
+                        <Text className="font-extrabold text-destructive">
+                          Outside Assigned Location
+                        </Text>
+                        <Text className="text-xs text-muted-foreground mt-1 leading-5">
+                          You drifted beyond the {FENCE_RADIUS_FT} ft geo-fence. Refresh GPS to
+                          re-lock, or continue anyway.
+                        </Text>
+                      </VStack>
+                    </HStack>
+                    <HStack className="mt-4 gap-2">
+                      <Box className="flex-1">
+                        <AppBtn
+                          variant="outline"
+                          onPress={() => {
+                            void performFetchLocation();
+                          }}
+                          icon={RefreshCw}
+                          disabled={isBusy}
+                        >
+                          {isBusy ? 'Checking…' : 'Retry'}
+                        </AppBtn>
+                      </Box>
+                      <Box className="flex-1">
+                        <AppBtn
+                          variant="outline"
+                          icon={Navigation}
+                          onPress={() => {
+                            void performFetchLocation();
+                          }}
+                          disabled={isBusy}
+                        >
+                          {isBusy ? 'Acquiring GPS…' : 'Refresh GPS'}
+                        </AppBtn>
+                      </Box>
+                    </HStack>
+                    <Box className="mt-3">
                       <AppBtn
-                        variant="outline"
-                        onPress={() => {
-                          void performFetchLocation();
-                        }}
-                        icon={RefreshCw}
+                        onPress={() => go(homeScreenForRole(user))}
+                        icon={ArrowRight}
                         disabled={isBusy}
                       >
-                        {isBusy ? 'Checking…' : 'Retry'}
+                        {isBusy ? 'Validating location…' : 'Continue anyway'}
                       </AppBtn>
                     </Box>
-                    <Box className="flex-1">
-                      <AppBtn
-                        variant="outline"
-                        icon={Navigation}
-                        onPress={() => {
-                          void performFetchLocation();
-                        }}
-                        disabled={isBusy}
-                      >
-                        {isBusy ? 'Acquiring GPS…' : 'Refresh GPS'}
-                      </AppBtn>
-                    </Box>
-                  </HStack>
-                  <Box className="mt-3">
+                  </AppCard>
+                </Animated.View>
+              ) : (
+                <VStack space="sm">
+                  <Animated.View entering={ZoomIn.delay(isBusy ? 900 : 0).springify().damping(14)}>
                     <AppBtn
                       onPress={() => go(homeScreenForRole(user))}
                       icon={ArrowRight}
                       disabled={isBusy}
                     >
-                      {isBusy ? 'Validating location…' : 'Continue anyway'}
+                      {isBusy ? 'Validating location…' : 'Continue'}
                     </AppBtn>
-                  </Box>
-                </AppCard>
-              </Animated.View>
-            ) : (
-              <VStack space="sm">
-                <Animated.View entering={ZoomIn.delay(isBusy ? 900 : 0).springify().damping(14)}>
-                  <AppBtn
-                    onPress={() => go(homeScreenForRole(user))}
-                    icon={ArrowRight}
-                    disabled={isBusy}
-                  >
-                    {isBusy ? 'Validating location…' : 'Continue'}
-                  </AppBtn>
-                </Animated.View>
-              </VStack>
-            )}
-          </Animated.View>
+                  </Animated.View>
+                </VStack>
+              )}
+            </Animated.View>
           </Box>
         </Box>
       </ScrollView>
