@@ -114,6 +114,8 @@ export function WelcomeHomeHeader({
   const insets = useSafeAreaInsets();
   const firstName = displayName(user).split(' ')[0] || 'there';
   const fg = headerFg();
+  const resolvedZone =
+    zoneLabel?.trim() || user?.activePost?.zoneCode?.trim() || null;
 
   const dateLabel = new Date().toLocaleString(undefined, {
     weekday: 'long',
@@ -169,14 +171,14 @@ export function WelcomeHomeHeader({
       className="items-center gap-2"
       style={{ zIndex: 40, elevation: 12, position: 'relative' }}
     >
-      {zoneLabel ? <ZoneTag zone={zoneLabel} onGradient={!usesLightHeader()} /> : null}
+      {resolvedZone ? <ZoneTag zone={resolvedZone} onGradient={!usesLightHeader()} /> : null}
       <ProfileMenu
         gradient={!usesLightHeader()}
         userName={displayName(user)}
         roleName={user?.roleName}
-        loginId={user?.loginId}
-        photoUrl={user?.profilePhoto}
-        zoneLabel={zoneLabel}
+        loginId={user?.officer?.personUniqueId || user?.loginId}
+        photoUrl={user?.profilePhoto || user?.officer?.profilePhoto}
+        zoneLabel={resolvedZone}
         onLogout={onLogout}
       />
     </HStack>

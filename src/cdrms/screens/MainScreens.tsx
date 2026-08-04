@@ -187,7 +187,9 @@ export function Dashboard({ go }: { go: Go }) {
   const { openBackendTask } = useProject();
   const { accessToken, user, logout } = useAuth();
   const [allApps, setAllApps] = useState<MobileApplication[]>([]);
-  const [zoneLabel, setZoneLabel] = useState<string | null>(null);
+  const [zoneLabel, setZoneLabel] = useState<string | null>(
+    () => user?.activePost?.zoneCode?.trim() || null,
+  );
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [openingId, setOpeningId] = useState<string | null>(null);
   /** Home list filter from the 4 status cards. */
@@ -210,20 +212,21 @@ export function Dashboard({ go }: { go: Go }) {
       return;
     }
     setLoadingTasks(true);
+    const fallbackZone = user?.activePost?.zoneCode?.trim() || null;
     Promise.all([
       fetchEngineerTasks(accessToken, 'all'),
       fetchMyZoneMeta(accessToken).catch(() => null),
     ])
       .then(([all, meta]) => {
         setAllApps(all);
-        setZoneLabel(meta?.zoneCode?.trim() || null);
+        setZoneLabel(meta?.zoneCode?.trim() || fallbackZone);
       })
       .catch(() => {
         setAllApps([]);
-        setZoneLabel(null);
+        setZoneLabel(fallbackZone);
       })
       .finally(() => setLoadingTasks(false));
-  }, [accessToken]);
+  }, [accessToken, user?.activePost?.zoneCode]);
 
   const openAssignedTask = async (id: string) => {
     setOpeningId(id);
@@ -1472,7 +1475,7 @@ export function EngineerDetailScreen({ go }: { go: Go }) {
 
 export function ProfileScreen({ go }: { go: Go }) {
   const { themeId } = useTheme();
-  const { user, logout, accessToken } = useAuth();
+  const { user, logout, accessToken, refreshProfile } = useAuth();
   const appRole = resolveAppRole(user);
   const home = homeScreenForRole(user);
   const appsTarget =
@@ -1482,28 +1485,14 @@ export function ProfileScreen({ go }: { go: Go }) {
         ? 'zc_home'
         : 'history';
   const { updateProfilePhoto } = useAuth();
-  const profilePhoto = user?.profilePhoto || null;
+  const profilePhoto = user?.profilePhoto || user?.officer?.profilePhoto || null;
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [savingPhoto, setSavingPhoto] = useState(false);
-  const [assignedZone, setAssignedZone] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!accessToken) {
-      setAssignedZone(null);
-      return;
-    }
-    let cancelled = false;
-    fetchMyZoneMeta(accessToken)
-      .then((meta) => {
-        if (!cancelled) setAssignedZone(meta?.zoneCode?.trim() || null);
-      })
-      .catch(() => {
-        if (!cancelled) setAssignedZone(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [accessToken]);
+    if (!accessToken) return;
+    void refreshProfile();
+  }, [accessToken, refreshProfile]);
 
   const applyPickedAsset = async (asset: ImagePicker.ImagePickerAsset) => {
     setSavingPhoto(true);
@@ -1626,17 +1615,22 @@ export function ProfileScreen({ go }: { go: Go }) {
     });
   };
 
-  const u = (user || {}) as any;
+  const u = user || {};
+  const officer = u.officer;
+  const post = u.activePost;
   const name =
     user?.name?.trim() ||
+    [officer?.firstName, officer?.lastName].filter(Boolean).join(' ').trim() ||
     (appRole === 'zc' ? 'Ramesh Kumar (ZC)' : appRole === 'cao' ? 'Monisha s' : 'Field Engineer');
   const nameParts = name.split(/\s+/).filter(Boolean);
   const firstName = nameParts[0] || 'Monisha';
   const lastName = nameParts.slice(1).join(' ') || 's';
   const initials = `${firstName[0]?.toUpperCase() || ''}${lastName[0]?.toUpperCase() || ''}` || 'U';
-  const loginId = user?.loginId || 'CDRMS00007';
+  const loginId =
+    officer?.personUniqueId || user?.loginId || 'CDRMS00007';
   const rawRoleTitle: string =
     u.roleName ||
+    post?.postName ||
     u.userType ||
     (appRole === 'zc'
       ? 'Zonal Commissioner'
@@ -1646,7 +1640,7 @@ export function ProfileScreen({ go }: { go: Go }) {
           ? 'Administrator'
           : 'Field Engineer');
   const roleAcronyms = new Set(['cao', 'zc', 'bda', 'pwd', 'ae', 'je']);
-  const roleTitle = rawRoleTitle
+  const roleTitle = String(rawRoleTitle)
     .split(/[\s_-]+/)
     .filter(Boolean)
     .map((w: string) => {
@@ -1656,13 +1650,30 @@ export function ProfileScreen({ go }: { go: Go }) {
     })
     .join(' ');
 
-  const zone = assignedZone || '—';
-  const email = user?.email || '—';
-  const phone = u.phone || u.mobileNumber || '—';
-  const gender = u.gender || '—';
-  const department = u.department || '—';
-  const districtState = u.districtState || '—';
-  const officeAddress = u.officeAddress || '—';
+  const zone =
+    post?.zoneCode?.trim() ||
+    post?.location?.trim() ||
+    '—';
+  const email = officer?.email || user?.email || '—';
+  const phone = officer?.mobileNumber?.trim() || '—';
+  const gender = officer?.gender?.trim() || '—';
+  const department = officer?.department?.trim() || '—';
+  const districtState = [officer?.districtName, officer?.state]
+    .map((v) => (typeof v === 'string' ? v.trim() : ''))
+    .filter(Boolean)
+    .join(', ') || '—';
+  const officeAddress =
+    post?.ofcAddress?.trim() || post?.location?.trim() || '—';
+  const mappingStatus =
+    officer?.status?.trim() ||
+    (user?.status ? String(user.status) : '') ||
+    '—';
+  const mappingLabel =
+    mappingStatus === '—'
+      ? '—'
+      : mappingStatus
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (c) => c.toUpperCase());
 
   return (
     <ScreenShell className="bg-background">
@@ -1877,7 +1888,7 @@ export function ProfileScreen({ go }: { go: Go }) {
             leftLabel="Office address"
             leftValue={officeAddress}
             rightLabel="Mapping status"
-            rightValue="Active"
+            rightValue={mappingLabel}
             last
           />
         </GlassSectionCard>

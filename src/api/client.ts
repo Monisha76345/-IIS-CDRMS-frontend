@@ -1,4 +1,8 @@
 import { API_BASE_URL, apiConnectionHint } from './config';
+import {
+  NO_HTML_MESSAGE,
+  findForbiddenHtmlPath,
+} from '../lib/xssValidation';
 
 export class ApiError extends Error {
   status: number;
@@ -24,6 +28,13 @@ export async function apiRequest<T>(
   };
   if (options.token) {
     headers.Authorization = `Bearer ${options.token}`;
+  }
+
+  if (options.body != null) {
+    const badPath = findForbiddenHtmlPath(options.body);
+    if (badPath) {
+      throw new ApiError(400, `${NO_HTML_MESSAGE} (field: ${badPath})`);
+    }
   }
 
   let res: Response;

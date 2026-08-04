@@ -123,6 +123,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
     if (!accessToken) return;
     setLoading(true);
     setError(null);
+    const fallbackZone = user?.activePost?.zoneCode?.trim() || null;
     try {
       const [list, meta] = await Promise.all([
         fetchZcApplications(accessToken),
@@ -131,14 +132,15 @@ export function ZcHomeScreen({ go }: { go: Go }) {
       setApps(list);
       // Assigned zone from officer meta only — do not infer from an application
       // (that caused Welcome EAST vs Profile SOUTH mismatches).
-      setZoneLabel(meta?.zoneCode?.trim() || null);
+      setZoneLabel(meta?.zoneCode?.trim() || fallbackZone);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to load applications');
       setApps([]);
+      setZoneLabel(fallbackZone);
     } finally {
       setLoading(false);
     }
-  }, [accessToken]);
+  }, [accessToken, user?.activePost?.zoneCode]);
 
   useEffect(() => {
     void reload();

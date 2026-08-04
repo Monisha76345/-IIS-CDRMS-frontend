@@ -27,6 +27,29 @@ export type AuthUser = {
   roleName?: string;
   profilePhoto?: string | null;
   themePreference?: string;
+  status?: string;
+  activePost?: {
+    postId?: string;
+    postName?: string | null;
+    ofcAddress?: string | null;
+    locationId?: number | null;
+    location?: string | null;
+    zoneId?: number | null;
+    zoneCode?: string | null;
+  } | null;
+  officer?: {
+    personUniqueId?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+    mobileNumber?: string | null;
+    gender?: string | null;
+    department?: string | null;
+    districtName?: string | null;
+    state?: string | null;
+    status?: string | null;
+    profilePhoto?: string | null;
+  } | null;
 };
 
 type AuthContextValue = {
@@ -37,6 +60,7 @@ type AuthContextValue = {
   logout: () => Promise<void>;
   updateProfilePhoto: (photoUriOrBase64: string | null) => Promise<void>;
   updateSessionUser: (patch: Partial<AuthUser>) => void;
+  refreshProfile: () => Promise<AuthUser | null>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -229,6 +253,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const refreshProfile = useCallback(async () => {
+    if (!accessToken) return null;
+    try {
+      const profile = await apiRequest<AuthUser>('/auth/profile', {
+        token: accessToken,
+      });
+      if (!profile || !(profile.id || profile.email || profile.loginId)) {
+        return null;
+      }
+      setUser((prev) => {
+        const merged = { ...(prev || {}), ...profile };
+        void saveItem(USER_KEY, JSON.stringify(merged));
+        return merged;
+      });
+      return profile;
+    } catch {
+      return null;
+    }
+  }, [accessToken]);
+
   const value = useMemo(
     () => ({
       user,
@@ -238,8 +282,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       updateProfilePhoto,
       updateSessionUser,
+      refreshProfile,
     }),
-    [user, accessToken, login, logout, updateProfilePhoto, updateSessionUser],
+    [
+      user,
+      accessToken,
+      login,
+      logout,
+      updateProfilePhoto,
+      updateSessionUser,
+      refreshProfile,
+    ],
   );
 
   if (!hydrated) return null;

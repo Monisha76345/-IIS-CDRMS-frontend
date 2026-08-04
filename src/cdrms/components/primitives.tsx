@@ -492,6 +492,9 @@ export function AppHeader({
   const isCompactOfficeNav =
     role === 'zc' || role === 'cao' || role === 'super_admin';
   const canLogout = Boolean(showLogout && isAuthenticated && go);
+  /** Prefer explicit prop; fall back to post zone from login/profile. */
+  const resolvedZone =
+    zoneLabel?.trim() || user?.activePost?.zoneCode?.trim() || null;
 
   const onLogout = async () => {
     await logout();
@@ -618,15 +621,15 @@ export function AppHeader({
       gradient={gradient}
       userName={userName}
       roleName={user?.roleName}
-      loginId={user?.loginId}
-      photoUrl={user?.profilePhoto}
-      zoneLabel={zoneLabel}
+      loginId={user?.officer?.personUniqueId || user?.loginId}
+      photoUrl={user?.profilePhoto || user?.officer?.profilePhoto}
+      zoneLabel={resolvedZone}
       onLogout={() => void onLogout()}
     />
   ) : null;
 
   const zoneBtn =
-    welcome && zoneLabel ? <ZoneTag zone={zoneLabel} onGradient /> : null;
+    welcome && resolvedZone ? <ZoneTag zone={resolvedZone} onGradient /> : null;
 
   const notifBell =
     go && showNotifications && role === 'cao' ? (
