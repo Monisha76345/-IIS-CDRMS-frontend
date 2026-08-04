@@ -1455,6 +1455,7 @@ export function PermissionScreen({ go }: { go: Go }) {
 
   useEffect(() => {
     // ZC / CAO never need geo validation — send them home if they land here.
+    if (!user) return;
     if (!needsGeoValidation(user)) {
       go(homeScreenForRole(user));
     }
@@ -1830,6 +1831,7 @@ export function GeoScreen({ go }: { go: Go }) {
   } | null>(null);
 
   useEffect(() => {
+    if (!user) return;
     if (!needsGeoValidation(user)) {
       go(homeScreenForRole(user));
     }
@@ -1901,7 +1903,7 @@ export function GeoScreen({ go }: { go: Go }) {
               ? 'Location unavailable'
               : 'Acquiring GPS — please wait…'
           }
-          onBack={() => go('login')}
+          onBack={() => go('permission')}
           go={go}
         />
         <Box className="flex-1 items-center justify-center px-8" style={{ marginTop: 8 }}>
@@ -1959,7 +1961,7 @@ export function GeoScreen({ go }: { go: Go }) {
         <AppHeader
           title={TERMS.permissions.geoValidation}
           subtitle={isBusy ? 'Scanning jurisdiction…' : TERMS.permissions.geoValidationSubtitle}
-          onBack={() => go('login')}
+          onBack={() => go('permission')}
           go={go}
         />
 
