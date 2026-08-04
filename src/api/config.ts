@@ -1,92 +1,109 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-const API_PORT = 3710;
-/** Mac LAN IP fallback for physical-device testing. */
-const DEFAULT_DEV_LAN_IP = '192.168.1.39';
+/**
+ * API base URL — single source is `.env.example` (EXPO_PUBLIC_API_URL),
+ * injected at build/start via app.config.js. No hardcoded host here.
+ */
+function readApiProxyUrl(): string {
+  const fromEnv = process.env.EXPO_PUBLIC_API_URL?.trim();
+  const fromExtra =
+    typeof Constants.expoConfig?.extra?.apiUrl === 'string'
+      ? Constants.expoConfig.extra.apiUrl.trim()
+      : '';
+  const raw = (fromEnv || fromExtra).replace(/\/api\/?$/, '').replace(/\/$/, '');
+  if (!raw) {
+    throw new Error(
+      'Missing EXPO_PUBLIC_API_URL. Set it once in .env.example (loaded by app.config.js).',
+    );
+  }
+  return raw;
+}
 
-/** Extracts active Metro bundler host IP dynamically when connected. */
-function getAutoDetectedLanIp(): string {
+export const API_PROXY_URL = readApiProxyUrl();
+
+function apiPort(): number {
+  try {
+    const u = new URL(API_PROXY_URL);
+    if (u.port) return Number(u.port);
+    return u.protocol === 'https:' ? 443 : 80;
+  } catch {
+    return 3710;
+  }
+}
+
+function apiHostname(): string {
+  try {
+    return new URL(API_PROXY_URL).hostname;
+  } catch {
+    return '';
+  }
+}
+
+/** Extracts active Metro bundler host IP when connected (local LAN only). */
+function getAutoDetectedLanIp(): string | null {
   const hostUri =
     Constants.expoConfig?.hostUri ||
     (Constants as unknown as { manifest2?: { extra?: { expoGo?: { debuggerHost?: string } } } })
       ?.manifest2?.extra?.expoGo?.debuggerHost;
 
+  const configuredHost = apiHostname();
   if (typeof hostUri === 'string' && hostUri.includes(':')) {
     const ip = hostUri.split(':')[0].trim();
-    if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
+    if (
+      ip &&
+      ip !== 'localhost' &&
+      ip !== '127.0.0.1' &&
+      ip !== configuredHost
+    ) {
       return ip;
     }
   }
-  return DEFAULT_DEV_LAN_IP;
+  return null;
 }
 
-/** True for Android/iOS simulators and emulators — false on physical hardware. */
 function isSimulatorOrEmulator(): boolean {
   return Constants.isDevice === false;
 }
 
-function stripApiSuffix(url: string) {
-  return url.replace(/\/api\/?$/, '').replace(/\/$/, '');
-}
-
 function withApiPath(host: string) {
-  const base = stripApiSuffix(host);
+  const base = host.replace(/\/api\/?$/, '').replace(/\/$/, '');
   return `${base}/api`;
 }
 
 /**
- * Base URL for CDRMS Nest API.
- *
- * - iOS Simulator / Expo web: localhost
- * - Android Emulator: 10.0.2.2 (maps to Mac localhost)
- * - Physical device: EXPO_PUBLIC_API_URL or auto-detected LAN IP
+ * Resolve API host:
+ * - Prefer EXPO_PUBLIC_API_URL from .env.example
+ * - Android emulator → 10.0.2.2 only when env points at localhost
+ * - iOS simulator → localhost only when env points at localhost
  */
 function resolveApiHost(): string {
-  const envRaw = process.env.EXPO_PUBLIC_API_URL?.trim();
-  const envHost = envRaw ? stripApiSuffix(envRaw) : null;
-  const lanIp = getAutoDetectedLanIp();
+  const envHost = API_PROXY_URL;
+  const port = apiPort();
+  const isLocalEnv =
+    envHost.includes('localhost') ||
+    envHost.includes('127.0.0.1') ||
+    envHost.includes('10.0.2.2');
 
-  if (Platform.OS === 'android') {
-    if (isSimulatorOrEmulator()) {
-      if (
-        !envHost ||
-        envHost.includes('localhost') ||
-        envHost.includes('127.0.0.1') ||
-        envHost.includes('10.0.2.2')
-      ) {
-        return `http://10.0.2.2:${API_PORT}`;
-      }
-      return envHost;
-    }
-
-    // Physical Android phone
-    if (envHost) return envHost;
-    return `http://${lanIp}:${API_PORT}`;
+  if (Platform.OS === 'android' && isSimulatorOrEmulator() && isLocalEnv) {
+    return `http://10.0.2.2:${port}`;
   }
 
-  if (Platform.OS === 'ios' && isSimulatorOrEmulator()) {
-    if (envHost && !envHost.includes('10.0.2.2')) {
-      return envHost.replace('://localhost', '://127.0.0.1');
-    }
-    return `http://localhost:${API_PORT}`;
+  if (Platform.OS === 'ios' && isSimulatorOrEmulator() && isLocalEnv) {
+    return `http://127.0.0.1:${port}`;
   }
 
-  // Physical iOS device or web
-  if (envHost) return envHost;
-  return `http://${lanIp}:${API_PORT}`;
+  return envHost;
 }
 
 export const API_BASE_URL = withApiPath(resolveApiHost());
 
-/** Helpful for login / network error messages in dev. */
 export function apiConnectionHint(): string {
-  const activeIp = getAutoDetectedLanIp();
-  if (Platform.OS === 'android' && !isSimulatorOrEmulator()) {
-    return `Network request failed — cannot reach ${API_BASE_URL}. Ensure phone & Mac are on the same Wi-Fi network (Mac IP: ${activeIp}). Currently trying: ${API_BASE_URL}`;
-  }
-  if (Platform.OS === 'android' && isSimulatorOrEmulator()) {
-    return `Android emulator — backend must run on Mac port ${API_PORT}. Using ${API_BASE_URL}`;
-  }
-  return `Backend must run on port ${API_PORT}. Currently trying ${API_BASE_URL}`;
+  const lan = getAutoDetectedLanIp();
+  return (
+    `Cannot reach ${API_BASE_URL}. ` +
+    `Confirm backend is up at ${API_PROXY_URL}` +
+    (lan ? ` (device LAN ${lan})` : '') +
+    '.'
+  );
 }

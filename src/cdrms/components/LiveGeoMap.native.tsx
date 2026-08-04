@@ -167,8 +167,8 @@ function WebViewGoogleLiveMap(props: LiveGeoMapProps) {
 }
 
 /**
- * Live geo map — native Google Maps SDK in dev client builds;
- * WebView embed fallback in Expo Go.
+ * Live geo map — native Google Maps only when a Maps API key is set;
+ * otherwise WebView embed (safe for release APK without a key).
  */
 export function LiveGeoMap(props: LiveGeoMapProps) {
   if (canUseNativeGoogleMaps()) {

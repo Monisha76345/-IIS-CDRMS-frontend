@@ -73,8 +73,8 @@ export function SiteVideoCaptureCard() {
         draft.video
           ? `Recorded ${recordedLabel}`
           : simDummy
-            ? 'Simulator · use dummy sample video (or pick from gallery)'
-            : 'Record a site video (max 50 MB)'
+            ? 'Simulator · use dummy sample video'
+            : 'Live record only — upload from gallery/files is not allowed'
       }
       badge={draft.video ? <HeaderStatusBadge label="Ready" /> : undefined}
     >

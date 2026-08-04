@@ -1455,6 +1455,7 @@ export function PermissionScreen({ go }: { go: Go }) {
 
   useEffect(() => {
     // ZC / CAO never need geo validation — send them home if they land here.
+    // Wait until user is loaded; null briefly would skip engineer and bounce away.
     if (!user) return;
     if (!needsGeoValidation(user)) {
       go(homeScreenForRole(user));
@@ -1474,7 +1475,7 @@ export function PermissionScreen({ go }: { go: Go }) {
 
   const enableGps = useCallback(async () => {
     if (busy) return;
-    if (!needsGeoValidation(user)) {
+    if (user && !needsGeoValidation(user)) {
       go(homeScreenForRole(user));
       return;
     }
@@ -1831,6 +1832,7 @@ export function GeoScreen({ go }: { go: Go }) {
   } | null>(null);
 
   useEffect(() => {
+    // Wait until user is loaded; null briefly would skip engineer and bounce away.
     if (!user) return;
     if (!needsGeoValidation(user)) {
       go(homeScreenForRole(user));
@@ -1892,6 +1894,10 @@ export function GeoScreen({ go }: { go: Go }) {
     transform: [{ translateY: interpolate(cardLift.value, [0, 1], [0, -3]) }],
   }));
 
+  const leaveGeo = useCallback(() => {
+    go('permission', { replace: true });
+  }, [go]);
+
   // Wait for real GPS — never show hardcoded Devanahalli / demo zone placeholders.
   if (!hasLocation || !locationResult) {
     return (
@@ -1903,7 +1909,7 @@ export function GeoScreen({ go }: { go: Go }) {
               ? 'Location unavailable'
               : 'Acquiring GPS — please wait…'
           }
-          onBack={() => go('permission')}
+          onBack={leaveGeo}
           go={go}
         />
         <Box className="flex-1 items-center justify-center px-8" style={{ marginTop: 8 }}>
@@ -1961,7 +1967,7 @@ export function GeoScreen({ go }: { go: Go }) {
         <AppHeader
           title={TERMS.permissions.geoValidation}
           subtitle={isBusy ? 'Scanning jurisdiction…' : TERMS.permissions.geoValidationSubtitle}
-          onBack={() => go('permission')}
+          onBack={leaveGeo}
           go={go}
         />
 

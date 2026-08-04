@@ -316,12 +316,25 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
 
   const toggleRecord = async () => {
     if (!canLiveRecord) {
-      await resolveFromLibrary();
+      showAppDialog({
+        variant: 'error',
+        title: 'Video',
+        message:
+          'Live video recording is not available on this device. Use a real phone with Camera + Microphone enabled.',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
       return;
     }
     if (busy && !recording) return;
     if (!cameraRef.current) {
-      await resolveFromLibrary();
+      showAppDialog({
+        variant: 'error',
+        title: 'Video',
+        message: 'Camera is not ready. Wait a moment and tap Record again.',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
       return;
     }
 
@@ -349,7 +362,13 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
       });
       setRecording(false);
       if (!video?.uri) {
-        await resolveFromLibrary();
+        showAppDialog({
+          variant: 'error',
+          title: 'Video',
+          message: 'Recording did not produce a file. Tap Record and try again.',
+          hideCancel: true,
+          confirmLabel: 'OK',
+        });
         return;
       }
       const durationMs = startedAt.current
@@ -366,18 +385,16 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
       if (isSimulatorRecordError(message)) {
         markSimulatorVideoBlocked();
         setCanLiveRecord(false);
-        // Auto-open gallery — no confusing error alert on Simulator.
-        await resolveFromLibrary();
         return;
       }
       showAppDialog({
         variant: 'error',
         title: 'Video',
-        message,
-        cancelLabel: 'Gallery',
-        confirmLabel: 'Files',
-        onCancel: () => void resolveFromLibrary(),
-        onConfirm: () => void resolveFromFiles(),
+        message:
+          message ||
+          'Video recording failed. Tap Record again. Gallery / file upload is not allowed — live recording is mandatory.',
+        hideCancel: true,
+        confirmLabel: 'OK',
       });
     } finally {
       setBusy(false);
@@ -598,8 +615,8 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
                 {facingLocked
                   ? request.facing === 'front'
                     ? 'Front camera only'
-                    : 'Rear camera only'
-                  : `${facing === 'front' ? 'Front camera' : 'Rear camera'} · Gallery fallback available`}
+                    : 'Rear camera only · Live record required'
+                  : `${facing === 'front' ? 'Front camera' : 'Rear camera'}`}
               </Text>
             </VStack>
             {facingLocked ? (
@@ -640,7 +657,8 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
           style={[styles.bottomFade, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}
         >
           <HStack className="justify-center px-5 mb-4" style={{ gap: 10 }}>
-            {!facingLocked ? (
+            {/* Photos may use gallery when facing is not locked. Video = live record only. */}
+            {request.mode === 'photo' && !facingLocked ? (
               <Pressable
                 onPress={() => void resolveFromLibrary()}
                 disabled={busy || recording}
@@ -649,17 +667,6 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
               >
                 <ImageIcon size={15} color="#fff" />
                 <Text className="text-white text-[12px] font-bold">Gallery</Text>
-              </Pressable>
-            ) : null}
-            {request.mode === 'video' ? (
-              <Pressable
-                onPress={() => void resolveFromFiles()}
-                disabled={busy || recording}
-                className="flex-row items-center gap-2 px-3.5 h-10 rounded-full"
-                style={{ backgroundColor: 'rgba(255,255,255,0.16)' }}
-              >
-                <Film size={15} color="#fff" />
-                <Text className="text-white text-[12px] font-bold">Files</Text>
               </Pressable>
             ) : null}
           </HStack>

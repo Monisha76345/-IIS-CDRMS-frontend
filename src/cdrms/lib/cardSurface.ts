@@ -22,7 +22,7 @@ export function cardSurfaceStyle(opts?: {
   const cv = DESIGN.cardVariant;
   const nested = Boolean(opts?.nested);
   const mh = opts?.marginHorizontal;
-  const frost = opts?.translucent ? 'rgba(255,255,255,0.55)' : null;
+  const frost = opts?.translucent ? 'rgba(255,255,255,0.92)' : null;
 
   const base: ViewStyle = {
     borderRadius: cv === 'flat' ? 0 : DESIGN.cardRadius,
@@ -108,7 +108,8 @@ export function cardSurfaceStyle(opts?: {
 export function cardBodyStyle(opts?: { translucent?: boolean }): ViewStyle {
   const cv = DESIGN.cardVariant;
   if (opts?.translucent) {
-    return { backgroundColor: 'rgba(255,255,255,0.28)' };
+    // Nearly solid so the body fills the bordered shell (no frosted “frame” gap).
+    return { backgroundColor: 'rgba(255,255,255,0.92)' };
   }
   switch (cv) {
     case 'tinted':

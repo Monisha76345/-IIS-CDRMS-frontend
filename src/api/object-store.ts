@@ -24,6 +24,8 @@ function guessMime(uri: string, kind: 'image' | 'video'): string {
   if (kind === 'video') {
     if (lower.includes('.mov')) return 'video/quicktime';
     if (lower.includes('.webm')) return 'video/webm';
+    if (lower.includes('.m4v')) return 'video/x-m4v';
+    if (lower.includes('.3gp')) return 'video/3gpp';
     return 'video/mp4';
   }
   if (lower.includes('.png')) return 'image/png';
@@ -32,15 +34,22 @@ function guessMime(uri: string, kind: 'image' | 'video'): string {
 }
 
 function fileNameFromUri(uri: string, kind: 'image' | 'video', refKey: string) {
+  const lower = uri.toLowerCase();
   const ext =
     kind === 'video'
-      ? uri.toLowerCase().includes('.mov')
+      ? lower.includes('.mov')
         ? 'mov'
-        : 'mp4'
-      : uri.toLowerCase().includes('.png')
+        : lower.includes('.webm')
+          ? 'webm'
+          : lower.includes('.m4v')
+            ? 'm4v'
+            : 'mp4'
+      : lower.includes('.png')
         ? 'png'
         : 'jpg';
-  return `${refKey}.${ext}`;
+  // Safe ASCII name so Multer originalname always has the video extension.
+  const safeKey = refKey.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 48) || 'media';
+  return `${safeKey}.${ext}`;
 }
 
 function networkHint(err: unknown): string {
@@ -48,36 +57,40 @@ function networkHint(err: unknown): string {
   if (/network request failed|failed to fetch|network error/i.test(msg)) {
     return (
       `Network request failed. Phone cannot reach ${API_BASE_URL}. ` +
-      `Keep phone + Mac on the same Wi‑Fi, ensure backend is running on port 3710, ` +
-      `and set EXPO_PUBLIC_API_URL to your Mac LAN IP (then restart Metro).`
+      `Confirm backend is up and EXPO_PUBLIC_API_URL points at UAT.`
     );
   }
   return msg || 'Upload failed';
 }
 
 /**
- * Ensure a file:// path RN upload APIs can read (content:// often breaks FormData).
+ * Copy to a cache file whose path ends with .mp4/.jpg so Multer originalname
+ * always carries a valid extension (required by backend validation).
  */
-async function ensureUploadableUri(uri: string, kind: 'image' | 'video'): Promise<string> {
+async function ensureUploadableUri(
+  uri: string,
+  kind: 'image' | 'video',
+  fileName: string,
+): Promise<string> {
   const trimmed = uri.trim();
-  if (trimmed.startsWith('file://')) return trimmed;
-
   const cache = FileSystem.cacheDirectory;
   if (!cache) return trimmed;
 
-  const ext = kind === 'video' ? 'mp4' : 'jpg';
-  const dest = `${cache}cdrms-upload-${Date.now()}.${ext}`;
+  const dest = `${cache}cdrms-upload-${Date.now()}-${fileName}`;
   try {
     await FileSystem.copyAsync({ from: trimmed, to: dest });
     return dest;
   } catch {
+    if (trimmed.startsWith('file://') && /\.(mp4|mov|webm|m4v|jpe?g|png)$/i.test(trimmed)) {
+      return trimmed;
+    }
     return trimmed;
   }
 }
 
 /**
- * Upload a local file URI to MinIO via the same Nest object-store API as web.
- * Uses expo-file-system multipart upload — more reliable than fetch+FormData on device.
+ * Upload a local file URI to MinIO via the Nest object-store API.
+ * Videos send mediaKind=video so .mp4 is accepted on BE.
  */
 export async function uploadMobileMedia(params: {
   token: string;
@@ -87,15 +100,16 @@ export async function uploadMobileMedia(params: {
   kind: 'image' | 'video';
 }): Promise<string> {
   const { token, applicationId, refKey, uri, kind } = params;
-  const fileUri = await ensureUploadableUri(uri, kind);
+  const fileName = fileNameFromUri(uri, kind, refKey);
+  const fileUri = await ensureUploadableUri(uri, kind, fileName);
   const mime = guessMime(fileUri, kind);
-  const fileName = fileNameFromUri(fileUri, kind, refKey);
 
   const qs = new URLSearchParams({
     entityType: 'DOCUMENT',
     entityId: String(entityIdFromUuid(applicationId)),
     refType: kind === 'video' ? 'OTHER' : 'LAYOUT_IMAGE',
     refId: `${applicationId}:${refKey}`,
+    mediaKind: kind,
   });
 
   const uploadUrl = `${API_BASE_URL}/object-store/upload?${qs.toString()}`;
@@ -110,8 +124,8 @@ export async function uploadMobileMedia(params: {
       fieldName: 'file',
       mimeType: mime,
       parameters: {
-        // Some Android stacks need the filename in parameters too
         filename: fileName,
+        mediaKind: kind,
       },
       headers: {
         Accept: 'application/json',
@@ -141,7 +155,14 @@ export async function uploadMobileMedia(params: {
       'message' in data &&
       typeof (data as { message: unknown }).message === 'string'
         ? (data as { message: string }).message
-        : `Upload failed (${status || 'network'})`;
+        : Array.isArray(
+              data &&
+                typeof data === 'object' &&
+                'message' in data &&
+                (data as { message: unknown }).message,
+            )
+          ? String(((data as { message: unknown[] }).message || []).join(', '))
+          : `Upload failed (${status || 'network'})`;
 
     if (status >= 500 || status === 0) {
       try {

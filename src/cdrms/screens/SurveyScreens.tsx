@@ -66,7 +66,6 @@ import {
   useDummyCapture,
 } from '@/src/cdrms/hooks/useMediaCapture';
 import { createDummyVideoAsset } from '@/src/cdrms/hooks/dummyMedia';
-import { isLiveVideoBlocked } from '@/src/cdrms/device/isVirtualDevice';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
 import {
@@ -1954,7 +1953,6 @@ export function VideoScreen({ go }: { go: Go }) {
   const { themeId } = useTheme();
   const { draft, setVideo } = useProject();
   const [busy, setBusy] = useState(false);
-  const videoPickOnly = isLiveVideoBlocked();
   const isBackendTask = Boolean(draft.backendApplicationId);
   const simDummy = useDummyCapture();
 
@@ -2177,9 +2175,7 @@ export function VideoScreen({ go }: { go: Go }) {
               ? 'Loading…'
               : simDummy
                 ? 'Use dummy sample video'
-                : videoPickOnly
-                  ? 'Pick Video'
-                  : 'Record Video'}
+                : 'Record Video'}
           </Text>
           <ChevronRight size={18} color="rgba(255,255,255,0.9)" strokeWidth={2.4} />
         </LinearGradient>

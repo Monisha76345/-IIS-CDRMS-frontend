@@ -8,7 +8,6 @@ import {
   isAndroidVirtual,
   isLiveVideoBlocked,
   MAC_CAMERA_HINT,
-  VIRTUAL_CAMERA_MESSAGE,
 } from '@/src/cdrms/device/isVirtualDevice';
 import {
   createDummyImageAsset,
@@ -89,7 +88,6 @@ async function ensureLibraryPermission() {
   }
 }
 
-let explainedVideoOnce = false;
 let explainedMacCamOnce = false;
 
 function explainMacCameraOnce() {
@@ -355,51 +353,65 @@ export async function chooseVideoFile(): Promise<MediaAsset | null> {
  * Real phone → system camera recorder (fallback: in-app CameraView).
  */
 export async function captureVideo(): Promise<MediaAsset | null> {
+  // Simulator / dummy builds: bundled sample only (no gallery upload path).
   if (useDummyCapture() || isLiveVideoBlocked()) {
     try {
       return await createDummyVideoAsset();
-    } catch {
-      // Fall through to gallery / files if bundled sample is missing
-      if (isLiveVideoBlocked()) {
-        if (!explainedVideoOnce) {
-          explainedVideoOnce = true;
-          showAppDialog({
-            variant: 'info',
-            title: 'Video on Simulator',
-            message: VIRTUAL_CAMERA_MESSAGE,
-            hideCancel: true,
-            confirmLabel: 'OK',
-          });
-        }
-        return chooseVideoFile();
-      }
+    } catch (e) {
+      showAppDialog({
+        variant: 'error',
+        title: 'Video',
+        message:
+          e instanceof Error
+            ? e.message
+            : 'Could not load sample video. Live recording works on a real phone.',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
+      return null;
     }
   }
 
   if (!(await ensureMediaCapturePermissions('video'))) return null;
 
-  // System camera video is the most reliable on real Android / iPhone.
+  // Real device — live rear-camera record only (no gallery / files upload).
   try {
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['videos'],
-      videoMaxDuration: 120,
-      allowsEditing: false,
-      quality: 0.7,
-      ...(Platform.OS === 'ios'
-        ? {
-            videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
-          }
-        : {}),
-    });
-    if (result.canceled || !result.assets?.[0]) return null;
-    return toAsset(result.assets[0], 'video');
-  } catch {
-    return openDeviceCamera({
+    return await openDeviceCamera({
       mode: 'video',
       facing: 'back',
       title: 'Record inspection video',
       maxDurationSec: 120,
+      lockFacing: true,
     });
+  } catch {
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['videos'],
+        cameraType: ImagePicker.CameraType.back,
+        videoMaxDuration: 120,
+        allowsEditing: false,
+        quality: 0.7,
+        ...(Platform.OS === 'ios'
+          ? {
+              videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
+            }
+          : {}),
+      });
+      if (result.canceled || !result.assets?.[0]) return null;
+      return toAsset(result.assets[0], 'video');
+    } catch (e) {
+      showAppDialog({
+        variant: 'error',
+        title: 'Camera error',
+        message:
+          e instanceof Error
+            ? e.message
+            : 'Could not open the rear camera. Allow Camera + Microphone in Settings and try again.',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
+      return null;
+    }
   }
 }
 

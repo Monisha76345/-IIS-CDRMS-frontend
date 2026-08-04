@@ -125,18 +125,68 @@ export function GlassCard({
 }) {
   const { themeId } = useTheme();
   const radius = DESIGN.cardRadius;
+  const surface = cardSurfaceStyle({
+    marginHorizontal: SPACE.gutter,
+    translucent,
+  });
+  const fill =
+    (typeof surface.backgroundColor === 'string' && surface.backgroundColor) ||
+    (translucent ? 'rgba(255,255,255,0.92)' : COLORS.white);
+  const borderColor =
+    (typeof surface.borderColor === 'string' && surface.borderColor) ||
+    hexAlpha(COLORS.primary, 0.58);
+  const borderW =
+    typeof surface.borderWidth === 'number' && surface.borderWidth > 0
+      ? surface.borderWidth
+      : 0;
+
+  // Border drawn as outer padding so header/body fill flush to the outline.
+  // (Same-view overflow:'hidden' + borderWidth clips the border on Android and
+  // left a visible gap between the blue outline and the white card.)
+  if (borderW > 0) {
+    return (
+      <View
+        key={themeId}
+        style={[
+          {
+            marginHorizontal: SPACE.gutter,
+            marginBottom:
+              typeof surface.marginBottom === 'number' ? surface.marginBottom : 10,
+            borderRadius: radius,
+            backgroundColor: borderColor,
+            padding: borderW,
+            shadowColor: surface.shadowColor,
+            shadowOffset: surface.shadowOffset,
+            shadowOpacity: surface.shadowOpacity,
+            shadowRadius: surface.shadowRadius,
+            elevation: surface.elevation,
+          },
+          style,
+        ]}
+      >
+        <View
+          style={{
+            borderRadius: Math.max(0, radius - borderW),
+            overflow: 'hidden',
+            backgroundColor: fill,
+          }}
+        >
+          {children}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View
       key={themeId}
       style={[
-        cardSurfaceStyle({ marginHorizontal: SPACE.gutter, translucent }),
+        surface,
+        { overflow: 'hidden', backgroundColor: fill },
         style,
       ]}
     >
-      {/* Clip content to radius without hiding the outer border */}
-      <View style={{ borderRadius: Math.max(0, radius - 1), overflow: 'hidden' }}>
-        {children}
-      </View>
+      {children}
     </View>
   );
 }
