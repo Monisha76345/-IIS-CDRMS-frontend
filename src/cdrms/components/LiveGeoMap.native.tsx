@@ -5,45 +5,35 @@ import { WebView } from 'react-native-webview';
 import { Box } from '@/components/ui/box';
 import { Text } from '@/components/ui/text';
 import { StaticMapPreview } from '@/src/cdrms/components/StaticMapPreview';
+import { canUseNativeGoogleMaps, googleMapsApiKey } from '@/src/cdrms/lib/googleMapsNative';
+import { NativeGoogleLiveMap } from './NativeGoogleLiveMap';
+import type { LiveGeoMapProps } from './LiveGeoMap.types';
 
-export type LiveGeoMapProps = {
-  height?: number;
-  rounded?: number;
-  /** Live device GPS only — no hardcoded site. */
-  latitude: number;
-  longitude: number;
-  accuracyMeters?: number | null;
-  zoneRadiusFeet?: number;
-  outside?: boolean;
-  placeLabel?: string;
-  recenterKey?: number;
-  /** Allow pinch-zoom / pan (default true). */
-  interactive?: boolean;
-};
+export type { LiveGeoMapProps } from './LiveGeoMap.types';
 
-function googleMapsApiKey(): string {
-  return (process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '').trim();
-}
-
-/**
- * Google Maps centered on live GPS.
- * Prefers Maps Embed API when a key is set; otherwise uses the public maps embed URL.
- */
 function buildGoogleMapsHtml(opts: {
   latitude: number;
   longitude: number;
   placeLabel?: string;
   outside?: boolean;
+  zoom?: number;
+  showInnerBadge?: boolean;
 }): string {
   const lat = opts.latitude;
   const lng = opts.longitude;
+  const zoom = Math.min(21, Math.max(1, opts.zoom ?? 18));
   const label = (opts.placeLabel || 'Current location').replace(/[<>&'"]/g, '');
   const pinColor = opts.outside ? 'red' : 'green';
   const key = googleMapsApiKey();
+  const showInnerBadge = opts.showInnerBadge !== false;
 
   const embedSrc = key
-    ? `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(key)}&q=${lat}%2C${lng}&zoom=18&maptype=roadmap`
-    : `https://maps.google.com/maps?q=${lat}%2C${lng}&z=18&hl=en&output=embed`;
+    ? `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(key)}&q=${lat}%2C${lng}&zoom=${zoom}&maptype=roadmap`
+    : `https://maps.google.com/maps?q=${lat}%2C${lng}&z=${zoom}&hl=en&output=embed`;
+
+  const innerBadge = showInnerBadge
+    ? `<div class="badge">${label}<br/>Google Maps · ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>`
+    : '';
 
   return `<!DOCTYPE html>
 <html>
@@ -74,24 +64,26 @@ function buildGoogleMapsHtml(opts: {
     title="Google Maps"
   ></iframe>
   <div class="dot"></div>
-  <div class="badge">${label}<br/>Google Maps · ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
+  ${innerBadge}
 </body>
 </html>`;
 }
 
-/**
- * Live geo map (iOS + Android) — Google Maps in WebView (works in Expo Go).
- */
-export function LiveGeoMap({
-  height = 280,
-  rounded = 20,
-  latitude,
-  longitude,
-  outside = false,
-  placeLabel,
-  recenterKey = 0,
-  interactive = true,
-}: LiveGeoMapProps) {
+/** WebView Google Maps — Expo Go fallback when native SDK is unavailable. */
+function WebViewGoogleLiveMap(props: LiveGeoMapProps) {
+  const {
+    height = 280,
+    rounded = 20,
+    latitude,
+    longitude,
+    outside = false,
+    placeLabel,
+    recenterKey = 0,
+    zoom = 18,
+    interactive = true,
+    showBrandBadge = true,
+    showInnerBadge = true,
+  } = props;
   const [failed, setFailed] = useState(false);
 
   const html = useMemo(
@@ -101,8 +93,10 @@ export function LiveGeoMap({
         longitude,
         placeLabel,
         outside,
+        zoom,
+        showInnerBadge,
       }),
-    [latitude, longitude, placeLabel, outside, recenterKey]
+    [latitude, longitude, placeLabel, outside, zoom, showInnerBadge, recenterKey],
   );
 
   if (failed) {
@@ -130,7 +124,7 @@ export function LiveGeoMap({
       }}
     >
       <WebView
-        key={`gmaps-${latitude.toFixed(5)}-${longitude.toFixed(5)}-${recenterKey}`}
+        key={`gmaps-${latitude.toFixed(5)}-${longitude.toFixed(5)}-${zoom}-${recenterKey}`}
         originWhitelist={['*']}
         source={{ html, baseUrl: 'https://maps.google.com' }}
         style={{ width: '100%', height, backgroundColor: '#E8EEF5' }}
@@ -151,21 +145,34 @@ export function LiveGeoMap({
         geolocationEnabled
       />
 
-      <Box
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          right: 10,
-          top: 10,
-          paddingHorizontal: 8,
-          paddingVertical: 4,
-          borderRadius: 8,
-          backgroundColor: 'rgba(15,23,42,0.72)',
-          zIndex: 3,
-        }}
-      >
-        <Text className="text-[9px] font-bold text-white">Google Maps</Text>
-      </Box>
+      {showBrandBadge ? (
+        <Box
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            right: 10,
+            top: 10,
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 8,
+            backgroundColor: 'rgba(15,23,42,0.72)',
+            zIndex: 3,
+          }}
+        >
+          <Text className="text-[9px] font-bold text-white">Google Maps (preview)</Text>
+        </Box>
+      ) : null}
     </View>
   );
+}
+
+/**
+ * Live geo map — native Google Maps SDK in dev client builds;
+ * WebView embed fallback in Expo Go.
+ */
+export function LiveGeoMap(props: LiveGeoMapProps) {
+  if (canUseNativeGoogleMaps()) {
+    return <NativeGoogleLiveMap {...props} />;
+  }
+  return <WebViewGoogleLiveMap {...props} />;
 }

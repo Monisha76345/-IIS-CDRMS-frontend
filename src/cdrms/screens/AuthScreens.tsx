@@ -77,7 +77,8 @@ import {
   ScreenShell,
   ScreenLoader,
 } from '@/src/cdrms/components/primitives';
-import { KarnatakaMap } from '@/src/cdrms/components/KarnatakaMap';
+import { LiveGeoMap } from '@/src/cdrms/components/LiveGeoMap';
+import { zoomFromLatitudeDelta } from '@/src/cdrms/components/osmMapUrl';
 import {
   GEO_FENCE_RADIUS_FT,
   distanceFeet,
@@ -1979,16 +1980,19 @@ export function GeoScreen({ go }: { go: Go }) {
                   onTouchEnd={() => setMapGesturing(false)}
                   onTouchCancel={() => setMapGesturing(false)}
                 >
-                  <KarnatakaMap
+                  <LiveGeoMap
                     height={GEO_MAP_HEIGHT}
                     rounded={0}
-                    mode="site"
-                    showBadge={false}
-                    interactive
                     latitude={currentLat}
                     longitude={currentLng}
+                    outside={outside}
                     latitudeDelta={mapDelta}
+                    zoom={zoomFromLatitudeDelta(mapDelta)}
+                    accuracyMeters={currentAccuracy}
                     recenterKey={mapRecenterKey}
+                    interactive
+                    showBrandBadge={false}
+                    showInnerBadge={false}
                   />
 
                   <Box

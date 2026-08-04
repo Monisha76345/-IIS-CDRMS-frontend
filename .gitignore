@@ -40,6 +40,10 @@ lerna-debug.log*
 .env.*
 !.env.example
 
+# Google / Firebase (download from console — do not commit real keys)
+google-services.json
+GoogleService-Info.plist
+
 # typescript
 *.tsbuildinfo
 

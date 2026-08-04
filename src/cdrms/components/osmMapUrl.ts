@@ -40,6 +40,22 @@ export function zoomFromLatitudeDelta(latitudeDelta?: number): number {
   return 19;
 }
 
+/** Inverse of zoomFromLatitudeDelta — for native MapView regions. */
+export function latitudeDeltaFromZoom(zoom: number): number {
+  const z = Math.min(21, Math.max(1, zoom));
+  if (z >= 19) return 0.0015;
+  if (z >= 18) return 0.003;
+  if (z >= 17) return 0.006;
+  if (z >= 16) return 0.012;
+  if (z >= 15) return 0.025;
+  if (z >= 14) return 0.05;
+  if (z >= 13) return 0.1;
+  if (z >= 11) return 0.25;
+  if (z >= 8) return 1;
+  if (z >= 6) return 4;
+  return 8;
+}
+
 /**
  * Inline Leaflet map with full pinch / double-tap / button zoom.
  * Programmatic zoom via window.setMapView / window.zoomBy (no remount).

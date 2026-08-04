@@ -7,6 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "plugins": [
+      "expo-dev-client",
       [
         "expo-location",
         {
@@ -40,6 +41,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.cdrms.mobile",
+      "config": {
+        "googleMapsApiKey": ""
+      },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Allow CDRMS to use your live location for geo validation and field survey.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow CDRMS to use your live location for geo validation and field survey.",
@@ -54,11 +58,16 @@
         }
       }
     },
-      "android": {
+    "android": {
       "package": "com.cdrms.mobile",
       "versionCode": 1,
       "usesCleartextTraffic": true,
       "softwareKeyboardLayoutMode": "resize",
+      "config": {
+        "googleMaps": {
+          "apiKey": ""
+        }
+      },
       "adaptiveIcon": {
         "backgroundColor": "#2563EB",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -83,7 +92,8 @@
     "extra": {
       "eas": {
         "projectId": "010048b7-7ade-44d5-9ced-1b95cc5b50f6"
-      }
+      },
+      "useNativeGoogleMaps": true
     },
     "owner": "narendrasai"
   }
