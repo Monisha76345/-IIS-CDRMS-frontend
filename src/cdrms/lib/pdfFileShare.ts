@@ -1,6 +1,4 @@
 import * as FileSystem from 'expo-file-system/legacy';
-import * as IntentLauncher from 'expo-intent-launcher';
-import * as Sharing from 'expo-sharing';
 import { Linking, Platform } from 'react-native';
 
 /** Open a downloaded PDF with the native app chooser (Drive, Adobe, etc.). */
@@ -10,6 +8,7 @@ export async function openPdfWithChooser(targetUri: string): Promise<boolean> {
 
   try {
     if (Platform.OS === 'android') {
+      const IntentLauncher = require('expo-intent-launcher') as typeof import('expo-intent-launcher');
       const dataUri = uri.startsWith('file://')
         ? await FileSystem.getContentUriAsync(uri)
         : uri;
@@ -22,14 +21,18 @@ export async function openPdfWithChooser(targetUri: string): Promise<boolean> {
       return true;
     }
 
-    const canShare = await Sharing.isAvailableAsync();
-    if (canShare) {
-      await Sharing.shareAsync(uri, {
-        mimeType: 'application/pdf',
-        dialogTitle: 'Open PDF',
-        UTI: 'com.adobe.pdf',
-      });
-      return true;
+    try {
+      const Sharing = require('expo-sharing') as typeof import('expo-sharing');
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Open PDF',
+          UTI: 'com.adobe.pdf',
+        });
+        return true;
+      }
+    } catch {
+      // Native ExpoSharing not in this iOS binary yet
     }
 
     await Linking.openURL(uri);

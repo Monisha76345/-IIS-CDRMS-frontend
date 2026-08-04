@@ -27,6 +27,7 @@ import {
   useMinimumLoading,
   StatusChip,
 } from '@/src/cdrms/components/primitives';
+import { BdaPageWatermark } from '@/src/cdrms/components/WelcomeHomeChrome';
 import { findSampleApp } from '@/src/cdrms/data';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { COLORS } from '@/src/cdrms/theme';
@@ -82,7 +83,7 @@ function SectionCard({
   title,
   icon: Icon,
   children,
-  accent = '#2563EB',
+  accent = '#1D4ED8',
 }: {
   title: string;
   icon: typeof Building2;
@@ -266,10 +267,12 @@ export function ApplicationDetailsScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-[#F3F4F6]">
+      <BdaPageWatermark />
       <AppHeader title="Project details" subtitle={detail.id} onBack={back} go={go} showLogout={false} showNotifications={false} />
 
       <ScrollView
         className="flex-1"
+        style={{ zIndex: 1 }}
         contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
@@ -356,7 +359,7 @@ export function ApplicationDetailsScreen({ go }: { go: Go }) {
             </Box>
           </SectionCard>
 
-          <SectionCard title={TERMS.sections.administrativeArea} icon={MapPin} accent="#2563EB">
+          <SectionCard title={TERMS.sections.administrativeArea} icon={MapPin} accent="#1D4ED8">
             <Box className="flex-row flex-wrap" style={{ gap: 14 }}>
               <InfoRow label={TERMS.fields.village} value={detail.village} />
               <InfoRow label={TERMS.fields.taluk} value={detail.taluk} />
@@ -365,7 +368,7 @@ export function ApplicationDetailsScreen({ go }: { go: Go }) {
             </Box>
           </SectionCard>
 
-          <SectionCard title={TERMS.sections.boundaryDirections} icon={Compass} accent="#2563EB">
+          <SectionCard title={TERMS.sections.boundaryDirections} icon={Compass} accent="#1D4ED8">
             <VStack space="sm">
               {(
                 [
@@ -421,14 +424,14 @@ export function ApplicationDetailsScreen({ go }: { go: Go }) {
             </VStack>
           </SectionCard>
 
-          <SectionCard title={TERMS.sections.media} icon={Camera} accent="#2563EB">
+          <SectionCard title={TERMS.sections.media} icon={Camera} accent="#1D4ED8">
             <HStack className="mb-3" style={{ gap: 10 }}>
               <Box
                 className="flex-1 items-center py-3 rounded-2xl"
                 style={{ backgroundColor: '#FDF2F8' }}
               >
-                <Camera size={18} color="#2563EB" />
-                <Text className="text-[18px] font-black mt-1" style={{ color: '#2563EB' }}>
+                <Camera size={18} color="#1D4ED8" />
+                <Text className="text-[18px] font-black mt-1" style={{ color: '#1D4ED8' }}>
                   {detail.photoCount}
                 </Text>
                 <Text className="text-[11px] font-semibold" style={{ color: '#9D174D' }}>
@@ -439,8 +442,8 @@ export function ApplicationDetailsScreen({ go }: { go: Go }) {
                 className="flex-1 items-center py-3 rounded-2xl"
                 style={{ backgroundColor: '#EFF6FF' }}
               >
-                <Film size={18} color="#2563EB" />
-                <Text className="text-[18px] font-black mt-1" style={{ color: '#2563EB' }}>
+                <Film size={18} color="#1D4ED8" />
+                <Text className="text-[18px] font-black mt-1" style={{ color: '#1D4ED8' }}>
                   {detail.hasVideo ? 1 : 0}
                 </Text>
                 <Text className="text-[11px] font-semibold" style={{ color: '#6D28D9' }}>

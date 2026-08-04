@@ -18,6 +18,7 @@ import {
   Image,
   Modal,
   Platform,
+  StyleSheet,
   TextInput,
   useWindowDimensions,
   View,
@@ -38,12 +39,12 @@ import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/src/auth/AuthContext';
 import { resolveAppRole, displayName } from '@/src/auth/roles';
 import { PremiumGradientBackground } from '@/src/cdrms/components/GlassSurface';
-import { COLORS, DESIGN, FONTS, GLASS, GRADIENT_CARD_HEADER, GRADIENT_HEADER, GRADIENT_PRIMARY, SPACE, TYPE, gradientStops } from '@/src/cdrms/theme';
+import { ScreenWaves, HeaderMeshBackground, MeshSheetEdge, WaveSheetEdge } from '@/src/cdrms/components/WaveDecor';
+import { COLORS, DESIGN, FONTS, GLASS, GRADIENT_CARD_HEADER, GRADIENT_HEADER, GRADIENT_PRIMARY, SPACE, TYPE, gradientStops, headerFg, hexAlpha, isMeshDesign, isWaveDesign, usesLightHeader, usesNormalHeader, usesSolidHeader } from '@/src/cdrms/theme';
 import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
 import type { Go, NavTab, Screen } from '@/src/cdrms/types';
 import { useTheme } from '@/src/theme/ThemeContext';
 import { NotificationBell } from '@/src/cdrms/components/NotificationBell';
-import { ThemeToggleButton } from '@/src/cdrms/components/ThemePicker';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 
 /** Edge-pinned tab bar — soft U-notch cradles the center + */
@@ -55,13 +56,26 @@ const NOTCH_R = FAB_SIZE / 2 + FAB_GAP;
 export function ScreenShell({
   children,
   className = '',
+  style,
 }: {
   children: ReactNode;
   className?: string;
+  style?: object;
 }) {
+  const { themeId } = useTheme();
   // Keep this a plain full-screen shell. Form screens add KeyboardAvoidingView
   // inside SurveyScaffold (iOS-only) so KAV does not fight every screen.
-  return <Box className={`flex-1 bg-background ${className}`}>{children}</Box>;
+  // Soft dual-tone waves sit behind content on every screen.
+  return (
+    <Box
+      key={themeId}
+      className={`flex-1 bg-background ${className}`}
+      style={[{ backgroundColor: COLORS.soft, overflow: 'hidden' }, style]}
+    >
+      <ScreenWaves />
+      <Box style={{ flex: 1, zIndex: 1 }}>{children}</Box>
+    </Box>
+  );
 }
 
 export function GradientHeader({
@@ -78,25 +92,70 @@ export function GradientHeader({
 }) {
   const insets = useSafeAreaInsets();
   const { themeId } = useTheme();
-  const gradientColors = colors ?? GRADIENT_CARD_HEADER;
-  const bottomRadius = rounded ? DESIGN.headerRadius : 0;
+  // Ocean Blue (solid) · Plain (light) · Mesh (scallops) · else mesh + wave
+  const light = usesLightHeader();
+  const solid = usesSolidHeader() || Boolean(colors?.length);
+  const normal = light || solid || usesNormalHeader();
+  const mesh = isMeshDesign();
+  const showWaveEdge = !normal;
 
   return (
-    <Box
-      key={themeId}
-      style={{
-        overflow: 'hidden',
-        borderBottomLeftRadius: bottomRadius,
-        borderBottomRightRadius: bottomRadius,
-      }}
-    >
-      <PremiumGradientBackground colors={gradientColors} />
+    <Box key={themeId} style={!normal ? { zIndex: 30, elevation: 8 } : undefined}>
       <Box
-        style={{ paddingTop: insets.top + SPACE[2], zIndex: 1 }}
-        className={className}
+        style={{
+          backgroundColor: light ? COLORS.white : undefined,
+          ...(light
+            ? {
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.06,
+                shadowRadius: 6,
+                elevation: 2,
+                zIndex: 2,
+                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomColor: 'rgba(15,23,42,0.08)',
+              }
+            : mesh
+              ? {
+                  overflow: 'hidden',
+                  zIndex: 1,
+                  borderBottomLeftRadius: DESIGN.headerRadius || 40,
+                  borderBottomRightRadius: Math.round((DESIGN.headerRadius || 40) * 0.35),
+                }
+              : { overflow: 'hidden', zIndex: 1 }),
+        }}
       >
-        {children}
+        {light ? null : solid ? (
+          <PremiumGradientBackground
+            colors={colors?.length ? colors : GRADIENT_HEADER}
+            start={DESIGN.headerStart}
+            end={DESIGN.headerEnd}
+          />
+        ) : (
+          <HeaderMeshBackground />
+        )}
+        <Box
+          style={{
+            paddingTop: insets.top + SPACE[2],
+            paddingBottom: normal ? SPACE[4] : mesh ? SPACE[5] : SPACE[8],
+            zIndex: 1,
+          }}
+          className={className}
+        >
+          {children}
+        </Box>
       </Box>
+      {showWaveEdge ? (
+        mesh ? (
+          <MeshSheetEdge height={64} fill={COLORS.white} />
+        ) : (
+          <WaveSheetEdge
+            height={56}
+            fill={COLORS.white}
+            variant={isWaveDesign() ? 'glass' : 'sheet'}
+          />
+        )
+      ) : null}
     </Box>
   );
 }
@@ -163,7 +222,7 @@ export function ProfileMenu({
       style={{
         fontFamily: FONTS.bold,
         fontSize: 14,
-        color: gradient ? COLORS.white : COLORS.primaryDeep,
+        color: COLORS.primaryDeep,
         lineHeight: 18,
       }}
     >
@@ -185,58 +244,69 @@ export function ProfileMenu({
 
   return (
     <>
-      {/* Trigger avatar button */}
+      {/* Trigger avatar button — solid fill so it stays visible & tappable over watermarks */}
       <Pressable
         ref={btnRef as any}
         onPress={openMenu}
+        hitSlop={10}
         accessibilityRole="button"
         accessibilityLabel="Profile menu"
         className="active:opacity-80"
         style={{
-          height: 38,
-          width: 38,
+          height: 40,
+          width: 40,
           borderRadius: 999,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: gradient ? 'rgba(255,255,255,0.22)' : COLORS.muted,
+          backgroundColor: gradient ? COLORS.white : COLORS.muted,
           borderWidth: 1.5,
-          borderColor: gradient ? 'rgba(255,255,255,0.45)' : COLORS.border,
+          borderColor: gradient ? 'rgba(255,255,255,0.95)' : COLORS.border,
           overflow: 'hidden',
+          zIndex: 50,
+          elevation: 14,
+          shadowColor: '#0F172A',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.16,
+          shadowRadius: 4,
         }}
       >
         {avatarContent}
       </Pressable>
 
       <Modal transparent animationType="none" visible={open} onRequestClose={() => closeMenu()}>
-        {/* Full-screen backdrop to catch outside taps */}
-        <Pressable
-          style={{ flex: 1 }}
-          onPress={() => closeMenu()}
-          accessibilityRole="button"
-          accessibilityLabel="Close menu"
-        />
+        <View style={{ flex: 1 }}>
+          {/* Backdrop — behind the solid profile card */}
+          <Pressable
+            style={StyleSheet.absoluteFillObject}
+            onPress={() => closeMenu()}
+            accessibilityRole="button"
+            accessibilityLabel="Close menu"
+          />
 
-        {/* Dropdown card */}
-        <Animated.View
-          key={themeId}
-          style={[
-            {
-              position: 'absolute',
-              top: dropTop,
-              right: 12,
-              width: 232,
-              borderRadius: 20,
-              backgroundColor: COLORS.white,
-              shadowColor: GLASS.shadow,
-              shadowOffset: { width: 0, height: 12 },
-              shadowOpacity: 0.22,
-              shadowRadius: 24,
-              elevation: 18,
-              overflow: 'visible',
-            },
-            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-          ]}
-        >
+          {/* Dropdown card — opaque so menu actions stay clickable */}
+          <Animated.View
+            key={themeId}
+            pointerEvents="box-none"
+            style={[
+              {
+                position: 'absolute',
+                top: dropTop,
+                right: 12,
+                width: 232,
+                borderRadius: 20,
+                backgroundColor: COLORS.white,
+                shadowColor: GLASS.shadow,
+                shadowOffset: { width: 0, height: 12 },
+                shadowOpacity: 0.22,
+                shadowRadius: 24,
+                elevation: 24,
+                overflow: 'visible',
+                zIndex: 20,
+              },
+              { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+            ]}
+          >
+            <View pointerEvents="auto">
           {/* Caret arrow pointing up */}
           <View
             style={{
@@ -376,7 +446,9 @@ export function ProfileMenu({
             </View>
             <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.destructive }}>Logout</Text>
           </Pressable>
-        </Animated.View>
+            </View>
+          </Animated.View>
+        </View>
       </Modal>
     </>
   );
@@ -430,8 +502,13 @@ export function AppHeader({
   const welcomeTitle = welcome ? 'Welcome' : title;
   const welcomeSubtitle = welcome ? subtitle || userName : subtitle;
 
-  const titleBlock = (onGradient: boolean) =>
-    welcome ? (
+  const titleBlock = (onGradient: boolean) => {
+    const fg = headerFg();
+    const titleColor = onGradient ? fg.title : COLORS.ink;
+    const subColor = onGradient ? fg.soft : COLORS.slate;
+    const capColor = onGradient ? fg.muted : undefined;
+
+    return welcome ? (
       <VStack className="flex-1 min-w-0" style={{ gap: isCompactOfficeNav ? 1 : 3 }}>
         <Text
           style={{
@@ -439,7 +516,7 @@ export function AppHeader({
             fontSize: isCompactOfficeNav ? 20 : 22,
             lineHeight: isCompactOfficeNav ? 24 : 28,
             letterSpacing: -0.3,
-            color: onGradient ? COLORS.white : COLORS.ink,
+            color: titleColor,
           }}
           numberOfLines={1}
         >
@@ -452,7 +529,7 @@ export function AppHeader({
               fontSize: isCompactOfficeNav ? 13 : 14,
               lineHeight: isCompactOfficeNav ? 16 : 18,
               letterSpacing: 0.1,
-              color: onGradient ? 'rgba(255,255,255,0.88)' : COLORS.slate,
+              color: subColor,
             }}
             numberOfLines={1}
           >
@@ -465,7 +542,7 @@ export function AppHeader({
         <Text
           style={
             onGradient
-              ? { ...TYPE.screen, color: COLORS.white, fontFamily: FONTS.bold }
+              ? { ...TYPE.screen, color: titleColor, fontFamily: FONTS.bold }
               : TYPE.screen
           }
           numberOfLines={1}
@@ -476,7 +553,7 @@ export function AppHeader({
           <Text
             style={
               onGradient
-                ? { ...TYPE.caption, color: 'rgba(255,255,255,0.82)' }
+                ? { ...TYPE.caption, color: capColor ?? fg.muted }
                 : TYPE.caption
             }
             numberOfLines={2}
@@ -486,6 +563,7 @@ export function AppHeader({
         ) : null}
       </VStack>
     );
+  };
 
   const initials =
     userName
@@ -550,23 +628,17 @@ export function AppHeader({
   const zoneBtn =
     welcome && zoneLabel ? <ZoneTag zone={zoneLabel} onGradient /> : null;
 
-  const themeBtn =
-    canLogout && go && !welcome ? (
-      <ThemeToggleButton variant={gradient ? 'header' : 'plain'} go={go} />
-    ) : null;
-
   const notifBell =
     go && showNotifications && role === 'cao' ? (
       <NotificationBell go={go} variant={gradient ? 'header' : 'plain'} />
     ) : null;
 
   const rightSlot =
-    right || notifBell || zoneBtn || themeBtn || logoutBtn ? (
+    right || notifBell || zoneBtn || logoutBtn ? (
       <HStack className="items-center gap-2">
         {right}
         {notifBell}
         {zoneBtn}
-        {themeBtn}
         {logoutBtn}
       </HStack>
     ) : null;
@@ -624,12 +696,12 @@ export function AppHeader({
                   height: compact ? 32 : 38,
                   width: compact ? 32 : 38,
                   borderRadius: backRadius,
-                  backgroundColor: 'rgba(255,255,255,0.16)',
+                  backgroundColor: headerFg().chipBg,
                   borderWidth: 1,
-                  borderColor: 'rgba(255,255,255,0.22)',
+                  borderColor: headerFg().chipBorder,
                 }}
               >
-                <ArrowLeft size={compact ? 18 : 20} color={COLORS.white} />
+                <ArrowLeft size={compact ? 18 : 20} color={headerFg().icon} />
               </Pressable>
             ) : null}
             {titleBlock(true)}
@@ -642,12 +714,12 @@ export function AppHeader({
             style={{ marginTop: isCompactOfficeNav ? SPACE[2] : SPACE[2], gap: 6 }}
           >
             <HStack className="items-center" style={{ gap: 6 }}>
-              <Clock size={13} color="rgba(255,255,255,0.85)" />
+              <Clock size={13} color={headerFg().icon} />
               <Text
                 style={{
                   fontSize: 11,
                   fontFamily: FONTS.medium,
-                  color: 'rgba(255,255,255,0.88)',
+                  color: headerFg().muted,
                 }}
                 numberOfLines={1}
               >
@@ -942,11 +1014,13 @@ function NotchedBarBg({
   height,
   notchR,
   topRadius,
+  fill = '#FFFFFF',
 }: {
   width: number;
   height: number;
   notchR: number;
   topRadius: number;
+  fill?: string;
 }) {
   const cx = width / 2;
   const r = topRadius;
@@ -978,7 +1052,7 @@ function NotchedBarBg({
 
   return (
     <Svg width={width} height={height} style={{ position: 'absolute', left: 0, top: 0 }}>
-      <Path d={d} fill="#FFFFFF" />
+      <Path d={d} fill={fill} />
     </Svg>
   );
 }
@@ -1004,6 +1078,15 @@ export function BottomNav({
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { startNewProject } = useProject();
+
+  /** Wave design (classic) — deep navy bar + sky FAB like the Search Mechanic mock. */
+  const waveNav = DESIGN.id === 'classic';
+  const barFill = waveNav ? COLORS.primaryDeep : COLORS.white;
+  const tabIdle = waveNav ? 'rgba(255,255,255,0.72)' : COLORS.ink;
+  const tabActive = waveNav ? '#FFFFFF' : COLORS.primary;
+  const fabOuter = waveNav ? COLORS.primaryGlow : '#FFFFFF';
+  const fabInner = waveNav ? COLORS.primaryGlow : COLORS.muted;
+  const fabIcon = waveNav ? '#FFFFFF' : COLORS.primary;
 
   const bottomPad = Math.max(insets.bottom, 8);
   const barH = BAR_H + bottomPad;
@@ -1084,9 +1167,9 @@ export function BottomNav({
                 overflow: 'hidden',
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: profilePhoto ? COLORS.muted : COLORS.primary,
+                backgroundColor: profilePhoto ? COLORS.muted : waveNav ? 'rgba(255,255,255,0.2)' : COLORS.primary,
                 borderWidth: on ? 2 : 1,
-                borderColor: on ? COLORS.primary : COLORS.ink,
+                borderColor: on ? tabActive : waveNav ? 'rgba(255,255,255,0.5)' : COLORS.ink,
               }}
             >
               {profilePhoto ? (
@@ -1111,7 +1194,7 @@ export function BottomNav({
           ) : (
             <Icon
               size={22}
-              color={on ? COLORS.primary : COLORS.ink}
+              color={on ? tabActive : tabIdle}
               strokeWidth={on ? 2.4 : 1.9}
             />
           )}
@@ -1139,7 +1222,7 @@ export function BottomNav({
             fontFamily: on ? FONTS.semibold : FONTS.medium,
             fontSize: 10,
             lineHeight: 12,
-            color: on ? COLORS.primary : COLORS.ink,
+            color: on ? tabActive : tabIdle,
           }}
         >
           {it.label}
@@ -1158,17 +1241,26 @@ export function BottomNav({
         right: 0,
         bottom: 0,
         paddingTop: fabOverhang + 4,
+        zIndex: 50,
+        elevation: 24,
       }}
     >
       <Box
         style={{
           width,
           height: barH,
-          shadowColor: GLASS.shadow,
-          shadowOffset: { width: 0, height: -6 },
-          shadowOpacity: 0.1,
-          shadowRadius: 16,
-          elevation: 16,
+          // Solid base under the SVG notch so the footer never looks transparent
+          backgroundColor: barFill,
+          overflow: 'hidden',
+          borderTopLeftRadius: hidePlus ? DESIGN.radiusLg : 0,
+          borderTopRightRadius: hidePlus ? DESIGN.radiusLg : 0,
+          shadowColor: '#0F172A',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.12,
+          shadowRadius: 12,
+          elevation: 20,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: waveNav ? 'rgba(255,255,255,0.12)' : 'rgba(15,23,42,0.08)',
         }}
       >
         <NotchedBarBg
@@ -1176,6 +1268,7 @@ export function BottomNav({
           height={barH}
           notchR={hidePlus ? 0 : NOTCH_R}
           topRadius={DESIGN.radiusLg}
+          fill={barFill}
         />
 
         <HStack style={{ height: BAR_H, alignItems: 'center' }}>
@@ -1198,12 +1291,12 @@ export function BottomNav({
           width: FAB_SIZE,
           height: FAB_SIZE,
           borderRadius: 999,
-          backgroundColor: '#FFFFFF',
-          borderWidth: 1,
+          backgroundColor: fabOuter,
+          borderWidth: waveNav ? 0 : 1,
           borderColor: COLORS.border,
           shadowColor: COLORS.primaryDeep,
           shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.16,
+          shadowOpacity: waveNav ? 0.28 : 0.16,
           shadowRadius: 14,
           elevation: 18,
           zIndex: 20,
@@ -1215,10 +1308,10 @@ export function BottomNav({
             width: FAB_SIZE - 10,
             height: FAB_SIZE - 10,
             borderRadius: 999,
-            backgroundColor: COLORS.muted,
+            backgroundColor: fabInner,
           }}
         >
-          <Plus size={24} color={COLORS.primary} strokeWidth={2.4} />
+          <Plus size={24} color={fabIcon} strokeWidth={2.4} />
         </Box>
       </Pressable>
       )}
@@ -1348,11 +1441,57 @@ export function AppSheet({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
-        <Box className="flex-1 justify-end">
-          <Pressable className="absolute inset-0 bg-black/40" onPress={onClose} />
-          <Box className="bg-card rounded-t-[28px] p-5 pb-8">
-            <Box className="self-center h-1.5 w-12 rounded-full bg-muted mb-4" />
-            {title ? <Text className="text-lg font-bold text-foreground mb-3">{title}</Text> : null}
+        <Box style={{ flex: 1, justifyContent: 'flex-end' }}>
+          <Pressable
+            onPress={onClose}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(15, 23, 42, 0.55)',
+            }}
+          />
+          <Box
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              paddingHorizontal: 20,
+              paddingTop: 12,
+              paddingBottom: 32,
+              borderTopWidth: 1,
+              borderColor: '#E2E8F0',
+              shadowColor: '#0F172A',
+              shadowOffset: { width: 0, height: -8 },
+              shadowOpacity: 0.18,
+              shadowRadius: 20,
+              elevation: 24,
+            }}
+          >
+            <Box
+              style={{
+                alignSelf: 'center',
+                height: 5,
+                width: 44,
+                borderRadius: 999,
+                backgroundColor: '#CBD5E1',
+                marginBottom: 14,
+              }}
+            />
+            {title ? (
+              <Text
+                style={{
+                  fontFamily: FONTS.bold,
+                  fontSize: 18,
+                  color: COLORS.ink,
+                  marginBottom: 10,
+                }}
+              >
+                {title}
+              </Text>
+            ) : null}
             {children}
           </Box>
         </Box>

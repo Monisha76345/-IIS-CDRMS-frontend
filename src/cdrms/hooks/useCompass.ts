@@ -1,4 +1,5 @@
 import * as Location from 'expo-location';
+import Constants from 'expo-constants';
 import { Magnetometer } from 'expo-sensors';
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
@@ -29,13 +30,17 @@ export const CARDINAL_DEGREES: Record<CompassCardinal, number> = {
   NW: 315,
 };
 
+/** Hardcoded facing used only on iOS Simulator / Android Emulator (no magnetometer). */
+export const SIMULATOR_COMPASS_HEADING = CARDINAL_DEGREES.N;
+export const SIMULATOR_COMPASS_FACE: CompassCardinal = 'N';
+
 export type CompassReading = {
   /** Degrees clockwise from north (0–359). */
   heading: number;
   accuracy: number;
   available: boolean;
   status: 'live' | 'calibrating' | 'permission' | 'unavailable' | 'idle';
-  source: 'location' | 'magnetometer' | 'none';
+  source: 'location' | 'magnetometer' | 'simulator' | 'none';
 };
 
 function normalizeHeading(deg: number): number {
@@ -95,7 +100,16 @@ function magnetometerToHeading(x: number, y: number): number {
   return normalizeHeading(angle);
 }
 
-function isLikelyEmulator(): boolean {
+/** iOS Simulator + Android Emulator — no usable compass hardware. */
+export function isSimulatorOrEmulator(): boolean {
+  if (Constants.isDevice === false) return true;
+  const iosPlat = Constants.platform?.ios as { simulator?: boolean; model?: string | null } | undefined;
+  if (iosPlat?.simulator === true) return true;
+  if (Platform.OS === 'ios') {
+    const model = String(iosPlat?.model ?? '');
+    if (/simulator/i.test(model)) return true;
+    // Apple Silicon sims often report arm64; Expo still sets isDevice=false — handled above.
+  }
   if (Platform.OS === 'android') {
     const c = Platform.constants as {
       Brand?: string;
@@ -106,37 +120,49 @@ function isLikelyEmulator(): boolean {
       `${c.Brand ?? ''} ${c.Model ?? ''} ${c.Fingerprint ?? ''}`,
     );
   }
-  // iOS Simulator has no magnetometer — callers still try sensors;
-  // unavailable status is returned if sensors fail.
   return false;
 }
 
 /**
- * Live device compass (real phone only).
- * Primary: Location.watchHeadingAsync (device true/magnetic heading).
- * Fallback: Magnetometer when heading API is unavailable.
+ * Live device compass.
+ * Real phone: Location.watchHeadingAsync + Magnetometer fallback.
+ * Simulator/emulator: fixed North so Continue works in QA — never used on hardware.
  */
 export function useCompass(enabled = true): CompassReading {
-  const [reading, setReading] = useState<CompassReading>({
-    heading: 0,
-    accuracy: -1,
-    available: false,
-    status: 'idle',
-    source: 'none',
-  });
+  const sim = isSimulatorOrEmulator();
+  const [reading, setReading] = useState<CompassReading>(() =>
+    sim
+      ? {
+          heading: SIMULATOR_COMPASS_HEADING,
+          accuracy: -1,
+          available: true,
+          status: 'live',
+          source: 'simulator',
+        }
+      : {
+          heading: 0,
+          accuracy: -1,
+          available: false,
+          status: 'idle',
+          source: 'none',
+        },
+  );
   const lastGood = useRef(0);
-  const sourceRef = useRef<'location' | 'magnetometer' | 'none'>('none');
+  const sourceRef = useRef<'location' | 'magnetometer' | 'simulator' | 'none'>(
+    sim ? 'simulator' : 'none',
+  );
 
   useEffect(() => {
     if (!enabled) return;
 
-    if (isLikelyEmulator()) {
+    // Simulators have no magnetometer / heading — seed one fixed facing for QA only.
+    if (isSimulatorOrEmulator()) {
       setReading({
-        heading: 0,
+        heading: SIMULATOR_COMPASS_HEADING,
         accuracy: -1,
-        available: false,
-        status: 'unavailable',
-        source: 'none',
+        available: true,
+        status: 'live',
+        source: 'simulator',
       });
       return;
     }

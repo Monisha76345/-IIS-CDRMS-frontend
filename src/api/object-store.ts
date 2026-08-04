@@ -48,7 +48,7 @@ function networkHint(err: unknown): string {
   if (/network request failed|failed to fetch|network error/i.test(msg)) {
     return (
       `Network request failed. Phone cannot reach ${API_BASE_URL}. ` +
-      `Keep phone + Mac on the same Wi‑Fi, ensure backend is running on port 3700, ` +
+      `Keep phone + Mac on the same Wi‑Fi, ensure backend is running on port 3710, ` +
       `and set EXPO_PUBLIC_API_URL to your Mac LAN IP (then restart Metro).`
     );
   }

@@ -410,7 +410,7 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
           <VStack className="flex-1 px-5" style={{ gap: 14 }}>
             <Box
               className="rounded-3xl px-4 py-4"
-              style={{ backgroundColor: 'rgba(37,99,235,0.2)', borderWidth: 1, borderColor: '#3B82F6' }}
+              style={{ backgroundColor: 'rgba(29,78,216,0.2)', borderWidth: 1, borderColor: '#3B82F6' }}
             >
               <Text className="text-white font-extrabold text-sm">Simulator limitation</Text>
               <Text className="text-white/75 text-[12px] mt-1.5 leading-5">
@@ -426,7 +426,7 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
               style={{ height: 120 }}
             >
               <LinearGradient
-                colors={['#2563EB', '#3B82F6']}
+                colors={['#1D4ED8', '#3B82F6']}
                 style={{
                   flex: 1,
                   flexDirection: 'row',
@@ -565,7 +565,7 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
                   })()
                 }
                 className="mt-6 h-12 px-6 rounded-2xl items-center justify-center"
-                style={{ backgroundColor: '#2563EB' }}
+                style={{ backgroundColor: '#1D4ED8' }}
               >
                 <Text className="text-white font-extrabold">
                   {permissionDenied ? 'Open Settings' : 'Allow camera'}

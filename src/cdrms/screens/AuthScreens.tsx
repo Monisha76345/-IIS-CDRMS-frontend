@@ -76,7 +76,6 @@ import {
   IconBox,
   ScreenShell,
   ScreenLoader,
-  StatusChip,
 } from '@/src/cdrms/components/primitives';
 import { KarnatakaMap } from '@/src/cdrms/components/KarnatakaMap';
 import {
@@ -105,6 +104,10 @@ import {
   GRADIENT_PRIMARY,
   gradientStops,
 } from '@/src/cdrms/theme';
+import {
+  LoginMeshBackground,
+  WaveSheetEdge,
+} from '@/src/cdrms/components/WaveDecor';
 import { useTheme } from '@/src/theme/ThemeContext';
 import { TERMS } from '@/src/cdrms/terminology';
 import { showAppDialog } from '@/src/cdrms/components/AppDialog';
@@ -363,10 +366,8 @@ export function SplashScreen({ go }: { go: Go }) {
 export function LoginScreen({ go }: { go: Go }) {
   const { login } = useAuth();
   const insets = useSafeAreaInsets();
+  const { themeId } = useTheme();
 
-  useLayoutEffect(() => {
-    applyAuthTheme();
-  }, []);
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -375,24 +376,48 @@ export function LoginScreen({ go }: { go: Go }) {
   const [error, setError] = useState('');
   const [focusedInput, setFocusedInput] = useState<'loginId' | 'password' | null>(null);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const loginIdRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
   const scrollRef = useRef<RNScrollView>(null);
+  const formYRef = useRef(0);
+
+  const scrollFormIntoView = useCallback(() => {
+    requestAnimationFrame(() => {
+      setTimeout(
+        () => {
+          scrollRef.current?.scrollTo({
+            y: Math.max(0, formYRef.current - 8),
+            animated: true,
+          });
+        },
+        Platform.OS === 'ios' ? 60 : 180,
+      );
+    });
+  }, []);
 
   useEffect(() => {
-    const show = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      () => setKeyboardOpen(true),
-    );
-    const hide = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => setKeyboardOpen(false),
-    );
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardOpen(true);
+      setKeyboardHeight(e.endCoordinates?.height ?? 0);
+    });
+    const hide = Keyboard.addListener(hideEvent, () => {
+      setKeyboardOpen(false);
+      setKeyboardHeight(0);
+    });
     return () => {
       show.remove();
       hide.remove();
     };
   }, []);
+
+  useEffect(() => {
+    if (!keyboardOpen) return;
+    const t = setTimeout(scrollFormIntoView, Platform.OS === 'ios' ? 50 : 160);
+    return () => clearTimeout(t);
+  }, [keyboardOpen, scrollFormIntoView]);
 
   async function onSecureLogin() {
     if (loading) return;
@@ -430,41 +455,8 @@ export function LoginScreen({ go }: { go: Go }) {
   }
 
   return (
-    <ScreenShell className="bg-[#F8FAFC]">
-      {/* Background Header Ambient Glow & Gradient */}
-      <Box pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 380, overflow: 'hidden' }}>
-        <LinearGradient
-          colors={['#0A3E96', '#0256D0', '#0042B3']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-        />
-        {/* Soft floating background orb decorative overlays */}
-        <Box
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            top: -60,
-            right: -60,
-            width: 220,
-            height: 220,
-            borderRadius: 110,
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
-          }}
-        />
-        <Box
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            bottom: -40,
-            left: -40,
-            width: 180,
-            height: 180,
-            borderRadius: 90,
-            backgroundColor: 'rgba(255, 255, 255, 0.06)',
-          }}
-        />
-      </Box>
+    <Box key={themeId} style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+      <LoginMeshBackground />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -476,339 +468,425 @@ export function LoginScreen({ go }: { go: Go }) {
           className="flex-1"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           contentContainerStyle={{
             flexGrow: 1,
-            justifyContent: 'center',
-            paddingHorizontal: 20,
-            paddingTop: insets.top + (keyboardOpen ? 12 : 28),
-            paddingBottom: Math.max(insets.bottom, 16) + 24,
+            justifyContent: keyboardOpen ? 'flex-start' : 'flex-end',
+            paddingTop: insets.top + (keyboardOpen ? 8 : 20),
+            paddingBottom: keyboardOpen ? Math.max(keyboardHeight * 0.35, 100) : 0,
           }}
           showsVerticalScrollIndicator={false}
         >
-          <View>
-            {/* Brand Header Hero */}
-            <VStack className="items-center" style={{ gap: 6, marginBottom: 22 }}>
-              <Box
-                className="items-center justify-center overflow-hidden"
+          {/* Brand — logo + BDA on one row; CDRMS full name below */}
+          {!keyboardOpen ? (
+            <VStack
+              style={{
+                paddingHorizontal: 28,
+                marginBottom: 8,
+                gap: 8,
+                flex: 1,
+                justifyContent: 'center',
+                minHeight: 140,
+              }}
+            >
+              <HStack style={{ alignItems: 'center', gap: 14 }}>
+                <Box
+                  className="items-center justify-center overflow-hidden"
+                  style={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: 20,
+                    backgroundColor: 'rgba(255,255,255,0.95)',
+                    borderWidth: 2,
+                    borderColor: 'rgba(255,255,255,0.7)',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.18,
+                    shadowRadius: 16,
+                    elevation: 6,
+                  }}
+                >
+                  <Image
+                    source={require('../../../assets/bda-logo.png')}
+                    style={{ width: 58, height: 58 }}
+                    resizeMode="contain"
+                    accessibilityLabel="BDA Seal"
+                  />
+                </Box>
+                <Text
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 28,
+                    lineHeight: 34,
+                    letterSpacing: -0.4,
+                    color: '#FFFFFF',
+                    flexShrink: 1,
+                  }}
+                  numberOfLines={1}
+                >
+                  BDA
+                </Text>
+              </HStack>
+              <Text
                 style={{
-                  width: 96,
-                  height: 96,
-                  borderRadius: 48,
+                  fontFamily: FONTS.medium,
+                  fontSize: 13,
+                  lineHeight: 18,
+                  color: 'rgba(255,255,255,0.92)',
+                  paddingLeft: 2,
+                }}
+              >
+                {TERMS.app.fullName}
+              </Text>
+            </VStack>
+          ) : (
+            <HStack
+              style={{
+                paddingHorizontal: 24,
+                marginBottom: 4,
+                gap: 10,
+                alignItems: 'center',
+              }}
+            >
+              <Box
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
                   backgroundColor: '#FFFFFF',
-                  borderWidth: 3,
-                  borderColor: 'rgba(255, 255, 255, 0.85)',
-                  shadowColor: '#000000',
-                  shadowOffset: { width: 0, height: 6 },
-                  shadowOpacity: 0.18,
-                  shadowRadius: 14,
-                  elevation: 8,
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
                 <Image
                   source={require('../../../assets/bda-logo.png')}
-                  style={{ width: 78, height: 78 }}
+                  style={{ width: 30, height: 30 }}
                   resizeMode="contain"
-                  accessibilityLabel="BDA Seal"
                 />
               </Box>
-
-              <Text
-                style={{
-                  fontFamily: FONTS.bold,
-                  fontSize: 22,
-                  lineHeight: 28,
-                  letterSpacing: 1,
-                  textTransform: 'uppercase',
-                  color: '#FFFFFF',
-                  textAlign: 'center',
-                  marginTop: 4,
-                }}
-              >
-                BDA CDRMS PORTAL
-              </Text>
-              <Text
-                style={{
-                  fontFamily: FONTS.medium,
-                  fontSize: 13,
-                  color: 'rgba(255, 255, 255, 0.92)',
-                  textAlign: 'center',
-                }}
-              >
-                Ministry of Public Works
-              </Text>
-            </VStack>
-
-            {/* Login Card */}
-            <Animated.View
-              entering={FadeInDown.duration(500)}
-              style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: 24,
-                paddingHorizontal: 22,
-                paddingTop: 24,
-                paddingBottom: 24,
-                borderWidth: 1,
-                borderColor: 'rgba(226, 232, 240, 0.9)',
-                shadowColor: '#0F172A',
-                shadowOffset: { width: 0, height: 10 },
-                shadowOpacity: 0.1,
-                shadowRadius: 24,
-                elevation: 6,
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: FONTS.bold,
-                  fontSize: 22,
-                  color: '#0F172A',
-                  textAlign: 'center',
-                }}
-              >
-                Welcome Back!
-              </Text>
-              <Text
-                style={{
-                  fontFamily: FONTS.medium,
-                  fontSize: 13,
-                  color: '#64748B',
-                  textAlign: 'center',
-                  marginTop: 4,
-                  marginBottom: 20,
-                }}
-              >
-                Sign in with your Login ID to continue
-              </Text>
-
-              <VStack style={{ gap: 16 }}>
-                {/* Login ID field */}
-                <VStack style={{ gap: 6 }}>
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#475569', letterSpacing: 0.5 }}>
-                    LOGIN ID / EMAIL
-                  </Text>
-                  <Pressable
-                    onPress={() => loginIdRef.current?.focus()}
-                    style={{
-                      height: 50,
-                      borderRadius: 10,
-                      borderWidth: 1.5,
-                      borderColor: focusedInput === 'loginId' ? '#0256D0' : '#E2E8F0',
-                      backgroundColor: focusedInput === 'loginId' ? '#FFFFFF' : '#F8FAFC',
-                      paddingHorizontal: 8,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      shadowColor: focusedInput === 'loginId' ? '#0256D0' : 'transparent',
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: focusedInput === 'loginId' ? 0.12 : 0,
-                      shadowRadius: 6,
-                    }}
-                  >
-                    <Box
-                      pointerEvents="none"
-                      className="items-center justify-center"
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 8,
-                        backgroundColor: focusedInput === 'loginId' ? '#EFF6FF' : '#F1F5F9',
-                        marginRight: 10,
-                      }}
-                    >
-                      <User size={18} color="#0256D0" strokeWidth={2.2} />
-                    </Box>
-                    <TextInput
-                      ref={loginIdRef}
-                      value={loginId}
-                      onChangeText={setLoginId}
-                      onFocus={() => setFocusedInput('loginId')}
-                      onBlur={() => setFocusedInput(null)}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      autoComplete="off"
-                      placeholder="Enter login ID or email"
-                      placeholderTextColor="#94A3B8"
-                      returnKeyType="next"
-                      onSubmitEditing={() => passwordRef.current?.focus()}
-                      style={{
-                        flex: 1,
-                        height: '100%',
-                        fontFamily: FONTS.medium,
-                        fontSize: 14,
-                        color: '#0F172A',
-                        paddingRight: 10,
-                        paddingVertical: 0,
-                      }}
-                    />
-                  </Pressable>
-                </VStack>
-
-                {/* Password field */}
-                <VStack style={{ gap: 6 }}>
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#475569', letterSpacing: 0.5 }}>
-                    PASSWORD
-                  </Text>
-                  <Pressable
-                    onPress={() => passwordRef.current?.focus()}
-                    style={{
-                      height: 50,
-                      borderRadius: 10,
-                      borderWidth: 1.5,
-                      borderColor: focusedInput === 'password' ? '#0256D0' : '#E2E8F0',
-                      backgroundColor: focusedInput === 'password' ? '#FFFFFF' : '#F8FAFC',
-                      paddingHorizontal: 8,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      shadowColor: focusedInput === 'password' ? '#0256D0' : 'transparent',
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: focusedInput === 'password' ? 0.12 : 0,
-                      shadowRadius: 6,
-                    }}
-                  >
-                    <Box
-                      pointerEvents="none"
-                      className="items-center justify-center"
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 8,
-                        backgroundColor: focusedInput === 'password' ? '#EFF6FF' : '#F1F5F9',
-                        marginRight: 10,
-                      }}
-                    >
-                      <Lock size={18} color="#0256D0" strokeWidth={2.2} />
-                    </Box>
-                    <TextInput
-                      ref={passwordRef}
-                      value={password}
-                      onChangeText={setPassword}
-                      onFocus={() => setFocusedInput('password')}
-                      onBlur={() => setFocusedInput(null)}
-                      secureTextEntry={!showPassword}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      autoComplete="off"
-                      placeholder="Enter password"
-                      placeholderTextColor="#94A3B8"
-                      returnKeyType="go"
-                      onSubmitEditing={() => void onSecureLogin()}
-                      style={{
-                        flex: 1,
-                        height: '100%',
-                        fontFamily: FONTS.medium,
-                        fontSize: 14,
-                        color: '#0F172A',
-                        paddingRight: 8,
-                        paddingVertical: 0,
-                      }}
-                    />
-                    <Pressable
-                      onPress={() => setShowPassword((v) => !v)}
-                      className="h-9 w-9 items-center justify-center rounded-full active:opacity-70"
-                      style={{ marginRight: 2 }}
-                    >
-                      {showPassword ? (
-                        <EyeOff size={18} color="#64748B" />
-                      ) : (
-                        <Eye size={18} color="#64748B" />
-                      )}
-                    </Pressable>
-                  </Pressable>
-                </VStack>
-
-                {error ? (
-                  <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: '#DC2626' }}>
-                    {error}
-                  </Text>
-                ) : null}
-
-                {/* Checkbox + Forgot password row */}
-                <HStack className="items-center justify-between" style={{ marginTop: 2 }}>
-                  <Checkbox
-                    value="remember"
-                    isChecked={remember}
-                    onChange={(v) => setRemember(!!v)}
-                  >
-                    <CheckboxIndicator
-                      style={{
-                        borderColor: remember ? '#0256D0' : '#94A3B8',
-                        backgroundColor: remember ? '#0256D0' : '#FFFFFF',
-                        borderRadius: 5,
-                      }}
-                    >
-                      <CheckboxIcon as={CheckIcon} />
-                    </CheckboxIndicator>
-                    <CheckboxLabel
-                      style={{
-                        fontFamily: FONTS.medium,
-                        fontSize: 12,
-                        color: '#334155',
-                        marginLeft: 4,
-                      }}
-                    >
-                      Remember this device
-                    </CheckboxLabel>
-                  </Checkbox>
-
-                  <Pressable className="active:opacity-70">
-                    <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: '#0256D0' }}>
-                      Forgot Login ID?
-                    </Text>
-                  </Pressable>
-                </HStack>
-
-                {/* Secure Login Button */}
-                <Pressable
-                  onPress={() => void onSecureLogin()}
-                  disabled={loading}
-                  className="active:opacity-90 overflow-hidden"
+              <VStack style={{ flex: 1, minWidth: 0, gap: 1 }}>
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 16, color: '#FFFFFF' }}>
+                  BDA
+                </Text>
+                <Text
+                  numberOfLines={1}
                   style={{
-                    borderRadius: 14,
-                    marginTop: 6,
-                    shadowColor: '#0256D0',
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 10,
-                    elevation: 4,
+                    fontFamily: FONTS.medium,
+                    fontSize: 11,
+                    color: 'rgba(255,255,255,0.85)',
                   }}
                 >
-                  <LinearGradient
-                    colors={['#0256D0', '#0042B3']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
+                  {TERMS.app.fullName}
+                </Text>
+              </VStack>
+            </HStack>
+          )}
+
+          {/* White wave sheet + floating card — white fills bottom so mesh never shows under footer */}
+          <View style={{ backgroundColor: '#FFFFFF' }}>
+            <WaveSheetEdge height={keyboardOpen ? 36 : 52} variant="sheet" />
+            <Box
+              style={{
+                backgroundColor: '#FFFFFF',
+                paddingHorizontal: 22,
+                paddingTop: 4,
+                paddingBottom: Math.max(insets.bottom, 16) + (keyboardOpen ? 8 : 10),
+                borderBottomLeftRadius: 0,
+                borderBottomRightRadius: 0,
+              }}
+            >
+              <Animated.View
+                entering={FadeInDown.duration(480)}
+                onLayout={(e) => {
+                  formYRef.current = e.nativeEvent.layout.y;
+                }}
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 24,
+                  paddingHorizontal: 18,
+                  paddingTop: 18,
+                  paddingBottom: 20,
+                  borderWidth: 1,
+                  borderColor: 'rgba(226, 232, 240, 0.95)',
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 12 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 22,
+                  elevation: 7,
+                  marginTop: -6,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 22,
+                    color: '#0F172A',
+                    textAlign: 'center',
+                  }}
+                >
+                  Welcome Back
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: FONTS.medium,
+                    fontSize: 13,
+                    color: '#64748B',
+                    textAlign: 'center',
+                    marginTop: 4,
+                    marginBottom: 18,
+                  }}
+                >
+                  Sign in with your Login ID to continue
+                </Text>
+
+                <VStack style={{ gap: 14 }}>
+                  <VStack style={{ gap: 6 }}>
+                    <Text
+                      style={{
+                        fontFamily: FONTS.bold,
+                        fontSize: 11,
+                        color: '#475569',
+                        letterSpacing: 0.5,
+                      }}
+                    >
+                      LOGIN ID / EMAIL
+                    </Text>
+                    <Pressable
+                      onPress={() => loginIdRef.current?.focus()}
+                      style={{
+                        height: 50,
+                        borderRadius: 14,
+                        borderWidth: 1.5,
+                        borderColor: focusedInput === 'loginId' ? COLORS.primary : COLORS.border,
+                        backgroundColor: focusedInput === 'loginId' ? '#FFFFFF' : '#F8FAFC',
+                        paddingHorizontal: 8,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        shadowColor: focusedInput === 'loginId' ? COLORS.primary : 'transparent',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: focusedInput === 'loginId' ? 0.12 : 0,
+                        shadowRadius: 6,
+                      }}
+                    >
+                      <Box
+                        pointerEvents="none"
+                        className="items-center justify-center"
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          backgroundColor: focusedInput === 'loginId' ? GLASS.tintBlue : COLORS.muted,
+                          marginRight: 10,
+                        }}
+                      >
+                        <User size={18} color={COLORS.primary} strokeWidth={2.2} />
+                      </Box>
+                      <TextInput
+                        ref={loginIdRef}
+                        value={loginId}
+                        onChangeText={setLoginId}
+                        onFocus={() => {
+                          setFocusedInput('loginId');
+                          scrollFormIntoView();
+                        }}
+                        onBlur={() => setFocusedInput(null)}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        autoComplete="off"
+                        placeholder="Enter login ID or email"
+                        placeholderTextColor="#94A3B8"
+                        returnKeyType="next"
+                        onSubmitEditing={() => passwordRef.current?.focus()}
+                        style={{
+                          flex: 1,
+                          height: '100%',
+                          fontFamily: FONTS.medium,
+                          fontSize: 14,
+                          color: '#0F172A',
+                          paddingRight: 10,
+                          paddingVertical: 0,
+                        }}
+                      />
+                    </Pressable>
+                  </VStack>
+
+                  <VStack style={{ gap: 6 }}>
+                    <Text
+                      style={{
+                        fontFamily: FONTS.bold,
+                        fontSize: 11,
+                        color: '#475569',
+                        letterSpacing: 0.5,
+                      }}
+                    >
+                      PASSWORD
+                    </Text>
+                    <Pressable
+                      onPress={() => passwordRef.current?.focus()}
+                      style={{
+                        height: 50,
+                        borderRadius: 14,
+                        borderWidth: 1.5,
+                        borderColor: focusedInput === 'password' ? COLORS.primary : COLORS.border,
+                        backgroundColor: focusedInput === 'password' ? '#FFFFFF' : '#F8FAFC',
+                        paddingHorizontal: 8,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        shadowColor: focusedInput === 'password' ? COLORS.primary : 'transparent',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: focusedInput === 'password' ? 0.12 : 0,
+                        shadowRadius: 6,
+                      }}
+                    >
+                      <Box
+                        pointerEvents="none"
+                        className="items-center justify-center"
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          backgroundColor: focusedInput === 'password' ? GLASS.tintBlue : COLORS.muted,
+                          marginRight: 10,
+                        }}
+                      >
+                        <Lock size={18} color={COLORS.primary} strokeWidth={2.2} />
+                      </Box>
+                      <TextInput
+                        ref={passwordRef}
+                        value={password}
+                        onChangeText={setPassword}
+                        onFocus={() => {
+                          setFocusedInput('password');
+                          scrollFormIntoView();
+                        }}
+                        onBlur={() => setFocusedInput(null)}
+                        secureTextEntry={!showPassword}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        autoComplete="off"
+                        placeholder="Enter password"
+                        placeholderTextColor="#94A3B8"
+                        returnKeyType="go"
+                        onSubmitEditing={() => void onSecureLogin()}
+                        style={{
+                          flex: 1,
+                          height: '100%',
+                          fontFamily: FONTS.medium,
+                          fontSize: 14,
+                          color: '#0F172A',
+                          paddingRight: 8,
+                          paddingVertical: 0,
+                        }}
+                      />
+                      <Pressable
+                        onPress={() => setShowPassword((v) => !v)}
+                        className="h-9 w-9 items-center justify-center rounded-full active:opacity-70"
+                        style={{ marginRight: 2 }}
+                      >
+                        {showPassword ? (
+                          <EyeOff size={18} color="#64748B" />
+                        ) : (
+                          <Eye size={18} color="#64748B" />
+                        )}
+                      </Pressable>
+                    </Pressable>
+                  </VStack>
+
+                  {error ? (
+                    <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: '#DC2626' }}>
+                      {error}
+                    </Text>
+                  ) : null}
+
+                  <HStack className="items-center justify-between" style={{ marginTop: 2 }}>
+                    <Checkbox
+                      value="remember"
+                      isChecked={remember}
+                      onChange={(v) => setRemember(!!v)}
+                    >
+                      <CheckboxIndicator
+                        style={{
+                          borderColor: remember ? COLORS.primary : COLORS.slate,
+                          backgroundColor: remember ? COLORS.primary : COLORS.white,
+                          borderRadius: 5,
+                        }}
+                      >
+                        <CheckboxIcon as={CheckIcon} />
+                      </CheckboxIndicator>
+                      <CheckboxLabel
+                        style={{
+                          fontFamily: FONTS.medium,
+                          fontSize: 12,
+                          color: '#334155',
+                          marginLeft: 4,
+                        }}
+                      >
+                        Remember this device
+                      </CheckboxLabel>
+                    </Checkbox>
+
+                    <Pressable className="active:opacity-70">
+                      <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.primary }}>
+                        Forgot Login ID?
+                      </Text>
+                    </Pressable>
+                  </HStack>
+
+                  <Pressable
+                    onPress={() => void onSecureLogin()}
+                    disabled={loading}
+                    className="active:opacity-90 overflow-hidden"
                     style={{
-                      height: 52,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                      paddingHorizontal: 16,
+                      borderRadius: 999,
+                      marginTop: 8,
+                      shadowColor: COLORS.primary,
+                      shadowOffset: { width: 0, height: 6 },
+                      shadowOpacity: 0.28,
+                      shadowRadius: 12,
+                      elevation: 4,
                     }}
                   >
-                    {loading ? (
-                      <ActivityIndicator color="#FFFFFF" size="small" />
-                    ) : (
-                      <>
-                        <Lock size={17} color="#FFFFFF" strokeWidth={2.4} />
-                        <Text style={{ fontFamily: FONTS.bold, fontSize: 15, color: '#FFFFFF' }}>
-                          Secure Login
-                        </Text>
-                        <ArrowRight size={17} color="#FFFFFF" strokeWidth={2.4} />
-                      </>
-                    )}
-                  </LinearGradient>
-                </Pressable>
-              </VStack>
-            </Animated.View>
+                    <LinearGradient
+                      colors={gradientStops(GRADIENT_PRIMARY)}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={{
+                        height: 52,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        paddingHorizontal: 16,
+                      }}
+                    >
+                      {loading ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <>
+                          <Lock size={17} color="#FFFFFF" strokeWidth={2.4} />
+                          <Text style={{ fontFamily: FONTS.bold, fontSize: 15, color: '#FFFFFF' }}>
+                            Secure Login
+                          </Text>
+                          <ArrowRight size={17} color="#FFFFFF" strokeWidth={2.4} />
+                        </>
+                      )}
+                    </LinearGradient>
+                  </Pressable>
+                </VStack>
+              </Animated.View>
 
-            {/* Bottom Security Footer */}
-            <VStack className="items-center" style={{ marginTop: 24, gap: 4 }}>
-              <Text style={{ fontFamily: FONTS.medium, fontSize: 10, color: '#94A3B8' }}>
-                Bangalore Development Authority © 2026
-              </Text>
-            </VStack>
+              {!keyboardOpen ? (
+                <VStack style={{ marginTop: 18, alignItems: 'center', gap: 4 }}>
+                  <Text style={{ fontFamily: FONTS.medium, fontSize: 10, color: '#CBD5E1' }}>
+                    Bangalore Development Authority © 2026
+                  </Text>
+                </VStack>
+              ) : null}
+            </Box>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </ScreenShell>
+    </Box>
   );
 }
 
@@ -1154,7 +1232,7 @@ export function OtpScreen({ go }: { go: Go }) {
                           alignItems: 'center',
                           justifyContent: 'center',
                           borderWidth: 1,
-                          borderColor: 'rgba(37,99,235,0.25)',
+                          borderColor: 'rgba(29,78,216,0.25)',
                         }}
                       >
                         <Lock size={26} color={COLORS.primaryDeep} strokeWidth={2.3} />
@@ -1490,7 +1568,7 @@ export function PermissionScreen({ go }: { go: Go }) {
               width: 200,
               height: 200,
               borderRadius: 999,
-              backgroundColor: 'rgba(37,99,235,0.1)',
+              backgroundColor: 'rgba(29,78,216,0.1)',
             },
             orbBStyle,
           ]}
@@ -1512,13 +1590,13 @@ export function PermissionScreen({ go }: { go: Go }) {
               <Box
                 className="px-3 py-1.5 rounded-full flex-row items-center gap-1.5"
                 style={{
-                  backgroundColor: `${COLORS.primary}1A`,
+                  backgroundColor: 'rgba(255,255,255,0.22)',
                   borderWidth: 1,
-                  borderColor: `${COLORS.primary}2E`,
+                  borderColor: 'rgba(255,255,255,0.4)',
                 }}
               >
-                <ShieldCheck size={13} color={COLORS.primaryDeep} strokeWidth={2.4} />
-                <Text className="text-[11px] font-bold tracking-wide" style={{ color: COLORS.primaryDeep }}>
+                <ShieldCheck size={13} color="#FFFFFF" strokeWidth={2.4} />
+                <Text className="text-[11px] font-bold tracking-wide" style={{ color: '#FFFFFF' }}>
                   REQUIRED FOR FIELD WORK
                 </Text>
               </Box>
@@ -1599,10 +1677,16 @@ export function PermissionScreen({ go }: { go: Go }) {
             </Animated.View>
 
             <Animated.View entering={FadeInUp.delay(160).duration(480)} style={{ marginTop: 22 }}>
-              <Text className="text-[26px] font-extrabold text-foreground text-center tracking-tight leading-8">
+              <Text
+                className="text-[26px] font-extrabold text-center tracking-tight leading-8"
+                style={{ color: '#FFFFFF' }}
+              >
                 Enable Location Access
               </Text>
-              <Text className="mt-2.5 text-[14px] text-muted-foreground text-center leading-5 px-2">
+              <Text
+                className="mt-2.5 text-[14px] text-center leading-5 px-2"
+                style={{ color: 'rgba(255,255,255,0.88)' }}
+              >
                 {TERMS.app.shortName} needs GPS to verify field surveys and geo-tag dimension reports
                 inside your assigned jurisdiction.
               </Text>
@@ -1687,7 +1771,7 @@ export function PermissionScreen({ go }: { go: Go }) {
               style={[
                 {
                   borderRadius: 18,
-                  shadowColor: '#2563EB',
+                  shadowColor: COLORS.primary,
                   shadowOffset: { width: 0, height: 12 },
                   shadowRadius: 18,
                   elevation: 6,
@@ -1704,12 +1788,14 @@ export function PermissionScreen({ go }: { go: Go }) {
               onPress={() => go('error')}
               className="mt-3 py-3.5 items-center active:opacity-60"
             >
-              <Text className="text-sm text-muted-foreground font-semibold">Not now</Text>
+              <Text className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                Not now
+              </Text>
             </Pressable>
 
             <HStack className="items-center justify-center gap-2 mt-2 mb-2">
-              <Lock size={12} color="#94A3B8" strokeWidth={2.2} />
-              <Text className="text-[11px] text-muted-foreground text-center">
+              <Lock size={12} color="rgba(255,255,255,0.75)" strokeWidth={2.2} />
+              <Text className="text-[11px] text-center" style={{ color: 'rgba(255,255,255,0.75)' }}>
                 Used only for survey verification · Encrypted
               </Text>
             </HStack>
@@ -1749,7 +1835,6 @@ export function GeoScreen({ go }: { go: Go }) {
   }, [user, go]);
 
   const cardLift = useSharedValue(0);
-  const verifyBadge = useSharedValue(0);
 
   const performFetchLocation = useCallback(async () => {
     setScanning(true);
@@ -1769,9 +1854,8 @@ export function GeoScreen({ go }: { go: Go }) {
       setLocationError(e instanceof Error ? e.message : 'Could not read GPS');
     } finally {
       setScanning(false);
-      verifyBadge.value = withSpring(1, { damping: 12, stiffness: 170 });
     }
-  }, [refresh, verifyBadge]);
+  }, [refresh]);
 
   useEffect(() => {
     cardLift.value = withRepeat(
@@ -1801,17 +1885,8 @@ export function GeoScreen({ go }: { go: Go }) {
   const outside =
     hasLocation && fenceAnchor ? realDistFt > FENCE_RADIUS_FT : false;
 
-  useEffect(() => {
-    verifyBadge.value = withSpring(outside ? 0 : 1, { damping: 12, stiffness: 170 });
-  }, [outside, verifyBadge]);
-
   const mapCardStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: interpolate(cardLift.value, [0, 1], [0, -3]) }],
-  }));
-
-  const badgeStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(verifyBadge.value, [0, 1], [0.35, 1]),
-    transform: [{ scale: interpolate(verifyBadge.value, [0, 1], [0.86, 1]) }],
   }));
 
   // Wait for real GPS — never show hardcoded Devanahalli / demo zone placeholders.
@@ -1830,7 +1905,7 @@ export function GeoScreen({ go }: { go: Go }) {
         />
         <Box className="flex-1 items-center justify-center px-8" style={{ marginTop: 8 }}>
           {isBusy || !locationError ? (
-            <ScreenLoader color="#2563EB" />
+            <ScreenLoader color={COLORS.primary} />
           ) : (
             <VStack className="items-center w-full" style={{ gap: 14 }}>
               <IconBox size="lg" className="bg-destructive/15">
@@ -1978,7 +2053,7 @@ export function GeoScreen({ go }: { go: Go }) {
                         className="h-10 w-10 items-center justify-center active:opacity-70"
                         accessibilityLabel="Recenter map"
                       >
-                        <LocateFixed size={15} color="#2563EB" strokeWidth={2.4} />
+                        <LocateFixed size={15} color={COLORS.primary} strokeWidth={2.4} />
                       </Pressable>
                       <Box style={{ height: 1, backgroundColor: '#E2E8F0' }} />
                       <Pressable
@@ -2049,7 +2124,10 @@ export function GeoScreen({ go }: { go: Go }) {
                     <Text className="font-extrabold text-[13px] text-foreground leading-5">
                       {villageName}
                     </Text>
-                    <Text className="text-xs text-muted-foreground mt-0.5">
+                    <Text
+                      className="text-xs text-foreground mt-0.5"
+                      style={{ fontFamily: FONTS.bold }}
+                    >
                       {districtName}, {stateName}
                     </Text>
                   </Box>
@@ -2066,33 +2144,8 @@ export function GeoScreen({ go }: { go: Go }) {
                     <Text className="font-extrabold text-[13px] text-foreground">
                       {zoneLabel}
                     </Text>
-                    <Text className="text-xs text-muted-foreground mt-0.5">
-                      Radius {FENCE_RADIUS_FT} ft
-                    </Text>
                   </Box>
                 </HStack>
-
-                <Box className="mt-2 pt-2 border-t border-border">
-                  <HStack className="items-center justify-between">
-                    <Text className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
-                      Geo status
-                    </Text>
-                    <Animated.View style={badgeStyle}>
-                      {isBusy && !outside ? (
-                        <Box
-                          className="px-2.5 py-1 rounded-full"
-                          style={{ backgroundColor: '#FEF3C7' }}
-                        >
-                          <Text className="text-[11px] font-bold" style={{ color: '#B45309' }}>
-                            Checking
-                          </Text>
-                        </Box>
-                      ) : (
-                        <StatusChip status={outside ? 'Rejected' : 'Verified'} />
-                      )}
-                    </Animated.View>
-                  </HStack>
-                </Box>
               </AppCard>
             </Animated.View>
 

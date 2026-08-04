@@ -6,6 +6,7 @@
 import {
   buildThemePreset,
   DEFAULT_THEME_ID,
+  hexAlpha,
   normalizeThemeId,
   type ThemeId,
   type ThemePreset,
@@ -17,7 +18,7 @@ import {
 import { applyUniwindTheme } from '@/src/theme/applyUniwindTheme';
 
 export type { ThemeId } from '@/src/cdrms/themePresets';
-export type { LayoutId, ThemeLayout } from '@/src/cdrms/themeLayouts';
+export type { LayoutId, ThemeLayout, HeaderWave } from '@/src/cdrms/themeLayouts';
 export {
   DEFAULT_THEME_ID,
   HEADER_THEME_IDS,
@@ -89,6 +90,70 @@ export const HEADER_ON_GRADIENT = {
   soft: 'rgba(255,255,255,0.78)',
   faint: 'rgba(255,255,255,0.45)',
 } as const;
+
+/** Plain layout id (soft). */
+export function isPlainDesign() {
+  return DESIGN.id === 'soft';
+}
+
+/**
+ * Wave design (classic / blue).
+ * Only this design uses a transparent (glass) header wave.
+ * Mesh / Teal / Violet still show a wave, but opaque.
+ * Plain + Ocean Blue show no wave edge.
+ */
+export function isWaveDesign() {
+  return DESIGN.id === 'classic' || DESIGN.headerWave === 'convex';
+}
+
+/** Mesh design (azure / nature) — scalloped silk header, not Wave’s continuous edge. */
+export function isMeshDesign() {
+  return DESIGN.id === 'nature' || DESIGN.headerWave === 'mesh';
+}
+
+/** Plain — light airy header (white / soft) like the smart-home reference. */
+export function usesLightHeader() {
+  return DESIGN.id === 'soft' || DESIGN.headerWave === 'plain';
+}
+
+/** Ocean Blue — normal solid blue gradient header (no mesh / wave edge). */
+export function usesSolidHeader() {
+  return DESIGN.id === 'ocean' || DESIGN.headerWave === 'solid';
+}
+
+/** Flat normal header (Ocean solid blue OR Plain light) — no mesh / wave sheet. */
+export function usesNormalHeader() {
+  return usesSolidHeader() || usesLightHeader();
+}
+
+/** Welcome / app headers that must show a wave edge (everything except Plain + Ocean). */
+export function usesHeaderWaveEdge() {
+  return !usesNormalHeader();
+}
+
+/** Header foreground — dark ink on Plain light headers; white elsewhere. */
+export function headerFg() {
+  if (usesLightHeader()) {
+    return {
+      title: COLORS.ink,
+      muted: COLORS.slate,
+      soft: 'rgba(17,24,39,0.65)',
+      icon: COLORS.primaryDeep,
+      chipBg: hexAlpha(COLORS.primary, 0.1),
+      chipBorder: hexAlpha(COLORS.primary, 0.2),
+      chipText: COLORS.primaryDeep,
+    } as const;
+  }
+  return {
+    title: COLORS.white,
+    muted: 'rgba(255,255,255,0.85)',
+    soft: 'rgba(255,255,255,0.78)',
+    icon: COLORS.white,
+    chipBg: 'rgba(255,255,255,0.22)',
+    chipBorder: 'rgba(255,255,255,0.35)',
+    chipText: COLORS.white,
+  } as const;
+}
 
 /** Primary tint pair for stat chips / count grids. */
 export function themeStatColors() {
@@ -215,11 +280,11 @@ function rebuildType() {
 // Ensure defaults are applied at module load
 applyTheme(DEFAULT_THEME_ID);
 
-/** Fixed auth gradients — solid blue. */
-export const AUTH_GRADIENT_HEADER = ['#1E40AF', '#2563EB'] as const;
-export const AUTH_GRADIENT_PRIMARY = ['#1E40AF', '#2563EB'] as const;
+/** Fixed auth — Ocean Blue until session theme applies. */
+export const AUTH_GRADIENT_HEADER = ['#0B1F4D', '#123A8C', '#1A56DB'] as const;
+export const AUTH_GRADIENT_PRIMARY = ['#0B1F4D', '#123A8C', '#1A56DB', '#3B82F6'] as const;
 
-/** Reset to default blue (sync) — call on logout and pre-auth screens. */
+/** Reset to Ocean Blue (sync) — call on logout and pre-auth screens. */
 export function applyAuthTheme() {
   applyTheme(DEFAULT_THEME_ID);
   applyUniwindTheme(DEFAULT_THEME_ID);

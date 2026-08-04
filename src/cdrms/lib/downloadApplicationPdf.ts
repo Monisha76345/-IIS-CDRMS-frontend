@@ -1,6 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as SecureStore from 'expo-secure-store';
-import * as Sharing from 'expo-sharing';
 import { Linking, Platform } from 'react-native';
 
 import {
@@ -28,16 +27,20 @@ export type PdfDownloadResult = {
 export async function sharePdfFile(targetUri: string) {
   if (!targetUri) return;
   try {
-    const canShare = await Sharing.isAvailableAsync();
-    if (canShare) {
-      await Sharing.shareAsync(targetUri, {
-        mimeType: 'application/pdf',
-        dialogTitle: 'Share PDF',
-        UTI: 'com.adobe.pdf',
-      });
-    } else {
-      await Linking.openURL(targetUri);
+    try {
+      const Sharing = require('expo-sharing') as typeof import('expo-sharing');
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(targetUri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Share PDF',
+          UTI: 'com.adobe.pdf',
+        });
+        return;
+      }
+    } catch {
+      // Native ExpoSharing not in this iOS binary yet
     }
+    await Linking.openURL(targetUri);
   } catch (err) {
     console.log('Could not share PDF file:', err);
   }

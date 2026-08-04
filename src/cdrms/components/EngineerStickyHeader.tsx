@@ -17,10 +17,19 @@ import {
   GlassCardHeader,
   GlassHeaderBadge,
   GlassIcon,
-  FrostedGlass,
 } from '@/src/cdrms/components/GlassSurface';
+import { cardBodyStyle } from '@/src/cdrms/lib/cardSurface';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
-import { CARDINAL_ACCENT, COLORS, FONTS, GLASS, SPACE, TYPE, DESIGN } from '@/src/cdrms/theme';
+import {
+  CARDINAL_ACCENT,
+  COLORS,
+  DESIGN,
+  FONTS,
+  SPACE,
+  TYPE,
+  hexAlpha,
+  usesLightHeader,
+} from '@/src/cdrms/theme';
 
 const CARDINALS = [
   { k: 'N' as const, label: 'North', color: CARDINAL_ACCENT.N },
@@ -29,14 +38,27 @@ const CARDINALS = [
   { k: 'W' as const, label: 'West', color: CARDINAL_ACCENT.W },
 ];
 
+/** Soft pastel fills for Plain (smart-home) field tiles. */
+const PASTEL_TILES = [
+  { bg: '#ECFDF5', fg: '#059669' },
+  { bg: '#EEF2FF', fg: '#4F46E5' },
+  { bg: '#E0F2FE', fg: '#0284C7' },
+  { bg: '#FEF3C7', fg: '#D97706' },
+  { bg: '#FCE7F3', fg: '#DB2777' },
+  { bg: '#F3E8FF', fg: '#7C3AED' },
+] as const;
+
 /**
  * Step 1 — ZC assigned site details (view-only).
- * Blue gradient header only · neutral fields below.
+ * Chrome follows active theme (Plain pastels · Wave/Mesh accents · Ocean elevated).
  */
 export function EngineerStickyHeader() {
   const { draft } = useProject();
   const liveSiteDimension = draft.siteDimensionMaster?.trim() || '—';
   const appNo = draft.applicationNumber?.trim() || '—';
+  const plain = usesLightHeader();
+  let tile = 0;
+  const nextPastel = () => PASTEL_TILES[tile++ % PASTEL_TILES.length]!;
 
   return (
     <GlassCard>
@@ -46,27 +68,27 @@ export function EngineerStickyHeader() {
         icon={Building2}
         badge={
           <GlassHeaderBadge tone="neutral">
-            <Lock size={10} color="#334155" strokeWidth={2.5} />
-            <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: '#334155' }}>
+            <Lock size={10} color={COLORS.slate} strokeWidth={2.5} />
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.slate }}>
               View only
             </Text>
           </GlassHeaderBadge>
         }
       />
 
-      {/* Body — solid white, fully separated from header shader */}
       <VStack
         style={{
-          padding: SPACE[3],
-          gap: SPACE[2],
-          backgroundColor: GLASS.cardSolid,
+          padding: plain ? SPACE[2] : SPACE[3],
+          gap: plain ? 10 : SPACE[2],
+          ...cardBodyStyle(),
         }}
       >
         <StatBlock
           icon={FileText}
           label="E-office number"
           value={draft.eOfficeNumber?.trim() || '—'}
-          color={COLORS.primary}
+          accent={COLORS.primary}
+          pastel={plain ? nextPastel() : undefined}
           fullWidth
           inline
         />
@@ -76,13 +98,16 @@ export function EngineerStickyHeader() {
             icon={Hash}
             label="Application number"
             value={appNo}
-            color="#0891B2"
+            accent={COLORS.primaryGlow}
+            pastel={plain ? nextPastel() : undefined}
+            wrap
           />
           <StatBlock
             icon={MapPinned}
             label="Zone"
             value={draft.zoneCode?.trim() || '—'}
-            color={COLORS.primary}
+            accent={COLORS.primary}
+            pastel={plain ? nextPastel() : undefined}
           />
         </HStack>
 
@@ -91,13 +116,15 @@ export function EngineerStickyHeader() {
             icon={Hash}
             label="Site no"
             value={draft.siteNo?.trim() || '—'}
-            color={COLORS.primary}
+            accent={COLORS.primary}
+            pastel={plain ? nextPastel() : undefined}
           />
           <StatBlock
             icon={Building2}
             label="Site type"
             value={draft.siteDimensionType || '—'}
-            color="#0891B2"
+            accent={COLORS.primaryGlow}
+            pastel={plain ? nextPastel() : undefined}
           />
         </HStack>
 
@@ -105,7 +132,8 @@ export function EngineerStickyHeader() {
           icon={MapPinned}
           label="Area"
           value={draft.addressArea?.trim() || '—'}
-          color={COLORS.primary}
+          accent={COLORS.primary}
+          pastel={plain ? nextPastel() : undefined}
           fullWidth
         />
 
@@ -114,22 +142,32 @@ export function EngineerStickyHeader() {
             icon={MapPinned}
             label="Block"
             value={draft.addressBlock?.trim() || '—'}
-            color={COLORS.primary}
+            accent={COLORS.primary}
+            pastel={plain ? nextPastel() : undefined}
           />
           <StatBlock
             icon={Hash}
             label="Pincode"
             value={draft.addressPincode?.trim() || '—'}
-            color="#0891B2"
+            accent={COLORS.primaryGlow}
+            pastel={plain ? nextPastel() : undefined}
           />
         </HStack>
 
-        <StatBlock icon={Ruler} label="Dimension" value={liveSiteDimension} color="#0891B2" fullWidth />
+        <StatBlock
+          icon={Ruler}
+          label="Dimension"
+          value={liveSiteDimension}
+          accent={COLORS.primaryGlow}
+          pastel={plain ? nextPastel() : undefined}
+          fullWidth
+        />
 
         <FieldRow
           icon={MessageSquareText}
           label="Comment"
           value={draft.siteDimensionComment?.trim() || '—'}
+          plain={plain}
         />
 
         <VStack style={{ gap: SPACE[2] }}>
@@ -144,6 +182,7 @@ export function EngineerStickyHeader() {
                 label={label}
                 value={draft.zcDirections?.[k]?.trim() || '—'}
                 color={color}
+                plain={plain}
               />
             ))}
           </HStack>
@@ -157,38 +196,56 @@ function StatBlock({
   icon: Icon,
   label,
   value,
-  color,
+  accent,
+  pastel,
   fullWidth,
-  tall,
   inline,
+  wrap,
 }: {
   icon: typeof Building2;
   label: string;
   value: string;
-  color: string;
+  accent: string;
+  pastel?: { bg: string; fg: string };
   fullWidth?: boolean;
-  tall?: boolean;
-  /** Label and value on one horizontal row. */
   inline?: boolean;
+  /** Allow long values (e.g. application number) to wrap instead of truncating. */
+  wrap?: boolean;
 }) {
+  const radius = Math.max(10, DESIGN.cardRadius - 4);
+  const fg = pastel?.fg ?? accent;
+  const fill = pastel?.bg ?? hexAlpha(COLORS.primary, 0.05);
+  const maxLines = fullWidth || wrap ? 4 : 1;
+
   return (
-    <Box style={{ flex: fullWidth ? undefined : 1, width: fullWidth ? '100%' : undefined }}>
-      <FrostedGlass
-        borderRadius={DESIGN.cardRadius}
-        padding={tall || inline ? SPACE[3] : SPACE[2]}
-        fill={tall || inline ? GLASS.tintBlue : GLASS.surfaceSolid}
-        sheen={false}
-        style={{ borderTopWidth: 2, borderTopColor: color }}
+    <Box
+      style={{
+        flex: fullWidth ? undefined : 1,
+        width: fullWidth ? '100%' : undefined,
+        // Required so flex children can shrink and Text can wrap.
+        minWidth: fullWidth ? undefined : 0,
+      }}
+    >
+      <Box
+        style={{
+          borderRadius: radius,
+          padding: inline ? SPACE[3] : SPACE[2],
+          backgroundColor: fill,
+          borderWidth: pastel ? 0 : 1,
+          borderColor: pastel ? 'transparent' : hexAlpha(accent, 0.18),
+          borderTopWidth: pastel ? 0 : 2,
+          borderTopColor: pastel ? 'transparent' : accent,
+        }}
       >
         {inline ? (
           <HStack style={{ alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <HStack style={{ alignItems: 'center', gap: 6, flexShrink: 0 }}>
-              <Icon size={14} color={color} strokeWidth={2.2} />
+              <Icon size={14} color={fg} strokeWidth={2.2} />
               <Text
                 style={{
                   fontFamily: FONTS.semibold,
                   fontSize: 12,
-                  color,
+                  color: fg,
                   textTransform: 'uppercase',
                   letterSpacing: 0.4,
                 }}
@@ -203,22 +260,23 @@ function StatBlock({
                 color: COLORS.ink,
                 letterSpacing: 0.3,
                 flex: 1,
+                flexShrink: 1,
                 textAlign: 'right',
               }}
-              numberOfLines={1}
+              numberOfLines={maxLines}
             >
               {value}
             </Text>
           </HStack>
         ) : (
           <>
-            <HStack style={{ alignItems: 'center', gap: 4, marginBottom: tall ? 8 : 4 }}>
-              <Icon size={tall ? 14 : 12} color={color} strokeWidth={2.2} />
+            <HStack style={{ alignItems: 'center', gap: 4, marginBottom: 4 }}>
+              <Icon size={12} color={fg} strokeWidth={2.2} />
               <Text
                 style={{
                   fontFamily: FONTS.semibold,
                   fontSize: 12,
-                  color: tall ? color : COLORS.slate,
+                  color: pastel ? fg : COLORS.slate,
                   textTransform: 'uppercase',
                   letterSpacing: 0.4,
                 }}
@@ -229,18 +287,19 @@ function StatBlock({
             <Text
               style={{
                 fontFamily: FONTS.bold,
-                fontSize: tall ? 20 : 16,
+                fontSize: wrap ? 14 : 16,
                 color: COLORS.ink,
-                letterSpacing: tall ? 0.3 : -0.3,
-                lineHeight: tall ? 26 : undefined,
+                letterSpacing: -0.3,
+                lineHeight: wrap ? 18 : undefined,
+                flexShrink: 1,
               }}
-              numberOfLines={fullWidth || tall ? 3 : 1}
+              numberOfLines={maxLines}
             >
               {value}
             </Text>
           </>
         )}
-      </FrostedGlass>
+      </Box>
     </Box>
   );
 }
@@ -249,13 +308,23 @@ function FieldRow({
   icon,
   label,
   value,
+  plain,
 }: {
   icon: typeof MessageSquareText;
   label: string;
   value: string;
+  plain: boolean;
 }) {
   return (
-    <HStack style={{ alignItems: 'flex-start', gap: SPACE[2] }}>
+    <HStack
+      style={{
+        alignItems: 'flex-start',
+        gap: SPACE[2],
+        padding: plain ? SPACE[2] : 0,
+        borderRadius: plain ? Math.max(10, DESIGN.cardRadius - 4) : 0,
+        backgroundColor: plain ? '#F8FAFC' : 'transparent',
+      }}
+    >
       <GlassIcon icon={icon} color={COLORS.slate} size={13} />
       <VStack style={{ flex: 1, gap: 2 }}>
         <Text
@@ -285,20 +354,27 @@ function CompassCell({
   label,
   value,
   color,
+  plain,
 }: {
   letter: string;
   label: string;
   value: string;
   color: string;
+  plain: boolean;
 }) {
+  const radius = Math.max(10, DESIGN.cardRadius - 4);
   return (
     <Box style={{ width: '47%', flexGrow: 1 }}>
-      <FrostedGlass
-        borderRadius={DESIGN.cardRadius}
-        padding={SPACE[2]}
-        fill={GLASS.surfaceSolid}
-        sheen={false}
-        style={{ borderTopWidth: 2, borderTopColor: color }}
+      <Box
+        style={{
+          borderRadius: radius,
+          padding: SPACE[2],
+          backgroundColor: plain ? hexAlpha(color, 0.1) : hexAlpha(COLORS.primary, 0.04),
+          borderWidth: plain ? 0 : 1,
+          borderColor: plain ? 'transparent' : hexAlpha(color, 0.22),
+          borderTopWidth: plain ? 0 : 2,
+          borderTopColor: plain ? 'transparent' : color,
+        }}
       >
         <HStack style={{ alignItems: 'center', gap: 6, marginBottom: 4 }}>
           <Box
@@ -308,9 +384,9 @@ function CompassCell({
               borderRadius: 999,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: GLASS.tintBlue,
-              borderWidth: 1,
-              borderColor: '#BFDBFE',
+              backgroundColor: plain ? hexAlpha(color, 0.18) : hexAlpha(COLORS.primary, 0.1),
+              borderWidth: plain ? 0 : 1,
+              borderColor: plain ? 'transparent' : hexAlpha(color, 0.35),
             }}
           >
             <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color }}>{letter}</Text>
@@ -333,7 +409,7 @@ function CompassCell({
         >
           {value}
         </Text>
-      </FrostedGlass>
+      </Box>
     </Box>
   );
 }

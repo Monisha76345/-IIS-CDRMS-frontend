@@ -121,7 +121,7 @@ export function getScreenLoaderConfig(screen: Screen): ScreenLoaderMeta {
         title: 'Details',
         subtitle: '',
         icon: FileText,
-        color: '#0284C7',
+        color: '#0D9488',
       }
     case 'notifications':
       return {

@@ -14,7 +14,6 @@ import { ScrollView } from '@/components/ui/scroll-view';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/src/auth/AuthContext';
-import { displayName } from '@/src/auth/roles';
 import { ApiError } from '@/src/api/client';
 import {
   applicationCardDateLine,
@@ -37,11 +36,26 @@ import {
   OfficeAppRow,
   StatusCountGrid,
 } from '@/src/cdrms/components/StatusCountGrid';
+import {
+  BdaPageWatermark,
+  WelcomeHomeHeader,
+  welcomeFilterGap,
+} from '@/src/cdrms/components/WelcomeHomeChrome';
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
 import { getCaoReturnScreen, getSelectedOfficeAppId, setCaoReturnScreen, setSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
 import { downloadApplicationPdfWithFeedback } from '@/src/cdrms/lib/downloadApplicationPdfWithFeedback';
 import { SearchField } from '@/src/cdrms/components/SearchField';
-import { COLORS, FONTS, GLASS, GRADIENT_PRIMARY, themeStatColors, gradientStops, DESIGN } from '@/src/cdrms/theme';
+import {
+  COLORS,
+  FONTS,
+  GLASS,
+  GRADIENT_PRIMARY,
+  themeStatColors,
+  gradientStops,
+  DESIGN,
+  hexAlpha,
+  usesLightHeader,
+} from '@/src/cdrms/theme';
 import { useTheme } from '@/src/theme/ThemeContext';
 import type { Go } from '@/src/cdrms/types';
 
@@ -79,7 +93,7 @@ const CAO_STATUS_FILTERS: { key: CaoTab; label: string }[] = [
 
 export function CaoHomeScreen({ go }: { go: Go }) {
   const { themeId } = useTheme();
-  const { accessToken, user } = useAuth();
+  const { accessToken, user, logout } = useAuth();
   const [apps, setApps] = useState<MobileApplication[]>([]);
   const [zoneLabel, setZoneLabel] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -98,11 +112,7 @@ export function CaoHomeScreen({ go }: { go: Go }) {
         fetchMyZoneMeta(accessToken).catch(() => null),
       ]);
       setApps(list);
-      setZoneLabel(
-        meta?.zoneCode?.trim() ||
-          list.find((a) => a.zoneCode?.trim())?.zoneCode?.trim() ||
-          null,
-      );
+      setZoneLabel(meta?.zoneCode?.trim() || null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to load applications');
       setApps([]);
@@ -123,6 +133,25 @@ export function CaoHomeScreen({ go }: { go: Go }) {
 
   const counts = useMemo(() => countZcBuckets(apps), [apps]);
 
+  const filterCards = [
+    {
+      id: 'all' as const,
+      label: 'All',
+      value: counts.total,
+      bg: usesLightHeader() ? '#ECFDF5' : GLASS.tintBlue,
+      fg: usesLightHeader() ? '#059669' : COLORS.primary,
+      icon: Layers,
+    },
+    {
+      id: 'submitted' as const,
+      label: 'Submitted',
+      value: counts.submitted,
+      bg: usesLightHeader() ? '#E0F2FE' : GLASS.tintSky,
+      fg: usesLightHeader() ? '#0284C7' : COLORS.primary,
+      icon: Send,
+    },
+  ];
+
   const filtered = useMemo(() => {
     let items = apps;
     if (tab === 'submitted') {
@@ -139,58 +168,109 @@ export function CaoHomeScreen({ go }: { go: Go }) {
     );
   }, [apps, tab, q]);
 
-  const sectionLabel = tab === 'submitted' ? 'Submitted applications' : 'All applications';
-
-  const statColors = themeStatColors();
-  const countItems = [
-    { key: 'all', label: 'Total', count: counts.total, icon: Layers, ...statColors },
-    { key: 'submitted', label: 'Submitted', count: counts.submitted, icon: Send, ...statColors },
-  ];
+  const sectionLabel = tab === 'submitted' ? 'Submitted' : 'Recent Activity';
 
   return (
     <ScreenShell className="bg-background">
+      <BdaPageWatermark />
       <ScrollView
         key={themeId}
         className="flex-1"
+        style={{ zIndex: 1 }}
         contentContainerStyle={{ paddingBottom: 96 }}
         showsVerticalScrollIndicator={false}
       >
-        <AppHeader
-          title="Welcome"
-          subtitle={displayName(user)}
-          welcome
+        <WelcomeHomeHeader
+          user={user}
           zoneLabel={zoneLabel}
           go={go}
+          tagline="Review submitted applications"
+          eyebrow="Chief accounts officer"
+          onLogout={() => {
+            void (async () => {
+              await logout();
+              go('login');
+            })();
+          }}
         />
 
-        <Box className="px-4" style={{ marginTop: 10 }}>
-          <Text
-            className="text-[15px] font-bold"
-            style={{ color: COLORS.ink, marginBottom: 8 }}
-          >
-            Application overview
-          </Text>
+        <Box className="px-3" style={{ marginTop: welcomeFilterGap() }}>
+          <HStack style={{ gap: 6 }}>
+            {filterCards.map((s) => {
+              const Icon = s.icon;
+              const selected = tab === s.id;
+              const plainLite = usesLightHeader();
+              return (
+                <Pressable
+                  key={s.id}
+                  onPress={() => setTab(s.id)}
+                  className="flex-1 active:opacity-90"
+                  style={{
+                    backgroundColor: selected
+                      ? COLORS.primary
+                      : plainLite
+                        ? s.bg
+                        : COLORS.white,
+                    borderRadius: DESIGN.cardRadius,
+                    paddingVertical: 8,
+                    paddingHorizontal: 2,
+                    alignItems: 'center',
+                    minHeight: 66,
+                    justifyContent: 'center',
+                    shadowColor: selected ? COLORS.primaryDeep : GLASS.shadow,
+                    shadowOffset: { width: 0, height: plainLite ? 2 : 4 },
+                    shadowOpacity: selected ? 0.2 : plainLite ? 0.03 : 0.06,
+                    shadowRadius: plainLite ? 6 : 8,
+                    elevation: selected ? 3 : plainLite ? 1 : 2,
+                    borderWidth: 1.5,
+                    borderColor: selected ? COLORS.primary : hexAlpha(COLORS.primary, 0.55),
+                  }}
+                >
+                  <Box
+                    className="items-center justify-center mb-1"
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 999,
+                      backgroundColor: selected
+                        ? 'rgba(255,255,255,0.22)'
+                        : plainLite
+                          ? 'rgba(255,255,255,0.55)'
+                          : s.bg,
+                    }}
+                  >
+                    <Icon size={14} color={selected ? COLORS.white : s.fg} strokeWidth={2.3} />
+                  </Box>
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 15,
+                      color: selected ? COLORS.white : COLORS.ink,
+                    }}
+                  >
+                    {loading ? '—' : s.value}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      fontFamily: FONTS.semibold,
+                      fontSize: 9,
+                      color: selected ? 'rgba(255,255,255,0.9)' : COLORS.slate,
+                      textAlign: 'center',
+                      paddingHorizontal: 2,
+                    }}
+                  >
+                    {s.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </HStack>
+        </Box>
 
-          <StatusCountGrid
-            items={countItems}
-            activeKey={tab}
-            columns={2}
-            onSelect={(key) => setTab(key as CaoTab)}
-          />
-
-          <SearchField
-            className="mt-2"
-            value={q}
-            onChangeText={setQ}
-            placeholder="Search application, site, engineer…"
-            height={42}
-            style={{ paddingHorizontal: 10 }}
-          />
-
-
-
-          <HStack className="items-center justify-between" style={{ marginTop: 10, marginBottom: 6 }}>
-            <Text className="text-[14px] font-bold" style={{ color: COLORS.ink }}>
+        <Box className="px-4 mt-3">
+          <HStack className="items-center justify-between mb-2">
+            <Text className="text-[15px] font-bold" style={{ color: COLORS.ink }}>
               {sectionLabel}
             </Text>
             <Pressable onPress={() => void reload()} className="active:opacity-70">
@@ -203,6 +283,14 @@ export function CaoHomeScreen({ go }: { go: Go }) {
             </Pressable>
           </HStack>
 
+          <SearchField
+            value={q}
+            onChangeText={setQ}
+            placeholder="Search application, site, engineer…"
+            height={42}
+            style={{ paddingHorizontal: 10 }}
+          />
+
           {loading ? (
             <ListLoader text="Loading CAO applications…" />
           ) : error ? (
@@ -210,31 +298,41 @@ export function CaoHomeScreen({ go }: { go: Go }) {
               {error}
             </Text>
           ) : filtered.length === 0 ? (
-            <Text className="text-[13px]" style={{ color: COLORS.slate, marginTop: 8 }}>
-              No applications found matching your criteria.
-            </Text>
+            <Box
+              className="rounded-2xl border border-dashed px-4 py-8 mt-3"
+              style={{
+                borderColor: COLORS.border,
+                backgroundColor: 'rgba(255,255,255,0.42)',
+              }}
+            >
+              <Text className="text-center text-sm" style={{ color: COLORS.slate }}>
+                No applications found matching your criteria.
+              </Text>
+            </Box>
           ) : (
-            filtered.map((app) => (
-              <OfficeAppRow
-                key={app.id}
-                title={app.applicationNumber}
-                siteNo={app.siteNo}
-                zoneCode={app.zoneCode}
-                engineerName={app.assignedEngineerName}
-                status={app.status}
-                dateLine={applicationCardDateLine(app)}
-                onPress={() => {
-                  setSelectedOfficeAppId(app.id);
-                  setCaoReturnScreen('cao_home');
-                  go('cao_detail');
-                }}
-                onDownload={
-                  app.status === 'submitted'
-                    ? () => void handleDownloadApp(app)
-                    : undefined
-                }
-              />
-            ))
+            <VStack style={{ gap: 0, marginTop: 10 }}>
+              {filtered.map((app) => (
+                <OfficeAppRow
+                  key={app.id}
+                  title={app.applicationNumber}
+                  siteNo={app.siteNo}
+                  zoneCode={app.zoneCode}
+                  engineerName={app.assignedEngineerName}
+                  status={app.status}
+                  dateLine={applicationCardDateLine(app)}
+                  onPress={() => {
+                    setSelectedOfficeAppId(app.id);
+                    setCaoReturnScreen('cao_home');
+                    go('cao_detail');
+                  }}
+                  onDownload={
+                    app.status === 'submitted'
+                      ? () => void handleDownloadApp(app)
+                      : undefined
+                  }
+                />
+              ))}
+            </VStack>
           )}
         </Box>
       </ScrollView>
@@ -458,6 +556,7 @@ export function CaoDetailScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-background">
+      <BdaPageWatermark />
       <AppHeader
         title="View Application"
         subtitle={app?.applicationNumber || 'Application details'}
@@ -469,6 +568,7 @@ export function CaoDetailScreen({ go }: { go: Go }) {
       />
       <ScrollView
         key={themeId}
+        style={{ zIndex: 1 }}
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 28, gap: 8 }}
         showsVerticalScrollIndicator={false}
       >

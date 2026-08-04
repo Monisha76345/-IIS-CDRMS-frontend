@@ -51,6 +51,7 @@ import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
 import { ReviewMediaPanel } from '@/src/cdrms/components/ReviewMediaPanel';
 import { ReviewSchedulesPanel } from '@/src/cdrms/components/ReviewSchedulesPanel';
 import { showAppDialog } from '@/src/cdrms/components/AppDialog';
+import { captureCurrentLocation } from '@/src/cdrms/hooks/useDeviceLocation';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { formatCoords, type Cardinal } from '@/src/cdrms/project/types';
 import { validateDraft, validationSummary } from '@/src/cdrms/project/validation';
@@ -342,8 +343,8 @@ function ReviewSectionCard({
               rowGap: SPACE[2],
               borderRadius: 12,
               backgroundColor: GLASS.surfaceSolid,
-              borderWidth: 1,
-              borderColor: GLASS.border,
+              borderWidth: 1.5,
+              borderColor: `${COLORS.primary}59`,
               paddingHorizontal: SPACE[2],
               paddingVertical: SPACE[2],
               shadowColor: '#0F172A',
@@ -432,11 +433,13 @@ function ReviewSectionCard({
 }
 
 export function ReviewScreen({ go }: { go: Go }) {
-  const { draft, submitApplication, reloadBackendDraft } = useProject();
+  const { draft, submitApplication, reloadBackendDraft, setGps } = useProject();
   const [terms, setTerms] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [fetchingLocation, setFetchingLocation] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   const isBackendTask = Boolean(draft.backendApplicationId);
 
@@ -454,12 +457,113 @@ export function ReviewScreen({ go }: { go: Go }) {
     })();
   }, [isBackendTask, reloadBackendDraft]);
 
+  // Fetch live GPS + reverse-geocoded place when Review & Submit opens.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setFetchingLocation(true);
+      setLocationError(null);
+      try {
+        const loc = await captureCurrentLocation(true);
+        if (cancelled) return;
+        if (!loc?.gps) {
+          setLocationError('Could not read GPS. Enable location and pull to refresh.');
+          return;
+        }
+        setGps(loc.gps, {
+          displayName: loc.address.displayName,
+          village: loc.address.village,
+          taluk: loc.address.taluk,
+          district: loc.address.district,
+          state: loc.address.state,
+          street: loc.address.street,
+          name: loc.address.name,
+          layoutName: loc.address.layoutName,
+          area: loc.address.area,
+          block: loc.address.block,
+          postalCode: loc.address.postalCode,
+          country: loc.address.country,
+        });
+      } catch {
+        if (!cancelled) {
+          setLocationError('Location fetch failed. Check GPS permission and try again.');
+        }
+      } finally {
+        if (!cancelled) setFetchingLocation(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [setGps]);
+
+  const refreshLocation = async () => {
+    setFetchingLocation(true);
+    setLocationError(null);
+    try {
+      const loc = await captureCurrentLocation(false);
+      if (!loc?.gps) {
+        setLocationError('Could not read GPS. Enable location and try again.');
+        return;
+      }
+      setGps(loc.gps, {
+        displayName: loc.address.displayName,
+        village: loc.address.village,
+        taluk: loc.address.taluk,
+        district: loc.address.district,
+        state: loc.address.state,
+        street: loc.address.street,
+        name: loc.address.name,
+        layoutName: loc.address.layoutName,
+        area: loc.address.area,
+        block: loc.address.block,
+        postalCode: loc.address.postalCode,
+        country: loc.address.country,
+      });
+    } catch {
+      setLocationError('Location fetch failed. Check GPS permission and try again.');
+    } finally {
+      setFetchingLocation(false);
+    }
+  };
+
   const items = useMemo(() => validateDraft(draft), [draft]);
   const summary = useMemo(() => validationSummary(items), [items]);
 
   const coords = draft.gps
     ? formatCoords(draft.gps.latitude, draft.gps.longitude).short
-    : 'No GPS';
+    : '';
+  const latitudeLabel = draft.gps ? draft.gps.latitude.toFixed(6) : '';
+  const longitudeLabel = draft.gps ? draft.gps.longitude.toFixed(6) : '';
+  const locationDetails =
+    draft.geoAddress?.displayName?.trim() ||
+    [draft.geoAddress?.village, draft.geoAddress?.taluk, draft.geoAddress?.district, draft.geoAddress?.state]
+      .filter(Boolean)
+      .join(', ') ||
+    '';
+  const accuracyLabel =
+    draft.gps?.accuracy != null && Number.isFinite(draft.gps.accuracy)
+      ? `±${Math.round(draft.gps.accuracy)} m`
+      : '';
+
+  const locationRows = useMemo(
+    () =>
+      filterReviewRows([
+        { label: 'Location', value: fetchingLocation ? 'Fetching…' : locationDetails },
+        { label: 'Latitude', value: fetchingLocation ? 'Fetching…' : latitudeLabel },
+        { label: 'Longitude', value: fetchingLocation ? 'Fetching…' : longitudeLabel },
+        { label: 'GPS', value: fetchingLocation ? 'Fetching…' : coords },
+        { label: 'Accuracy', value: fetchingLocation ? 'Fetching…' : accuracyLabel },
+      ]),
+    [
+      fetchingLocation,
+      locationDetails,
+      latitudeLabel,
+      longitudeLabel,
+      coords,
+      accuracyLabel,
+    ],
+  );
 
   const isResubmit = Boolean(draft.resubmitOfId);
   const canSubmit = terms && summary.allOk && !submitting;
@@ -556,7 +660,7 @@ export function ReviewScreen({ go }: { go: Go }) {
                   ? `Occupied · ${draft.occupancyReason.trim() || '—'}`
                   : draft.occupancy || '',
             },
-            { label: 'GPS', value: coords !== 'No GPS' ? coords : '' },
+            ...locationRows,
           ]),
           showSchedules: true,
         },
@@ -609,7 +713,7 @@ export function ReviewScreen({ go }: { go: Go }) {
         iconBg: COLORS.primary,
         rows: filterReviewRows([
           { label: 'Compass', value: draft.compassReading.trim() },
-          { label: 'GPS', value: coords !== 'No GPS' ? coords : '' },
+          ...locationRows,
           { label: 'North boundary', value: draft.directions.N.trim() },
           { label: 'South boundary', value: draft.directions.S.trim() },
           { label: 'East boundary', value: draft.directions.E.trim() },
@@ -636,7 +740,7 @@ export function ReviewScreen({ go }: { go: Go }) {
   }, [
     draft,
     titleId,
-    coords,
+    locationRows,
     fullDimDisplay,
     isBackendTask,
     plotDimsReady,
@@ -882,6 +986,87 @@ export function ReviewScreen({ go }: { go: Go }) {
           />
         </SurveyCard>
       )}
+
+      <Box
+        style={{
+          marginHorizontal: isBackendTask ? SPACE.gutter : 16,
+          marginBottom: 4,
+          borderRadius: 14,
+          paddingHorizontal: 12,
+          paddingVertical: 10,
+          backgroundColor: locationError
+            ? '#FEF2F2'
+            : draft.gps
+              ? '#ECFDF5'
+              : '#EFF6FF',
+          borderWidth: 1,
+          borderColor: locationError
+            ? '#FECACA'
+            : draft.gps
+              ? '#A7F3D0'
+              : '#BFDBFE',
+        }}
+      >
+        <HStack className="items-center justify-between" style={{ gap: 10 }}>
+          <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
+            <Text
+              style={{
+                fontFamily: FONTS.bold,
+                fontSize: 12,
+                color: locationError ? '#B91C1C' : draft.gps ? '#047857' : COLORS.primary,
+              }}
+            >
+              {fetchingLocation
+                ? 'Fetching location…'
+                : locationError
+                  ? 'Location unavailable'
+                  : draft.gps
+                    ? 'Location captured'
+                    : 'Waiting for GPS'}
+            </Text>
+            <Text
+              style={{
+                fontFamily: FONTS.medium,
+                fontSize: 11,
+                color: locationError ? '#991B1B' : COLORS.slate,
+              }}
+              numberOfLines={2}
+            >
+              {fetchingLocation
+                ? 'Reading latitude, longitude and place details'
+                : locationError
+                  ? locationError
+                  : draft.gps
+                    ? `${latitudeLabel}, ${longitudeLabel}${locationDetails ? ` · ${locationDetails}` : ''}`
+                    : 'Enable GPS to continue'}
+            </Text>
+          </VStack>
+          <Pressable
+            onPress={() => void refreshLocation()}
+            disabled={fetchingLocation}
+            className="active:opacity-70"
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 4,
+              paddingHorizontal: 10,
+              paddingVertical: 8,
+              borderRadius: 10,
+              backgroundColor: COLORS.white,
+              opacity: fetchingLocation ? 0.6 : 1,
+            }}
+          >
+            {fetchingLocation ? (
+              <ActivityIndicator size="small" color={COLORS.primary} />
+            ) : (
+              <RefreshCw size={14} color={COLORS.primary} strokeWidth={2.4} />
+            )}
+            <Text style={{ fontFamily: FONTS.semibold, fontSize: 11, color: COLORS.primary }}>
+              Refresh
+            </Text>
+          </Pressable>
+        </HStack>
+      </Box>
 
       {reviewSections.map((section) => {
         const plot = 'plot' in section && section.plot;

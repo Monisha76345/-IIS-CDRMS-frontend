@@ -66,42 +66,64 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [themeReady, setThemeReady] = useState(false);
 
   useLayoutEffect(() => {
-    if (!isAuthenticated) {
-      // Pre-auth / logout — always Ocean Blue; drop any leftover device cache.
-      applyAuthTheme();
-      setThemeId(DEFAULT_THEME_ID);
-      setThemeReady(true);
-      void clearThemeLocal();
-    }
+    if (isAuthenticated) return;
+    // Pre-auth: restore last local theme so login mesh is theme-wise.
+    let cancelled = false;
+    void (async () => {
+      try {
+        let raw: string | null = null;
+        if (Platform.OS === 'web') {
+          raw = localStorage.getItem(THEME_STORAGE_KEY);
+        } else {
+          raw = await SecureStore.getItemAsync(THEME_STORAGE_KEY);
+        }
+        const next = normalizeThemeId(raw);
+        if (cancelled) return;
+        activateTheme(next);
+        setThemeId(next);
+      } catch {
+        if (!cancelled) {
+          applyAuthTheme();
+          setThemeId(DEFAULT_THEME_ID);
+        }
+      } finally {
+        if (!cancelled) setThemeReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    // Server preference wins. If they never picked a theme (or continue past
-    // geo without choosing), stay on Ocean Blue — do not revive a stale cache.
+    // Server preference wins; otherwise keep the theme tried on login.
     const next = user?.themePreference
       ? normalizeThemeId(user.themePreference)
-      : DEFAULT_THEME_ID;
+      : normalizeThemeId(themeId);
     activateTheme(next);
     setThemeId(next);
     setThemeReady(true);
     void saveThemeLocal(next);
+    // themeId intentionally omitted — only react to auth/server preference
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, user?.themePreference]);
 
   const setTheme = useCallback(
     async (id: ThemeId) => {
-      activateTheme(id);
-      setThemeId(id);
-      await saveThemeLocal(id);
-      updateSessionUser({ themePreference: id });
+      const next = normalizeThemeId(id);
+      activateTheme(next);
+      setThemeId(next);
+      await saveThemeLocal(next);
+      updateSessionUser({ themePreference: next });
 
       if (accessToken) {
         try {
           await apiRequest<{ themePreference: ThemeId }>('/auth/profile/theme', {
             method: 'PATCH',
             token: accessToken,
-            body: { themePreference: id },
+            body: { themePreference: next },
           });
         } catch {
           /* local theme still applied */

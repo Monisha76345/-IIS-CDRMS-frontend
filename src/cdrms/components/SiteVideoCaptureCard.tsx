@@ -9,10 +9,11 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { GlassSectionCard, HeaderStatusBadge } from '@/src/cdrms/components/GlassSurface';
 import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
-import { captureVideo } from '@/src/cdrms/hooks/useMediaCapture';
+import { createDummyVideoAsset } from '@/src/cdrms/hooks/dummyMedia';
+import { captureVideo, useDummyCapture } from '@/src/cdrms/hooks/useMediaCapture';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
-import { COLORS, FONTS, GRADIENT_VIDEO, SPACE, gradientStops } from '@/src/cdrms/theme';
+import { COLORS, DESIGN, FONTS, GRADIENT_PRIMARY, GRADIENT_VIDEO, SPACE, gradientStops } from '@/src/cdrms/theme';
 
 function formatDuration(ms?: number | null) {
   if (ms == null || ms <= 0) return 'Video';
@@ -26,6 +27,7 @@ function formatDuration(ms?: number | null) {
 export function SiteVideoCaptureCard() {
   const { draft, setVideo } = useProject();
   const [busy, setBusy] = useState(false);
+  const simDummy = useDummyCapture();
 
   const recordedLabel = draft.video
     ? new Date(draft.video.createdAt).toLocaleString(undefined, {
@@ -50,6 +52,19 @@ export function SiteVideoCaptureCard() {
     }
   };
 
+  const useDummy = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const asset = await createDummyVideoAsset();
+      await setVideo(asset);
+    } catch (err) {
+      alertDraftError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <GlassSectionCard
       icon={Video}
@@ -57,7 +72,9 @@ export function SiteVideoCaptureCard() {
       subtitle={
         draft.video
           ? `Recorded ${recordedLabel}`
-          : 'Record a site video (max 50 MB)'
+          : simDummy
+            ? 'Simulator · use dummy sample video (or pick from gallery)'
+            : 'Record a site video (max 50 MB)'
       }
       badge={draft.video ? <HeaderStatusBadge label="Ready" /> : undefined}
     >
@@ -82,10 +99,12 @@ export function SiteVideoCaptureCard() {
             />
           ) : (
             <Pressable
-              onPress={() => void record()}
+              onPress={() => void (simDummy ? useDummy() : record())}
               disabled={busy}
               accessibilityRole="button"
-              accessibilityLabel="Record site walk-through video"
+              accessibilityLabel={
+                simDummy ? 'Use dummy sample video' : 'Record site walk-through video'
+              }
               className="active:opacity-90"
               style={{ flex: 1, opacity: busy ? 0.7 : 1 }}
             >
@@ -110,7 +129,7 @@ export function SiteVideoCaptureCard() {
                   <Video size={24} color="#fff" strokeWidth={2.2} />
                 </Box>
                 <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: '#FFFFFF' }}>
-                  {busy ? 'Opening…' : 'No video yet'}
+                  {busy ? 'Loading…' : simDummy ? 'No video yet' : 'No video yet'}
                 </Text>
                 <Text
                   style={{
@@ -119,12 +138,41 @@ export function SiteVideoCaptureCard() {
                     color: 'rgba(255,255,255,0.75)',
                   }}
                 >
-                  Tap to record
+                  {simDummy ? 'Tap to use dummy sample video' : 'Tap to record'}
                 </Text>
               </LinearGradient>
             </Pressable>
           )}
         </Box>
+
+        {simDummy && !draft.video ? (
+          <Pressable
+            onPress={() => void useDummy()}
+            disabled={busy}
+            className="active:opacity-90"
+            style={{
+              borderRadius: DESIGN.cardRadius,
+              overflow: 'hidden',
+              opacity: busy ? 0.6 : 1,
+            }}
+          >
+            <LinearGradient
+              colors={gradientStops(GRADIENT_PRIMARY)}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                paddingVertical: 12,
+                paddingHorizontal: 14,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#FFFFFF' }}>
+                {busy ? 'Loading dummy video…' : 'Use dummy sample video'}
+              </Text>
+            </LinearGradient>
+          </Pressable>
+        ) : null}
 
         {draft.video ? (
           <HStack style={{ alignItems: 'center', gap: SPACE[2] }}>
@@ -133,7 +181,7 @@ export function SiteVideoCaptureCard() {
                 Site walk-through
               </Text>
               <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.slate }}>
-                Max 50 MB · stored on device
+                {simDummy ? 'Simulator sample · stored on device' : 'Max 50 MB · stored on device'}
               </Text>
             </VStack>
             <Pressable

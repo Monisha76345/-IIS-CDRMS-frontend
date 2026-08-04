@@ -16,7 +16,7 @@ import { siteDimensionToFormDims, deriveSiteTypeFromDims } from '@/src/cdrms/lib
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
 import { type Cardinal } from '@/src/cdrms/project/types';
-import { CARDINAL_ACCENT, COLORS, DESIGN, FONTS, GLASS, SPACE } from '@/src/cdrms/theme';
+import { CARDINAL_ACCENT, COLORS, FONTS, GLASS, SPACE, hexAlpha } from '@/src/cdrms/theme';
 import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
 import { useTheme } from '@/src/theme/ThemeContext';
 import type { Go } from '@/src/cdrms/types';
@@ -65,8 +65,11 @@ function DimSideField({
             paddingHorizontal: 10,
             paddingTop: 8,
             paddingBottom: 8,
-            borderTopWidth: 2,
+            borderWidth: 1.5,
+            borderColor: hexAlpha(accent, 0.45),
+            borderTopWidth: 3,
             borderTopColor: accent,
+            backgroundColor: COLORS.white,
           },
         ]}
       >
@@ -213,6 +216,9 @@ export function DimensionsScreen({ go }: { go: Go }) {
       surface="premium"
       onBack={() => {
         go('bandi', { replace: true });
+        void reloadBackendDraft().catch(() => undefined);
+      }}
+      onStepNav={() => {
         void reloadBackendDraft().catch(() => undefined);
       }}
       step={3}

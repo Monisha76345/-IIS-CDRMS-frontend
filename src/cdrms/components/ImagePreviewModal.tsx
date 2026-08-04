@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2563EB',
+    backgroundColor: '#1D4ED8',
   },
   doneText: {
     color: '#fff',

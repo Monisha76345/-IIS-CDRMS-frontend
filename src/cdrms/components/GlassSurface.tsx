@@ -50,7 +50,16 @@ export function FrostedGlass({
         style,
       ]}
     >
-      <View style={{ padding, zIndex: 1 }}>{children}</View>
+      <View
+        style={{
+          padding,
+          zIndex: 1,
+          overflow: 'hidden',
+          borderRadius: Math.max(0, (borderRadius ?? DESIGN.cardRadius) - 1),
+        }}
+      >
+        {children}
+      </View>
     </View>
   );
 }
@@ -107,17 +116,27 @@ export function GlassIcon({
 export function GlassCard({
   children,
   style,
+  translucent,
 }: {
   children: ReactNode;
   style?: ViewStyle;
+  /** Frosted fill so BDA watermark shows through (View Application). */
+  translucent?: boolean;
 }) {
   const { themeId } = useTheme();
+  const radius = DESIGN.cardRadius;
   return (
     <View
       key={themeId}
-      style={[cardSurfaceStyle({ marginHorizontal: SPACE.gutter }), style]}
+      style={[
+        cardSurfaceStyle({ marginHorizontal: SPACE.gutter, translucent }),
+        style,
+      ]}
     >
-      {children}
+      {/* Clip content to radius without hiding the outer border */}
+      <View style={{ borderRadius: Math.max(0, radius - 1), overflow: 'hidden' }}>
+        {children}
+      </View>
     </View>
   );
 }
@@ -129,7 +148,7 @@ const HEADER_BADGE_TONES = {
   success: { bg: '#ECFDF5', fg: '#047857', border: '#A7F3D0' },
   warning: { bg: '#FFF7ED', fg: '#C2410C', border: '#FDBA74' },
   danger: { bg: '#FEF2F2', fg: '#B91C1C', border: '#FECACA' },
-  info: { bg: '#EFF6FF', fg: '#1D4ED8', border: '#BFDBFE' },
+  info: { bg: '#EFF6FF', fg: '#1E3A8A', border: '#BFDBFE' },
   neutral: { bg: '#F8FAFC', fg: '#334155', border: '#E2E8F0' },
 } as const;
 
@@ -207,8 +226,12 @@ export function DimTypeBadge({ type }: { type: 'Even' | 'Odd' | string | null })
 /** Solid theme gradient for section headers — no transparent orbs / overlays. */
 export function PremiumGradientBackground({
   colors = GRADIENT_CARD_HEADER,
+  start,
+  end,
 }: {
   colors?: readonly string[] | string[];
+  start?: { x: number; y: number };
+  end?: { x: number; y: number };
 }) {
   const { themeId } = useTheme();
 
@@ -216,8 +239,8 @@ export function PremiumGradientBackground({
     <Box key={themeId} pointerEvents="none" style={StyleSheet.absoluteFill}>
       <LinearGradient
         colors={gradientStops(colors)}
-        start={DESIGN.cardHeaderStart}
-        end={DESIGN.cardHeaderEnd}
+        start={start ?? DESIGN.headerStart}
+        end={end ?? DESIGN.headerEnd}
         style={StyleSheet.absoluteFill}
       />
     </Box>
@@ -366,6 +389,7 @@ export function GlassSectionCard({
   badge,
   children,
   bodyStyle,
+  translucent,
 }: {
   title: string;
   subtitle: string;
@@ -373,17 +397,19 @@ export function GlassSectionCard({
   badge?: ReactNode;
   children: ReactNode;
   bodyStyle?: ViewStyle;
+  /** Frosted fill so BDA watermark shows through (View Application). */
+  translucent?: boolean;
 }) {
   const { themeId } = useTheme();
   return (
-    <GlassCard key={themeId}>
+    <GlassCard key={themeId} translucent={translucent}>
       <GlassCardHeader title={title} subtitle={subtitle} icon={icon} badge={badge} />
       <VStack
         style={[
           {
             padding: DESIGN.cardVariant === 'flat' ? SPACE[1] : SPACE[2],
             gap: SPACE[1],
-            ...cardBodyStyle(),
+            ...cardBodyStyle({ translucent }),
           },
           bodyStyle,
         ]}

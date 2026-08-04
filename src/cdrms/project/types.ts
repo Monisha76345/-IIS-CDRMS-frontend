@@ -135,16 +135,16 @@ export const DIRECTION_META: Record<
 > = {
   N: {
     label: 'North',
-    color: '#2563EB',
+    color: '#1D4ED8',
     soft: '#E0F2FE',
     typeColor: '#0E7490',
     placeholder: 'e.g. Residential plot · 40ft',
   },
   S: {
     label: 'South',
-    color: '#2563EB',
+    color: '#1D4ED8',
     soft: '#F3E8FF',
-    typeColor: '#2563EB',
+    typeColor: '#1D4ED8',
     placeholder: 'e.g. Main road · 60ft',
   },
   E: {

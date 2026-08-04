@@ -55,9 +55,9 @@ export function notifIconConfig(type: string): {
     return { Icon: Send, bg: '#EDE9FE', color: '#6D28D9' };
   }
   if (type === 'task_assigned') {
-    return { Icon: ClipboardList, bg: '#E0F2FE', color: '#0369A1' };
+    return { Icon: ClipboardList, bg: '#E0F2FE', color: '#166534' };
   }
-  return { Icon: Bell, bg: '#DBEAFE', color: '#2563EB' };
+  return { Icon: Bell, bg: '#DBEAFE', color: '#1D4ED8' };
 }
 
 export type NotificationNavAction =

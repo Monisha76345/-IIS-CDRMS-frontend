@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Navigation } from 'lucide-react-native';
 import { useEffect, useRef } from 'react';
-import { Animated, Easing } from 'react-native';
+import { Animated, Easing, Pressable } from 'react-native';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -9,8 +9,13 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { FrostedGlass } from '@/src/cdrms/components/GlassSurface';
 import {
-  cardinalFromHeading,
+  CARDINAL_DEGREES,
+  formatCardinalReading,
   formatLiveReading,
+  parseCompassReading,
+  SIMULATOR_COMPASS_FACE,
+  SIMULATOR_COMPASS_HEADING,
+  type CompassCardinal,
   useCompass,
 } from '@/src/cdrms/hooks/useCompass';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
@@ -28,20 +33,33 @@ const DIAL_LABELS = [
   { label: 'W', deg: 270, color: CARDINAL_ACCENT.W, size: 11 },
 ] as const;
 
+const PICK_FACES: CompassCardinal[] = ['N', 'E', 'S', 'W'];
+
 /**
  * Live sensor compass (real device).
- * Dial rotates so geographic N stays correct; red tip at top = direction you face.
+ * Simulator / no-sensor: auto-seeds North + tap N/E/S/W to set facing.
  */
 export function LiveCompassDial() {
-  const { setCompassReading } = useProject();
+  const { draft, setCompassReading } = useProject();
   const compass = useCompass(true);
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const lastSaved = useRef('');
+  const seededFallback = useRef(false);
 
-  const heading = Math.round(compass.heading);
-  const face = cardinalFromHeading(compass.heading);
+  const parsed = parseCompassReading(draft.compassReading);
+  const face: CompassCardinal = compass.available
+    ? (parseCompassReading(formatLiveReading(compass.heading))?.face ?? 'N')
+    : parsed?.face ?? SIMULATOR_COMPASS_FACE;
+  const heading = Math.round(
+    compass.available ? compass.heading : parsed?.heading ?? SIMULATOR_COMPASS_HEADING,
+  );
   const faceColor = cardinalAccentColor(face);
-  const roseRotation = compass.available ? -heading : 0;
+  const roseRotation = -heading;
+  const needsManualPick =
+    !compass.available ||
+    compass.source === 'simulator' ||
+    compass.status === 'unavailable' ||
+    compass.status === 'permission';
 
   useEffect(() => {
     Animated.timing(rotateAnim, {
@@ -52,13 +70,43 @@ export function LiveCompassDial() {
     }).start();
   }, [roseRotation, rotateAnim]);
 
+  // Live sensors → save continuously
   useEffect(() => {
-    if (!compass.available) return;
+    if (!compass.available || compass.source === 'simulator') return;
     const reading = formatLiveReading(compass.heading);
     if (reading === lastSaved.current) return;
     lastSaved.current = reading;
     setCompassReading(reading);
-  }, [compass.available, compass.heading, setCompassReading]);
+  }, [compass.available, compass.heading, compass.source, setCompassReading]);
+
+  // Simulator / sensors missing → seed fixed North so Continue unlocks
+  useEffect(() => {
+    if (compass.available && compass.source !== 'simulator') return;
+    if (
+      compass.source === 'simulator' ||
+      compass.status === 'unavailable' ||
+      compass.status === 'permission'
+    ) {
+      if (seededFallback.current && draft.compassReading.trim()) return;
+      seededFallback.current = true;
+      const reading = formatLiveReading(SIMULATOR_COMPASS_HEADING);
+      lastSaved.current = reading;
+      setCompassReading(reading);
+    }
+  }, [
+    compass.available,
+    compass.source,
+    compass.status,
+    draft.compassReading,
+    setCompassReading,
+  ]);
+
+  const pickFace = (f: CompassCardinal) => {
+    const reading = formatCardinalReading(f);
+    lastSaved.current = reading;
+    seededFallback.current = true;
+    setCompassReading(reading);
+  };
 
   return (
     <FrostedGlass
@@ -69,10 +117,25 @@ export function LiveCompassDial() {
       style={{ borderTopWidth: 2, borderTopColor: faceColor }}
     >
       <VStack className="items-center" style={{ gap: SPACE[2], width: '100%' }}>
+        {needsManualPick ? (
+          <Text
+            style={{
+              fontFamily: FONTS.semibold,
+              fontSize: 11,
+              color: COLORS.slate,
+              textAlign: 'center',
+            }}
+          >
+            {compass.source === 'simulator' || compass.status === 'unavailable'
+              ? `No live compass · facing set to ${SIMULATOR_COMPASS_FACE}. Tap to change.`
+              : 'Allow location / use a real device for live compass — or tap a direction below.'}
+          </Text>
+        ) : null}
+
         <Box className="relative items-center justify-center" style={{ width: SIZE, height: SIZE }}>
           <LinearGradient
             pointerEvents="none"
-            colors={['#EFF6FF', '#F0F9FF', '#FFFFFF']}
+            colors={['#EFF6FF', '#EFF6FF', '#FFFFFF']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{
@@ -128,7 +191,7 @@ export function LiveCompassDial() {
               className="absolute inset-0 rounded-full"
               style={{
                 borderWidth: 5,
-                borderColor: compass.available ? '#93C5FD' : '#E2E8F0',
+                borderColor: draft.compassReading.trim() ? '#93C5FD' : '#E2E8F0',
                 backgroundColor: '#F8FAFF',
               }}
             />
@@ -182,7 +245,11 @@ export function LiveCompassDial() {
             })}
 
             <LinearGradient
-              colors={compass.available ? [COLORS.primaryGlow, COLORS.primary] : ['#94A3B8', '#64748B']}
+              colors={
+                draft.compassReading.trim()
+                  ? [COLORS.primaryGlow, COLORS.primary]
+                  : ['#94A3B8', '#64748B']
+              }
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{
@@ -213,9 +280,9 @@ export function LiveCompassDial() {
               color: COLORS.ink,
             }}
           >
-            {compass.available ? `${heading}°` : '—'}
+            {draft.compassReading.trim() ? `${heading}°` : '—'}
           </Text>
-          {compass.available ? (
+          {draft.compassReading.trim() ? (
             <Box
               style={{
                 paddingHorizontal: 8,
@@ -232,6 +299,42 @@ export function LiveCompassDial() {
             </Box>
           ) : null}
         </HStack>
+
+        {needsManualPick ? (
+          <HStack style={{ gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+            {PICK_FACES.map((f) => {
+              const on = face === f && Boolean(draft.compassReading.trim());
+              return (
+                <Pressable
+                  key={f}
+                  onPress={() => pickFace(f)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Facing ${f}`}
+                  style={{
+                    minWidth: 52,
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    borderRadius: DESIGN.cardRadius,
+                    alignItems: 'center',
+                    backgroundColor: on ? COLORS.primary : COLORS.white,
+                    borderWidth: 1.5,
+                    borderColor: on ? COLORS.primary : COLORS.border,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 14,
+                      color: on ? COLORS.white : COLORS.ink,
+                    }}
+                  >
+                    {f}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </HStack>
+        ) : null}
       </VStack>
     </FrostedGlass>
   );

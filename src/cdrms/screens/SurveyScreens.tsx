@@ -56,13 +56,16 @@ import {
   WorkspaceHeader,
   FooterContinueBtn,
 } from '@/src/cdrms/components/SurveyLayout';
-import { parseCompassReading } from '@/src/cdrms/hooks/useCompass';
+import { parseCompassReading, formatLiveReading, SIMULATOR_COMPASS_HEADING, isSimulatorOrEmulator } from '@/src/cdrms/hooks/useCompass';
+import Constants from 'expo-constants';
 import { useLiveLocation } from '@/src/cdrms/hooks/useDeviceLocation';
 import {
   captureSitePhoto,
   captureSelfie,
   captureVideo,
+  useDummyCapture,
 } from '@/src/cdrms/hooks/useMediaCapture';
+import { createDummyVideoAsset } from '@/src/cdrms/hooks/dummyMedia';
 import { isLiveVideoBlocked } from '@/src/cdrms/device/isVirtualDevice';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
@@ -98,6 +101,7 @@ export function BandiScreen({ go }: { go: Go }) {
     setApproachNotes,
     updateField,
     setGps,
+    setCompassReading,
     persistBackendStep,
     reloadBackendDraft,
   } = useProject();
@@ -118,8 +122,10 @@ export function BandiScreen({ go }: { go: Go }) {
     draft.occupancy === 'Empty' ||
     (draft.occupancy === 'Occupied' && draft.occupancyReason.trim().length > 0);
   const compassOk = Boolean(draft.compassReading.trim());
+  /** Simulator QA: photos optional so Continue can unlock after hardcoded compass/GPS. */
+  const schedulesOk = isSimulatorOrEmulator() ? true : schedulePhotosReady;
   const canContinueBandi = isBackendTask
-    ? schedulePhotosReady && Boolean(draft.gps) && compassOk && occupancyOk
+    ? schedulesOk && Boolean(draft.gps) && compassOk && occupancyOk
     : draft.bandiVerified;
   const [editing, setEditing] = useState<Cardinal | null>(null);
   const [draftNote, setDraftNote] = useState('');
@@ -128,6 +134,27 @@ export function BandiScreen({ go }: { go: Go }) {
   const [scheduleDraft, setScheduleDraft] = useState({ N: '', S: '', E: '', W: '' });
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState('Photo preview');
+
+  // Seed a default facing as soon as Step 2 opens if none is saved yet.
+  // Real devices: LiveCompassDial overwrites this with live sensor heading.
+  // Simulator / no-sensor: keeps 0° N so Continue can unlock.
+  useEffect(() => {
+    if (draft.compassReading.trim()) return;
+    setCompassReading(formatLiveReading(SIMULATOR_COMPASS_HEADING));
+  }, [draft.compassReading, setCompassReading]);
+
+  // Simulator: seed GPS if location APIs stall (common on iOS Simulator).
+  useEffect(() => {
+    if (!isSimulatorOrEmulator() && Constants.isDevice !== false) return;
+    if (draft.gps) return;
+    setGps({
+      latitude: 12.9716,
+      longitude: 77.5946,
+      accuracy: 5,
+      altitude: null,
+      timestamp: Date.now(),
+    });
+  }, [draft.gps, setGps]);
 
   const mapGps = liveGps || draft.gps;
   const coords = mapGps
@@ -259,6 +286,13 @@ export function BandiScreen({ go }: { go: Go }) {
           void reloadBackendDraft().catch(() => undefined);
         }
       }}
+      onStepNav={
+        isBackendTask
+          ? () => {
+              void reloadBackendDraft().catch(() => undefined);
+            }
+          : undefined
+      }
       step={2}
       total={isBackendTask ? 4 : 5}
       badge={badge}
@@ -275,14 +309,14 @@ export function BandiScreen({ go }: { go: Go }) {
                   ? 'Pick facing direction'
                   : !occupancyOk
                     ? 'Complete occupancy'
-                    : !schedulePhotosReady
+                    : !schedulesOk
                       ? 'Add all 4 schedule photos'
                       : 'Continue'
               : TERMS.workflow.continueToSurroundings
           }
           onPress={() => {
             void (async () => {
-              if (isBackendTask && !schedulePhotosReady) return;
+              if (isBackendTask && !schedulesOk) return;
               if (isBackendTask) {
                 if (!draft.bandiVerified) setBandiVerified(true);
                 setStepSaving(true);
@@ -361,7 +395,7 @@ export function BandiScreen({ go }: { go: Go }) {
                 </GlassHeaderBadge>
               ) : geoBusy ? (
                 <GlassHeaderBadge tone="info">
-                  <ActivityIndicator size={10} color="#1D4ED8" />
+                  <ActivityIndicator size={10} color="#1E3A8A" />
                 </GlassHeaderBadge>
               ) : undefined
             }
@@ -724,7 +758,7 @@ export function BandiScreen({ go }: { go: Go }) {
                       style={{
                         borderRadius: DESIGN.cardRadius,
                         borderWidth: 1,
-                        borderColor: '#E5E7EB',
+                        borderColor: `${COLORS.primary}59`,
                         backgroundColor: '#F8FAFC',
                         paddingHorizontal: 12,
                         paddingVertical: 10,
@@ -784,7 +818,7 @@ export function BandiScreen({ go }: { go: Go }) {
                     backgroundColor: '#FFFFFF',
                     borderRadius: DESIGN.cardRadius,
                     padding: 14,
-                    shadowColor: '#1E3A8A',
+                    shadowColor: '#3A4424',
                     shadowOffset: { width: 0, height: 8 },
                     shadowOpacity: 0.08,
                     shadowRadius: 14,
@@ -869,7 +903,7 @@ export function BandiScreen({ go }: { go: Go }) {
               borderRadius: DESIGN.radiusLg,
               paddingVertical: 14,
               paddingHorizontal: 14,
-              shadowColor: '#1E3A8A',
+              shadowColor: '#3A4424',
               shadowOffset: { width: 0, height: 6 },
               shadowOpacity: 0.06,
               shadowRadius: 12,
@@ -1305,6 +1339,13 @@ export function PhotosScreen({ go }: { go: Go }) {
           void reloadBackendDraft().catch(() => undefined);
         }
       }}
+      onStepNav={
+        isBackendTask
+          ? () => {
+              void reloadBackendDraft().catch(() => undefined);
+            }
+          : undefined
+      }
       step={4}
       total={isBackendTask ? 4 : 5}
       badge={
@@ -1375,7 +1416,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                   borderRadius: DESIGN.cardRadius,
                   backgroundColor: GLASS.surfaceSolid,
                   borderWidth: 1,
-                  borderColor: GLASS.border,
+                  borderColor: `${COLORS.primary}59`,
                   padding: SPACE[2],
                   shadowColor: '#0F172A',
                   shadowOffset: { width: 0, height: 2 },
@@ -1451,7 +1492,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                   borderRadius: DESIGN.cardRadius,
                   backgroundColor: GLASS.surfaceSolid,
                   borderWidth: 1,
-                  borderColor: GLASS.border,
+                  borderColor: `${COLORS.primary}59`,
                   padding: SPACE[3],
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1556,7 +1597,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                       minHeight: 72,
                       backgroundColor: GLASS.surface,
                       borderWidth: 1,
-                      borderColor: GLASS.border,
+                      borderColor: `${COLORS.primary}59`,
                       borderStyle: 'dashed',
                       paddingVertical: SPACE[3],
                       paddingHorizontal: SPACE[2],
@@ -1596,7 +1637,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                 borderRadius: DESIGN.cardRadius,
                 backgroundColor: GLASS.surfaceSolid,
                 borderWidth: 1,
-                borderColor: GLASS.border,
+                borderColor: `${COLORS.primary}59`,
                 padding: SPACE[2],
                 shadowColor: '#0F172A',
                 shadowOffset: { width: 0, height: 2 },
@@ -1633,7 +1674,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                 borderRadius: DESIGN.cardRadius,
                 backgroundColor: '#F8FAFC',
                 borderWidth: 1,
-                borderColor: '#E2E8F0',
+                borderColor: `${COLORS.primary}59`,
                 padding: SPACE[3],
               }}
             >
@@ -1711,7 +1752,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                 borderRadius: DESIGN.cardRadius,
                 backgroundColor: '#F8FAFC',
                 borderWidth: 1,
-                borderColor: '#E2E8F0',
+                borderColor: `${COLORS.primary}59`,
                 padding: SPACE[3],
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -1832,7 +1873,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                   minHeight: 88,
                   backgroundColor: '#F8FAFC',
                   borderWidth: 1,
-                  borderColor: '#E2E8F0',
+                  borderColor: `${COLORS.primary}59`,
                   borderStyle: 'dashed',
                   paddingVertical: SPACE[4],
                   paddingHorizontal: SPACE[3],
@@ -1915,6 +1956,7 @@ export function VideoScreen({ go }: { go: Go }) {
   const [busy, setBusy] = useState(false);
   const videoPickOnly = isLiveVideoBlocked();
   const isBackendTask = Boolean(draft.backendApplicationId);
+  const simDummy = useDummyCapture();
 
   useEffect(() => {
     if (isBackendTask) go('photos');
@@ -1926,6 +1968,19 @@ export function VideoScreen({ go }: { go: Go }) {
     try {
       const asset = await captureVideo();
       if (asset) await setVideo(asset);
+    } catch (err) {
+      alertDraftError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const useDummy = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const asset = await createDummyVideoAsset();
+      await setVideo(asset);
     } catch (err) {
       alertDraftError(err);
     } finally {
@@ -2078,7 +2133,7 @@ export function VideoScreen({ go }: { go: Go }) {
       </SurveyCard>
 
       <Pressable
-        onPress={record}
+        onPress={simDummy ? () => void useDummy() : record}
         disabled={busy}
         className="mx-4 min-h-[68px] rounded-2xl overflow-hidden active:opacity-90"
         style={{
@@ -2118,7 +2173,13 @@ export function VideoScreen({ go }: { go: Go }) {
             className="flex-1 font-extrabold text-white text-[12px] shrink"
             style={{ lineHeight: 16, flexShrink: 1 }}
           >
-            {busy ? 'Opening…' : videoPickOnly ? 'Pick Video' : 'Record Video'}
+            {busy
+              ? 'Loading…'
+              : simDummy
+                ? 'Use dummy sample video'
+                : videoPickOnly
+                  ? 'Pick Video'
+                  : 'Record Video'}
           </Text>
           <ChevronRight size={18} color="rgba(255,255,255,0.9)" strokeWidth={2.4} />
         </LinearGradient>

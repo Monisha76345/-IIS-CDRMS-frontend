@@ -21,7 +21,7 @@ import { GpsSiteCard } from '@/src/cdrms/components/GpsSiteCard';
 import { ImagePreviewModal } from '@/src/cdrms/components/ImagePreviewModal';
 import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
 import { resolveBoundaryDims, deriveSiteTypeFromDims } from '@/src/cdrms/lib/resolveBoundaryDims';
-import { COLORS, DESIGN, FONTS, GLASS, SPACE } from '@/src/cdrms/theme';
+import { COLORS, DESIGN, FONTS, GLASS, SPACE, hexAlpha } from '@/src/cdrms/theme';
 import { useTheme } from '@/src/theme/ThemeContext';
 
 function SectionCard({
@@ -43,6 +43,7 @@ function SectionCard({
       subtitle={subtitle ?? 'Application record'}
       icon={icon}
       badge={badge}
+      translucent
       bodyStyle={{ paddingHorizontal: SPACE[3], paddingVertical: SPACE[2], gap: 0 }}
     >
       {children}
@@ -245,7 +246,7 @@ function MediaThumb({
           borderRadius: 999,
           overflow: 'hidden',
           borderWidth: 1.5,
-          borderColor: GLASS.border,
+          borderColor: hexAlpha(COLORS.primary, 0.45),
           backgroundColor: COLORS.muted,
         }}
       >
@@ -698,9 +699,9 @@ export function ApplicationRecordDetails({
             <Box
               style={{
                 borderRadius: 14,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                backgroundColor: COLORS.white,
+                borderWidth: 1.5,
+                borderColor: hexAlpha(COLORS.primary, 0.55),
+                backgroundColor: 'rgba(255,255,255,0.5)',
                 padding: 12,
                 marginTop: 4,
                 gap: 12,

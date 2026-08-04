@@ -165,7 +165,7 @@ export function NotificationBell({ go, variant = 'header' }: NotificationBellPro
               paddingHorizontal: 4,
               backgroundColor: '#EF4444',
               borderWidth: 2,
-              borderColor: variant === 'header' ? '#2563EB' : '#FFFFFF',
+              borderColor: variant === 'header' ? '#1D4ED8' : '#FFFFFF',
             }}
           >
             <Text className="text-[10px] font-bold text-white leading-none">{badgeLabel}</Text>

@@ -35,7 +35,6 @@ import { ScrollView } from '@/components/ui/scroll-view';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/src/auth/AuthContext';
-import { displayName } from '@/src/auth/roles';
 import { ApiError } from '@/src/api/client';
 import {
   applicationCardDateLine,
@@ -68,8 +67,24 @@ import {
   StatusCountGrid,
   type StatusCountItem,
 } from '@/src/cdrms/components/StatusCountGrid';
+import {
+  BdaPageWatermark,
+  WelcomeHomeHeader,
+  welcomeFilterGap,
+} from '@/src/cdrms/components/WelcomeHomeChrome';
 import { setSelectedOfficeAppId, getSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
-import { COLORS, FONTS, GLASS, GRADIENT_PRIMARY, SPACE, themeStatColors, gradientStops, DESIGN } from '@/src/cdrms/theme';
+import {
+  COLORS,
+  FONTS,
+  GLASS,
+  GRADIENT_PRIMARY,
+  SPACE,
+  themeStatColors,
+  gradientStops,
+  DESIGN,
+  usesLightHeader,
+  hexAlpha,
+} from '@/src/cdrms/theme';
 import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
 import { useTheme } from '@/src/theme/ThemeContext';
 import type { Go } from '@/src/cdrms/types';
@@ -96,7 +111,7 @@ function villageLine(app: MobileApplication) {
 
 export function ZcHomeScreen({ go }: { go: Go }) {
   const { themeId } = useTheme();
-  const { accessToken, user } = useAuth();
+  const { accessToken, user, logout } = useAuth();
   const [apps, setApps] = useState<MobileApplication[]>([]);
   const [zoneLabel, setZoneLabel] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -114,11 +129,9 @@ export function ZcHomeScreen({ go }: { go: Go }) {
         fetchMyZoneMeta(accessToken).catch(() => null),
       ]);
       setApps(list);
-      setZoneLabel(
-        meta?.zoneCode?.trim() ||
-          list.find((a) => a.zoneCode?.trim())?.zoneCode?.trim() ||
-          null,
-      );
+      // Assigned zone from officer meta only — do not infer from an application
+      // (that caused Welcome EAST vs Profile SOUTH mismatches).
+      setZoneLabel(meta?.zoneCode?.trim() || null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to load applications');
       setApps([]);
@@ -133,21 +146,45 @@ export function ZcHomeScreen({ go }: { go: Go }) {
 
   const counts = useMemo(() => countZcBuckets(apps), [apps]);
 
-  const statColors = themeStatColors();
-  const countItems: StatusCountItem[] = [
+  const filterCards: Array<{
+    id: ZcTab;
+    label: string;
+    value: number;
+    bg: string;
+    fg: string;
+    icon: LucideIcon;
+  }> = [
     {
-      key: 'all',
-      label: 'Total',
-      count: counts.total,
+      id: 'all',
+      label: 'All',
+      value: counts.total,
+      bg: usesLightHeader() ? '#ECFDF5' : GLASS.tintBlue,
+      fg: usesLightHeader() ? '#059669' : COLORS.primary,
       icon: Layers,
-      ...statColors,
     },
     {
-      key: 'submitted',
+      id: 'assigned',
+      label: 'Assigned',
+      value: counts.assigned,
+      bg: usesLightHeader() ? '#EEF2FF' : GLASS.tintBlue,
+      fg: usesLightHeader() ? '#4F46E5' : COLORS.primary,
+      icon: UserCheck,
+    },
+    {
+      id: 'in_progress',
+      label: 'In progress',
+      value: counts.in_progress,
+      bg: usesLightHeader() ? '#FEF3C7' : '#FEE2E2',
+      fg: usesLightHeader() ? '#D97706' : '#DC2626',
+      icon: Hourglass,
+    },
+    {
+      id: 'submitted',
       label: 'Submitted',
-      count: counts.submitted,
+      value: counts.submitted,
+      bg: usesLightHeader() ? '#E0F2FE' : GLASS.tintSky,
+      fg: usesLightHeader() ? '#0284C7' : COLORS.primary,
       icon: Send,
-      ...statColors,
     },
   ];
 
@@ -170,7 +207,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
   }, [apps, tab, q]);
 
   const sectionLabel =
-    tab === 'all' ? 'All applications' : ZC_STATUS_FILTERS.find((f) => f.key === tab)?.label;
+    tab === 'all' ? 'Recent Activity' : ZC_STATUS_FILTERS.find((f) => f.key === tab)?.label;
 
   const openDetail = (id: string) => {
     setSelectedOfficeAppId(id);
@@ -179,69 +216,137 @@ export function ZcHomeScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-background">
+      <BdaPageWatermark />
       <ScrollView
         key={themeId}
         className="flex-1"
+        style={{ zIndex: 1 }}
         contentContainerStyle={{ paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
       >
-        <AppHeader
-          title="Welcome"
-          subtitle={displayName(user)}
-          welcome
+        <WelcomeHomeHeader
+          user={user}
           zoneLabel={zoneLabel}
           go={go}
+          tagline="Manage zone applications"
+          eyebrow="Zonal commissioner"
+          onLogout={() => {
+            void (async () => {
+              await logout();
+              go('login');
+            })();
+          }}
         />
 
-        <Box className="px-4 mt-2">
-          <HStack className="items-center justify-between mb-3">
-            <Text className="text-[16px] font-bold flex-1" style={{ color: COLORS.ink }}>
-              Application overview
+        <Box className="px-3" style={{ marginTop: welcomeFilterGap() }}>
+          <HStack style={{ gap: 6 }}>
+            {filterCards.map((s) => {
+              const Icon = s.icon;
+              const selected = tab === s.id;
+              const plainLite = usesLightHeader();
+              return (
+                <Pressable
+                  key={s.id}
+                  onPress={() => setTab(s.id)}
+                  className="flex-1 active:opacity-90"
+                  style={{
+                    backgroundColor: selected
+                      ? COLORS.primary
+                      : plainLite
+                        ? s.bg
+                        : COLORS.white,
+                    borderRadius: DESIGN.cardRadius,
+                    paddingVertical: 8,
+                    paddingHorizontal: 2,
+                    alignItems: 'center',
+                    minHeight: 66,
+                    justifyContent: 'center',
+                    shadowColor: selected ? COLORS.primaryDeep : GLASS.shadow,
+                    shadowOffset: { width: 0, height: plainLite ? 2 : 4 },
+                    shadowOpacity: selected ? 0.2 : plainLite ? 0.03 : 0.06,
+                    shadowRadius: plainLite ? 6 : 8,
+                    elevation: selected ? 3 : plainLite ? 1 : 2,
+                    borderWidth: 1.5,
+                    borderColor: selected ? COLORS.primary : hexAlpha(COLORS.primary, 0.55),
+                  }}
+                >
+                  <Box
+                    className="items-center justify-center mb-1"
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 999,
+                      backgroundColor: selected
+                        ? 'rgba(255,255,255,0.22)'
+                        : plainLite
+                          ? 'rgba(255,255,255,0.55)'
+                          : s.bg,
+                    }}
+                  >
+                    <Icon size={14} color={selected ? COLORS.white : s.fg} strokeWidth={2.3} />
+                  </Box>
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 15,
+                      color: selected ? COLORS.white : COLORS.ink,
+                    }}
+                  >
+                    {loading ? '—' : s.value}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      fontFamily: FONTS.semibold,
+                      fontSize: 9,
+                      color: selected ? 'rgba(255,255,255,0.9)' : COLORS.slate,
+                      textAlign: 'center',
+                      paddingHorizontal: 2,
+                    }}
+                  >
+                    {s.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </HStack>
+        </Box>
+
+        <Box className="px-4 mt-3">
+          <HStack className="items-center justify-between mb-2">
+            <Text className="text-[15px] font-bold flex-1" style={{ color: COLORS.ink }}>
+              {sectionLabel}
             </Text>
-            <Pressable
-              onPress={() => go('zc_create')}
-              className="flex-row items-center gap-1.5 active:opacity-90"
-              style={{
-                backgroundColor: COLORS.primary,
-                borderRadius: DESIGN.cardRadius,
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-              }}
-            >
-              <FilePlus2 size={15} color={COLORS.white} />
-              <Text className="text-[12px] font-bold text-white">Create</Text>
-            </Pressable>
+            <HStack className="items-center" style={{ gap: 10 }}>
+              <Pressable onPress={() => void reload()} className="active:opacity-70">
+                <HStack className="items-center" style={{ gap: 4 }}>
+                  <RefreshCw size={13} color={COLORS.primary} strokeWidth={2.4} />
+                  <Text className="text-[12px] font-semibold" style={{ color: COLORS.primary }}>
+                    Refresh
+                  </Text>
+                </HStack>
+              </Pressable>
+              <Pressable
+                onPress={() => go('zc_create')}
+                className="flex-row items-center gap-1.5 active:opacity-90"
+                style={{
+                  backgroundColor: COLORS.primary,
+                  borderRadius: DESIGN.cardRadius,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                }}
+              >
+                <FilePlus2 size={14} color={COLORS.white} />
+                <Text className="text-[12px] font-bold text-white">Create</Text>
+              </Pressable>
+            </HStack>
           </HStack>
 
-          <StatusCountGrid
-            items={countItems}
-            activeKey={tab}
-            columns={2}
-            onSelect={(key) => setTab(key as ZcTab)}
-          />
-
           <SearchField
-            className="mt-2"
             value={q}
             onChangeText={setQ}
             placeholder="Search by application no, site, engineer…"
           />
-
-
-
-          <HStack className="items-center justify-between mt-2 mb-1">
-            <Text className="text-[15px] font-bold" style={{ color: COLORS.ink }}>
-              {sectionLabel}
-            </Text>
-            <Pressable onPress={() => void reload()} className="active:opacity-70">
-              <HStack className="items-center" style={{ gap: 4 }}>
-                <RefreshCw size={13} color={COLORS.primary} strokeWidth={2.4} />
-                <Text className="text-[12px] font-semibold" style={{ color: COLORS.primary }}>
-                  Refresh
-                </Text>
-              </HStack>
-            </Pressable>
-          </HStack>
 
           {loading ? (
             <ListLoader text="Loading ZC applications…" />
@@ -250,22 +355,32 @@ export function ZcHomeScreen({ go }: { go: Go }) {
               {error}
             </Text>
           ) : filtered.length === 0 ? (
-            <Text className="text-[13px] mt-4" style={{ color: '#64748B' }}>
-              No applications found matching your criteria.
-            </Text>
+            <Box
+              className="rounded-2xl border border-dashed px-4 py-8 mt-3"
+              style={{
+                borderColor: COLORS.border,
+                backgroundColor: 'rgba(255,255,255,0.42)',
+              }}
+            >
+              <Text className="text-center text-sm" style={{ color: COLORS.slate }}>
+                No applications found matching your criteria.
+              </Text>
+            </Box>
           ) : (
-            filtered.map((app) => (
-              <OfficeAppRow
-                key={app.id}
-                title={app.applicationNumber}
-                siteNo={app.siteNo}
-                zoneCode={app.zoneCode}
-                engineerName={app.assignedEngineerName}
-                status={app.status}
-                dateLine={applicationCardDateLine(app)}
-                onPress={() => openDetail(app.id)}
-              />
-            ))
+            <VStack style={{ gap: 0, marginTop: 10 }}>
+              {filtered.map((app) => (
+                <OfficeAppRow
+                  key={app.id}
+                  title={app.applicationNumber}
+                  siteNo={app.siteNo}
+                  zoneCode={app.zoneCode}
+                  engineerName={app.assignedEngineerName}
+                  status={app.status}
+                  dateLine={applicationCardDateLine(app)}
+                  onPress={() => openDetail(app.id)}
+                />
+              ))}
+            </VStack>
           )}
         </Box>
       </ScrollView>
@@ -359,11 +474,14 @@ function Field({
         keyboardType={keyboardType}
         maxLength={maxLength}
         onFocus={() => {
-          setTimeout(() => {
+          const report = () => {
             inputRef.current?.measureInWindow((_x, y, _w, h) => {
               onFocus?.({ y, height: h || inputHeight });
             });
-          }, Platform.OS === 'ios' ? 50 : 100);
+          };
+          // Keyboard height often arrives after focus — measure twice.
+          setTimeout(report, Platform.OS === 'ios' ? 50 : 80);
+          setTimeout(report, Platform.OS === 'ios' ? 320 : 400);
         }}
         returnKeyType={returnKeyType ?? (multiline ? 'default' : 'next')}
         onSubmitEditing={onSubmitEditing}
@@ -418,23 +536,24 @@ function PlainSectionCard({
       style={{
         marginHorizontal: SPACE.gutter,
         borderRadius: DESIGN.radiusLg,
-        overflow: 'hidden',
-        backgroundColor: GLASS.cardSolid,
-        borderWidth: 1,
-        borderColor: GLASS.border,
+        backgroundColor: COLORS.white,
+        borderWidth: 1.5,
+        borderColor: hexAlpha(COLORS.primary, 0.55),
         shadowColor: GLASS.shadow,
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: Platform.OS === 'ios' ? 0.07 : 0.05,
+        shadowOpacity: Platform.OS === 'ios' ? 0.08 : 0.06,
         shadowRadius: 12,
-        elevation: 2,
+        elevation: 3,
       }}
     >
       <Box
         style={{
           overflow: 'hidden',
-          borderBottomWidth: 1,
-          borderBottomColor: GLASS.border,
-          backgroundColor: `${COLORS.primary}22`,
+          borderTopLeftRadius: DESIGN.radiusLg - 1,
+          borderTopRightRadius: DESIGN.radiusLg - 1,
+          borderBottomWidth: 1.5,
+          borderBottomColor: hexAlpha(COLORS.primary, 0.35),
+          backgroundColor: `${COLORS.primary}18`,
         }}
       >
         <HStack
@@ -453,8 +572,8 @@ function PlainSectionCard({
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: COLORS.white,
-              borderWidth: 1,
-              borderColor: GLASS.border,
+              borderWidth: 1.5,
+              borderColor: hexAlpha(COLORS.primary, 0.55),
             }}
           >
             <Icon size={15} color={COLORS.primary} strokeWidth={2.5} />
@@ -489,7 +608,7 @@ function PlainSectionCard({
           </VStack>
         </HStack>
       </Box>
-      <Box style={{ padding: 12, backgroundColor: GLASS.cardSolid }}>{children}</Box>
+      <Box style={{ padding: 12, backgroundColor: COLORS.white }}>{children}</Box>
     </Box>
   );
 }
@@ -501,6 +620,8 @@ export function ZcCreateScreen({ go }: { go: Go }) {
   const scrollRef = useRef<RNScrollView>(null);
   const scrollYRef = useRef(0);
   const keyboardHeightRef = useRef(0);
+  const focusedFieldRef = useRef<{ y: number; height: number } | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [zone, setZone] = useState<MyZoneMeta | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<string, string>>>({});
@@ -561,28 +682,10 @@ export function ZcCreateScreen({ go }: { go: Go }) {
     });
   };
 
-  useEffect(() => {
-    const show = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => {
-        keyboardHeightRef.current = e.endCoordinates?.height ?? 0;
-      },
-    );
-    const hide = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        keyboardHeightRef.current = 0;
-      },
-    );
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
-
   /**
    * Nudge scroll so the focused field sits just above the keyboard.
-   * Do NOT scrollToEnd / jump to top — that was shoving the whole form away.
+   * Prefer keyboard height when known; otherwise estimate so Comments
+   * (bottom of form) still scrolls up before keyboardDidShow fires.
    */
   const ensureVisible = useCallback((anchorYInWindow?: number, fieldHeight = 44) => {
     if (anchorYInWindow == null) return;
@@ -593,11 +696,14 @@ export function ZcCreateScreen({ go }: { go: Go }) {
     if (!scroll?.measureInWindow) return;
 
     scroll.measureInWindow((_sx, sy, _sw, sh) => {
-      const kb = keyboardHeightRef.current;
       const screenH = Dimensions.get('window').height;
-      const keyboardTop = kb > 0 ? screenH - kb : sy + sh;
-      const fieldBottom = anchorYInWindow + fieldHeight + 12;
-      const visibleBottom = Math.min(sy + sh, keyboardTop) - 12;
+      const kb =
+        keyboardHeightRef.current > 0
+          ? keyboardHeightRef.current
+          : Math.round(screenH * 0.42);
+      const keyboardTop = screenH - kb;
+      const fieldBottom = anchorYInWindow + fieldHeight + 24;
+      const visibleBottom = Math.min(sy + sh, keyboardTop) - 16;
       if (fieldBottom <= visibleBottom) return;
       const delta = fieldBottom - visibleBottom;
       scroll.scrollTo({
@@ -607,8 +713,41 @@ export function ZcCreateScreen({ go }: { go: Go }) {
     });
   }, []);
 
+  useEffect(() => {
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        const h = e.endCoordinates?.height ?? 0;
+        keyboardHeightRef.current = h;
+        setKeyboardHeight(h);
+        // Re-measure after keyboard is up — focus often runs before height is known.
+        // Fresh window coords come from Field's delayed onFocus; nudge with last known.
+        const focused = focusedFieldRef.current;
+        if (focused) {
+          requestAnimationFrame(() => {
+            setTimeout(() => ensureVisible(focused.y, focused.height), 80);
+            setTimeout(() => ensureVisible(focused.y, focused.height), 280);
+          });
+        }
+      },
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        keyboardHeightRef.current = 0;
+        setKeyboardHeight(0);
+        focusedFieldRef.current = null;
+      },
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [ensureVisible]);
+
   const onFieldFocus = useCallback(
     (info: { y: number; height: number }) => {
+      focusedFieldRef.current = info;
       ensureVisible(info.y, info.height);
     },
     [ensureVisible],
@@ -843,9 +982,8 @@ export function ZcCreateScreen({ go }: { go: Go }) {
         showLogout={false}
       />
       {/*
-        Avoid stacking KeyboardAvoidingView + live keyboard padding — that
-        expands/compresses the form while scrolling when the keyboard dismisses.
-        Use a stable bottom inset; scroll focused fields into view via ensureVisible.
+        Bottom padding grows with keyboard so Comments (last field) can scroll
+        above it. ensureVisible re-runs after keyboardDidShow to fix timing.
       */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -858,18 +996,28 @@ export function ZcCreateScreen({ go }: { go: Go }) {
           style={{ flex: 1 }}
           contentContainerStyle={{
             paddingTop: 12,
-            paddingBottom: 32 + insets.bottom,
+            // Extra space so Comments can scroll above the keyboard.
+            // Android uses softwareKeyboardLayoutMode "resize" — use a capped
+            // inset so we don't double-count the resized window.
+            paddingBottom:
+              32 +
+              insets.bottom +
+              (keyboardHeight > 0
+                ? Platform.OS === 'android'
+                  ? Math.min(Math.max(keyboardHeight * 0.55, 160), 240)
+                  : keyboardHeight
+                : 0),
             gap: 12,
             flexGrow: 1,
           }}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           nestedScrollEnabled
           scrollEnabled={!dimOpen && !engOpen}
           showsVerticalScrollIndicator
           scrollEventThrottle={16}
-          bounces={false}
-          overScrollMode="never"
+          bounces
+          overScrollMode="always"
           onScroll={(e) => {
             scrollYRef.current = e.nativeEvent.contentOffset.y;
           }}
@@ -1569,6 +1717,7 @@ export function ZcDetailScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-background">
+      <BdaPageWatermark />
       <AppHeader
         title="View Application"
         subtitle={app?.applicationNumber || 'Application details'}
@@ -1580,6 +1729,7 @@ export function ZcDetailScreen({ go }: { go: Go }) {
       />
       <ScrollView
         key={themeId}
+        style={{ zIndex: 1 }}
         contentContainerStyle={{ paddingTop: 12, paddingBottom: 40, gap: 12 }}
         showsVerticalScrollIndicator={false}
       >

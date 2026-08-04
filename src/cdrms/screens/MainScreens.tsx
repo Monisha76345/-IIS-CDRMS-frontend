@@ -1,4 +1,3 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -27,13 +26,11 @@ import {
   Upload,
   User,
   UserCheck,
-  Palette,
   type LucideIcon,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Modal, ScrollView as RNScrollView } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Image, Modal, StyleSheet } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Pressable } from '@/components/ui/pressable';
@@ -48,10 +45,8 @@ import {
   BottomNav,
   GradientHeader,
   IconBox,
-  ProfileMenu,
   ScreenShell,
   StatusChip,
-  ZoneTag,
   ListLoader,
   ScreenLoader,
 } from '@/src/cdrms/components/primitives';
@@ -61,13 +56,17 @@ import {
   DESIGN,
   FONTS,
   GLASS,
-  GRADIENT_HEADER,
   SPACE,
-  gradientStops,
   hexAlpha,
+  usesLightHeader,
 } from '@/src/cdrms/theme';
 import { GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
-import { ThemePicker } from '@/src/cdrms/components/ThemePicker';
+import {
+  BdaPageWatermark,
+  WelcomeHomeHeader,
+  welcomeCardSurface,
+  welcomeFilterGap,
+} from '@/src/cdrms/components/WelcomeHomeChrome';
 import { useTheme } from '@/src/theme/ThemeContext';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go, Screen } from '@/src/cdrms/types';
@@ -98,7 +97,6 @@ import {
   setSelectedOfficeAppId,
   consumeEngineerAppsFilter,
   consumeEngineerAppsReturn,
-  consumeFocusProfileTheme,
 } from '@/src/cdrms/officeSelection';
 import { ensureCameraPermission } from '@/src/cdrms/mediaPermission';
 
@@ -146,21 +144,46 @@ function getAppStatusAccent(status: string): string {
     case 'Submitted':
     case 'Verified':
     case 'Approved':
-      return COLORS.success;
+      return '#059669';
     case 'Returned':
-      return COLORS.warning;
+      return '#D97706';
     case 'Rejected':
       return COLORS.destructive;
     case 'In progress':
-      return COLORS.slate;
+      return '#0284C7';
+    case 'Assigned':
+      return '#4F46E5';
+    case 'Draft':
+      return '#7C3AED';
     default:
       return COLORS.primary;
   }
 }
 
+/** Soft left-rail tint paired with status accent. */
+function welcomeAccentSoft(status: string): string {
+  switch (status) {
+    case 'Submitted':
+    case 'Verified':
+    case 'Approved':
+      return 'rgba(5,150,105,0.14)';
+    case 'Returned':
+      return 'rgba(217,119,6,0.14)';
+    case 'Rejected':
+      return 'rgba(220,38,38,0.12)';
+    case 'In progress':
+      return 'rgba(2,132,199,0.14)';
+    case 'Assigned':
+      return 'rgba(79,70,229,0.14)';
+    case 'Draft':
+      return 'rgba(124,58,237,0.12)';
+    default:
+      return hexAlpha(COLORS.primary, 0.12);
+  }
+}
+
 export function Dashboard({ go }: { go: Go }) {
   const { themeId } = useTheme();
-  const insets = useSafeAreaInsets();
   const { openBackendTask } = useProject();
   const { accessToken, user, logout } = useAuth();
   const [allApps, setAllApps] = useState<MobileApplication[]>([]);
@@ -193,9 +216,7 @@ export function Dashboard({ go }: { go: Go }) {
     ])
       .then(([all, meta]) => {
         setAllApps(all);
-        const fromMeta = meta?.zoneCode?.trim() || null;
-        const fromTask = all.find((t) => t.zoneCode?.trim())?.zoneCode?.trim() || null;
-        setZoneLabel(fromMeta || fromTask);
+        setZoneLabel(meta?.zoneCode?.trim() || null);
       })
       .catch(() => {
         setAllApps([]);
@@ -254,32 +275,32 @@ export function Dashboard({ go }: { go: Go }) {
       id: 'all',
       label: 'All tasks',
       value: openTasks.length,
-      bg: GLASS.tintBlue,
-      fg: COLORS.primary,
+      bg: usesLightHeader() ? '#ECFDF5' : GLASS.tintBlue,
+      fg: usesLightHeader() ? '#059669' : COLORS.primary,
       icon: Layers,
     },
     {
       id: 'assigned',
       label: 'Assigned',
       value: assignedTasks.length,
-      bg: GLASS.tintBlue,
-      fg: COLORS.primary,
+      bg: usesLightHeader() ? '#EEF2FF' : GLASS.tintBlue,
+      fg: usesLightHeader() ? '#4F46E5' : COLORS.primary,
       icon: FileText,
     },
-        {
+    {
       id: 'in_progress',
       label: 'In progress',
       value: inProgressTasks.length,
-      bg: '#FEE2E2',
-      fg: '#DC2626',
+      bg: usesLightHeader() ? '#FEF3C7' : '#FEE2E2',
+      fg: usesLightHeader() ? '#D97706' : '#DC2626',
       icon: Edit3,
     },
     {
       id: 'submitted',
       label: 'Submitted',
       value: submittedTasks.length,
-      bg: GLASS.tintSky,
-      fg: COLORS.primary,
+      bg: usesLightHeader() ? '#E0F2FE' : GLASS.tintSky,
+      fg: usesLightHeader() ? '#0284C7' : COLORS.primary,
       icon: ClipboardCheck,
     },
   ];
@@ -313,268 +334,100 @@ export function Dashboard({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-background">
+      <BdaPageWatermark />
       <ScrollView
         key={themeId}
         className="flex-1"
+        style={{ zIndex: 1 }}
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
-        <LinearGradient
-          colors={gradientStops(GRADIENT_HEADER)}
-          locations={[0, 1]}
-          start={DESIGN.headerStart}
-          end={DESIGN.headerEnd}
-          style={{
-            paddingBottom: 28,
-            borderBottomLeftRadius: DESIGN.headerRadius,
-            borderBottomRightRadius: DESIGN.headerRadius,
-            overflow: 'hidden',
+        <WelcomeHomeHeader
+          user={user}
+          zoneLabel={zoneLabel}
+          go={go}
+          onLogout={() => {
+            void (async () => {
+              await logout();
+              go('login');
+            })();
           }}
-        >
-          <Box className="px-5" style={{ paddingTop: insets.top + 8 }}>
-            <HStack className="items-center justify-between">
-              <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
-                <Text
-                  style={{
-                    fontFamily: FONTS.medium,
-                    fontSize: 12,
-                    lineHeight: 16,
-                    letterSpacing: 1.2,
-                    textTransform: 'uppercase',
-                    color: '#DBEAFE',
-                  }}
-                  numberOfLines={1}
-                >
-                  Field survey
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: FONTS.displayBold,
-                    fontSize: 26,
-                    lineHeight: 32,
-                    letterSpacing: -0.4,
-                    color: COLORS.white,
-                  }}
-                  numberOfLines={1}
-                >
-                  Welcome
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: FONTS.semibold,
-                    fontSize: 14,
-                    lineHeight: 18,
-                    letterSpacing: 0.1,
-                    color: '#E0E7FF',
-                  }}
-                  numberOfLines={1}
-                >
-                  {displayName(user)}
-                </Text>
-              </VStack>
-              <HStack className="items-center gap-2">
-                {zoneLabel ? <ZoneTag zone={zoneLabel} onGradient /> : null}
-                <ProfileMenu
-                gradient
-                userName={displayName(user)}
-                roleName={user?.roleName}
-                loginId={user?.loginId}
-                photoUrl={user?.profilePhoto}
-                zoneLabel={zoneLabel}
-                onLogout={() => {
-                  void (async () => {
-                    await logout();
-                    go('login');
-                  })();
-                }}
-              />
-              </HStack>
-            </HStack>
+        />
 
-            <HStack className="mt-4 items-center flex-wrap" style={{ gap: 8 }}>
-              <HStack className="items-center" style={{ gap: 6 }}>
-                <Clock size={13} color="rgba(255,255,255,0.85)" />
-                <Text className="text-[11px]" style={{ color: 'rgba(255,255,255,0.88)' }}>
-                  {new Date().toLocaleString(undefined, {
-                    weekday: 'long',
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true,
-                  })}
-                </Text>
-              </HStack>
-            </HStack>
-          </Box>
-        </LinearGradient>
-
-        {/* Filter counts — layout changes with theme family */}
-        <Box className="px-4" style={{ marginTop: 12 }}>
-          {DESIGN.filterVariant === 'tabs' ? (
-            <HStack
-              style={{
-                backgroundColor: COLORS.white,
-                borderRadius: DESIGN.cardRadius,
-                borderBottomWidth: 0,
-                overflow: 'hidden',
-                borderWidth: DESIGN.borderWidth,
-                borderColor: COLORS.border,
-              }}
-            >
-              {filterCards.map((s) => {
-                const selected = recentFilter === s.id;
-                return (
-                  <Pressable
-                    key={s.id}
-                    onPress={() => setRecentFilter(s.id)}
-                    className="flex-1 items-center active:opacity-80"
+        {/* Status filters — always one row: All · Assigned · In progress · Submitted */}
+        <Box className="px-3" style={{ marginTop: welcomeFilterGap() }}>
+          <HStack style={{ gap: 6 }}>
+            {filterCards.map((s) => {
+              const Icon = s.icon;
+              const selected = recentFilter === s.id;
+              const plainLite = usesLightHeader();
+              return (
+                <Pressable
+                  key={s.id}
+                  onPress={() => setRecentFilter(s.id)}
+                  className="flex-1 active:opacity-90"
+                  style={{
+                    backgroundColor: selected
+                      ? COLORS.primary
+                      : plainLite
+                        ? s.bg
+                        : COLORS.white,
+                    borderRadius: DESIGN.cardRadius,
+                    paddingVertical: 8,
+                    paddingHorizontal: 2,
+                    alignItems: 'center',
+                    minHeight: 66,
+                    justifyContent: 'center',
+                    shadowColor: selected ? COLORS.primaryDeep : GLASS.shadow,
+                    shadowOffset: { width: 0, height: plainLite ? 2 : 4 },
+                    shadowOpacity: selected ? 0.2 : plainLite ? 0.03 : 0.06,
+                    shadowRadius: plainLite ? 6 : 8,
+                    elevation: selected ? 3 : plainLite ? 1 : 2,
+                    borderWidth: 1.5,
+                    borderColor: selected ? COLORS.primary : hexAlpha(COLORS.primary, 0.55),
+                    gap: 4,
+                  }}
+                >
+                  <Box
+                    className="items-center justify-center"
                     style={{
-                      paddingVertical: 12,
-                      borderBottomWidth: selected ? 3 : 0,
-                      borderBottomColor: COLORS.primary,
-                      backgroundColor: selected ? hexAlpha(COLORS.primary, 0.06) : COLORS.white,
+                      width: 28,
+                      height: 28,
+                      borderRadius: plainLite ? 999 : 10,
+                      backgroundColor: selected
+                        ? 'rgba(255,255,255,0.22)'
+                        : plainLite
+                          ? 'rgba(255,255,255,0.55)'
+                          : s.bg,
                     }}
                   >
-                    <Text
-                      style={{
-                        fontFamily: FONTS.bold,
-                        fontSize: 16,
-                        color: selected ? COLORS.primary : COLORS.ink,
-                      }}
-                    >
-                      {loadingTasks ? '—' : s.value}
-                    </Text>
-                    <Text
-                      numberOfLines={1}
-                      style={{
-                        fontFamily: FONTS.semibold,
-                        fontSize: 9,
-                        textTransform: 'uppercase',
-                        letterSpacing: 0.4,
-                        color: selected ? COLORS.primary : COLORS.slate,
-                        marginTop: 2,
-                      }}
-                    >
-                      {s.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </HStack>
-          ) : DESIGN.filterVariant === 'chips' ? (
-            <HStack style={{ flexWrap: 'wrap', gap: 8 }}>
-              {filterCards.map((s) => {
-                const Icon = s.icon;
-                const selected = recentFilter === s.id;
-                return (
-                  <Pressable
-                    key={s.id}
-                    onPress={() => setRecentFilter(s.id)}
-                    className="active:opacity-90"
+                    <Icon size={14} color={selected ? COLORS.white : s.fg} strokeWidth={2.3} />
+                  </Box>
+                  <Text
                     style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 6,
-                      paddingVertical: 10,
-                      paddingHorizontal: 12,
-                      borderRadius: DESIGN.chipRadius,
-                      backgroundColor: selected ? COLORS.primary : s.bg,
-                      borderWidth: 1,
-                      borderColor: selected ? COLORS.primary : COLORS.border,
+                      fontFamily: FONTS.bold,
+                      fontSize: 15,
+                      color: selected ? COLORS.white : COLORS.ink,
                     }}
                   >
-                    <Icon size={13} color={selected ? COLORS.white : s.fg} strokeWidth={2.3} />
-                    <Text
-                      style={{
-                        fontFamily: FONTS.bold,
-                        fontSize: 14,
-                        color: selected ? COLORS.white : COLORS.ink,
-                      }}
-                    >
-                      {loadingTasks ? '—' : s.value}
-                    </Text>
-                    <Text
-                      style={{
-                        fontFamily: FONTS.bold,
-                        fontSize: 12,
-                        color: selected ? 'rgba(255,255,255,0.9)' : COLORS.slate,
-                      }}
-                    >
-                      {s.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </HStack>
-          ) : (
-            <HStack style={{ gap: DESIGN.filterVariant === 'pills' ? 6 : 8 }}>
-              {filterCards.map((s) => {
-                const Icon = s.icon;
-                const selected = recentFilter === s.id;
-                const pills = DESIGN.filterVariant === 'pills';
-                const blocks = DESIGN.filterVariant === 'blocks';
-                return (
-                  <Pressable
-                    key={s.id}
-                    onPress={() => setRecentFilter(s.id)}
-                    className="flex-1 active:opacity-90"
+                    {loadingTasks ? '—' : s.value}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
                     style={{
-                      backgroundColor: selected ? COLORS.primary : COLORS.white,
-                      borderRadius: pills ? 999 : DESIGN.chipRadius,
-                      paddingVertical: blocks ? 8 : 10,
-                      paddingHorizontal: 4,
-                      alignItems: 'center',
-                      shadowColor: selected ? COLORS.primaryDeep : COLORS.primary,
-                      shadowOffset: { width: 0, height: pills ? 8 : blocks ? 3 : 10 },
-                      shadowOpacity: selected ? 0.28 : blocks ? 0.06 : 0.07,
-                      shadowRadius: DESIGN.shadowRadius,
-                      elevation: selected ? DESIGN.elevation + 3 : blocks ? 2 : DESIGN.elevation,
-                      borderWidth: 1,
-                      borderColor: selected
-                        ? COLORS.primary
-                        : blocks
-                          ? hexAlpha(COLORS.primary, 0.2)
-                          : COLORS.border,
+                      fontFamily: FONTS.semibold,
+                      fontSize: 9,
+                      color: selected ? 'rgba(255,255,255,0.9)' : COLORS.slate,
+                      textAlign: 'center',
+                      paddingHorizontal: 2,
                     }}
                   >
-                    <Box
-                      className="items-center justify-center"
-                      style={{
-                        width: 34,
-                        height: 34,
-                        borderRadius: pills || !blocks ? 999 : DESIGN.stepRadius,
-                        backgroundColor: selected ? 'rgba(255,255,255,0.22)' : s.bg,
-                      }}
-                    >
-                      <Icon
-                        size={15}
-                        color={selected ? COLORS.white : s.fg}
-                        strokeWidth={2.3}
-                      />
-                    </Box>
-                    <Text
-                      className="mt-1.5 text-[16px] font-extrabold"
-                      style={{ color: selected ? COLORS.white : COLORS.ink }}
-                    >
-                      {loadingTasks ? '—' : s.value}
-                    </Text>
-                    <Text
-                      className="text-[9px] font-semibold text-center"
-                      style={{
-                        color: selected ? 'rgba(255,255,255,0.9)' : COLORS.slate,
-                        marginTop: 1,
-                      }}
-                      numberOfLines={1}
-                    >
-                      {s.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </HStack>
-          )}
+                    {s.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </HStack>
         </Box>
 
         {/* Filtered activity list */}
@@ -591,7 +444,7 @@ export function Dashboard({ go }: { go: Go }) {
                 className="rounded-2xl border border-dashed px-4 py-8"
                 style={{
                   borderColor: COLORS.border,
-                  backgroundColor: COLORS.white,
+                  backgroundColor: 'rgba(255,255,255,0.42)',
                 }}
               >
                 <Text className="text-center text-sm" style={{ color: COLORS.slate }}>
@@ -599,7 +452,7 @@ export function Dashboard({ go }: { go: Go }) {
                 </Text>
               </Box>
             ) : (
-              recentCards.map((a) => {
+              recentCards.map((a, cardIdx) => {
               const pct =
                 typeof a.progress === 'number' ? a.progress : progressFor(a.status);
               const canOpen = a.status === 'Assigned' || a.status === 'In progress';
@@ -615,29 +468,66 @@ export function Dashboard({ go }: { go: Go }) {
                 }
                 go('history');
               };
+              const accent = getAppStatusAccent(a.status);
+              const accentSoft = welcomeAccentSoft(a.status);
               return (
                 <Box
                   key={a.id}
                   style={[
                     cardSurfaceStyle(),
-                    DESIGN.listVariant === 'strip'
-                      ? { borderRadius: 999, padding: 10 }
-                      : DESIGN.listVariant === 'ghost'
-                        ? {
-                            borderRadius: 0,
-                            paddingVertical: 12,
-                            paddingHorizontal: 4,
-                            marginBottom: 0,
-                          }
-                        : { padding: 10 },
+                    welcomeCardSurface(cardIdx),
+                    { padding: 0 },
+                    DESIGN.listVariant === 'ghost'
+                      ? {
+                          borderRadius: 0,
+                          marginBottom: 0,
+                          backgroundColor: 'transparent',
+                          borderWidth: 0,
+                          borderBottomWidth: StyleSheet.hairlineWidth,
+                          borderBottomColor: COLORS.border,
+                        }
+                      : { borderRadius: DESIGN.cardRadius },
                   ]}
                 >
-                  <HStack className="items-start gap-3">
+                  <HStack
+                    style={{
+                      alignItems: 'stretch',
+                      overflow: DESIGN.listVariant === 'ghost' ? undefined : 'hidden',
+                      borderRadius:
+                        DESIGN.listVariant === 'ghost' ? 0 : DESIGN.cardRadius - 1,
+                    }}
+                  >
+                    {/* Status-colored left rail */}
+                    <Box
+                      style={{
+                        width: 5,
+                        backgroundColor: accent,
+                        borderTopLeftRadius:
+                          DESIGN.listVariant === 'ghost' ? 0 : DESIGN.cardRadius - 1,
+                        borderBottomLeftRadius:
+                          DESIGN.listVariant === 'ghost' ? 0 : DESIGN.cardRadius - 1,
+                      }}
+                    />
+                    <HStack
+                      className="items-start flex-1"
+                      style={{
+                        gap: 10,
+                        paddingVertical: DESIGN.listVariant === 'ghost' ? 10 : 7,
+                        paddingRight: 10,
+                        paddingLeft: 10,
+                      }}
+                    >
                     <Box
                       className="items-center justify-center rounded-full"
-                      style={{ width: 42, height: 42, backgroundColor: GLASS.tintBlue }}
+                      style={{
+                        width: 36,
+                        height: 36,
+                        backgroundColor: accentSoft,
+                        borderWidth: 1,
+                        borderColor: hexAlpha(accent, 0.28),
+                      }}
                     >
-                      <FileText size={18} color={COLORS.primary} />
+                      <FileText size={16} color={accent} strokeWidth={2.2} />
                     </Box>
                     <VStack className="flex-1 min-w-0">
                       <HStack className="items-start justify-between gap-2">
@@ -682,21 +572,21 @@ export function Dashboard({ go }: { go: Go }) {
                         </Box>
                       </HStack>
 
-                      <HStack className="items-center gap-2" style={{ marginTop: 8 }}>
+                      <HStack className="items-center gap-2" style={{ marginTop: 6 }}>
                         <Box
                           className="flex-1 rounded-full overflow-hidden"
-                          style={{ height: 6, backgroundColor: GLASS.tintBlue }}
+                          style={{ height: 5, backgroundColor: accentSoft }}
                         >
                           <Box
                             style={{
                               width: `${pct}%`,
-                              height: 6,
+                              height: 5,
                               borderRadius: 999,
-                              backgroundColor: COLORS.primary,
+                              backgroundColor: accent,
                             }}
                           />
                         </Box>
-                        <Text className="text-xs font-bold" style={{ color: COLORS.primary }}>
+                        <Text className="text-xs font-bold" style={{ color: accent }}>
                           {pct}%
                         </Text>
                         {a.status === 'Submitted' ? (
@@ -711,7 +601,7 @@ export function Dashboard({ go }: { go: Go }) {
                               borderColor: '#BBF7D0',
                             }}
                           >
-                            <CheckCircle2 size={16} color={COLORS.success} strokeWidth={2.4} />
+                            <CheckCircle2 size={16} color="#059669" strokeWidth={2.4} />
                           </Box>
                         ) : a.status === 'Assigned' && canOpen ? (
                           <Pressable
@@ -727,13 +617,13 @@ export function Dashboard({ go }: { go: Go }) {
                               width: 34,
                               height: 34,
                               borderRadius: DESIGN.stepRadius,
-                              backgroundColor: GLASS.tintBlue,
+                              backgroundColor: accentSoft,
                               borderWidth: 1,
-                              borderColor: COLORS.border,
+                              borderColor: hexAlpha(accent, 0.3),
                               opacity: openingId === a.id ? 0.6 : 1,
                             }}
                           >
-                            <ChevronRight size={18} color={COLORS.primary} strokeWidth={2.6} />
+                            <ChevronRight size={18} color={accent} strokeWidth={2.6} />
                           </Pressable>
                         ) : a.status === 'In progress' && canOpen ? (
                           <Pressable
@@ -749,7 +639,7 @@ export function Dashboard({ go }: { go: Go }) {
                               width: 34,
                               height: 34,
                               borderRadius: DESIGN.stepRadius,
-                              backgroundColor: COLORS.primary,
+                              backgroundColor: accent,
                               opacity: openingId === a.id ? 0.6 : 1,
                             }}
                           >
@@ -758,6 +648,7 @@ export function Dashboard({ go }: { go: Go }) {
                         ) : null}
                       </HStack>
                     </VStack>
+                    </HStack>
                   </HStack>
                 </Box>
               );
@@ -1086,16 +977,16 @@ function ApplicationListCard({
   return (
     <Box
       style={{
-        backgroundColor: COLORS.white,
+        backgroundColor: 'rgba(255,255,255,0.52)',
         borderRadius: DESIGN.radiusLg,
         overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: COLORS.border,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: 'rgba(15,23,42,0.08)',
         shadowColor: GLASS.shadow,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
-        elevation: 3,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.03,
+        shadowRadius: 4,
+        elevation: 0,
       }}
     >
       <HStack>
@@ -1334,6 +1225,8 @@ export function HistoryScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-background">
+      <BdaPageWatermark />
+      <Box style={{ zIndex: 1, flex: 1 }}>
       <AppHeader
         title="Applications"
         subtitle={
@@ -1345,7 +1238,7 @@ export function HistoryScreen({ go }: { go: Go }) {
         onBack={() => go(backTarget ?? 'dashboard', { replace: true })}
       />
 
-      <Box style={{ backgroundColor: COLORS.soft }}>
+      <Box style={{ backgroundColor: 'transparent' }}>
         <ScrollView
           key={themeId}
           horizontal
@@ -1434,13 +1327,12 @@ export function HistoryScreen({ go }: { go: Go }) {
             <Box
               className="items-center py-14 px-6"
               style={{
-                backgroundColor: COLORS.white,
+                backgroundColor: 'rgba(255,255,255,0.45)',
                 borderRadius: DESIGN.radiusLg,
-                shadowColor: GLASS.shadow,
-                shadowOpacity: 0.08,
-                shadowRadius: 12,
-                shadowOffset: { width: 0, height: 4 },
-                elevation: 2,
+                shadowOpacity: 0,
+                elevation: 0,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: 'rgba(15,23,42,0.08)',
               }}
             >
               <Box
@@ -1504,6 +1396,7 @@ export function HistoryScreen({ go }: { go: Go }) {
         </VStack>
       </ScrollView>
       <BottomNav active="apps" onNav={go} hidePlus hideAlerts />
+      </Box>
     </ScreenShell>
   );
 }
@@ -1532,6 +1425,7 @@ export function EngineerDetailScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-background">
+      <BdaPageWatermark />
       <AppHeader
         title="View Application"
         subtitle={app?.applicationNumber || 'Application details'}
@@ -1543,6 +1437,7 @@ export function EngineerDetailScreen({ go }: { go: Go }) {
       />
       <ScrollView
         key={themeId}
+        style={{ zIndex: 1 }}
         contentContainerStyle={{ paddingTop: 12, paddingBottom: 40, gap: 12 }}
         showsVerticalScrollIndicator={false}
       >
@@ -1577,7 +1472,7 @@ export function EngineerDetailScreen({ go }: { go: Go }) {
 
 export function ProfileScreen({ go }: { go: Go }) {
   const { themeId } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, logout, accessToken } = useAuth();
   const appRole = resolveAppRole(user);
   const home = homeScreenForRole(user);
   const appsTarget =
@@ -1590,19 +1485,25 @@ export function ProfileScreen({ go }: { go: Go }) {
   const profilePhoto = user?.profilePhoto || null;
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [savingPhoto, setSavingPhoto] = useState(false);
-  const scrollRef = useRef<RNScrollView>(null);
-  const themeY = useRef(0);
+  const [assignedZone, setAssignedZone] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!consumeFocusProfileTheme()) return;
-    const t = setTimeout(() => {
-      scrollRef.current?.scrollTo({
-        y: Math.max(0, themeY.current - 12),
-        animated: true,
+    if (!accessToken) {
+      setAssignedZone(null);
+      return;
+    }
+    let cancelled = false;
+    fetchMyZoneMeta(accessToken)
+      .then((meta) => {
+        if (!cancelled) setAssignedZone(meta?.zoneCode?.trim() || null);
+      })
+      .catch(() => {
+        if (!cancelled) setAssignedZone(null);
       });
-    }, 280);
-    return () => clearTimeout(t);
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken]);
 
   const applyPickedAsset = async (asset: ImagePicker.ImagePickerAsset) => {
     setSavingPhoto(true);
@@ -1740,22 +1641,28 @@ export function ProfileScreen({ go }: { go: Go }) {
     (appRole === 'zc'
       ? 'Zonal Commissioner'
       : appRole === 'cao'
-        ? 'CAO Officer'
+        ? 'CAO'
         : appRole === 'super_admin'
           ? 'Administrator'
           : 'Field Engineer');
+  const roleAcronyms = new Set(['cao', 'zc', 'bda', 'pwd', 'ae', 'je']);
   const roleTitle = rawRoleTitle
     .split(/[\s_-]+/)
-    .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .filter(Boolean)
+    .map((w: string) => {
+      const lower = w.toLowerCase();
+      if (roleAcronyms.has(lower)) return lower.toUpperCase();
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    })
     .join(' ');
 
-  const zone = u.zoneCode || (appRole === 'zc' ? 'SOUTH' : 'EAST');
-  const email = user?.email || 'monimonisha4379@gmail.com';
-  const phone = u.phone || u.mobileNumber || '7019726060';
-  const gender = u.gender || 'female';
-  const department = u.department || 'bda';
-  const districtState = u.districtState || 'Belagavi, Karnataka';
-  const officeAddress = u.officeAddress || 'Maddur,Mandya';
+  const zone = assignedZone || '—';
+  const email = user?.email || '—';
+  const phone = u.phone || u.mobileNumber || '—';
+  const gender = u.gender || '—';
+  const department = u.department || '—';
+  const districtState = u.districtState || '—';
+  const officeAddress = u.officeAddress || '—';
 
   return (
     <ScreenShell className="bg-background">
@@ -1767,9 +1674,13 @@ export function ProfileScreen({ go }: { go: Go }) {
 
       <ScrollView
         key={themeId}
-        ref={scrollRef as any}
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: 100, paddingTop: 12, gap: 12 }}
+        style={{ zIndex: 1 }}
+        contentContainerStyle={{
+          paddingBottom: 100,
+          paddingTop: 12,
+          gap: 12,
+        }}
         showsVerticalScrollIndicator={false}
       >
         <GlassSectionCard
@@ -1970,21 +1881,6 @@ export function ProfileScreen({ go }: { go: Go }) {
             last
           />
         </GlassSectionCard>
-
-        <Box
-          onLayout={(e) => {
-            themeY.current = e.nativeEvent.layout.y;
-          }}
-        >
-          <GlassSectionCard
-            title="App theme"
-            subtitle="Pick a color for the whole app"
-            icon={Palette}
-            bodyStyle={{ paddingHorizontal: SPACE[3], paddingVertical: SPACE[3], gap: SPACE[2] }}
-          >
-            <ThemePicker />
-          </GlassSectionCard>
-        </Box>
 
         <Box style={{ marginHorizontal: SPACE.gutter }}>
           <Pressable

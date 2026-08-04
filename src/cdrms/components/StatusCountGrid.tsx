@@ -13,6 +13,7 @@ import {
 import { ApplicationStatusBadge } from '@/src/cdrms/components/ApplicationStatusBadge';
 import { COLORS, DESIGN, FONTS, GLASS, hexAlpha } from '@/src/cdrms/theme';
 import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
+import { welcomeCardSurface } from '@/src/cdrms/components/WelcomeHomeChrome';
 import { useTheme } from '@/src/theme/ThemeContext';
 
 export type StatusCountItem = {
@@ -163,31 +164,31 @@ export function StatusCountGrid({
 
   if (fv === 'blocks') {
     return (
-      <HStack key={themeId} className="flex-wrap" style={{ marginHorizontal: -3 }}>
+      <HStack key={themeId} style={{ flexWrap: 'wrap', gap: 8 }}>
         {items.map((item) => {
           const Icon = item.icon;
           const active = currentKey === item.key;
           return (
-            <Box key={item.key} style={{ width: widthPct, padding: 3 }}>
+            <Box key={item.key} style={{ width: '47%', flexGrow: 1 }}>
               <Pressable
                 onPress={() => onSelect(item.key)}
                 className="active:opacity-90"
                 style={{
                   borderRadius: DESIGN.chipRadius,
-                  paddingVertical: 7,
-                  paddingHorizontal: 8,
+                  paddingVertical: 10,
+                  paddingHorizontal: 10,
                   backgroundColor: active ? item.tint : COLORS.white,
                   borderWidth: 1,
                   borderColor: active ? item.tint : hexAlpha(item.tint, 0.25),
-                  minHeight: 50,
+                  minHeight: 64,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: 3,
+                  gap: 4,
                   shadowColor: item.tint,
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: active ? 0.16 : 0.04,
-                  shadowRadius: 5,
-                  elevation: active ? 2 : 1,
+                  shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: active ? 0.16 : 0.05,
+                  shadowRadius: 8,
+                  elevation: active ? 3 : 1,
                 }}
               >
                 <Icon size={15} color={active ? COLORS.white : item.tint} strokeWidth={2.4} />
@@ -267,52 +268,52 @@ export function StatusCountGrid({
     );
   }
 
-  // tiles (classic)
+  // tiles (classic / mesh) — 2-col grid with real gap (no negative margins)
   return (
-    <HStack key={themeId} className="flex-wrap" style={{ marginHorizontal: -4 }}>
+    <HStack key={themeId} style={{ flexWrap: 'wrap', gap: 10 }}>
       {items.map((item) => {
         const Icon = item.icon;
         const active = currentKey === item.key;
         return (
-          <Box key={item.key} style={{ width: widthPct, padding: 4 }}>
+          <Box key={item.key} style={{ width: '47%', flexGrow: 1 }}>
             <Pressable
               onPress={() => onSelect(item.key)}
               className="active:opacity-90"
               style={{
                 borderRadius: DESIGN.cardRadius,
-                paddingVertical: 6,
-                paddingHorizontal: 10,
+                paddingVertical: 12,
+                paddingHorizontal: 12,
                 backgroundColor: active ? item.tint : COLORS.white,
-                borderWidth: DESIGN.borderWidth,
+                borderWidth: 1,
                 borderColor: active ? item.tint : COLORS.border,
-                minHeight: 48,
+                minHeight: 72,
                 justifyContent: 'center',
                 shadowColor: GLASS.shadow,
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: active ? DESIGN.shadowOpacity + 0.04 : DESIGN.shadowOpacity,
-                shadowRadius: DESIGN.shadowRadius / 2,
-                elevation: active ? DESIGN.elevation : Math.max(1, DESIGN.elevation - 1),
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: active ? 0.12 : 0.06,
+                shadowRadius: 10,
+                elevation: active ? 3 : 2,
               }}
             >
-              <HStack className="items-center" style={{ gap: 6 }}>
+              <HStack className="items-center" style={{ gap: 10 }}>
                 <Box
                   style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: 999,
+                    width: 36,
+                    height: 36,
+                    borderRadius: 12,
                     alignItems: 'center',
                     justifyContent: 'center',
                     backgroundColor: active ? 'rgba(255,255,255,0.22)' : item.soft,
                   }}
                 >
-                  <Icon size={14} color={active ? COLORS.white : item.tint} strokeWidth={2.3} />
+                  <Icon size={16} color={active ? COLORS.white : item.tint} strokeWidth={2.3} />
                 </Box>
-                <VStack className="flex-1 min-w-0" style={{ gap: 1 }}>
+                <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
                   <Text
                     style={{
                       fontFamily: FONTS.bold,
-                      fontSize: 18,
-                      lineHeight: 22,
+                      fontSize: 20,
+                      lineHeight: 24,
                       color: active ? COLORS.white : COLORS.ink,
                     }}
                   >
@@ -322,7 +323,7 @@ export function StatusCountGrid({
                     numberOfLines={1}
                     style={{
                       fontFamily: FONTS.bold,
-                      fontSize: 13,
+                      fontSize: 12,
                       color: active ? 'rgba(255,255,255,0.95)' : COLORS.ink,
                     }}
                   >
@@ -458,38 +459,27 @@ export function OfficeAppRow({
         onPress={onPress}
         className="active:opacity-90"
         style={{
-          backgroundColor: COLORS.white,
-          borderRadius: 999,
-          marginBottom: 6,
-          paddingVertical: 8,
-          paddingHorizontal: 14,
-          shadowColor: GLASS.shadow,
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: DESIGN.shadowOpacity,
-          shadowRadius: DESIGN.shadowRadius,
-          elevation: DESIGN.elevation,
+          ...welcomeCardSurface(),
+          borderRadius: DESIGN.cardRadius,
+          marginBottom: 8,
+          padding: 0,
         }}
       >
-        <HStack className="items-center" style={{ gap: 10 }}>
-          <Box
-            style={{
-              width: 10,
-              height: 10,
-              borderRadius: 999,
-              backgroundColor: tone.bar,
-            }}
-          />
-          <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
-            <Text
-              style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}
-              numberOfLines={1}
-            >
-              {title}
-            </Text>
-            {meta}
-          </VStack>
-          <ApplicationStatusBadge status={status} />
-          {actions}
+        <HStack style={{ alignItems: 'stretch', overflow: 'hidden', borderRadius: DESIGN.cardRadius - 1 }}>
+          <Box style={{ width: 5, backgroundColor: tone.bar }} />
+          <HStack className="items-center flex-1" style={{ gap: 10, paddingVertical: 10, paddingHorizontal: 12 }}>
+            <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
+              <Text
+                style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}
+                numberOfLines={1}
+              >
+                {title}
+              </Text>
+              {meta}
+            </VStack>
+            <ApplicationStatusBadge status={status} />
+            {actions}
+          </HStack>
         </HStack>
       </Pressable>
     );
@@ -502,38 +492,32 @@ export function OfficeAppRow({
         onPress={onPress}
         className="active:opacity-90"
         style={{
-          backgroundColor: COLORS.white,
+          ...welcomeCardSurface(),
           borderRadius: DESIGN.cardRadius,
-          borderWidth: 1,
-          borderColor: hexAlpha(COLORS.primary, 0.2),
-          borderLeftWidth: 4,
-          borderLeftColor: tone.bar,
-          marginBottom: 6,
-          padding: 11,
-          shadowColor: COLORS.primaryDeep,
-          shadowOffset: { width: 0, height: 3 },
-          shadowOpacity: 0.06,
-          shadowRadius: 8,
-          elevation: 2,
+          marginBottom: 8,
+          padding: 0,
         }}
       >
-        <HStack className="items-start justify-between" style={{ gap: 6 }}>
-          <VStack className="flex-1 min-w-0" style={{ gap: 6 }}>
-            <Text
-              style={{
-                fontFamily: FONTS.bold,
-                fontSize: 14,
-                color: COLORS.ink,
-                letterSpacing: -0.1,
-              }}
-              numberOfLines={1}
-            >
-              {title}
-            </Text>
-            {meta}
-            <ApplicationStatusBadge status={status} />
-          </VStack>
-          {actions}
+        <HStack style={{ alignItems: 'stretch', overflow: 'hidden', borderRadius: DESIGN.cardRadius - 1 }}>
+          <Box style={{ width: 5, backgroundColor: tone.bar }} />
+          <HStack className="items-start justify-between flex-1" style={{ gap: 6, padding: 11 }}>
+            <VStack className="flex-1 min-w-0" style={{ gap: 6 }}>
+              <Text
+                style={{
+                  fontFamily: FONTS.bold,
+                  fontSize: 14,
+                  color: COLORS.ink,
+                  letterSpacing: -0.1,
+                }}
+                numberOfLines={1}
+              >
+                {title}
+              </Text>
+              {meta}
+              <ApplicationStatusBadge status={status} />
+            </VStack>
+            {actions}
+          </HStack>
         </HStack>
       </Pressable>
     );
@@ -546,55 +530,59 @@ export function OfficeAppRow({
         onPress={onPress}
         className="active:opacity-90"
         style={{
-          backgroundColor: hexAlpha(COLORS.primary, 0.04),
+          ...welcomeCardSurface(),
           borderRadius: DESIGN.cardRadius,
-          borderWidth: 1,
-          borderColor: hexAlpha(COLORS.primary, 0.15),
-          marginBottom: 6,
-          paddingVertical: 11,
-          paddingHorizontal: 12,
+          marginBottom: 8,
+          padding: 0,
         }}
       >
-        <HStack className="items-center" style={{ gap: 10 }}>
-          <Box
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: DESIGN.stepRadius,
-              backgroundColor: hexAlpha(tone.bar, 0.15),
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Box style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: tone.bar }} />
-          </Box>
-          <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
-            <Text
-              style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}
-              numberOfLines={1}
+        <HStack style={{ alignItems: 'stretch', overflow: 'hidden', borderRadius: DESIGN.cardRadius - 1 }}>
+          <Box style={{ width: 5, backgroundColor: tone.bar }} />
+          <HStack className="items-center flex-1" style={{ gap: 10, paddingVertical: 11, paddingHorizontal: 12 }}>
+            <Box
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: DESIGN.stepRadius,
+                backgroundColor: hexAlpha(tone.bar, 0.15),
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
-              {title}
-            </Text>
-            {meta}
-          </VStack>
-          <ApplicationStatusBadge status={status} />
-          {actions}
+              <Box style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: tone.bar }} />
+            </Box>
+            <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
+              <Text
+                style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}
+                numberOfLines={1}
+              >
+                {title}
+              </Text>
+              {meta}
+            </VStack>
+            <ApplicationStatusBadge status={status} />
+            {actions}
+          </HStack>
         </HStack>
       </Pressable>
     );
   }
 
-  // card (classic) — still follows theme card family chrome
+  // card (classic) — translucent + status left rail (matches engineer Welcome)
   return (
     <Pressable
       key={themeId}
       onPress={onPress}
       className="active:opacity-90"
-      style={[cardSurfaceStyle(), { marginBottom: 6 }]}
+      style={[
+        cardSurfaceStyle(),
+        welcomeCardSurface(),
+        { marginBottom: 8, padding: 0, borderRadius: DESIGN.cardRadius },
+      ]}
     >
-      <HStack className="items-center">
-        <Box style={{ width: 3.5, backgroundColor: tone.bar, alignSelf: 'stretch' }} />
-        <VStack className="flex-1 min-w-0" style={{ paddingVertical: 7, paddingHorizontal: 11, gap: 6 }}>
+      <HStack style={{ alignItems: 'stretch', overflow: 'hidden', borderRadius: DESIGN.cardRadius - 1 }}>
+        <Box style={{ width: 5, backgroundColor: tone.bar, alignSelf: 'stretch' }} />
+        <VStack className="flex-1 min-w-0" style={{ paddingVertical: 7, paddingHorizontal: 11, gap: 4 }}>
           <HStack className="items-center justify-between" style={{ gap: 6 }}>
             <Text
               style={{

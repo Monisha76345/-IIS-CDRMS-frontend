@@ -16,34 +16,40 @@ export function cardSurfaceStyle(opts?: {
   nested?: boolean;
   /** Override horizontal margin (SurveyCard uses gutter) */
   marginHorizontal?: number;
+  /** Soft frosted fill so page watermark shows through (View Application). */
+  translucent?: boolean;
 }): ViewStyle {
   const cv = DESIGN.cardVariant;
   const nested = Boolean(opts?.nested);
   const mh = opts?.marginHorizontal;
+  const frost = opts?.translucent ? 'rgba(255,255,255,0.55)' : null;
 
   const base: ViewStyle = {
     borderRadius: cv === 'flat' ? 0 : DESIGN.cardRadius,
-    overflow: 'hidden',
+    // Keep overflow off the bordered shell — overflow:'hidden' on the same
+    // view clips the border on Android (cards look borderless).
     ...(mh != null ? { marginHorizontal: mh } : null),
   };
 
   switch (cv) {
     case 'soft':
+      // Plain — soft pastel panel (smart-home card feel)
       return {
         ...base,
-        backgroundColor: COLORS.white,
+        backgroundColor: frost ?? hexAlpha(COLORS.primary, 0.06),
         borderWidth: 0,
         shadowColor: GLASS.shadow,
-        shadowOffset: { width: 0, height: nested ? 4 : 12 },
-        shadowOpacity: Platform.OS === 'ios' ? DESIGN.shadowOpacity + 0.02 : DESIGN.shadowOpacity,
-        shadowRadius: DESIGN.shadowRadius + (nested ? 0 : 6),
-        elevation: DESIGN.elevation + (nested ? 0 : 2),
+        shadowOffset: { width: 0, height: nested ? 2 : 6 },
+        shadowOpacity: Platform.OS === 'ios' ? 0.05 : 0.04,
+        shadowRadius: nested ? 8 : 14,
+        elevation: nested ? 1 : 2,
+        marginBottom: nested ? 0 : 12,
       };
     case 'outline':
       // Bold — luminous white cards with soft top accent (no black / side bars)
       return {
         ...base,
-        backgroundColor: COLORS.white,
+        backgroundColor: frost ?? COLORS.white,
         borderWidth: 0,
         borderTopWidth: 3,
         borderTopColor: COLORS.primary,
@@ -54,21 +60,23 @@ export function cardSurfaceStyle(opts?: {
         elevation: nested ? 3 : 5,
       };
     case 'tinted':
+      // Mesh — solid white cards with soft tint (no bleed/overlap)
       return {
         ...base,
-        backgroundColor: hexAlpha(COLORS.primary, 0.06),
-        borderWidth: 1,
-        borderColor: hexAlpha(COLORS.primary, 0.18),
+        backgroundColor: frost ?? COLORS.white,
+        borderWidth: 1.5,
+        borderColor: hexAlpha(COLORS.primary, 0.22),
         shadowColor: COLORS.primaryDeep,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: Platform.OS === 'ios' ? 0.06 : 0.04,
-        shadowRadius: 10,
-        elevation: 2,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: Platform.OS === 'ios' ? 0.08 : 0.06,
+        shadowRadius: 12,
+        elevation: 3,
+        marginBottom: nested ? 0 : 10,
       };
     case 'flat':
       return {
         ...base,
-        backgroundColor: 'transparent',
+        backgroundColor: frost ?? 'transparent',
         borderWidth: 0,
         borderBottomWidth: 1,
         borderBottomColor: COLORS.border,
@@ -82,21 +90,26 @@ export function cardSurfaceStyle(opts?: {
     default:
       return {
         ...base,
-        backgroundColor: COLORS.white,
-        borderWidth: DESIGN.borderWidth,
-        borderColor: COLORS.border,
+        backgroundColor: frost ?? COLORS.white,
+        // Visible primary-tinted border (Ocean Blue had borderWidth 0 — cards looked borderless)
+        borderWidth: Math.max(DESIGN.borderWidth || 0, 1.5),
+        borderColor: hexAlpha(COLORS.primary, nested ? 0.5 : 0.58),
         shadowColor: GLASS.shadow,
         shadowOffset: { width: 0, height: nested ? 2 : 6 },
-        shadowOpacity: Platform.OS === 'ios' ? DESIGN.shadowOpacity : DESIGN.shadowOpacity * 0.8,
+        shadowOpacity: Platform.OS === 'ios' ? DESIGN.shadowOpacity * (frost ? 0.55 : 1) : DESIGN.shadowOpacity * (frost ? 0.45 : 0.8),
         shadowRadius: DESIGN.shadowRadius,
-        elevation: DESIGN.elevation,
+        elevation: frost ? Math.max(1, DESIGN.elevation - 1) : DESIGN.elevation,
+        marginBottom: nested ? 0 : 10,
       };
   }
 }
 
 /** Body fill inside a section card (under header). */
-export function cardBodyStyle(): ViewStyle {
+export function cardBodyStyle(opts?: { translucent?: boolean }): ViewStyle {
   const cv = DESIGN.cardVariant;
+  if (opts?.translucent) {
+    return { backgroundColor: 'rgba(255,255,255,0.28)' };
+  }
   switch (cv) {
     case 'tinted':
       return { backgroundColor: hexAlpha(COLORS.primary, 0.03) };

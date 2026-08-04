@@ -299,12 +299,18 @@ export function ProjectScreen({ go }: { go: Go }) {
       }
       surface={isBackendTask ? 'premium' : 'default'}
       onBack={() => {
-        // Navigate immediately — never block back on draft reload.
         go(isResubmit || isBackendTask ? 'history' : 'dashboard', { replace: true });
         if (isBackendTask) {
           void reloadBackendDraft().catch(() => undefined);
         }
       }}
+      onStepNav={
+        isBackendTask
+          ? () => {
+              void reloadBackendDraft().catch(() => undefined);
+            }
+          : undefined
+      }
       step={1}
       total={isBackendTask ? 4 : 5}
       badge={

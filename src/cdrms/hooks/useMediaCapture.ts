@@ -14,6 +14,7 @@ import {
   createDummyImageAsset,
   createDummyVideoAsset,
 } from '@/src/cdrms/hooks/dummyMedia';
+import { isSimulatorOrEmulator } from '@/src/cdrms/hooks/useCompass';
 import { ensureMediaCapturePermissions } from '@/src/cdrms/mediaPermission';
 import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 import type { MediaAsset } from '@/src/cdrms/project/types';
@@ -56,7 +57,8 @@ function showPermissionAlert(title: string, message: string) {
 }
 
 /** Sample media only on Simulator / Emulator — never on a real phone. */
-function useDummyCapture(): boolean {
+export function useDummyCapture(): boolean {
+  if (isSimulatorOrEmulator()) return true;
   if (isAndroidVirtual()) return true;
   if (Platform.OS === 'ios' && Constants.isDevice === false) return true;
   return false;
@@ -353,26 +355,25 @@ export async function chooseVideoFile(): Promise<MediaAsset | null> {
  * Real phone → system camera recorder (fallback: in-app CameraView).
  */
 export async function captureVideo(): Promise<MediaAsset | null> {
-  if (useDummyCapture()) {
+  if (useDummyCapture() || isLiveVideoBlocked()) {
     try {
       return await createDummyVideoAsset();
     } catch {
-      return chooseVideoFile();
+      // Fall through to gallery / files if bundled sample is missing
+      if (isLiveVideoBlocked()) {
+        if (!explainedVideoOnce) {
+          explainedVideoOnce = true;
+          showAppDialog({
+            variant: 'info',
+            title: 'Video on Simulator',
+            message: VIRTUAL_CAMERA_MESSAGE,
+            hideCancel: true,
+            confirmLabel: 'OK',
+          });
+        }
+        return chooseVideoFile();
+      }
     }
-  }
-
-  if (isLiveVideoBlocked()) {
-    if (!explainedVideoOnce) {
-      explainedVideoOnce = true;
-      showAppDialog({
-        variant: 'info',
-        title: 'Video on Simulator',
-        message: VIRTUAL_CAMERA_MESSAGE,
-        hideCancel: true,
-        confirmLabel: 'OK',
-      });
-    }
-    return chooseVideoFile();
   }
 
   if (!(await ensureMediaCapturePermissions('video'))) return null;

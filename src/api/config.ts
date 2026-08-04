@@ -1,9 +1,9 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-const API_PORT = 3700;
+const API_PORT = 3710;
 /** Mac LAN IP fallback for physical-device testing. */
-const DEFAULT_DEV_LAN_IP = '10.41.142.16';
+const DEFAULT_DEV_LAN_IP = '192.168.1.39';
 
 /** Extracts active Metro bundler host IP dynamically when connected. */
 function getAutoDetectedLanIp(): string {

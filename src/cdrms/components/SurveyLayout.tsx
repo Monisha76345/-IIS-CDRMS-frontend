@@ -9,6 +9,7 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  StyleSheet,
   TouchableWithoutFeedback,
   View,
   type NativeScrollEvent,
@@ -23,15 +24,25 @@ import { ScrollView } from '@/components/ui/scroll-view';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { ScreenShell } from '@/src/cdrms/components/primitives';
+import { BdaPageWatermark } from '@/src/cdrms/components/WelcomeHomeChrome';
+import { HeaderMeshBackground, MeshSheetEdge, WaveSheetEdge } from '@/src/cdrms/components/WaveDecor';
 import { useHardwareBack } from '@/src/cdrms/hooks/useHardwareBack';
 import { ENGINEER_SURVEY_STEPS, SURVEY_STEPS } from '@/src/cdrms/terminology';
-import { COLORS, DESIGN, FONTS, GRADIENT_HEADER, GRADIENT_PRIMARY, GLASS, SPACE, TYPE, gradientStops, hexAlpha } from '@/src/cdrms/theme';
+import { COLORS, DESIGN, FONTS, GRADIENT_HEADER, GRADIENT_PRIMARY, GLASS, SPACE, TYPE, gradientStops, headerFg, hexAlpha, isMeshDesign, isWaveDesign, usesLightHeader, usesNormalHeader, usesSolidHeader } from '@/src/cdrms/theme';
 import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
-import type { Go } from '@/src/cdrms/types';
+import type { Go, Screen } from '@/src/cdrms/types';
 import { useTheme } from '@/src/theme/ThemeContext';
 
 function stepsForTotal(total: number) {
   return total === 4 ? ENGINEER_SURVEY_STEPS : SURVEY_STEPS;
+}
+
+/** Screen ids for survey step index (1-based). */
+export function screenForSurveyStep(step: number, total: number): Screen | null {
+  const four: Screen[] = ['project', 'bandi', 'dimensions', 'photos'];
+  const five: Screen[] = ['project', 'bandi', 'surroundings', 'photos', 'video'];
+  const list = total === 4 ? four : five;
+  return list[step - 1] ?? null;
 }
 
 const COMPACT_SCROLL_THRESHOLD = 48;
@@ -46,7 +57,6 @@ function StepDoneMark({ size = 14, color = '#FFFFFF' }: { size?: number; color?:
   const thickness = Math.max(2.4, size * 0.18);
   return (
     <Box style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      {/* Short arm */}
       <Box
         style={{
           position: 'absolute',
@@ -59,7 +69,6 @@ function StepDoneMark({ size = 14, color = '#FFFFFF' }: { size?: number; color?:
           transform: [{ rotate: '45deg' }],
         }}
       />
-      {/* Long arm */}
       <Box
         style={{
           position: 'absolute',
@@ -76,380 +85,160 @@ function StepDoneMark({ size = 14, color = '#FFFFFF' }: { size?: number; color?:
   );
 }
 
-/** Five distinct steppers — one per design family (Classic / Soft / Bold / Nature / Minimal). */
+/**
+ * Survey step rail — white for pending/current, green when complete.
+ * Completed steps are tappable to go back.
+ */
 export function StepRail({
   step,
   total = 5,
-  variant = 'default',
+  variant: _variant = 'default',
+  onStepPress,
 }: {
   step: number;
   total?: number;
   variant?: 'default' | 'premium';
+  /** Called with 1-based step when a completed step is pressed. */
+  onStepPress?: (targetStep: number) => void;
 }) {
   const steps = stepsForTotal(total);
-  const isPremium = variant === 'premium';
   const { themeId } = useTheme();
-  /** Prefer layout family so each of the 5 designs is unmistakable. */
-  const family = DESIGN.id;
+  const node = 38;
+  const lineTop = 6 + node / 2 - 2;
+  const endPadPct = 50 / Math.max(total, 1);
+  const progress = Math.max(0, Math.min(1, (step - 1) / Math.max(1, total - 1)));
+  const DONE_GREEN = COLORS.success || '#10B981';
+  const DONE_GREEN_DEEP = '#059669';
 
-  // ── Minimal — text tabs + underline only (no icons) ─────────────────────
-  if (family === 'minimal') {
-    return (
+  return (
+    <Box key={themeId} style={{ marginTop: SPACE[3], marginBottom: SPACE[1] }}>
       <Box
-        key={themeId}
         style={{
-          backgroundColor: COLORS.white,
-          borderBottomWidth: 1,
-          borderBottomColor: COLORS.border,
-          paddingHorizontal: 4,
+          position: 'relative',
+          paddingTop: 6,
+          paddingBottom: 4,
+          paddingHorizontal: 2,
         }}
       >
-        <HStack>
-          {steps.map((item, i) => {
-            const active = i === step - 1;
-            const done = i < step - 1;
-            return (
-              <Box
-                key={item.label}
-                className="flex-1 items-center"
-                style={{
-                  paddingVertical: 12,
-                  borderBottomWidth: active ? 2.5 : 0,
-                  borderBottomColor: COLORS.primary,
-                }}
-              >
-                <Text
-                  numberOfLines={1}
-                  style={{
-                    fontFamily: FONTS.bold,
-                    fontSize: 12,
-                    letterSpacing: 0.5,
-                    textTransform: 'uppercase',
-                    color: active ? COLORS.primary : done ? COLORS.ink : COLORS.slate,
-                  }}
-                >
-                  {item.short}
-                </Text>
-              </Box>
-            );
-          })}
-        </HStack>
-      </Box>
-    );
-  }
+        {/* Track — soft white; filled portion turns green as steps complete */}
+        <Box
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: `${endPadPct}%`,
+            right: `${endPadPct}%`,
+            top: lineTop,
+            height: 4,
+            borderRadius: 999,
+            backgroundColor: hexAlpha('#FFFFFF', 0.35),
+            zIndex: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <Box
+            style={{
+              width: `${Math.round(progress * 100)}%`,
+              height: '100%',
+              borderRadius: 999,
+              backgroundColor: DONE_GREEN,
+            }}
+          />
+        </Box>
 
-  // ── Bold — numbered square chips in a solid row ─────────────────────────
-  if (family === 'bold') {
-    return (
-      <Box
-        key={themeId}
-        style={{
-          backgroundColor: isPremium ? GLASS.card : COLORS.white,
-          paddingHorizontal: SPACE[3],
-          paddingVertical: SPACE[3],
-        }}
-      >
-        <HStack style={{ gap: 6 }}>
+        <HStack style={{ alignItems: 'flex-start', zIndex: 1 }}>
           {steps.map((item, i) => {
+            const stepNum = i + 1;
             const active = i === step - 1;
             const done = i < step - 1;
-            return (
+            const pending = !active && !done;
+            const canPress = Boolean(onStepPress) && done;
+            const Icon = item.icon;
+
+            const nodeInner = (
               <Box
-                key={item.label}
-                className="flex-1"
                 style={{
-                  borderRadius: 12,
-                  paddingVertical: 10,
+                  width: node,
+                  height: node,
+                  borderRadius: 999,
                   alignItems: 'center',
-                  gap: 4,
-                  backgroundColor: active
-                    ? COLORS.primary
+                  justifyContent: 'center',
+                  backgroundColor: done ? DONE_GREEN : '#FFFFFF',
+                  borderWidth: active ? 3 : done ? 0 : 2,
+                  borderColor: active
+                    ? hexAlpha('#FFFFFF', 0.95)
                     : done
-                      ? hexAlpha(COLORS.success, 0.12)
-                      : hexAlpha(COLORS.primary, 0.06),
-                  borderTopWidth: 3,
-                  borderTopColor: active
-                    ? COLORS.primaryDeep
-                    : done
-                      ? COLORS.success
-                      : hexAlpha(COLORS.primary, 0.25),
+                      ? 'transparent'
+                      : hexAlpha('#FFFFFF', 0.7),
+                  shadowColor: done ? DONE_GREEN_DEEP : '#0F172A',
+                  shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: done || active ? 0.22 : 0.1,
+                  shadowRadius: done || active ? 6 : 4,
+                  elevation: done || active ? 4 : 2,
                 }}
               >
-                {done && !active ? (
-                  <StepDoneMark size={16} color={COLORS.success} />
+                {done ? (
+                  <StepDoneMark size={16} color="#FFFFFF" />
+                ) : active ? (
+                  <Icon size={16} color={COLORS.primary} strokeWidth={2.5} />
                 ) : (
                   <Text
                     style={{
                       fontFamily: FONTS.bold,
-                      fontSize: 16,
-                      color: active ? COLORS.white : COLORS.primaryDeep,
+                      fontSize: 13,
+                      color: hexAlpha(COLORS.primaryDeep, 0.45),
                     }}
                   >
-                    {i + 1}
+                    {stepNum}
                   </Text>
+                )}
+              </Box>
+            );
+
+            const labelColor = done
+              ? '#A7F3D0'
+              : active
+                ? '#FFFFFF'
+                : hexAlpha('#FFFFFF', 0.55);
+
+            return (
+              <VStack key={item.label} className="items-center" style={{ flex: 1, gap: 8 }}>
+                {canPress ? (
+                  <Pressable
+                    onPress={() => onStepPress?.(stepNum)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Go back to ${item.label}`}
+                    hitSlop={8}
+                    className="active:opacity-80"
+                  >
+                    {nodeInner}
+                  </Pressable>
+                ) : (
+                  <Box
+                    accessibilityState={{ selected: active, disabled: pending }}
+                    accessibilityLabel={
+                      active ? `Current step ${item.label}` : item.label
+                    }
+                  >
+                    {nodeInner}
+                  </Box>
                 )}
                 <Text
                   numberOfLines={1}
                   style={{
-                    fontFamily: FONTS.bold,
-                    fontSize: 12,
-                    color: active
-                      ? COLORS.white
-                      : done
-                        ? COLORS.success
-                        : COLORS.primaryDeep,
-                  }}
-                >
-                  {item.short}
-                </Text>
-              </Box>
-            );
-          })}
-        </HStack>
-      </Box>
-    );
-  }
-
-  // ── Soft — large floating circular icons only (pill tray) ───────────────
-  if (family === 'soft') {
-    return (
-      <Box
-        key={themeId}
-        style={{
-          backgroundColor: 'transparent',
-          paddingHorizontal: SPACE[3],
-          paddingTop: SPACE[2],
-          paddingBottom: SPACE[2],
-        }}
-      >
-        <HStack
-          style={{
-            backgroundColor: COLORS.white,
-            borderRadius: 999,
-            paddingVertical: 10,
-            paddingHorizontal: 10,
-            gap: 4,
-            shadowColor: GLASS.shadow,
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: 0.1,
-            shadowRadius: 18,
-            elevation: 4,
-            alignItems: 'center',
-          }}
-        >
-          {steps.map((item, i) => {
-            const active = i === step - 1;
-            const done = i < step - 1;
-            const Icon = item.icon;
-            return (
-              <Box key={item.label} className="flex-1 items-center" style={{ gap: 5 }}>
-                <Box
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 999,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: active
-                      ? COLORS.primary
-                      : done
-                        ? COLORS.success
-                        : hexAlpha(COLORS.primary, 0.08),
-                    shadowColor: active ? COLORS.primaryDeep : 'transparent',
-                    shadowOffset: { width: 0, height: 5 },
-                    shadowOpacity: active ? 0.35 : 0,
-                    shadowRadius: 8,
-                    elevation: active ? 5 : 0,
-                  }}
-                >
-                  {done && !active ? (
-                    <StepDoneMark size={16} color="#FFFFFF" />
-                  ) : (
-                    <Icon
-                      size={18}
-                      color={active ? COLORS.white : COLORS.primary}
-                      strokeWidth={2.4}
-                    />
-                  )}
-                </Box>
-                <Text
-                  numberOfLines={1}
-                  style={{
-                    fontFamily: FONTS.bold,
+                    fontFamily: active || done ? FONTS.bold : FONTS.semibold,
                     fontSize: 11,
-                    color: active ? COLORS.primary : done ? COLORS.ink : COLORS.slate,
-                  }}
-                >
-                  {item.short}
-                </Text>
-              </Box>
-            );
-          })}
-        </HStack>
-      </Box>
-    );
-  }
-
-  // ── Nature — organic trail: rounded nodes + dashed connectors ───────────
-  if (family === 'nature') {
-    return (
-      <Box
-        key={themeId}
-        style={{
-          backgroundColor: hexAlpha(COLORS.primary, 0.05),
-          paddingHorizontal: SPACE[3],
-          paddingTop: SPACE[3],
-          paddingBottom: SPACE[2],
-        }}
-      >
-        <HStack className="items-center">
-          {steps.map((item, i) => {
-            const active = i === step - 1;
-            const done = i < step - 1;
-            const Icon = item.icon;
-            const last = i === steps.length - 1;
-            return (
-              <React.Fragment key={item.label}>
-                <VStack className="items-center" style={{ flex: 1, gap: 6 }}>
-                  <Box
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 14,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: active
-                        ? COLORS.primary
-                        : done
-                          ? COLORS.success
-                          : COLORS.white,
-                      borderWidth: active || done ? 0 : 2,
-                      borderColor: hexAlpha(COLORS.primary, 0.3),
-                      transform: [{ rotate: active ? '0deg' : '0deg' }],
-                    }}
-                  >
-                    {done && !active ? (
-                      <StepDoneMark size={15} color="#FFFFFF" />
-                    ) : (
-                      <Icon
-                        size={15}
-                        color={active ? COLORS.white : COLORS.primary}
-                        strokeWidth={2.3}
-                      />
-                    )}
-                  </Box>
-                  <Text
-                    numberOfLines={1}
-                    style={{
-                      fontFamily: FONTS.bold,
-                      fontSize: 12,
-                      color: active ? COLORS.primaryDeep : COLORS.slate,
-                    }}
-                  >
-                    {item.short}
-                  </Text>
-                </VStack>
-                {!last ? (
-                  <HStack style={{ width: 16, marginBottom: 18, gap: 3, justifyContent: 'center' }}>
-                    {[0, 1, 2].map((d) => (
-                      <Box
-                        key={d}
-                        style={{
-                          width: 3,
-                          height: 3,
-                          borderRadius: 999,
-                          backgroundColor:
-                            done || active
-                              ? hexAlpha(COLORS.primary, 0.55)
-                              : hexAlpha(COLORS.ink, 0.18),
-                        }}
-                      />
-                    ))}
-                  </HStack>
-                ) : null}
-              </React.Fragment>
-            );
-          })}
-        </HStack>
-      </Box>
-    );
-  }
-
-  // ── Classic — numbered circles + solid connector line ───────────────────
-  return (
-    <Box
-      key={`${themeId}-rail`}
-      style={{
-        backgroundColor: isPremium ? GLASS.card : COLORS.white,
-        borderBottomWidth: 1,
-        borderBottomColor: isPremium ? GLASS.borderSoft : COLORS.border,
-        paddingHorizontal: SPACE[3],
-        paddingTop: SPACE[3],
-        paddingBottom: SPACE[2],
-      }}
-    >
-      <HStack className="items-center">
-        {steps.map((item, i) => {
-          const active = i === step - 1;
-          const done = i < step - 1;
-          const Icon = item.icon;
-          const last = i === steps.length - 1;
-          return (
-            <React.Fragment key={item.label}>
-              <VStack className="items-center" style={{ flex: 1, gap: 6 }}>
-                <Box
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 999,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: active
-                      ? COLORS.primary
-                      : done
-                        ? COLORS.success
-                        : COLORS.muted,
-                    borderWidth: done && !active ? 2.5 : active ? 0 : 2,
-                    borderColor:
-                      done && !active ? '#BBF7D0' : active ? 'transparent' : COLORS.border,
-                  }}
-                >
-                  {done && !active ? (
-                    <StepDoneMark size={15} color="#FFFFFF" />
-                  ) : active ? (
-                    <Icon size={15} color={COLORS.white} strokeWidth={2.5} />
-                  ) : (
-                    <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.slate }}>
-                      {i + 1}
-                    </Text>
-                  )}
-                </Box>
-                <Text
-                  numberOfLines={1}
-                  style={{
-                    fontFamily: FONTS.bold,
-                    fontSize: 12,
-                    color: active ? COLORS.primary : done ? COLORS.ink : COLORS.slate,
+                    letterSpacing: 0.3,
+                    color: labelColor,
+                    textAlign: 'center',
                   }}
                 >
                   {item.short}
                 </Text>
               </VStack>
-              {!last ? (
-                <Box
-                  style={{
-                    height: 2,
-                    width: 16,
-                    marginBottom: 20,
-                    borderRadius: 999,
-                    backgroundColor: done ? COLORS.success : hexAlpha(COLORS.ink, 0.14),
-                  }}
-                />
-              ) : null}
-            </React.Fragment>
-          );
-        })}
-      </HStack>
+            );
+          })}
+        </HStack>
+      </Box>
     </Box>
   );
 }
@@ -514,6 +303,7 @@ export function SurveyHero({
   watermark,
   go,
   variant = 'default',
+  onStepPress,
 }: {
   title: string;
   subtitle?: string;
@@ -525,141 +315,195 @@ export function SurveyHero({
   watermark?: 'compass';
   go?: Go;
   variant?: 'default' | 'premium';
+  onStepPress?: (targetStep: number) => void;
 }) {
   const insets = useSafeAreaInsets();
   const isPremium = variant === 'premium';
   const displayTitle = step != null ? `Step ${step} - ${title}` : title;
   const underTitle = subtitle;
   const { themeId } = useTheme();
+  const fg = headerFg();
+
+  const solid = usesSolidHeader();
+  const light = usesLightHeader();
+  const normal = usesNormalHeader();
+
+  const headerBody = (
+    <>
+      <HStack className="items-start" style={{ gap: SPACE[3] }}>
+        <Pressable
+          onPress={onBack}
+          hitSlop={10}
+          className="active:opacity-75"
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: DESIGN.buttonRadius,
+            overflow: 'hidden',
+            marginTop: 2,
+            backgroundColor: fg.chipBg,
+            borderWidth: 1,
+            borderColor: fg.chipBorder,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <ArrowLeft size={18} color={fg.icon} strokeWidth={2.3} />
+        </Pressable>
+
+        <VStack className="flex-1 min-w-0" style={{ gap: 6 }}>
+          {step != null ? (
+            <HStack className="items-center" style={{ gap: 8 }}>
+              <Box
+                style={{
+                  paddingHorizontal: 9,
+                  paddingVertical: 3,
+                  borderRadius: DESIGN.chipRadius,
+                  backgroundColor: fg.chipBg,
+                  borderWidth: 1,
+                  borderColor: fg.chipBorder,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 12,
+                    letterSpacing: 0.6,
+                    color: fg.chipText,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Step {step} / {total}
+                </Text>
+              </Box>
+              {badge ? (
+                <Text
+                  style={{
+                    fontFamily: FONTS.semibold,
+                    fontSize: 12,
+                    color: fg.muted,
+                  }}
+                  numberOfLines={1}
+                >
+                  {badge}
+                </Text>
+              ) : null}
+            </HStack>
+          ) : null}
+          <Text
+            style={{
+              fontFamily: FONTS.displayBold,
+              fontSize: 20,
+              lineHeight: 26,
+              color: fg.title,
+              letterSpacing: -0.35,
+            }}
+            numberOfLines={2}
+          >
+            {step != null ? title : displayTitle}
+          </Text>
+          {underTitle ? (
+            <Text
+              style={{
+                fontFamily: FONTS.medium,
+                fontSize: 12,
+                lineHeight: 17,
+                color: fg.soft,
+              }}
+              numberOfLines={3}
+            >
+              {underTitle}
+            </Text>
+          ) : null}
+        </VStack>
+      </HStack>
+
+      {showSteps && step ? (
+        <StepRail
+          step={step}
+          total={total}
+          variant={isPremium ? 'premium' : 'default'}
+          onStepPress={onStepPress}
+        />
+      ) : null}
+    </>
+  );
 
   return (
     <Box key={themeId}>
-      <LinearGradient
-        colors={gradientStops(GRADIENT_HEADER)}
-        locations={[0, 1]}
-        start={DESIGN.headerStart}
-        end={DESIGN.headerEnd}
-        style={{
-          paddingTop: insets.top + SPACE[2],
-          paddingBottom: showSteps && step ? SPACE[4] : SPACE[3],
-          paddingHorizontal: SPACE.gutter,
-          overflow: 'hidden',
-        }}
-      >
-        <HStack className="items-start" style={{ zIndex: 2, gap: SPACE[3] }}>
-          <Pressable
-            onPress={onBack}
-            hitSlop={10}
-            className="active:opacity-75"
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: DESIGN.buttonRadius > 40 ? 21 : DESIGN.buttonRadius,
-              backgroundColor: COLORS.primaryDeep,
-              marginTop: 2,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <ArrowLeft size={18} color="#FFFFFF" strokeWidth={2.3} />
-          </Pressable>
-
-          <VStack className="flex-1 min-w-0" style={{ gap: 6 }}>
-            {step != null ? (
-              <HStack className="items-center" style={{ gap: 8 }}>
-                <Box
-                  style={{
-                    paddingHorizontal: 9,
-                    paddingVertical: 3,
-                    borderRadius: DESIGN.chipRadius,
-                    backgroundColor: COLORS.primaryDeep,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontFamily: FONTS.bold,
-                      fontSize: 12,
-                      letterSpacing: 0.6,
-                      color: COLORS.white,
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Step {step} / {total}
-                  </Text>
-                </Box>
-                {badge ? (
-                  <Text
-                    style={{
-                      fontFamily: FONTS.semibold,
-                      fontSize: 12,
-                      color: '#DBEAFE',
-                    }}
-                    numberOfLines={1}
-                  >
-                    {badge}
-                  </Text>
-                ) : null}
-              </HStack>
-            ) : null}
-            <Text
-              style={{
-                fontFamily: FONTS.displayBold,
-                fontSize: 20,
-                lineHeight: 26,
-                color: COLORS.white,
-                letterSpacing: -0.35,
-              }}
-              numberOfLines={2}
-            >
-              {step != null ? title : displayTitle}
-            </Text>
-            {underTitle ? (
-              <Text
-                style={{
-                  fontFamily: FONTS.medium,
-                  fontSize: 12,
-                  lineHeight: 17,
-                  color: '#DBEAFE',
-                }}
-                numberOfLines={3}
-              >
-                {underTitle}
-              </Text>
-            ) : null}
-          </VStack>
-        </HStack>
-      </LinearGradient>
-
-      {showSteps && step ? (
+      {light ? (
         <Box
           style={{
-            marginTop: SPACE[2],
-            marginHorizontal: DESIGN.id === 'bold' ? SPACE[3] : 0,
-            borderTopLeftRadius: DESIGN.radiusLg,
-            borderTopRightRadius: DESIGN.radiusLg,
-            borderBottomLeftRadius: DESIGN.id === 'bold' ? DESIGN.radiusLg : 0,
-            borderBottomRightRadius: DESIGN.id === 'bold' ? DESIGN.radiusLg : 0,
-            backgroundColor: isPremium ? GLASS.card : '#FFFFFF',
-            overflow: 'hidden',
-            borderBottomWidth: 0,
-            borderColor: GLASS.border,
-            ...(DESIGN.id === 'bold'
-              ? {
-                  shadowColor: COLORS.primaryDeep,
-                  shadowOffset: { width: 0, height: 8 },
-                  shadowOpacity: 0.12,
-                  shadowRadius: 16,
-                  elevation: 4,
-                }
-              : null),
+            backgroundColor: COLORS.white,
+            paddingHorizontal: SPACE.gutter,
+            paddingTop: insets.top + SPACE[2],
+            paddingBottom: SPACE[4],
+            shadowColor: '#0F172A',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.06,
+            shadowRadius: 6,
+            elevation: 2,
+            zIndex: 2,
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: 'rgba(15,23,42,0.08)',
           }}
         >
-          <StepRail step={step} total={total} variant={isPremium ? 'premium' : 'default'} />
+          {headerBody}
         </Box>
-      ) : null}
+      ) : solid ? (
+        <LinearGradient
+          colors={gradientStops(GRADIENT_HEADER)}
+          start={DESIGN.headerStart}
+          end={DESIGN.headerEnd}
+          style={{
+            paddingHorizontal: SPACE.gutter,
+            paddingTop: insets.top + SPACE[2],
+            paddingBottom: SPACE[4],
+          }}
+        >
+          {headerBody}
+        </LinearGradient>
+      ) : (
+        <>
+          <Box
+            style={{
+              overflow: 'hidden',
+              zIndex: 1,
+              ...(isMeshDesign()
+                ? {
+                    borderBottomLeftRadius: DESIGN.headerRadius || 40,
+                    borderBottomRightRadius: Math.round((DESIGN.headerRadius || 40) * 0.35),
+                  }
+                : null),
+            }}
+          >
+            <HeaderMeshBackground />
+            <Box
+              style={{
+                paddingHorizontal: SPACE.gutter,
+                paddingTop: insets.top + SPACE[2],
+                paddingBottom: isMeshDesign() ? SPACE[5] : SPACE[8],
+                zIndex: 2,
+              }}
+            >
+              {headerBody}
+            </Box>
+          </Box>
+          {isMeshDesign() ? (
+            <MeshSheetEdge height={showSteps && step ? 68 : 64} fill={COLORS.white} />
+          ) : (
+            <WaveSheetEdge
+              height={showSteps && step ? 60 : 56}
+              fill={COLORS.white}
+              variant={isWaveDesign() ? 'glass' : 'sheet'}
+            />
+          )}
+        </>
+      )}
     </Box>
   );
 }
+
 
 function CompactSurveyHeader({
   title,
@@ -676,52 +520,115 @@ function CompactSurveyHeader({
 }) {
   const insets = useSafeAreaInsets();
   const displayTitle = step != null ? `Step ${step} - ${title}` : title;
+  const light = usesLightHeader();
+  const fg = headerFg();
+  const stepR = DESIGN.stepRadius > 40 ? 999 : DESIGN.stepRadius;
 
   return (
     <Box
       className="absolute top-0 left-0 right-0"
       style={{
         zIndex: 40,
-        elevation: 12,
-        shadowColor: COLORS.primaryDeep,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.18,
-        shadowRadius: 12,
+        elevation: light ? 4 : 12,
+        shadowColor: light ? '#0F172A' : COLORS.primaryDeep,
+        shadowOffset: { width: 0, height: light ? 2 : 6 },
+        shadowOpacity: light ? 0.06 : 0.18,
+        shadowRadius: light ? 6 : 12,
       }}
       pointerEvents="box-none"
     >
-      <LinearGradient
-        colors={gradientStops(GRADIENT_HEADER)}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{
-          paddingTop: insets.top + 6,
-          paddingBottom: 10,
-          paddingHorizontal: 12,
-          overflow: 'hidden',
-        }}
-      >
-        <HStack className="items-center gap-2.5">
-          <Pressable
-            onPress={onBack}
-            hitSlop={10}
-            className="items-center justify-center active:opacity-75"
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: DESIGN.stepRadius > 40 ? 999 : DESIGN.stepRadius,
-              backgroundColor: COLORS.primaryDeep,
-            }}
-          >
-            <ArrowLeft size={16} color="#fff" strokeWidth={2.2} />
-          </Pressable>
-          <VStack className="flex-1 min-w-0">
-            <Text className="text-white text-[14px] font-bold" numberOfLines={1}>
-              {displayTitle}
-            </Text>
-          </VStack>
-        </HStack>
-      </LinearGradient>
+      {light ? (
+        <Box
+          style={{
+            backgroundColor: COLORS.white,
+            paddingTop: insets.top + 6,
+            paddingBottom: 10,
+            paddingHorizontal: 12,
+            borderBottomWidth: 1,
+            borderBottomColor: hexAlpha(COLORS.ink, 0.06),
+          }}
+        >
+          <HStack className="items-center gap-2.5">
+            <Pressable
+              onPress={onBack}
+              hitSlop={10}
+              className="items-center justify-center active:opacity-75"
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: stepR,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: hexAlpha(COLORS.primary, 0.1),
+                borderWidth: 1,
+                borderColor: hexAlpha(COLORS.primary, 0.2),
+              }}
+            >
+              <ArrowLeft size={16} color={fg.icon} strokeWidth={2.2} />
+            </Pressable>
+            <VStack className="flex-1 min-w-0">
+              <Text
+                style={{
+                  fontFamily: FONTS.bold,
+                  fontSize: 14,
+                  color: fg.title,
+                }}
+                numberOfLines={1}
+              >
+                {displayTitle}
+              </Text>
+            </VStack>
+          </HStack>
+        </Box>
+      ) : (
+        <LinearGradient
+          colors={gradientStops(GRADIENT_PRIMARY)}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            paddingTop: insets.top + 6,
+            paddingBottom: 10,
+            paddingHorizontal: 12,
+            overflow: 'hidden',
+          }}
+        >
+          <HStack className="items-center gap-2.5">
+            <Pressable
+              onPress={onBack}
+              hitSlop={10}
+              className="items-center justify-center active:opacity-75"
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: stepR,
+                overflow: 'hidden',
+              }}
+            >
+              <LinearGradient
+                colors={gradientStops(GRADIENT_PRIMARY)}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  width: 32,
+                  height: 32,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: hexAlpha(COLORS.primaryGlow, 0.4),
+                  borderRadius: stepR,
+                }}
+              >
+                <ArrowLeft size={16} color="#fff" strokeWidth={2.2} />
+              </LinearGradient>
+            </Pressable>
+            <VStack className="flex-1 min-w-0">
+              <Text className="text-white text-[14px] font-bold" numberOfLines={1}>
+                {displayTitle}
+              </Text>
+            </VStack>
+          </HStack>
+        </LinearGradient>
+      )}
     </Box>
   );
 }
@@ -833,6 +740,7 @@ export function SurveyScaffold({
   footer,
   go,
   surface = 'default',
+  onStepNav,
 }: {
   title: string;
   subtitle: string;
@@ -847,6 +755,8 @@ export function SurveyScaffold({
   go?: Go;
   /** Cleaner engineer flow styling */
   surface?: 'default' | 'premium';
+  /** Extra work after jumping to a prior step (e.g. reloadBackendDraft). */
+  onStepNav?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const [compact, setCompact] = useState(false);
@@ -856,6 +766,23 @@ export function SurveyScaffold({
   const { themeId } = useTheme();
   /** Device back button mirrors the survey header back control. */
   useHardwareBack(onBack);
+
+  const handleStepPress = (targetStep: number) => {
+    if (step == null || targetStep >= step || targetStep < 1) return;
+    // Step 1 from later steps: same destination as header back when leaving step 2,
+    // otherwise jump to that step's screen.
+    if (targetStep === step - 1) {
+      onBack();
+      return;
+    }
+    const screen = screenForSurveyStep(targetStep, total);
+    if (!screen || !go) {
+      onBack();
+      return;
+    }
+    go(screen, { replace: true });
+    onStepNav?.();
+  };
 
   useEffect(() => {
     // keyboardWill* fires before layout settles — freeze compact header early.
@@ -888,13 +815,14 @@ export function SurveyScaffold({
 
   return (
     <ScreenShell key={themeId} className="bg-background">
+      <BdaPageWatermark />
       {/*
         Plain style (no Uniwind className), wrapping scroll + footer.
         iOS: padding. Android: height only while keyboard is open (avoids Expo 54 sticky gap).
         Do not combine with automaticallyAdjustKeyboardInsets — that remounts focus.
       */}
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={{ flex: 1, zIndex: 1 }}
         behavior={
           Platform.OS === 'ios' ? 'padding' : keyboardOpen ? 'height' : undefined
         }
@@ -944,6 +872,7 @@ export function SurveyScaffold({
                 watermark={watermark}
                 go={go}
                 variant={isPremium ? 'premium' : 'default'}
+                onStepPress={handleStepPress}
               />
 
               <Box

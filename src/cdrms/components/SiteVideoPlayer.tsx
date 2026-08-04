@@ -174,7 +174,7 @@ export function SiteVideoPlayer({ uri, durationLabel, height }: Props) {
               borderRadius: 999,
               alignItems: 'center',
               justifyContent: 'center',
-              shadowColor: '#2563EB',
+              shadowColor: '#1D4ED8',
               shadowOffset: { width: 0, height: 8 },
               shadowOpacity: 0.45,
               shadowRadius: 16,

@@ -18,7 +18,7 @@ import {
   outwardNormal,
   type Pt,
 } from '@/src/cdrms/lib/sitePlotGeometry';
-import { COLORS, FONTS, GLASS } from '@/src/cdrms/theme';
+import { COLORS, FONTS, GLASS, hexAlpha } from '@/src/cdrms/theme';
 
 /** Same palette as web SiteDimensionPlot */
 const DIM_COLORS = {
@@ -305,13 +305,13 @@ export function BoundariesDiagram({
         overflow: 'hidden',
         borderRadius: embedded ? 12 : 16,
         backgroundColor: COLORS.white,
-        borderWidth: 1,
-        borderColor: embedded ? GLASS.border : COLORS.border,
+        borderWidth: embedded ? 1.5 : 1,
+        borderColor: embedded ? hexAlpha(COLORS.primary, 0.35) : COLORS.border,
         ...(embedded
           ? {
-              shadowColor: '#0F172A',
+              shadowColor: COLORS.primaryDeep,
               shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.08,
+              shadowOpacity: 0.1,
               shadowRadius: 8,
               elevation: 2,
             }
