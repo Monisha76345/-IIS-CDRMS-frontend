@@ -43,7 +43,9 @@ import {
 } from '@/src/cdrms/components/WelcomeHomeChrome';
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
 import { getCaoReturnScreen, getSelectedOfficeAppId, setCaoReturnScreen, setSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
-import { downloadApplicationPdfWithFeedback } from '@/src/cdrms/lib/downloadApplicationPdfWithFeedback';
+import { runApplicationPdfDownload } from '@/src/cdrms/lib/runApplicationPdfDownload';
+import { usePdfDownloads } from '@/src/cdrms/hooks/usePdfDownloadProgress';
+import { PdfDownloadThinProgress } from '@/src/cdrms/components/PdfDownloadThinProgress';
 import { SearchField } from '@/src/cdrms/components/SearchField';
 import {
   COLORS,
@@ -58,23 +60,6 @@ import {
 } from '@/src/cdrms/theme';
 import { useTheme } from '@/src/theme/ThemeContext';
 import type { Go } from '@/src/cdrms/types';
-
-async function runPdfDownload(
-  app: MobileApplication,
-  accessToken: string,
-  downloading: boolean,
-  setDownloading: (value: boolean) => void,
-) {
-  if (!accessToken || downloading) return;
-  setDownloading(true);
-  try {
-    await downloadApplicationPdfWithFeedback(app, accessToken);
-  } catch {
-    // Error is shown in the top download banner.
-  } finally {
-    setDownloading(false);
-  }
-}
 
 function addressLine(app: MobileApplication) {
   return [app.addressArea, app.addressBlock, app.addressPincode].filter(Boolean).join(', ');
@@ -100,7 +85,7 @@ export function CaoHomeScreen({ go }: { go: Go }) {
   const [tab, setTab] = useState<CaoTab>('all');
   const [q, setQ] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [downloading, setDownloading] = useState(false);
+  const pdfDownloads = usePdfDownloads();
 
   const reload = useCallback(async () => {
     if (!accessToken) return;
@@ -128,9 +113,11 @@ export function CaoHomeScreen({ go }: { go: Go }) {
   }, [reload]);
 
   const handleDownloadApp = useCallback(
-    (app: MobileApplication) =>
-      runPdfDownload(app, accessToken!, downloading, setDownloading),
-    [accessToken, downloading],
+    (app: MobileApplication) => {
+      if (!accessToken) return;
+      void runApplicationPdfDownload(app, accessToken);
+    },
+    [accessToken],
   );
 
   const counts = useMemo(() => countZcBuckets(apps), [apps]);
@@ -322,6 +309,7 @@ export function CaoHomeScreen({ go }: { go: Go }) {
                   engineerName={app.assignedEngineerName}
                   status={app.status}
                   dateLine={applicationCardDateLine(app)}
+                  zoneBesideDate
                   onPress={() => {
                     setSelectedOfficeAppId(app.id);
                     setCaoReturnScreen('cao_home');
@@ -332,6 +320,8 @@ export function CaoHomeScreen({ go }: { go: Go }) {
                       ? () => void handleDownloadApp(app)
                       : undefined
                   }
+                  downloading={Boolean(pdfDownloads[app.id])}
+                  downloadPercent={pdfDownloads[app.id]?.percent}
                 />
               ))}
             </VStack>
@@ -366,7 +356,7 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
   const [tab, setTab] = useState<CaoAppsFilter>('All');
   const [q, setQ] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [downloading, setDownloading] = useState(false);
+  const pdfDownloads = usePdfDownloads();
 
   const reload = useCallback(async () => {
     if (!accessToken) return;
@@ -388,9 +378,11 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
   }, [reload]);
 
   const handleDownloadApp = useCallback(
-    (app: MobileApplication) =>
-      runPdfDownload(app, accessToken!, downloading, setDownloading),
-    [accessToken, downloading],
+    (app: MobileApplication) => {
+      if (!accessToken) return;
+      void runApplicationPdfDownload(app, accessToken);
+    },
+    [accessToken],
   );
 
   const filtered = useMemo(() => {
@@ -512,6 +504,8 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
                   ? () => void handleDownloadApp(app)
                   : undefined
               }
+              downloading={Boolean(pdfDownloads[app.id])}
+              downloadPercent={pdfDownloads[app.id]?.percent}
             />
           ))
         )}
@@ -534,9 +528,11 @@ export function CaoDetailScreen({ go }: { go: Go }) {
   const { accessToken } = useAuth();
   const [app, setApp] = useState<MobileApplication | null>(null);
   const [loading, setLoading] = useState(true);
-  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pdfDownloads = usePdfDownloads();
   const backTarget = getCaoReturnScreen();
+  const activeDownload = app ? pdfDownloads[app.id] ?? null : null;
+  const isDownloadingThis = Boolean(activeDownload);
 
   useEffect(() => {
     const id = getSelectedOfficeAppId();
@@ -552,8 +548,8 @@ export function CaoDetailScreen({ go }: { go: Go }) {
   }, [accessToken]);
 
   const handleDownload = () => {
-    if (!app || !accessToken) return;
-    void runPdfDownload(app, accessToken, downloading, setDownloading);
+    if (!app || !accessToken || isDownloadingThis) return;
+    void runApplicationPdfDownload(app, accessToken);
   };
 
   return (
@@ -595,11 +591,11 @@ export function CaoDetailScreen({ go }: { go: Go }) {
             <Box style={{ marginHorizontal: 16 }}>
               <Pressable
                 onPress={() => void handleDownload()}
-                disabled={downloading}
+                disabled={isDownloadingThis}
                 className="overflow-hidden active:opacity-90"
                 style={{
                   borderRadius: DESIGN.cardRadius,
-                  opacity: downloading ? 0.7 : 1,
+                  opacity: isDownloadingThis ? 0.7 : 1,
                   shadowColor: COLORS.primary,
                   shadowOffset: { width: 0, height: 8 },
                   shadowOpacity: 0.24,
@@ -612,22 +608,52 @@ export function CaoDetailScreen({ go }: { go: Go }) {
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={{
-                    height: 48,
-                    flexDirection: 'row',
+                    minHeight: 48,
+                    paddingHorizontal: 16,
+                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: 8,
+                    gap: 6,
+                    paddingVertical: isDownloadingThis ? 10 : 0,
                   }}
                 >
-                  {downloading ? (
-                    <ButtonLoader color={COLORS.white} />
+                  {isDownloadingThis && activeDownload ? (
+                    <VStack style={{ width: '100%', gap: 6 }}>
+                      <Text
+                        style={{
+                          fontFamily: FONTS.bold,
+                          fontSize: 14,
+                          color: COLORS.white,
+                          textAlign: 'center',
+                        }}
+                      >
+                        Downloading…
+                      </Text>
+                      <PdfDownloadThinProgress
+                        percent={activeDownload.percent}
+                        color="#FFFFFF"
+                        trackColor="rgba(255,255,255,0.35)"
+                        labelColor="#FFFFFF"
+                      />
+                      <Text
+                        style={{
+                          fontFamily: FONTS.medium,
+                          fontSize: 11,
+                          color: 'rgba(255,255,255,0.92)',
+                          textAlign: 'center',
+                        }}
+                        numberOfLines={1}
+                      >
+                        {activeDownload.label}
+                      </Text>
+                    </VStack>
                   ) : (
-                    <>
+                    <HStack style={{ alignItems: 'center', gap: 8 }}>
                       <Download size={16} color={COLORS.white} />
                       <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.white }}>
                         Download PDF
                       </Text>
-                    </>
+                    </HStack>
                   )}
                 </LinearGradient>
               </Pressable>

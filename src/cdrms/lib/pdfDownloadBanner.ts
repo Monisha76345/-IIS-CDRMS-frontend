@@ -8,6 +8,7 @@ export type PdfDownloadBannerState = {
   body: string;
   variant: PdfDownloadBannerVariant;
   openUri?: string;
+  percent?: number;
 };
 
 type Listener = (state: PdfDownloadBannerState | null) => void;
@@ -51,6 +52,7 @@ export function showPdfDownloadBanner(input: Omit<PdfDownloadBannerState, 'id'> 
     body: input.body,
     variant: input.variant,
     openUri: input.openUri,
+    percent: input.percent,
   };
 
   if (input.variant === 'complete' && input.openUri) {

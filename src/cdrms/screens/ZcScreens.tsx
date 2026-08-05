@@ -379,6 +379,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
                   engineerName={app.assignedEngineerName}
                   status={app.status}
                   dateLine={applicationCardDateLine(app)}
+                  zoneBesideDate
                   onPress={() => openDetail(app.id)}
                 />
               ))}

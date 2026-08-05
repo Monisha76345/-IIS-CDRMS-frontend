@@ -84,6 +84,7 @@ import {
   type MobileApplication,
 } from '@/src/api/applications';
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
+import { DateZoneMetaRow } from '@/src/cdrms/components/DateZoneMetaRow';
 import { useNotifications } from '@/src/cdrms/hooks/useNotifications';
 import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
 import {
@@ -131,6 +132,12 @@ function mapTaskCard(app: MobileApplication) {
     live: true as const,
     apiTask: true as const,
   };
+}
+
+function siteNoMetaLine(siteNo?: string | null) {
+  const site = (siteNo || '').replace(/^Site\s+/i, '').trim() || '—';
+  const display = site.length > 22 ? `${site.slice(0, 21)}…` : site;
+  return `Site no: ${display}`;
 }
 
 function siteZoneMetaLine(siteNo?: string | null, zone?: string | null) {
@@ -545,35 +552,27 @@ export function Dashboard({ go }: { go: Go }) {
                           >
                             {a.project}
                           </Text>
-                          <Text
-                            style={{
-                              fontFamily: FONTS.semibold,
-                              fontSize: 13,
-                              color: COLORS.ink,
-                              marginTop: 2,
-                            }}
-                            numberOfLines={1}
-                          >
-                            {siteZoneMetaLine(a.siteNo, a.zone)}
-                          </Text>
-                          {a.date ? (
-                            <Text
-                              style={{
-                                fontFamily: FONTS.bold,
-                                fontSize: 12,
-                                color: COLORS.ink,
-                                marginTop: 2,
-                              }}
-                              numberOfLines={1}
-                            >
-                              {a.date}
-                            </Text>
-                          ) : null}
                         </Pressable>
                         <Box style={{ flexShrink: 0, marginLeft: 8 }}>
                           <StatusChip status={a.status} />
                         </Box>
                       </HStack>
+                      <Pressable onPress={openOrContinue} className="active:opacity-90">
+                        <Text
+                          style={{
+                            fontFamily: FONTS.semibold,
+                            fontSize: 13,
+                            color: COLORS.ink,
+                            marginTop: 2,
+                          }}
+                          numberOfLines={1}
+                        >
+                          {siteNoMetaLine(a.siteNo)}
+                        </Text>
+                        {a.date ? (
+                          <DateZoneMetaRow date={a.date} zone={a.zone} marginTop={2} />
+                        ) : null}
+                      </Pressable>
 
                       <HStack className="items-center gap-2" style={{ marginTop: 6 }}>
                         <Box

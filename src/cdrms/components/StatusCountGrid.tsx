@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react';
+import { ActivityIndicator } from 'react-native';
 import { Clock, Download, Eye, type LucideIcon } from 'lucide-react-native';
 
 import { Box } from '@/components/ui/box';
@@ -11,6 +12,7 @@ import {
   type MobileApplicationStatus,
 } from '@/src/api/applications';
 import { ApplicationStatusBadge } from '@/src/cdrms/components/ApplicationStatusBadge';
+import { DateZoneMetaRow } from '@/src/cdrms/components/DateZoneMetaRow';
 import { COLORS, DESIGN, FONTS, GLASS, hexAlpha } from '@/src/cdrms/theme';
 import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
 import { welcomeCardSurface } from '@/src/cdrms/components/WelcomeHomeChrome';
@@ -349,6 +351,10 @@ export function OfficeAppRow({
   dateLine,
   onPress,
   onDownload,
+  downloading = false,
+  downloadPercent,
+  /** ZC Recent Activity — show zone beside date/time instead of on site line. */
+  zoneBesideDate = false,
 }: {
   title: string;
   siteNo: string;
@@ -358,6 +364,9 @@ export function OfficeAppRow({
   dateLine?: string | null;
   onPress: () => void;
   onDownload?: () => void;
+  downloading?: boolean;
+  downloadPercent?: number;
+  zoneBesideDate?: boolean;
 }) {
   const { themeId } = useTheme();
   const tone = applicationStatusTone(status);
@@ -369,18 +378,27 @@ export function OfficeAppRow({
         <Pressable
           onPress={(e) => {
             e?.stopPropagation?.();
+            if (downloading) return;
             onDownload();
           }}
-          accessibilityLabel="Download"
+          disabled={downloading}
+          accessibilityLabel={
+            downloading ? `Downloading ${downloadPercent ?? 0}%` : 'Download'
+          }
           className="items-center justify-center active:opacity-80"
           style={{
             width: 32,
             height: 32,
             borderRadius: lv === 'tile' || lv === 'ghost' ? DESIGN.chipRadius : 999,
-            backgroundColor: COLORS.success,
+            backgroundColor: downloading ? COLORS.primary : COLORS.success,
+            opacity: downloading ? 0.85 : 1,
           }}
         >
-          <Download size={14} color={COLORS.white} strokeWidth={2.4} />
+          {downloading ? (
+            <ActivityIndicator size="small" color={COLORS.white} />
+          ) : (
+            <Download size={14} color={COLORS.white} strokeWidth={2.4} />
+          )}
         </Pressable>
       ) : null}
       <Box
@@ -404,18 +422,23 @@ export function OfficeAppRow({
       style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.ink }}
       numberOfLines={1}
     >
-      Site #{siteNo || '—'} · Zone {zoneCode || '—'}
+      Site #{siteNo || '—'}
+      {!zoneBesideDate ? ` · Zone ${zoneCode || '—'}` : ''}
       {engineerName ? ` · ${engineerName}` : ''}
     </Text>
   );
 
   const dateRow = dateLine ? (
-    <HStack className="items-center" style={{ gap: 4 }}>
-      <Clock size={12} color={COLORS.primary} strokeWidth={2.3} />
-      <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}>
-        {dateLine}
-      </Text>
-    </HStack>
+    zoneBesideDate ? (
+      <DateZoneMetaRow date={dateLine} zone={zoneCode} />
+    ) : (
+      <HStack className="items-center" style={{ gap: 4 }}>
+        <Clock size={12} color={COLORS.primary} strokeWidth={2.3} />
+        <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}>
+          {dateLine}
+        </Text>
+      </HStack>
+    )
   ) : null;
 
   if (lv === 'ghost') {

@@ -3,11 +3,12 @@ import { RootNavigator } from '@/src/navigation/RootNavigator';
 import { AuthProvider } from '@/src/auth/AuthContext';
 import { DeviceCameraHost } from '@/src/cdrms/components/DeviceCameraHost';
 import { PdfDownloadBannerHost } from '@/src/cdrms/components/PdfDownloadBannerHost';
+import { initPdfDownloadNotifications } from '@/src/cdrms/lib/pdfDownloadNotification';
 import { useCdrmsFonts } from '@/src/cdrms/fonts';
 import { COLORS } from '@/src/cdrms/theme';
 import { ThemeProvider } from '@/src/theme/ThemeContext';
 import '@/global.css';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
@@ -21,6 +22,10 @@ export default function App() {
   // Keyboard open/close changes bottom inset. Pushing that into Uniwind
   // restyles the tree and remounts TextInputs → keyboard blinks shut on Expo Go.
   const lastInsets = useRef({ top: -1, left: -1, right: -1, bottom: -1 });
+
+  useEffect(() => {
+    void initPdfDownloadNotifications();
+  }, []);
 
   if (!fontsLoaded) {
     return (

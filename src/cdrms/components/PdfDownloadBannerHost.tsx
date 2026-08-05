@@ -18,6 +18,7 @@ import {
   subscribePdfDownloadBanner,
   type PdfDownloadBannerState,
 } from '@/src/cdrms/lib/pdfDownloadBanner';
+import { PdfDownloadThinProgress } from '@/src/cdrms/components/PdfDownloadThinProgress';
 import { COLORS, FONTS } from '@/src/cdrms/theme';
 
 export function PdfDownloadBannerHost() {
@@ -42,10 +43,11 @@ export function PdfDownloadBannerHost() {
   const isComplete = banner.variant === 'complete';
   const isError = banner.variant === 'error';
   const isProgress = banner.variant === 'progress';
+  const percent = Math.max(0, Math.min(100, banner.percent ?? (isComplete ? 100 : 0)));
 
   const accent = isError ? COLORS.destructive : isComplete ? '#16A34A' : COLORS.primary;
   const subtitle = isProgress
-    ? 'Preparing your PDF…'
+    ? banner.body || 'Preparing your PDF…'
     : isError
       ? banner.body
       : 'Tap to open';
@@ -89,8 +91,11 @@ export function PdfDownloadBannerHost() {
             style={[styles.body, isError && styles.bodyError]}
             numberOfLines={isError ? 2 : 1}
           >
-            {isError ? subtitle : banner.body}
+            {isError ? subtitle : isProgress ? subtitle : banner.body}
           </Text>
+          {isProgress ? (
+            <PdfDownloadThinProgress percent={percent} style={{ marginTop: 8 }} />
+          ) : null}
           {isComplete ? (
             <Text style={styles.hint}>Open with Drive, Adobe, or another app</Text>
           ) : null}
