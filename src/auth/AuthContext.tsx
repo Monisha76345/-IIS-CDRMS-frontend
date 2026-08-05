@@ -4,18 +4,22 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
 import * as FileSystem from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
-import { apiRequest, ApiError } from '@/src/api/client';
+import { AppState, Platform, type AppStateStatus } from 'react-native';
+import { apiRequest, ApiError, configureApiAuth } from '@/src/api/client';
 import { isMobileAllowedRole } from '@/src/auth/roles';
 import { applyAuthTheme } from '@/src/cdrms/theme';
+import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 
 const TOKEN_KEY = 'cdrms_access_token';
+const REFRESH_TOKEN_KEY = 'cdrms_refresh_token';
 const USER_KEY = 'cdrms_auth_user';
+const DEFAULT_TIMEOUT_MINUTES = 30;
 
 export type AuthUser = {
   id?: string;
@@ -61,6 +65,8 @@ type AuthContextValue = {
   updateProfilePhoto: (photoUriOrBase64: string | null) => Promise<void>;
   updateSessionUser: (patch: Partial<AuthUser>) => void;
   refreshProfile: () => Promise<AuthUser | null>;
+  /** Call on user activity to reset idle session timer. */
+  touchSession: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -91,24 +97,126 @@ async function deleteItem(key: string) {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const accessTokenRef = useRef<string | null>(null);
+  const refreshTokenRef = useRef<string | null>(null);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timeoutMsRef = useRef(DEFAULT_TIMEOUT_MINUTES * 60_000);
+  const loggingOutRef = useRef(false);
+
+  accessTokenRef.current = accessToken;
+  refreshTokenRef.current = refreshToken;
+
+  const clearSessionLocal = useCallback(async () => {
+    await deleteItem(TOKEN_KEY);
+    await deleteItem(REFRESH_TOKEN_KEY);
+    await deleteItem(USER_KEY);
+    setAccessToken(null);
+    setRefreshToken(null);
+    setUser(null);
+  }, []);
+
+  const logout = useCallback(async () => {
+    applyAuthTheme();
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+    try {
+      if (accessTokenRef.current) {
+        await apiRequest('/auth/logout', {
+          method: 'POST',
+          token: accessTokenRef.current,
+          body: refreshTokenRef.current
+            ? { refreshToken: refreshTokenRef.current }
+            : undefined,
+          skipAuthRefresh: true,
+        });
+      }
+    } catch {
+      // clear local anyway
+    }
+    await clearSessionLocal();
+  }, [clearSessionLocal]);
+
+  const expireSession = useCallback(async () => {
+    if (loggingOutRef.current) return;
+    loggingOutRef.current = true;
+    try {
+      await logout();
+      showAppDialog({
+        variant: 'warning',
+        title: 'Session timed out',
+        message: 'You were signed out due to inactivity. Please sign in again.',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
+    } finally {
+      loggingOutRef.current = false;
+    }
+  }, [logout]);
+
+  const armIdleTimer = useCallback(() => {
+    if (!accessTokenRef.current) return;
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => {
+      void expireSession();
+    }, timeoutMsRef.current);
+  }, [expireSession]);
+
+  const touchSession = useCallback(() => {
+    armIdleTimer();
+  }, [armIdleTimer]);
+
+  useEffect(() => {
+    configureApiAuth({
+      getAccessToken: () => accessTokenRef.current,
+      getRefreshToken: () => refreshTokenRef.current,
+      setTokens: async (access, refresh) => {
+        accessTokenRef.current = access;
+        setAccessToken(access);
+        await saveItem(TOKEN_KEY, access);
+        if (refresh) {
+          refreshTokenRef.current = refresh;
+          setRefreshToken(refresh);
+          await saveItem(REFRESH_TOKEN_KEY, refresh);
+        }
+      },
+      onSessionExpired: async () => {
+        applyAuthTheme();
+        await clearSessionLocal();
+        showAppDialog({
+          variant: 'warning',
+          title: 'Session expired',
+          message: 'Please sign in again.',
+          hideCancel: true,
+          confirmLabel: 'OK',
+        });
+      },
+    });
+  }, [clearSessionLocal]);
 
   useEffect(() => {
     (async () => {
       try {
-        const [token, rawUser] = await Promise.all([
+        const [token, refresh, rawUser] = await Promise.all([
           readItem(TOKEN_KEY),
+          readItem(REFRESH_TOKEN_KEY),
           readItem(USER_KEY),
         ]);
 
         if (!token) {
           if (rawUser) await deleteItem(USER_KEY);
           setAccessToken(null);
+          setRefreshToken(null);
           setUser(null);
           return;
         }
 
-        // Validate token before restoring session (expired / invalid → login).
+        setRefreshToken(refresh);
+        refreshTokenRef.current = refresh;
+
         try {
           const profile = await apiRequest<AuthUser>('/auth/profile', { token });
           if (!profile || !(profile.id || profile.email || profile.loginId)) {
@@ -126,25 +234,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             err instanceof ApiError && !authRejected && Boolean(rawUser);
 
           if (transient) {
-            // Network/5xx with cached user — keep until proven invalid.
             setAccessToken(token);
             setUser(JSON.parse(rawUser!) as AuthUser);
             return;
           }
 
-          await deleteItem(TOKEN_KEY);
-          await deleteItem(USER_KEY);
-          setAccessToken(null);
-          setUser(null);
+          await clearSessionLocal();
         }
       } catch {
         setAccessToken(null);
+        setRefreshToken(null);
         setUser(null);
       } finally {
         setHydrated(true);
       }
     })();
-  }, []);
+  }, [clearSessionLocal]);
+
+  useEffect(() => {
+    if (!accessToken) {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = null;
+      }
+      return;
+    }
+
+    let cancelled = false;
+    void apiRequest<{ sessionTimeoutMinutes?: number }>('/auth/session-config', {
+      skipAuthRefresh: true,
+    })
+      .then((cfg) => {
+        if (cancelled) return;
+        const minutes = Number(cfg?.sessionTimeoutMinutes);
+        if (Number.isFinite(minutes) && minutes > 0) {
+          timeoutMsRef.current = minutes * 60_000;
+        }
+        armIdleTimer();
+      })
+      .catch(() => {
+        if (!cancelled) armIdleTimer();
+      });
+
+    const onAppState = (state: AppStateStatus) => {
+      if (state === 'active') armIdleTimer();
+    };
+    const sub = AppState.addEventListener('change', onAppState);
+
+    return () => {
+      cancelled = true;
+      sub.remove();
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+  }, [accessToken, armIdleTimer]);
 
   const login = useCallback(async (loginIdOrEmail: string, password: string) => {
     try {
@@ -155,6 +297,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }>('/auth/login', {
         method: 'POST',
         body: { email: loginIdOrEmail.trim(), password },
+        skipAuthRefresh: true,
       });
       if (!res.accessToken) {
         throw new ApiError(500, 'Login succeeded but no access token returned');
@@ -167,6 +310,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       const nextUser = res.user ?? {};
       await saveItem(TOKEN_KEY, res.accessToken);
+      if (res.refreshToken) {
+        await saveItem(REFRESH_TOKEN_KEY, res.refreshToken);
+        setRefreshToken(res.refreshToken);
+        refreshTokenRef.current = res.refreshToken;
+      }
       await saveItem(USER_KEY, JSON.stringify(nextUser));
       setAccessToken(res.accessToken);
       setUser(nextUser);
@@ -176,24 +324,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new ApiError(0, 'Unable to reach CDRMS API. Check EXPO_PUBLIC_API_URL.');
     }
   }, []);
-
-  const logout = useCallback(async () => {
-    applyAuthTheme();
-    try {
-      if (accessToken) {
-        await apiRequest('/auth/logout', {
-          method: 'POST',
-          token: accessToken,
-        });
-      }
-    } catch {
-      // clear local anyway
-    }
-    await deleteItem(TOKEN_KEY);
-    await deleteItem(USER_KEY);
-    setAccessToken(null);
-    setUser(null);
-  }, [accessToken]);
 
   const updateProfilePhoto = useCallback(
     async (photoUriOrBase64: string | null) => {
@@ -283,6 +413,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateProfilePhoto,
       updateSessionUser,
       refreshProfile,
+      touchSession,
     }),
     [
       user,
@@ -292,6 +423,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateProfilePhoto,
       updateSessionUser,
       refreshProfile,
+      touchSession,
     ],
   );
 

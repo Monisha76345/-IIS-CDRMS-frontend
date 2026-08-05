@@ -109,13 +109,14 @@ function ScreenTransitionWrapper({
 }
 
 export function CdrmsApp() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, touchSession } = useAuth();
   const [screen, setScreen] = useState<Screen>('splash');
   const historyRef = useRef<Screen[]>([]);
   const authedRef = useRef(isAuthenticated);
   authedRef.current = isAuthenticated;
 
   const go: Go = useCallback((next, opts) => {
+    touchSession();
     setScreen((current) => {
       if (current === next) return current;
 
@@ -140,7 +141,7 @@ export function CdrmsApp() {
       }
       return next;
     });
-  }, []);
+  }, [touchSession]);
 
   // Screens without an in-app back (profile / notifications tabs): pop history.
   useHardwareBackFallback(() => {
