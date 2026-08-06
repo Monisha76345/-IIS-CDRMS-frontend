@@ -1,16 +1,13 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { Navigation } from 'lucide-react-native';
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, Pressable } from 'react-native';
+import { Animated, Easing } from 'react-native';
+import Svg, { Line, Polygon, Text as SvgText } from 'react-native-svg';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import { FrostedGlass } from '@/src/cdrms/components/GlassSurface';
 import {
-  CARDINAL_DEGREES,
-  formatCardinalReading,
+  cardinalNameFromHeading,
   formatLiveReading,
   parseCompassReading,
   SIMULATOR_COMPASS_FACE,
@@ -19,25 +16,55 @@ import {
   useCompass,
 } from '@/src/cdrms/hooks/useCompass';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
-import { CARDINAL_ACCENT, COLORS, FONTS, GLASS, SPACE, cardinalAccentColor, DESIGN } from '@/src/cdrms/theme';
+import {
+  CARDINAL_ACCENT,
+  COLORS,
+  DESIGN,
+  FONTS,
+  GLASS,
+  SPACE,
+  TYPE,
+  cardinalAccentColor,
+  hexAlpha,
+} from '@/src/cdrms/theme';
 
-const SIZE = 132;
+const DIAL = 216;
+/** Padding outside tick ring so degree labels are not clipped. */
+const LABEL_PAD = 24;
+const SIZE = DIAL + LABEL_PAD * 2;
 const CENTER = SIZE / 2;
-const LABEL_R = 48;
-const TICK_R = 52;
+const TICK_INNER = 88;
+const TICK_OUTER = 100;
+const NUMBER_R = 112;
+const LABEL_R = 68;
 
-const DIAL_LABELS = [
-  { label: 'N', deg: 0, color: '#DC2626', size: 12 },
-  { label: 'E', deg: 90, color: CARDINAL_ACCENT.E, size: 11 },
-  { label: 'S', deg: 180, color: CARDINAL_ACCENT.S, size: 11 },
-  { label: 'W', deg: 270, color: CARDINAL_ACCENT.W, size: 11 },
-] as const;
+const RING_DEGREES = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
 
-const PICK_FACES: CompassCardinal[] = ['N', 'E', 'S', 'W'];
+/** 0° at bottom, clockwise — matches native compass apps. */
+function dialRad(deg: number): number {
+  return ((deg + 90) * Math.PI) / 180;
+}
+
+function dialPoint(deg: number, radius: number) {
+  const rad = dialRad(deg);
+  return {
+    x: CENTER + radius * Math.cos(rad),
+    y: CENTER + radius * Math.sin(rad),
+  };
+}
+
+function decimalToDms(decimal: number): string {
+  const abs = Math.abs(decimal);
+  const d = Math.floor(abs);
+  const minFloat = (abs - d) * 60;
+  const m = Math.floor(minFloat);
+  const s = Math.round((minFloat - m) * 60);
+  return `${d}°${m}'${s}"`;
+}
 
 /**
  * Live sensor compass (real device).
- * Simulator / no-sensor: auto-seeds North + tap N/E/S/W to set facing.
+ * Simulator / no-sensor: auto-seeds North so Continue can unlock.
  */
 export function LiveCompassDial() {
   const { draft, setCompassReading } = useProject();
@@ -53,13 +80,32 @@ export function LiveCompassDial() {
   const heading = Math.round(
     compass.available ? compass.heading : parsed?.heading ?? SIMULATOR_COMPASS_HEADING,
   );
-  const faceColor = cardinalAccentColor(face);
+  const accent = cardinalAccentColor(face);
   const roseRotation = -heading;
+  const hasReading = Boolean(draft.compassReading.trim());
+  const directionName = hasReading ? cardinalNameFromHeading(heading) : '—';
   const needsManualPick =
     !compass.available ||
     compass.source === 'simulator' ||
     compass.status === 'unavailable' ||
     compass.status === 'permission';
+
+  const tickMajor = hexAlpha(COLORS.primary, 0.42);
+  const tickMinor = hexAlpha(COLORS.primary, 0.18);
+  const dialLabels = [
+    { label: 'N', deg: 0, color: CARDINAL_ACCENT.N, size: 18 },
+    { label: 'E', deg: 90, color: CARDINAL_ACCENT.E, size: 15 },
+    { label: 'S', deg: 180, color: CARDINAL_ACCENT.S, size: 15 },
+    { label: 'W', deg: 270, color: CARDINAL_ACCENT.W, size: 15 },
+  ] as const;
+
+  const gps = draft.gps;
+  const nl = gps ? decimalToDms(gps.latitude) : '—';
+  const el = gps ? decimalToDms(gps.longitude) : '—';
+  const elevation =
+    gps?.altitude != null && Number.isFinite(gps.altitude)
+      ? `${gps.altitude.toFixed(1)}m`
+      : '—';
 
   useEffect(() => {
     Animated.timing(rotateAnim, {
@@ -101,241 +147,194 @@ export function LiveCompassDial() {
     setCompassReading,
   ]);
 
-  const pickFace = (f: CompassCardinal) => {
-    const reading = formatCardinalReading(f);
-    lastSaved.current = reading;
-    seededFallback.current = true;
-    setCompassReading(reading);
-  };
-
   return (
-    <FrostedGlass
-      borderRadius={14}
-      padding={SPACE[3]}
-      fill={GLASS.surfaceSolid}
-      sheen={false}
-      style={{ borderTopWidth: 2, borderTopColor: faceColor }}
-    >
-      <VStack className="items-center" style={{ gap: SPACE[2], width: '100%' }}>
-        {needsManualPick ? (
-          <Text
-            style={{
-              fontFamily: FONTS.semibold,
-              fontSize: 11,
-              color: COLORS.slate,
-              textAlign: 'center',
-            }}
-          >
-            {compass.source === 'simulator' || compass.status === 'unavailable'
-              ? `No live compass · facing set to ${SIMULATOR_COMPASS_FACE}. Tap to change.`
-              : 'Allow location / use a real device for live compass — or tap a direction below.'}
-          </Text>
-        ) : null}
+    <VStack className="items-center" style={{ gap: SPACE[3], width: '100%' }}>
+      {needsManualPick ? (
+        <Text
+          style={{
+            ...TYPE.caption,
+            fontFamily: FONTS.semibold,
+            color: COLORS.slate,
+            textAlign: 'center',
+          }}
+        >
+          {compass.source === 'simulator' || compass.status === 'unavailable'
+            ? `No live compass · facing set to ${SIMULATOR_COMPASS_FACE}.`
+            : 'Allow location / use a real device for live compass.'}
+        </Text>
+      ) : null}
 
-        <Box className="relative items-center justify-center" style={{ width: SIZE, height: SIZE }}>
-          <LinearGradient
-            pointerEvents="none"
-            colors={['#EFF6FF', '#EFF6FF', '#FFFFFF']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              position: 'absolute',
-              width: SIZE + 8,
-              height: SIZE + 8,
-              borderRadius: 999,
-              top: -4,
-              left: -4,
-            }}
-          />
-
-          <Box
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              top: -2,
-              zIndex: 5,
-              alignItems: 'center',
-            }}
-          >
-            <Box
-              style={{
-                width: 0,
-                height: 0,
-                borderLeftWidth: 6,
-                borderRightWidth: 6,
-                borderBottomWidth: 10,
-                borderLeftColor: 'transparent',
-                borderRightColor: 'transparent',
-                borderBottomColor: '#DC2626',
-              }}
-            />
-          </Box>
-
-          <Animated.View
-            style={{
-              width: SIZE,
-              height: SIZE,
-              alignItems: 'center',
-              justifyContent: 'center',
-              transform: [
-                {
-                  rotate: rotateAnim.interpolate({
-                    inputRange: [-720, 720],
-                    outputRange: ['-720deg', '720deg'],
-                  }),
-                },
-              ],
-            }}
-          >
-            <Box
-              className="absolute inset-0 rounded-full"
-              style={{
-                borderWidth: 5,
-                borderColor: draft.compassReading.trim() ? '#93C5FD' : '#E2E8F0',
-                backgroundColor: '#F8FAFF',
-              }}
-            />
-
-            {Array.from({ length: 36 }).map((_, i) => {
-              const deg = i * 10;
-              const rad = ((deg - 90) * Math.PI) / 180;
-              const major = i % 3 === 0;
-              const x = CENTER + TICK_R * Math.cos(rad);
-              const y = CENTER + TICK_R * Math.sin(rad);
-              return (
-                <Box
-                  key={i}
-                  pointerEvents="none"
-                  style={{
-                    position: 'absolute',
-                    left: x - (major ? 1 : 0.5),
-                    top: y - (major ? 4 : 2),
-                    width: major ? 2 : 1,
-                    height: major ? 7 : 3.5,
-                    backgroundColor: major ? COLORS.primary : '#BFDBFE',
-                    borderRadius: 999,
-                    transform: [{ rotate: `${deg}deg` }],
-                  }}
-                />
-              );
-            })}
-
-            {DIAL_LABELS.map((d) => {
-              const rad = ((d.deg - 90) * Math.PI) / 180;
-              const x = CENTER + LABEL_R * Math.cos(rad);
-              const y = CENTER + LABEL_R * Math.sin(rad);
-              return (
-                <Text
-                  key={d.label}
-                  pointerEvents="none"
-                  style={{
-                    position: 'absolute',
-                    left: x - 7,
-                    top: y - 7,
-                    width: 14,
-                    textAlign: 'center',
-                    fontSize: d.size,
-                    fontWeight: '900',
-                    color: d.color,
-                  }}
-                >
-                  {d.label}
-                </Text>
-              );
-            })}
-
-            <LinearGradient
-              colors={
-                draft.compassReading.trim()
-                  ? [COLORS.primaryGlow, COLORS.primary]
-                  : ['#94A3B8', '#64748B']
-              }
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{
-                height: 36,
-                width: 36,
-                borderRadius: DESIGN.cardRadius,
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 2,
-              }}
-            >
-              <Navigation
-                size={15}
-                color="#fff"
-                strokeWidth={2.4}
-                style={{ transform: [{ rotate: '-45deg' }] }}
+      <Box
+        className="relative items-center justify-center"
+        style={{
+          width: SIZE,
+          height: SIZE,
+          overflow: 'visible',
+        }}
+      >
+        <Svg width={SIZE} height={SIZE} pointerEvents="none" style={{ overflow: 'visible' }}>
+          {Array.from({ length: 72 }).map((_, i) => {
+            const deg = i * 5;
+            const major = deg % 30 === 0;
+            const inner = major ? TICK_INNER - 4 : TICK_INNER;
+            const outer = TICK_OUTER;
+            const a = dialPoint(deg, inner);
+            const b = dialPoint(deg, outer);
+            const inArc = hasReading && deg <= heading;
+            return (
+              <Line
+                key={`tick-${deg}`}
+                x1={a.x}
+                y1={a.y}
+                x2={b.x}
+                y2={b.y}
+                stroke={inArc ? accent : major ? tickMajor : tickMinor}
+                strokeWidth={major ? 1.8 : 1}
+                strokeOpacity={inArc ? 1 : 1}
               />
-            </LinearGradient>
-          </Animated.View>
-        </Box>
+            );
+          })}
 
-        <HStack style={{ alignItems: 'baseline', gap: 6, justifyContent: 'center' }}>
+          {RING_DEGREES.map((deg) => {
+            const { x, y } = dialPoint(deg, NUMBER_R);
+            const inArc = hasReading && deg <= heading;
+            return (
+              <SvgText
+                key={`num-${deg}`}
+                x={x}
+                y={y}
+                fill={deg === 0 || inArc ? accent : COLORS.slate}
+                fontSize={11}
+                fontWeight="700"
+                textAnchor="middle"
+                alignmentBaseline="middle"
+              >
+                {String(deg)}
+              </SvgText>
+            );
+          })}
+
+          {(() => {
+            const tip = dialPoint(0, TICK_INNER - 10);
+            const left = dialPoint(352, TICK_INNER - 2);
+            const right = dialPoint(8, TICK_INNER - 2);
+            return (
+              <Polygon
+                points={`${tip.x},${tip.y} ${left.x},${left.y} ${right.x},${right.y}`}
+                fill={CARDINAL_ACCENT.N}
+              />
+            );
+          })()}
+        </Svg>
+
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            width: SIZE,
+            height: SIZE,
+            alignItems: 'center',
+            justifyContent: 'center',
+            transform: [
+              {
+                rotate: rotateAnim.interpolate({
+                  inputRange: [-720, 720],
+                  outputRange: ['-720deg', '720deg'],
+                }),
+              },
+            ],
+          }}
+        >
+          {dialLabels.map((d) => {
+            const { x, y } = dialPoint(d.deg, LABEL_R);
+            return (
+              <Text
+                key={d.label}
+                style={{
+                  position: 'absolute',
+                  left: x - d.size * 0.55,
+                  top: y - d.size * 0.55,
+                  width: d.size * 1.1,
+                  textAlign: 'center',
+                  fontSize: d.size,
+                  fontFamily: FONTS.bold,
+                  fontWeight: '900',
+                  color: d.color,
+                }}
+              >
+                {d.label}
+              </Text>
+            );
+          })}
+        </Animated.View>
+
+        <Box pointerEvents="none" className="absolute inset-0 items-center justify-center">
           <Text
             style={{
               fontFamily: FONTS.bold,
-              fontSize: 22,
-              lineHeight: 26,
-              color: COLORS.ink,
+              fontSize: 36,
+              lineHeight: 40,
+              color: COLORS.primaryDeep,
+              fontWeight: '800',
             }}
           >
-            {draft.compassReading.trim() ? `${heading}°` : '—'}
+            {hasReading ? `${heading}°` : '—'}
           </Text>
-          {draft.compassReading.trim() ? (
-            <Box
-              style={{
-                paddingHorizontal: 8,
-                paddingVertical: 3,
-                borderRadius: 999,
-                backgroundColor: GLASS.tintBlue,
-                borderWidth: 1,
-                borderColor: '#BFDBFE',
-              }}
-            >
-              <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: faceColor }}>
-                {face}
-              </Text>
-            </Box>
-          ) : null}
+        </Box>
+      </Box>
+
+      <Text
+        style={{
+          fontFamily: FONTS.bold,
+          fontSize: 17,
+          color: accent,
+          textAlign: 'center',
+        }}
+      >
+        {directionName}
+      </Text>
+
+      <Box
+        style={{
+          width: '100%',
+          borderRadius: DESIGN.cardRadius,
+          backgroundColor: GLASS.tintBlue,
+          borderWidth: 1,
+          borderColor: hexAlpha(COLORS.primary, 0.12),
+          paddingVertical: SPACE[3],
+          paddingHorizontal: SPACE[4],
+          gap: SPACE[2],
+        }}
+      >
+        <HStack style={{ justifyContent: 'space-around' }}>
+          <VStack className="items-center" style={{ gap: 2, flex: 1 }}>
+            <Text style={{ ...TYPE.caption, fontFamily: FONTS.semibold, color: COLORS.slate, fontSize: 10 }}>
+              NL
+            </Text>
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink, fontWeight: '800' }}>
+              {nl}
+            </Text>
+          </VStack>
+          <Box style={{ width: 1, backgroundColor: GLASS.divider, alignSelf: 'stretch' }} />
+          <VStack className="items-center" style={{ gap: 2, flex: 1 }}>
+            <Text style={{ ...TYPE.caption, fontFamily: FONTS.semibold, color: COLORS.slate, fontSize: 10 }}>
+              EL
+            </Text>
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink, fontWeight: '800' }}>
+              {el}
+            </Text>
+          </VStack>
         </HStack>
 
-        {needsManualPick ? (
-          <HStack style={{ gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-            {PICK_FACES.map((f) => {
-              const on = face === f && Boolean(draft.compassReading.trim());
-              return (
-                <Pressable
-                  key={f}
-                  onPress={() => pickFace(f)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Facing ${f}`}
-                  style={{
-                    minWidth: 52,
-                    paddingVertical: 10,
-                    paddingHorizontal: 12,
-                    borderRadius: DESIGN.cardRadius,
-                    alignItems: 'center',
-                    backgroundColor: on ? COLORS.primary : COLORS.white,
-                    borderWidth: 1.5,
-                    borderColor: on ? COLORS.primary : COLORS.border,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontFamily: FONTS.bold,
-                      fontSize: 14,
-                      color: on ? COLORS.white : COLORS.ink,
-                    }}
-                  >
-                    {f}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </HStack>
-        ) : null}
-      </VStack>
-    </FrostedGlass>
+        <Box style={{ height: 1, backgroundColor: GLASS.divider }} />
+
+        <HStack className="items-center justify-between">
+          <Text style={{ fontFamily: FONTS.bold, color: COLORS.ink, fontSize: 13 }}>Elevation</Text>
+          <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink, fontWeight: '800' }}>
+            {elevation}
+          </Text>
+        </HStack>
+      </Box>
+    </VStack>
   );
 }
