@@ -70,6 +70,19 @@ const AUTH_SCREENS: ReadonlySet<Screen> = new Set([
   'geo',
 ]);
 
+/** In-flow survey steps — no full-screen transition spinner (feels like a reload). */
+const SURVEY_FLOW_SCREENS: ReadonlySet<Screen> = new Set([
+  'project',
+  'bandi',
+  'dimensions',
+  'directions',
+  'surroundings',
+  'photos',
+  'video',
+  'validate',
+  'review',
+]);
+
 function ScreenTransitionWrapper({
   screen,
   children,
@@ -79,9 +92,10 @@ function ScreenTransitionWrapper({
 }) {
   const [transitioning, setTransitioning] = useState(false);
   const isAuthScreen = AUTH_SCREENS.has(screen);
+  const isSurveyFlowScreen = SURVEY_FLOW_SCREENS.has(screen);
 
   useEffect(() => {
-    if (isAuthScreen) {
+    if (isAuthScreen || isSurveyFlowScreen) {
       setTransitioning(false);
       return;
     }
@@ -90,7 +104,7 @@ function ScreenTransitionWrapper({
       setTransitioning(false);
     }, 500);
     return () => clearTimeout(timer);
-  }, [screen, isAuthScreen]);
+  }, [screen, isAuthScreen, isSurveyFlowScreen]);
 
   return (
     <Box className="flex-1">
