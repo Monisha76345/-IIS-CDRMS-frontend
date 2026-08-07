@@ -839,6 +839,29 @@ export function ZcCreateScreen({ go }: { go: Go }) {
         confirmLabel: 'OK',
       });
     } catch (e) {
+      const forbidden =
+      e instanceof ApiError &&
+      (e.status === 403 || /insufficient permissions/i.test(e.message));
+    if (forbidden) {
+      setForm((f) => ({ ...f, siteDimension: normalized }));
+      setAddingDim(false);
+      setNewDimValue('');
+      setDimOpen(false);
+      setFieldErrors((prev) => {
+        if (!prev.siteDimension) return prev;
+        const next = { ...prev };
+        delete next.siteDimension;
+        return next;
+      });
+      showAppDialog({
+        variant: 'warning',
+        title: 'Dimension applied',
+        message: `${normalized} will be used for this application. It could not be saved to the shared list (permission required).`,
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
+      return;
+    }
       showAppDialog({
         variant: 'error',
         title: 'Could not save',

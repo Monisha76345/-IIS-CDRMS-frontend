@@ -1,4 +1,4 @@
-import { apiRequest } from './client';
+import { apiRequest, ApiError } from './client';
 
 function asData<T>(payload: unknown): T {
   if (
@@ -171,16 +171,32 @@ export async function createSiteDimension(
 ): Promise<SiteDimensionOption> {
   const normalized = label.trim().replace(/\s+/g, '');
   const code = `DIM-${normalized.replace(/\*/g, 'x').replace(/[^\w]/g, '')}`.slice(0, 50);
-  const raw = await apiRequest<unknown>('/masters/attributes', {
-    method: 'POST',
-    token,
-    body: {
-      type: 'site_dimension',
-      label: normalized,
-      code,
-      status: 'Active',
-    },
-  });
+  const body = {
+    type: 'site_dimension',
+    label: normalized,
+    code,
+    status: 'Active',
+  };
+
+  let raw: unknown;
+  try {
+    raw = await apiRequest<unknown>('/applications/meta/site-dimensions', {
+      method: 'POST',
+      token,
+      body: { label: normalized },
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) {
+      raw = await apiRequest<unknown>('/masters/attributes', {
+        method: 'POST',
+        token,
+        body,
+      });
+    } else {
+      throw err;
+    }
+  }
+
   const row = asData<Record<string, unknown>>(raw);
   return {
     id: String(row.id ?? ''),
