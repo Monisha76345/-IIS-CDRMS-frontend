@@ -117,12 +117,10 @@ export function ZcHomeScreen({ go }: { go: Go }) {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<ZcTab>('all');
   const [q, setQ] = useState('');
-  const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     if (!accessToken) return;
     setLoading(true);
-    setError(null);
     const fallbackZone = user?.activePost?.zoneCode?.trim() || null;
     try {
       const [list, meta] = await Promise.all([
@@ -134,7 +132,6 @@ export function ZcHomeScreen({ go }: { go: Go }) {
       // (that caused Welcome EAST vs Profile SOUTH mismatches).
       setZoneLabel(meta?.zoneCode?.trim() || fallbackZone);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Failed to load applications');
       setApps([]);
       setZoneLabel(fallbackZone);
     } finally {
@@ -352,10 +349,6 @@ export function ZcHomeScreen({ go }: { go: Go }) {
 
           {loading ? (
             <ListLoader text="Loading ZC applications…" />
-          ) : error ? (
-            <Text className="text-[13px] mt-4" style={{ color: COLORS.destructive }}>
-              {error}
-            </Text>
           ) : filtered.length === 0 ? (
             <Box
               className="rounded-2xl border border-dashed px-4 py-8 mt-3"

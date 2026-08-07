@@ -1496,31 +1496,4 @@ export function ReturnedScreen({ go }: { go: Go }) {
   );
 }
 
-export function ErrorScreen({ go }: { go: Go }) {
-  return (
-    <ScreenShell>
-      <AppHeader title="Connection Error" onBack={() => go('dashboard')} go={go} />
-      <VStack className="flex-1">
-        <VStack className="flex-1 items-center justify-center px-8">
-          <Box className="h-28 w-28 rounded-full bg-destructive/10 items-center justify-center">
-            <WifiOff size={56} color={COLORS.destructive} strokeWidth={1.8} />
-          </Box>
-          <Text className="mt-8 text-2xl font-extrabold text-foreground text-center">
-            Something went wrong
-          </Text>
-          <Text className="mt-2 text-sm text-muted-foreground text-center max-w-xs">
-            We couldn't complete this action. Check your connection and try again.
-          </Text>
-        </VStack>
-        <VStack space="md" className="p-5">
-          <AppBtn onPress={() => go('dashboard')} icon={RefreshCw}>
-            Retry
-          </AppBtn>
-          <AppBtn variant="outline" onPress={() => go('dashboard')}>
-            Back to Home
-          </AppBtn>
-        </VStack>
-      </VStack>
-    </ScreenShell>
-  );
-}
+export { ErrorScreen } from '@/src/errors/ErrorScreen';

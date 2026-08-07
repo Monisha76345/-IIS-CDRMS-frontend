@@ -1,0 +1,148 @@
+import type { ErrorActionId, ErrorKind, ErrorKindConfig } from "./types";
+
+const ASSET = {
+  bad400: require("../../assets/errors/400.png"),
+  unauthorized: require("../../assets/errors/401.png"),
+  forbidden: require("../../assets/errors/403.png"),
+  page404: require("../../assets/errors/404-page.png"),
+  api404: require("../../assets/errors/404-api.png"),
+  timeout: require("../../assets/errors/408.png"),
+  internal: require("../../assets/errors/500.png"),
+  badGateway: require("../../assets/errors/502.png"),
+  unavailable: require("../../assets/errors/503.png"),
+  gatewayTimeout: require("../../assets/errors/504.png"),
+  network: require("../../assets/errors/network.png"),
+} as const;
+
+export const ERROR_KIND_CONFIG: Record<ErrorKind, ErrorKindConfig> = {
+  bad_request: {
+    kind: "bad_request",
+    code: 400,
+    accent: "#E53935",
+    tipsBg: "#FDF2F2",
+    illustration: ASSET.bad400,
+    tipCount: 3,
+    primaryAction: "goBack",
+    secondaryAction: "contactSupport",
+  },
+  unauthorized: {
+    kind: "unauthorized",
+    code: 401,
+    accent: "#2563EB",
+    tipsBg: "#EFF6FF",
+    illustration: ASSET.unauthorized,
+    tipCount: 2,
+    primaryAction: "loginNow",
+    secondaryAction: "goHome",
+  },
+  page_not_found: {
+    kind: "page_not_found",
+    code: 404,
+    accent: "#D95D2D",
+    tipsBg: "#FEF9F2",
+    illustration: ASSET.page404,
+    tipCount: 3,
+    primaryAction: "goHome",
+    secondaryAction: "goBack",
+  },
+  api_not_found: {
+    kind: "api_not_found",
+    code: 404,
+    accent: "#28A745",
+    tipsBg: "#F0FDF4",
+    illustration: ASSET.api404,
+    tipCount: 3,
+    primaryAction: "goBack",
+    secondaryAction: "retry",
+  },
+  timeout: {
+    kind: "timeout",
+    code: 408,
+    accent: "#D95D2D",
+    tipsBg: "#FEF9F2",
+    illustration: ASSET.timeout,
+    tipCount: 3,
+    primaryAction: "retry",
+    secondaryAction: "goBack",
+  },
+  internal: {
+    kind: "internal",
+    code: 500,
+    accent: "#2563EB",
+    tipsBg: "#EFF6FF",
+    illustration: ASSET.internal,
+    tipCount: 3,
+    primaryAction: "retry",
+    secondaryAction: "goBack",
+  },
+  bad_gateway: {
+    kind: "bad_gateway",
+    code: 502,
+    accent: "#008C9E",
+    tipsBg: "#ECFEFF",
+    illustration: ASSET.badGateway,
+    tipCount: 3,
+    primaryAction: "retry",
+    secondaryAction: "goBack",
+  },
+  service_unavailable: {
+    kind: "service_unavailable",
+    code: 503,
+    accent: "#3B82F6",
+    tipsBg: "#EFF6FF",
+    illustration: ASSET.unavailable,
+    tipCount: 3,
+    primaryAction: "retry",
+    secondaryAction: "retryLater",
+  },
+  gateway_timeout: {
+    kind: "gateway_timeout",
+    code: 504,
+    accent: "#D95D2D",
+    tipsBg: "#FEF9F2",
+    illustration: ASSET.gatewayTimeout,
+    tipCount: 3,
+    primaryAction: "retry",
+    secondaryAction: "goBack",
+  },
+  network: {
+    kind: "network",
+    code: null,
+    accent: "#008C9E",
+    tipsBg: "#ECFEFF",
+    illustration: ASSET.network,
+    tipCount: 3,
+    primaryAction: "retry",
+    secondaryAction: "goHome",
+  },
+  unexpected: {
+    kind: "unexpected",
+    code: 500,
+    accent: "#D97706",
+    tipsBg: "#FFFBEB",
+    illustration: ASSET.internal,
+    tipCount: 3,
+    primaryAction: "retry",
+    secondaryAction: "goHome",
+  },
+};
+
+export function getErrorKindConfig(
+  kind: ErrorKind,
+  statusHint?: number | null,
+): ErrorKindConfig {
+  const base = ERROR_KIND_CONFIG[kind];
+  if (kind === "unauthorized" && statusHint === 403) {
+    return {
+      ...base,
+      code: 403,
+      accent: "#E53935",
+      tipsBg: "#FDF2F2",
+      illustration: ASSET.forbidden,
+      tipCount: 2,
+      primaryAction: "goBack" as ErrorActionId,
+      secondaryAction: "contactAdmin" as ErrorActionId,
+    };
+  }
+  return base;
+}

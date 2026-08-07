@@ -184,6 +184,7 @@ export async function createSiteDimension(
       method: 'POST',
       token,
       body: { label: normalized },
+      skipErrorPage: true,
     });
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) {

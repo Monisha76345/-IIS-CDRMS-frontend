@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box } from '@/components/ui/box';
 import { ProjectProvider } from '@/src/cdrms/project/ProjectContext';
 import { useAuth } from '@/src/auth/AuthContext';
+import { homeScreenForRole } from '@/src/auth/roles';
 import {
   GeoScreen,
   LoginScreen,
@@ -29,12 +30,13 @@ import {
 import { DimensionsScreen } from '@/src/cdrms/screens/DimensionsScreen';
 import {
   DraftScreen,
-  ErrorScreen,
   ReturnedScreen,
   ReviewScreen,
   SuccessScreen,
   ValidateScreen,
 } from '@/src/cdrms/screens/StateScreens';
+import { ErrorBoundary, ErrorScreen, navigateToApiError } from '@/src/errors';
+import { configureApiErrorPage } from '@/src/api/client';
 import {
   CaoApplicationsScreen,
   CaoApprovalScreen,
@@ -46,7 +48,7 @@ import {
   ZcDetailScreen,
   ZcHomeScreen,
 } from '@/src/cdrms/screens/ZcScreens';
-import type { Go, Screen } from '@/src/cdrms/types';
+import type { ErrorNavState, Go, Screen } from '@/src/cdrms/types';
 import { AppDialogHost } from '@/src/cdrms/components/AppDialog';
 import { ScreenLoader } from '@/src/cdrms/components/primitives';
 import { useHardwareBackFallback } from '@/src/cdrms/hooks/useHardwareBack';
@@ -123,14 +125,27 @@ function ScreenTransitionWrapper({
 }
 
 export function CdrmsApp() {
-  const { isAuthenticated, touchSession } = useAuth();
+  const { isAuthenticated, touchSession, user } = useAuth();
   const [screen, setScreen] = useState<Screen>('splash');
+  const [errorNav, setErrorNav] = useState<ErrorNavState>({
+    kind: 'network',
+    status: null,
+    variant: 'global',
+  });
   const historyRef = useRef<Screen[]>([]);
   const authedRef = useRef(isAuthenticated);
   authedRef.current = isAuthenticated;
 
   const go: Go = useCallback((next, opts) => {
     touchSession();
+    if (next === 'error') {
+      setErrorNav({
+        kind: opts?.errorKind ?? 'network',
+        status: opts?.errorStatus ?? null,
+        onRetry: opts?.onRetry,
+        variant: opts?.errorVariant ?? (authedRef.current ? 'shell' : 'global'),
+      });
+    }
     setScreen((current) => {
       if (current === next) return current;
 
@@ -156,6 +171,31 @@ export function CdrmsApp() {
       return next;
     });
   }, [touchSession]);
+
+  const screenRef = useRef(screen);
+  const goRef = useRef(go);
+  screenRef.current = screen;
+  goRef.current = go;
+
+  // Global API ErrorScreen for 404 / network / 5xx (and 403) from any apiRequest.
+  useEffect(() => {
+    configureApiErrorPage((error) => {
+      const current = screenRef.current;
+      if (
+        current === 'error' ||
+        current === 'login' ||
+        current === 'splash' ||
+        current === 'otp'
+      ) {
+        return;
+      }
+      navigateToApiError(goRef.current, error, {
+        returnScreen: current,
+        variant: authedRef.current ? 'shell' : 'global',
+      });
+    });
+    return () => configureApiErrorPage(null);
+  }, []);
 
   // Screens without an in-app back (profile / notifications tabs): pop history.
   useHardwareBackFallback(() => {
@@ -243,18 +283,42 @@ export function CdrmsApp() {
       case 'profile':
         return <ProfileScreen go={go} />;
       case 'error':
-        return <ErrorScreen go={go} />;
+        return (
+          <ErrorScreen
+            go={go}
+            kind={errorNav.kind}
+            status={errorNav.status}
+            variant={errorNav.variant}
+            onRetry={
+              errorNav.onRetry ??
+              (() =>
+                go(isAuthenticated ? homeScreenForRole(user) : 'login', {
+                  replace: true,
+                }))
+            }
+          />
+        );
+      default:
+        return (
+          <ErrorScreen
+            go={go}
+            kind="page_not_found"
+            variant={isAuthenticated ? 'shell' : 'global'}
+          />
+        );
     }
-  }, [screen, go]);
+  }, [screen, go, errorNav, isAuthenticated]);
 
   return (
     <ProjectProvider>
       <Box className="flex-1 bg-background">
-        <ScreenTransitionWrapper screen={screen}>
-          <Box key={screen} className="flex-1">
-            {rendered}
-          </Box>
-        </ScreenTransitionWrapper>
+        <ErrorBoundary go={go}>
+          <ScreenTransitionWrapper screen={screen}>
+            <Box key={screen} className="flex-1">
+              {rendered}
+            </Box>
+          </ScreenTransitionWrapper>
+        </ErrorBoundary>
         <AppDialogHost />
       </Box>
     </ProjectProvider>

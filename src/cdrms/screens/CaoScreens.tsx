@@ -84,13 +84,11 @@ export function CaoHomeScreen({ go }: { go: Go }) {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<CaoTab>('all');
   const [q, setQ] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const pdfDownloads = usePdfDownloads();
 
   const reload = useCallback(async () => {
     if (!accessToken) return;
     setLoading(true);
-    setError(null);
     const fallbackZone = user?.activePost?.zoneCode?.trim() || null;
     try {
       const [list, meta] = await Promise.all([
@@ -100,7 +98,6 @@ export function CaoHomeScreen({ go }: { go: Go }) {
       setApps(list);
       setZoneLabel(meta?.zoneCode?.trim() || fallbackZone);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Failed to load applications');
       setApps([]);
       setZoneLabel(fallbackZone);
     } finally {
@@ -282,10 +279,6 @@ export function CaoHomeScreen({ go }: { go: Go }) {
 
           {loading ? (
             <ListLoader text="Loading CAO applications…" />
-          ) : error ? (
-            <Text className="text-[13px]" style={{ color: COLORS.destructive, marginTop: 8 }}>
-              {error}
-            </Text>
           ) : filtered.length === 0 ? (
             <Box
               className="rounded-2xl border border-dashed px-4 py-8 mt-3"
@@ -355,18 +348,15 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<CaoAppsFilter>('All');
   const [q, setQ] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const pdfDownloads = usePdfDownloads();
 
   const reload = useCallback(async () => {
     if (!accessToken) return;
     setLoading(true);
-    setError(null);
     try {
       const list = await fetchCaoApplications(accessToken);
       setApps(list);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Failed to load applications');
       setApps([]);
     } finally {
       setLoading(false);
@@ -435,20 +425,6 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
       >
         {loading ? (
           <ListLoader text="Loading all CAO applications…" />
-        ) : error ? (
-          <Box
-            style={{
-              borderRadius: DESIGN.cardRadius,
-              borderWidth: 1,
-              borderColor: '#FECACA',
-              backgroundColor: '#FEF2F2',
-              padding: 14,
-            }}
-          >
-            <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: '#DC2626' }}>
-              {error}
-            </Text>
-          </Box>
         ) : filtered.length === 0 ? (
           <Box
             style={{

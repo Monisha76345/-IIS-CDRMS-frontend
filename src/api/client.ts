@@ -3,6 +3,7 @@ import {
   NO_HTML_MESSAGE,
   findForbiddenHtmlPath,
 } from '../lib/xssValidation';
+import { isFullPageApiError } from '../errors/resolve-error-kind';
 
 export class ApiError extends Error {
   status: number;
@@ -18,6 +19,10 @@ type RequestOptions = {
   token?: string | null;
   /** Skip 401→refresh retry (used by refresh itself). */
   skipAuthRefresh?: boolean;
+  /**
+   * Do not open the global ErrorScreen (login, intentional 404 fallbacks, soft probes).
+   */
+  skipErrorPage?: boolean;
 };
 
 type TokenHandlers = {
@@ -27,12 +32,45 @@ type TokenHandlers = {
   onSessionExpired: () => Promise<void> | void;
 };
 
+type ApiErrorPageHandler = (error: ApiError) => void;
+
 let tokenHandlers: TokenHandlers | null = null;
+let apiErrorPageHandler: ApiErrorPageHandler | null = null;
+let lastErrorPageAt = 0;
 /** Shared promise so concurrent 401s wait for one refresh. */
 let refreshPromise: Promise<string | null> | null = null;
 
 export function configureApiAuth(handlers: TokenHandlers) {
   tokenHandlers = handlers;
+}
+
+/** Register once from CdrmsApp — shows ErrorScreen for 404 / network / 5xx globally. */
+export function configureApiErrorPage(handler: ApiErrorPageHandler | null) {
+  apiErrorPageHandler = handler;
+}
+
+function shouldSkipErrorPagePath(path: string): boolean {
+  return (
+    path.includes('/auth/login') ||
+    path.includes('/auth/refresh') ||
+    path.includes('/auth/logout') ||
+    path.includes('/auth/session-config') ||
+    path.includes('/auth/register')
+  );
+}
+
+function maybeOpenErrorPage(
+  error: ApiError,
+  path: string,
+  options: RequestOptions,
+) {
+  if (options.skipErrorPage || shouldSkipErrorPagePath(path)) return;
+  if (!isFullPageApiError(error)) return;
+  if (!apiErrorPageHandler) return;
+  const now = Date.now();
+  if (now - lastErrorPageAt < 750) return;
+  lastErrorPageAt = now;
+  apiErrorPageHandler(error);
 }
 
 async function refreshAccessToken(): Promise<string | null> {
@@ -49,6 +87,7 @@ async function refreshAccessToken(): Promise<string | null> {
           method: 'POST',
           body: { refreshToken },
           skipAuthRefresh: true,
+          skipErrorPage: true,
         });
         const access = res.accessToken?.trim();
         if (!access) return null;
@@ -93,12 +132,14 @@ export async function apiRequest<T>(
     });
   } catch (err) {
     const detail = err instanceof Error ? err.message : 'Network request failed';
-    throw new ApiError(
+    const error = new ApiError(
       0,
       /network request failed|failed to fetch/i.test(detail)
         ? `Network request failed — cannot reach ${API_BASE_URL}. ${apiConnectionHint()}`
         : detail,
     );
+    maybeOpenErrorPage(error, path, options);
+    throw error;
   }
 
   const text = await res.text();
@@ -139,7 +180,12 @@ export async function apiRequest<T>(
         : Array.isArray((data as { message?: unknown })?.message)
           ? String(((data as { message: unknown[] }).message || [])[0] || `Request failed (${res.status})`)
           : `Request failed (${res.status})`;
-    throw new ApiError(res.status, msg);
+    const error = new ApiError(res.status, msg);
+    // 401 after failed refresh already showed session-expired dialog.
+    if (res.status !== 401) {
+      maybeOpenErrorPage(error, path, options);
+    }
+    throw error;
   }
 
   return data as T;

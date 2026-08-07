@@ -1788,7 +1788,7 @@ export function PermissionScreen({ go }: { go: Go }) {
             </Animated.View>
 
             <Pressable
-              onPress={() => go('error')}
+              onPress={() => go('error', { errorKind: 'network', errorVariant: 'global' })}
               className="mt-3 py-3.5 items-center active:opacity-60"
             >
               <Text className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>
