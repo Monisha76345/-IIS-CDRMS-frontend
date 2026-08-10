@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
-import { ActivityIndicator } from 'react-native';
-import { Clock, Download, Eye, type LucideIcon } from 'lucide-react-native';
+import { ActivityIndicator, StyleSheet } from 'react-native';
+import { Clock, Download, Eye, FilePenLine, type LucideIcon } from 'lucide-react-native';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -13,9 +13,8 @@ import {
 } from '@/src/api/applications';
 import { ApplicationStatusBadge } from '@/src/cdrms/components/ApplicationStatusBadge';
 import { DateZoneMetaRow } from '@/src/cdrms/components/DateZoneMetaRow';
+import { listCardSurface, listCardInnerClipStyle, listCardStatusRailStyle } from '@/src/cdrms/components/WelcomeHomeChrome';
 import { COLORS, DESIGN, FONTS, GLASS, hexAlpha } from '@/src/cdrms/theme';
-import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
-import { welcomeCardSurface } from '@/src/cdrms/components/WelcomeHomeChrome';
 import { useTheme } from '@/src/theme/ThemeContext';
 
 export type StatusCountItem = {
@@ -350,11 +349,13 @@ export function OfficeAppRow({
   status,
   dateLine,
   onPress,
+  onEdit,
   onDownload,
   downloading = false,
   downloadPercent,
   /** ZC Recent Activity — show zone beside date/time instead of on site line. */
   zoneBesideDate = false,
+  cardIndex = 0,
 }: {
   title: string;
   siteNo: string;
@@ -363,10 +364,12 @@ export function OfficeAppRow({
   status: MobileApplicationStatus | string;
   dateLine?: string | null;
   onPress: () => void;
+  onEdit?: () => void;
   onDownload?: () => void;
   downloading?: boolean;
   downloadPercent?: number;
   zoneBesideDate?: boolean;
+  cardIndex?: number;
 }) {
   const { themeId } = useTheme();
   const tone = applicationStatusTone(status);
@@ -374,6 +377,24 @@ export function OfficeAppRow({
 
   const actions = (
     <HStack className="items-center" style={{ gap: 6 }}>
+      {onEdit ? (
+        <Pressable
+          onPress={(e) => {
+            e?.stopPropagation?.();
+            onEdit();
+          }}
+          accessibilityLabel="Edit draft"
+          className="items-center justify-center active:opacity-80"
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: lv === 'tile' || lv === 'ghost' ? DESIGN.chipRadius : 999,
+            backgroundColor: COLORS.slate,
+          }}
+        >
+          <FilePenLine size={14} color={COLORS.white} strokeWidth={2.4} />
+        </Pressable>
+      ) : null}
       {onDownload ? (
         <Pressable
           onPress={(e) => {
@@ -434,12 +455,42 @@ export function OfficeAppRow({
     ) : (
       <HStack className="items-center" style={{ gap: 4 }}>
         <Clock size={12} color={COLORS.primary} strokeWidth={2.3} />
-        <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}>
+        <Text
+          style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}
+          numberOfLines={1}
+        >
           {dateLine}
         </Text>
       </HStack>
     )
   ) : null;
+
+  const body = (
+    <VStack className="flex-1 min-w-0" style={{ paddingVertical: 11, paddingHorizontal: 12, gap: 6 }}>
+      <HStack className="items-center" style={{ gap: 8 }}>
+        <Text
+          style={{
+            flex: 1,
+            fontFamily: FONTS.bold,
+            fontSize: 14,
+            lineHeight: 18,
+            color: COLORS.ink,
+          }}
+          numberOfLines={1}
+        >
+          {title}
+        </Text>
+        <Box style={{ flexShrink: 0 }}>
+          <ApplicationStatusBadge status={status} />
+        </Box>
+      </HStack>
+      {meta}
+      <HStack className="items-center justify-between" style={{ gap: 8 }}>
+        <Box style={{ flex: 1, minWidth: 0 }}>{dateRow}</Box>
+        <Box style={{ flexShrink: 0 }}>{actions}</Box>
+      </HStack>
+    </VStack>
+  );
 
   if (lv === 'ghost') {
     return (
@@ -448,99 +499,16 @@ export function OfficeAppRow({
         onPress={onPress}
         className="active:opacity-80"
         style={{
-          paddingVertical: 8,
-          borderBottomWidth: 1,
+          paddingVertical: 10,
+          paddingHorizontal: 4,
+          borderBottomWidth: StyleSheet.hairlineWidth,
           borderBottomColor: COLORS.border,
           marginBottom: 0,
         }}
       >
-        <HStack className="items-center justify-between" style={{ gap: 6 }}>
-          <VStack className="flex-1 min-w-0" style={{ gap: 4 }}>
-            <HStack className="items-center" style={{ gap: 6 }}>
-              <Box style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: tone.bar }} />
-              <Text
-                style={{ flex: 1, fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}
-                numberOfLines={1}
-              >
-                {title}
-              </Text>
-              <ApplicationStatusBadge status={status} />
-            </HStack>
-            {meta}
-            {dateRow}
-          </VStack>
-          {actions}
-        </HStack>
-      </Pressable>
-    );
-  }
-
-  if (lv === 'strip') {
-    return (
-      <Pressable
-        key={themeId}
-        onPress={onPress}
-        className="active:opacity-90"
-        style={{
-          ...welcomeCardSurface(),
-          borderRadius: DESIGN.cardRadius,
-          marginBottom: 8,
-          padding: 0,
-        }}
-      >
-        <HStack style={{ alignItems: 'stretch', overflow: 'hidden', borderRadius: DESIGN.cardRadius - 1 }}>
-          <Box style={{ width: 5, backgroundColor: tone.bar }} />
-          <HStack className="items-center flex-1" style={{ gap: 10, paddingVertical: 10, paddingHorizontal: 12 }}>
-            <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
-              <Text
-                style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}
-                numberOfLines={1}
-              >
-                {title}
-              </Text>
-              {meta}
-            </VStack>
-            <ApplicationStatusBadge status={status} />
-            {actions}
-          </HStack>
-        </HStack>
-      </Pressable>
-    );
-  }
-
-  if (lv === 'tile') {
-    return (
-      <Pressable
-        key={themeId}
-        onPress={onPress}
-        className="active:opacity-90"
-        style={{
-          ...welcomeCardSurface(),
-          borderRadius: DESIGN.cardRadius,
-          marginBottom: 8,
-          padding: 0,
-        }}
-      >
-        <HStack style={{ alignItems: 'stretch', overflow: 'hidden', borderRadius: DESIGN.cardRadius - 1 }}>
-          <Box style={{ width: 5, backgroundColor: tone.bar }} />
-          <HStack className="items-start justify-between flex-1" style={{ gap: 6, padding: 11 }}>
-            <VStack className="flex-1 min-w-0" style={{ gap: 6 }}>
-              <Text
-                style={{
-                  fontFamily: FONTS.bold,
-                  fontSize: 14,
-                  color: COLORS.ink,
-                  letterSpacing: -0.1,
-                }}
-                numberOfLines={1}
-              >
-                {title}
-              </Text>
-              {meta}
-              <ApplicationStatusBadge status={status} />
-            </VStack>
-            {actions}
-          </HStack>
+        <HStack style={{ alignItems: 'stretch', gap: 8 }}>
+          <Box style={{ width: 4, backgroundColor: tone.bar, borderRadius: 2 }} />
+          {body}
         </HStack>
       </Pressable>
     );
@@ -552,15 +520,10 @@ export function OfficeAppRow({
         key={themeId}
         onPress={onPress}
         className="active:opacity-90"
-        style={{
-          ...welcomeCardSurface(),
-          borderRadius: DESIGN.cardRadius,
-          marginBottom: 8,
-          padding: 0,
-        }}
+        style={listCardSurface(cardIndex)}
       >
-        <HStack style={{ alignItems: 'stretch', overflow: 'hidden', borderRadius: DESIGN.cardRadius - 1 }}>
-          <Box style={{ width: 5, backgroundColor: tone.bar }} />
+        <HStack style={listCardInnerClipStyle()}>
+          <Box style={listCardStatusRailStyle(tone.bar)} />
           <HStack className="items-center flex-1" style={{ gap: 10, paddingVertical: 11, paddingHorizontal: 12 }}>
             <Box
               style={{
@@ -570,66 +533,43 @@ export function OfficeAppRow({
                 backgroundColor: hexAlpha(tone.bar, 0.15),
                 alignItems: 'center',
                 justifyContent: 'center',
+                flexShrink: 0,
               }}
             >
               <Box style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: tone.bar }} />
             </Box>
-            <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
-              <Text
-                style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}
-                numberOfLines={1}
-              >
-                {title}
-              </Text>
+            <VStack className="flex-1 min-w-0" style={{ gap: 6 }}>
+              <HStack className="items-center" style={{ gap: 8 }}>
+                <Text
+                  style={{ flex: 1, fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}
+                  numberOfLines={1}
+                >
+                  {title}
+                </Text>
+                <ApplicationStatusBadge status={status} />
+              </HStack>
               {meta}
+              <HStack className="items-center justify-between" style={{ gap: 8 }}>
+                <Box style={{ flex: 1, minWidth: 0 }}>{dateRow}</Box>
+                {actions}
+              </HStack>
             </VStack>
-            <ApplicationStatusBadge status={status} />
-            {actions}
           </HStack>
         </HStack>
       </Pressable>
     );
   }
 
-  // card (classic) — translucent + status left rail (matches engineer Welcome)
   return (
     <Pressable
       key={themeId}
       onPress={onPress}
       className="active:opacity-90"
-      style={[
-        cardSurfaceStyle(),
-        welcomeCardSurface(),
-        { marginBottom: 8, padding: 0, borderRadius: DESIGN.cardRadius },
-      ]}
+      style={listCardSurface(cardIndex)}
     >
-      <HStack style={{ alignItems: 'stretch', overflow: 'hidden', borderRadius: DESIGN.cardRadius - 1 }}>
-        <Box style={{ width: 5, backgroundColor: tone.bar, alignSelf: 'stretch' }} />
-        <VStack className="flex-1 min-w-0" style={{ paddingVertical: 7, paddingHorizontal: 11, gap: 4 }}>
-          <HStack className="items-center justify-between" style={{ gap: 6 }}>
-            <Text
-              style={{
-                flex: 1,
-                fontFamily: FONTS.bold,
-                fontSize: 14,
-                lineHeight: 18,
-                color: COLORS.ink,
-              }}
-              numberOfLines={1}
-            >
-              {title}
-            </Text>
-            <Box style={{ flexShrink: 0, marginLeft: 'auto' }}>
-              <ApplicationStatusBadge status={status} />
-            </Box>
-          </HStack>
-
-          <HStack className="items-center justify-between" style={{ gap: 6 }}>
-            {meta}
-            {actions}
-          </HStack>
-          {dateRow}
-        </VStack>
+      <HStack style={listCardInnerClipStyle()}>
+        <Box style={listCardStatusRailStyle(tone.bar)} />
+        {body}
       </HStack>
     </Pressable>
   );

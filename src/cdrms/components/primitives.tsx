@@ -37,7 +37,7 @@ import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/src/auth/AuthContext';
-import { resolveAppRole, displayName } from '@/src/auth/roles';
+import { resolveAppRole, displayName, roleDisplayTitle } from '@/src/auth/roles';
 import { PremiumGradientBackground } from '@/src/cdrms/components/GlassSurface';
 import { ScreenWaves, HeaderMeshBackground, MeshSheetEdge, WaveSheetEdge } from '@/src/cdrms/components/WaveDecor';
 import { COLORS, DESIGN, FONTS, GLASS, GRADIENT_CARD_HEADER, GRADIENT_HEADER, GRADIENT_PRIMARY, SPACE, TYPE, gradientStops, headerFg, hexAlpha, isMeshDesign, isWaveDesign, usesLightHeader, usesNormalHeader, usesSolidHeader } from '@/src/cdrms/theme';
@@ -620,7 +620,7 @@ export function AppHeader({
     <ProfileMenu
       gradient={gradient}
       userName={userName}
-      roleName={user?.roleName}
+      roleName={roleDisplayTitle(user)}
       loginId={user?.officer?.personUniqueId || user?.loginId}
       photoUrl={user?.profilePhoto || user?.officer?.profilePhoto}
       zoneLabel={resolvedZone}

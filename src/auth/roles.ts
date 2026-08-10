@@ -50,3 +50,35 @@ export function displayName(user: RoleUser | null | undefined): string {
   if (!user?.name?.trim()) return 'Officer';
   return user.name.trim();
 }
+
+const ROLE_ACRONYMS = new Set(['cao', 'zc', 'bda', 'pwd', 'ae', 'je']);
+
+function titleCaseRoleWords(raw: string): string {
+  return String(raw)
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((word) => {
+      const lower = word.toLowerCase();
+      if (ROLE_ACRONYMS.has(lower)) return lower.toUpperCase();
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(' ');
+}
+
+/** Canonical role label shown in headers, profile, and menus. */
+export function roleDisplayTitle(user: RoleUser | null | undefined): string {
+  switch (resolveAppRole(user)) {
+    case 'engineer':
+      return 'Engineer';
+    case 'zc':
+      return 'Zone Commissioner';
+    case 'cao':
+      return 'Chief Accounts Officer';
+    case 'super_admin':
+      return 'Administrator';
+    default: {
+      const raw = user?.roleName?.trim() || user?.role?.trim() || user?.userType?.trim();
+      return raw ? titleCaseRoleWords(raw) : 'Officer';
+    }
+  }
+}

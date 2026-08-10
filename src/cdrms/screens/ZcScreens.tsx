@@ -3,6 +3,7 @@ import {
   ClipboardList,
   Compass,
   FilePlus2,
+  FilePenLine,
   Hourglass,
   Layers,
   MapPin,
@@ -37,6 +38,16 @@ import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/src/auth/AuthContext';
 import { ApiError } from '@/src/api/client';
 import {
+  sanitizeAreaInput,
+  sanitizeBlockInput,
+  sanitizeCommentInput,
+  sanitizeEOfficeInput,
+  sanitizeSiteDimensionInput,
+  sanitizeSiteNoInput,
+  validateSiteDimension,
+  validateZcApplicationForm,
+} from '@/src/cdrms/lib/zcApplicationFormValidation';
+import {
   applicationCardDateLine,
   countZcBuckets,
   createApplication,
@@ -46,6 +57,8 @@ import {
   fetchSiteDimensions,
   fetchZcApplications,
   normalizeApplicationStatus,
+  submitZcDraftApplication,
+  updateZcDraftApplication,
   type CreateApplicationInput,
   type MobileApplication,
   type MyZoneMeta,
@@ -72,7 +85,12 @@ import {
   WelcomeHomeHeader,
   welcomeFilterGap,
 } from '@/src/cdrms/components/WelcomeHomeChrome';
-import { setSelectedOfficeAppId, getSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
+import {
+  setSelectedOfficeAppId,
+  getSelectedOfficeAppId,
+  setZcEditApplicationId,
+  consumeZcEditApplicationId,
+} from '@/src/cdrms/officeSelection';
 import {
   COLORS,
   FONTS,
@@ -91,16 +109,54 @@ import type { Go } from '@/src/cdrms/types';
 
 type ZcTab =
   | 'all'
+  | 'draft'
   | 'assigned'
   | 'in_progress'
   | 'submitted';
 
 const ZC_STATUS_FILTERS: { key: ZcTab; label: string }[] = [
   { key: 'all', label: 'All' },
+  { key: 'draft', label: 'Draft' },
   { key: 'assigned', label: 'Assigned' },
   { key: 'in_progress', label: 'In progress' },
   { key: 'submitted', label: 'Submitted' },
 ];
+
+function applicationToZcForm(app: MobileApplication): CreateApplicationInput {
+  return {
+    eOfficeNumber: app.eOfficeNumber?.trim() || '',
+    siteNo: app.siteNo?.trim() || '',
+    addressArea: app.addressArea?.trim() || '',
+    addressBlock: app.addressBlock?.trim() || '',
+    addressPincode: app.addressPincode?.trim() || '',
+    siteDimensionType: app.siteDimensionType === 'Odd' ? 'Odd' : 'Even',
+    siteDimension: app.siteDimension?.trim() || '',
+    siteDimensionComment: app.siteDimensionComment?.trim() || '',
+    scheduleNorth: app.scheduleNorth?.trim() || '',
+    scheduleSouth: app.scheduleSouth?.trim() || '',
+    scheduleWest: app.scheduleWest?.trim() || '',
+    scheduleEast: app.scheduleEast?.trim() || '',
+    assignedEngineerUserId: String(app.assignedEngineerUserId || '').trim(),
+  };
+}
+
+function trimZcPayload(form: CreateApplicationInput): Omit<CreateApplicationInput, 'saveAsDraft'> {
+  return {
+    eOfficeNumber: form.eOfficeNumber.trim(),
+    siteNo: form.siteNo.trim(),
+    addressArea: form.addressArea.trim(),
+    addressBlock: form.addressBlock.trim(),
+    addressPincode: form.addressPincode.trim(),
+    siteDimensionType: form.siteDimensionType,
+    siteDimension: form.siteDimension.trim(),
+    siteDimensionComment: form.siteDimensionComment?.trim() || undefined,
+    scheduleNorth: form.scheduleNorth?.trim() || undefined,
+    scheduleSouth: form.scheduleSouth?.trim() || undefined,
+    scheduleWest: form.scheduleWest?.trim() || undefined,
+    scheduleEast: form.scheduleEast?.trim() || undefined,
+    assignedEngineerUserId: form.assignedEngineerUserId,
+  };
+}
 
 function villageLine(app: MobileApplication) {
   const village = app.addressArea || '—';
@@ -162,6 +218,14 @@ export function ZcHomeScreen({ go }: { go: Go }) {
       icon: Layers,
     },
     {
+      id: 'draft',
+      label: 'Draft',
+      value: counts.draft,
+      bg: usesLightHeader() ? '#F1F5F9' : '#E2E8F0',
+      fg: usesLightHeader() ? '#475569' : '#64748B',
+      icon: FilePenLine,
+    },
+    {
       id: 'assigned',
       label: 'Assigned',
       value: counts.assigned,
@@ -213,6 +277,11 @@ export function ZcHomeScreen({ go }: { go: Go }) {
     go('zc_detail');
   };
 
+  const openEditDraft = (id: string) => {
+    setZcEditApplicationId(id);
+    go('zc_create');
+  };
+
   return (
     <ScreenShell className="bg-background">
       <BdaPageWatermark />
@@ -222,13 +291,13 @@ export function ZcHomeScreen({ go }: { go: Go }) {
         style={{ zIndex: 1 }}
         contentContainerStyle={{ paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <WelcomeHomeHeader
           user={user}
           zoneLabel={zoneLabel}
           go={go}
           tagline="Manage zone applications"
-          eyebrow="Zonal commissioner"
           onLogout={() => {
             void (async () => {
               await logout();
@@ -238,7 +307,11 @@ export function ZcHomeScreen({ go }: { go: Go }) {
         />
 
         <Box className="px-3" style={{ marginTop: welcomeFilterGap() }}>
-          <HStack style={{ gap: 6 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 6, paddingHorizontal: 2 }}
+          >
             {filterCards.map((s) => {
               const Icon = s.icon;
               const selected = tab === s.id;
@@ -247,8 +320,9 @@ export function ZcHomeScreen({ go }: { go: Go }) {
                 <Pressable
                   key={s.id}
                   onPress={() => setTab(s.id)}
-                  className="flex-1 active:opacity-90"
+                  className="active:opacity-90"
                   style={{
+                    width: 92,
                     backgroundColor: selected
                       ? COLORS.primary
                       : plainLite
@@ -308,7 +382,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
                 </Pressable>
               );
             })}
-          </HStack>
+          </ScrollView>
         </Box>
 
         <Box className="px-4 mt-3">
@@ -326,7 +400,10 @@ export function ZcHomeScreen({ go }: { go: Go }) {
                 </HStack>
               </Pressable>
               <Pressable
-                onPress={() => go('zc_create')}
+                onPress={() => {
+                  setZcEditApplicationId(null);
+                  go('zc_create');
+                }}
                 className="flex-row items-center gap-1.5 active:opacity-90"
                 style={{
                   backgroundColor: COLORS.primary,
@@ -374,6 +451,11 @@ export function ZcHomeScreen({ go }: { go: Go }) {
                   dateLine={applicationCardDateLine(app)}
                   zoneBesideDate
                   onPress={() => openDetail(app.id)}
+                  onEdit={
+                    normalizeApplicationStatus(app.status) === 'draft'
+                      ? () => openEditDraft(app.id)
+                      : undefined
+                  }
                 />
               ))}
             </VStack>
@@ -385,7 +467,10 @@ export function ZcHomeScreen({ go }: { go: Go }) {
         active="home"
         onNav={go}
         homeTarget="zc_home"
-        onPlus={() => go('zc_create')}
+        onPlus={() => {
+          setZcEditApplicationId(null);
+          go('zc_create');
+        }}
       />
     </ScreenShell>
   );
@@ -618,11 +703,14 @@ export function ZcCreateScreen({ go }: { go: Go }) {
   const keyboardHeightRef = useRef(0);
   const focusedFieldRef = useRef<{ y: number; height: number } | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [editApplicationId] = useState(() => consumeZcEditApplicationId());
+  const isEditing = Boolean(editApplicationId);
   const [zone, setZone] = useState<MyZoneMeta | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<string, string>>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingAction, setSavingAction] = useState<'save' | 'submit' | null>(null);
   const [zoneError, setZoneError] = useState<string | null>(null);
   const [dimensions, setDimensions] = useState<SiteDimensionOption[]>([]);
   const [dimOpen, setDimOpen] = useState(false);
@@ -751,25 +839,47 @@ export function ZcCreateScreen({ go }: { go: Go }) {
 
   useEffect(() => {
     if (!accessToken) return;
-    fetchMyZoneMeta(accessToken)
-      .then((meta) => {
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [meta, dims, existing] = await Promise.all([
+          fetchMyZoneMeta(accessToken),
+          fetchSiteDimensions(accessToken).catch(() => [] as SiteDimensionOption[]),
+          editApplicationId
+            ? fetchApplication(accessToken, editApplicationId).catch(() => null)
+            : Promise.resolve(null),
+        ]);
+        if (cancelled) return;
         setZone(meta);
         setZoneError(null);
-      })
-      .catch((e) => {
+        setDimensions(dims);
+        if (existing) {
+          if (normalizeApplicationStatus(existing.status) !== 'draft') {
+            setZoneError('Only draft applications can be edited.');
+          } else {
+            setForm(applicationToZcForm(existing));
+          }
+        }
+      } catch (e) {
+        if (cancelled) return;
         setZone(null);
         setZoneError(
           e instanceof ApiError
             ? e.message
             : 'Your post must have a master zone before creating applications.',
         );
-      })
-      .finally(() => setLoading(false));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
 
-    fetchSiteDimensions(accessToken)
-      .then(setDimensions)
-      .catch(() => setDimensions([]));
-  }, [accessToken]);
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, editApplicationId]);
 
   const engineers = useMemo(
     () =>
@@ -785,11 +895,12 @@ export function ZcCreateScreen({ go }: { go: Go }) {
   const saveNewDimension = async () => {
     if (!accessToken) return;
     const normalized = newDimValue.trim().replace(/\s+/g, '');
-    if (!/^\d+(\*\d+)+$/.test(normalized)) {
+    const dimErr = validateSiteDimension(normalized);
+    if (dimErr) {
       showAppDialog({
         variant: 'warning',
         title: 'Validation',
-        message: 'Enter dimensions like 20*40 or 20*40*50*40',
+        message: dimErr,
         hideCancel: true,
         confirmLabel: 'OK',
       });
@@ -879,49 +990,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
   }, []);
 
   const validateForm = useCallback((): boolean => {
-    const next: Partial<Record<string, string>> = {};
-    const eOffice = form.eOfficeNumber.trim();
-    if (!eOffice) {
-      next.eOfficeNumber = 'E-office number is required';
-    } else if (eOffice.length < 3) {
-      next.eOfficeNumber = 'Enter a valid e-office number (min 3 characters)';
-    }
-
-    if (!form.siteNo.trim()) {
-      next.siteNo = 'Site no is required';
-    }
-
-    if (!form.siteDimensionType) {
-      next.siteDimensionType = 'Site type is required';
-    }
-
-    if (!form.siteDimension.trim()) {
-      next.siteDimension = 'Site dimension is required (e.g. 20*40)';
-    } else if (!/^\d+(\*\d+)+$/.test(form.siteDimension.trim().replace(/\s+/g, ''))) {
-      next.siteDimension = 'Use format like 20*40 or 20*40*50*40';
-    }
-
-    if (!form.addressArea.trim()) {
-      next.addressArea = 'Area is required';
-    }
-    if (!form.addressBlock.trim()) {
-      next.addressBlock = 'Block is required';
-    }
-
-    const pin = form.addressPincode.trim();
-    if (!pin) {
-      next.addressPincode = 'Pincode is required';
-    } else if (!/^[1-9][0-9]{5}$/.test(pin)) {
-      next.addressPincode = 'Enter a valid 6-digit Indian PIN code (cannot start with 0)';
-    }
-
-    if (form.siteDimensionType === 'Odd' && !form.siteDimensionComment?.trim()) {
-      next.siteDimensionComment = 'Comments are required for Odd site type';
-    }
-
-    if (!String(form.assignedEngineerUserId || '').trim()) {
-      next.assignedEngineerUserId = 'Assign engineer is required';
-    }
+    const next = validateZcApplicationForm(form);
 
     setFieldErrors(next);
     const first = Object.values(next)[0];
@@ -938,60 +1007,129 @@ export function ZcCreateScreen({ go }: { go: Go }) {
     return true;
   }, [form]);
 
-  const onSubmit = async () => {
+  const onSaveDraft = async () => {
     if (!accessToken) return;
     if (!validateForm()) return;
 
     setSaving(true);
+    setSavingAction('save');
+    const payload = trimZcPayload(form);
     try {
-      const created = await createApplication(accessToken, {
-        ...form,
-        eOfficeNumber: form.eOfficeNumber.trim(),
-        siteNo: form.siteNo.trim(),
-        addressArea: form.addressArea.trim(),
-        addressBlock: form.addressBlock.trim(),
-        addressPincode: form.addressPincode.trim(),
-        siteDimension: form.siteDimension.trim(),
-        siteDimensionComment: form.siteDimensionComment?.trim() || undefined,
-        scheduleNorth: form.scheduleNorth?.trim() || undefined,
-        scheduleSouth: form.scheduleSouth?.trim() || undefined,
-        scheduleWest: form.scheduleWest?.trim() || undefined,
-        scheduleEast: form.scheduleEast?.trim() || undefined,
-      });
-      setForm(emptyForm);
-      setFieldErrors({});
-      showAppDialog({
-        variant: 'success',
-        title: 'Application created',
-        message: 'The application was assigned to the engineer successfully.',
-        highlightLabel: 'Application number',
-        highlight: created.applicationNumber,
-        cancelLabel: 'Cancel',
-        confirmLabel: 'Done',
-        onConfirm: () => go('zc_home'),
-      });
+      if (isEditing && editApplicationId) {
+        const updated = await updateZcDraftApplication(accessToken, editApplicationId, payload);
+        showAppDialog({
+          variant: 'success',
+          title: 'Draft saved',
+          message: 'Your changes were saved. You can edit and submit when ready.',
+          highlightLabel: 'Application number',
+          highlight: updated.applicationNumber,
+          hideCancel: true,
+          confirmLabel: 'Done',
+          onConfirm: () => go('zc_home'),
+        });
+      } else {
+        const created = await createApplication(accessToken, {
+          ...payload,
+          saveAsDraft: true,
+        });
+        setForm(emptyForm);
+        setFieldErrors({});
+        showAppDialog({
+          variant: 'success',
+          title: 'Draft saved',
+          message: 'Application saved as draft. Edit and submit when ready.',
+          highlightLabel: 'Application number',
+          highlight: created.applicationNumber,
+          hideCancel: true,
+          confirmLabel: 'Done',
+          onConfirm: () => go('zc_home'),
+        });
+      }
     } catch (e) {
-      const msg =
-        e instanceof ApiError ? e.message : 'Failed to create application';
+      const msg = e instanceof ApiError ? e.message : 'Failed to save draft';
       if (/e-office/i.test(msg) || /already used/i.test(msg)) {
         setFieldErrors((prev) => ({ ...prev, eOfficeNumber: msg }));
       }
       showAppDialog({
         variant: 'error',
-        title: 'Could not create',
+        title: 'Could not save',
         message: msg,
         hideCancel: true,
         confirmLabel: 'OK',
       });
     } finally {
       setSaving(false);
+      setSavingAction(null);
+    }
+  };
+
+  const onSubmitApplication = async () => {
+    if (!accessToken) return;
+    if (!validateForm()) return;
+
+    setSaving(true);
+    setSavingAction('submit');
+    const payload = trimZcPayload(form);
+    try {
+      if (isEditing && editApplicationId) {
+        const submitted = await submitZcDraftApplication(
+          accessToken,
+          editApplicationId,
+          payload,
+        );
+        setForm(emptyForm);
+        setFieldErrors({});
+        showAppDialog({
+          variant: 'success',
+          title: 'Application submitted',
+          message: 'The application was assigned to the engineer successfully.',
+          highlightLabel: 'Application number',
+          highlight: submitted.applicationNumber,
+          hideCancel: true,
+          confirmLabel: 'Done',
+          onConfirm: () => go('zc_home'),
+        });
+      } else {
+        const created = await createApplication(accessToken, {
+          ...payload,
+          saveAsDraft: false,
+        });
+        setForm(emptyForm);
+        setFieldErrors({});
+        showAppDialog({
+          variant: 'success',
+          title: 'Application submitted',
+          message: 'The application was assigned to the engineer successfully.',
+          highlightLabel: 'Application number',
+          highlight: created.applicationNumber,
+          hideCancel: true,
+          confirmLabel: 'Done',
+          onConfirm: () => go('zc_home'),
+        });
+      }
+    } catch (e) {
+      const msg =
+        e instanceof ApiError ? e.message : 'Failed to submit application';
+      if (/e-office/i.test(msg) || /already used/i.test(msg)) {
+        setFieldErrors((prev) => ({ ...prev, eOfficeNumber: msg }));
+      }
+      showAppDialog({
+        variant: 'error',
+        title: 'Could not submit',
+        message: msg,
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
+    } finally {
+      setSaving(false);
+      setSavingAction(null);
     }
   };
 
   return (
     <ScreenShell className="bg-background">
       <AppHeader
-        title="Create application"
+        title={isEditing ? 'Edit draft' : 'Create application'}
         subtitle={zone ? `Zone ${zone.zoneCode}` : undefined}
         onBack={() => go('zc_home')}
         gradient
@@ -1064,8 +1202,9 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                   placeholder="Enter e-office number"
                   value={form.eOfficeNumber}
                   error={fieldErrors.eOfficeNumber}
+                  maxLength={100}
                   onChange={(v) => {
-                    setForm((f) => ({ ...f, eOfficeNumber: v }));
+                    setForm((f) => ({ ...f, eOfficeNumber: sanitizeEOfficeInput(v) }));
                     clearFieldError('eOfficeNumber');
                   }}
                   style={{ marginBottom: 10 }}
@@ -1076,8 +1215,11 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     required
                     value={form.siteNo}
                     error={fieldErrors.siteNo}
+                    keyboardType="number-pad"
+                    maxLength={10}
                     onChange={(v) => {
-                      setForm((f) => ({ ...f, siteNo: v }));
+                      const siteNo = sanitizeSiteNoInput(v);
+                      setForm((f) => ({ ...f, siteNo }));
                       clearFieldError('siteNo');
                     }}
                     style={{ flex: 1 }}
@@ -1248,7 +1390,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                   <HStack style={{ gap: 8, alignItems: 'center' }}>
                     <TextInput
                       value={newDimValue}
-                      onChangeText={setNewDimValue}
+                      onChangeText={(v) => setNewDimValue(sanitizeSiteDimensionInput(v))}
                       placeholder="e.g. 20*40"
                       placeholderTextColor={COLORS.slate}
                       autoFocus
@@ -1324,10 +1466,12 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                 <Field
                   label="Area"
                   required
+                  placeholder="e.g. Shivaji Nagar"
                   value={form.addressArea}
                   error={fieldErrors.addressArea}
+                  maxLength={150}
                   onChange={(v) => {
-                    setForm((f) => ({ ...f, addressArea: v }));
+                    setForm((f) => ({ ...f, addressArea: sanitizeAreaInput(v) }));
                     clearFieldError('addressArea');
                   }}
                   style={{ marginBottom: 10 }}
@@ -1336,10 +1480,12 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                   <Field
                     label="Block"
                     required
+                    placeholder="e.g. Block1"
                     value={form.addressBlock}
                     error={fieldErrors.addressBlock}
+                    maxLength={150}
                     onChange={(v) => {
-                      setForm((f) => ({ ...f, addressBlock: v }));
+                      setForm((f) => ({ ...f, addressBlock: sanitizeBlockInput(v) }));
                       clearFieldError('addressBlock');
                     }}
                     onFocus={onFieldFocus}
@@ -1481,8 +1627,9 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                   error={fieldErrors.siteDimensionComment}
                   multiline
                   numberOfLines={5}
+                  maxLength={500}
                   onChange={(v) => {
-                    setForm((f) => ({ ...f, siteDimensionComment: v }));
+                    setForm((f) => ({ ...f, siteDimensionComment: sanitizeCommentInput(v) }));
                     clearFieldError('siteDimensionComment');
                   }}
                   onFocus={onFieldFocus}
@@ -1491,22 +1638,28 @@ export function ZcCreateScreen({ go }: { go: Go }) {
 
               <HStack style={{ gap: 10, marginHorizontal: SPACE.gutter, marginTop: 4 }}>
                 <Pressable
-                  onPress={() => go('zc_home')}
+                  onPress={() => void onSaveDraft()}
+                  disabled={saving}
                   className="flex-1 active:opacity-90"
                   style={{
                     height: 48,
                     borderRadius: DESIGN.cardRadius,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    borderWidth: 1,
-                    borderColor: COLORS.border,
+                    borderWidth: 1.5,
+                    borderColor: COLORS.primary,
                     backgroundColor: COLORS.white,
+                    opacity: saving ? 0.7 : 1,
                   }}
                 >
-                  <Text style={{ fontFamily: FONTS.semibold, color: COLORS.ink }}>Cancel</Text>
+                  {saving && savingAction === 'save' ? (
+                    <ButtonLoader color={COLORS.primary} />
+                  ) : (
+                    <Text style={{ fontFamily: FONTS.bold, color: COLORS.primary }}>Save</Text>
+                  )}
                 </Pressable>
                 <Pressable
-                  onPress={() => void onSubmit()}
+                  onPress={() => void onSubmitApplication()}
                   disabled={saving}
                   className="flex-1 overflow-hidden active:opacity-90"
                   style={{
@@ -1529,7 +1682,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                       justifyContent: 'center',
                     }}
                   >
-                    {saving ? (
+                    {saving && savingAction === 'submit' ? (
                       <ButtonLoader color={COLORS.white} />
                     ) : (
                       <Text style={{ fontFamily: FONTS.bold, color: COLORS.white }}>Submit</Text>
@@ -1719,6 +1872,7 @@ export function ZcDetailScreen({ go }: { go: Go }) {
   const [app, setApp] = useState<MobileApplication | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isDraft = app ? normalizeApplicationStatus(app.status) === 'draft' : false;
 
   useEffect(() => {
     if (!accessToken || !appId) {
@@ -1761,7 +1915,40 @@ export function ZcDetailScreen({ go }: { go: Go }) {
             </Text>
           </Box>
         ) : (
-          <ApplicationRecordDetails app={app} showEmptyEngineer={false} />
+          <>
+            {isDraft ? (
+              <Box className="mx-4">
+                <Pressable
+                  onPress={() => {
+                    if (!app) return;
+                    setZcEditApplicationId(app.id);
+                    go('zc_create');
+                  }}
+                  className="overflow-hidden active:opacity-90"
+                  style={{ borderRadius: DESIGN.cardRadius }}
+                >
+                  <LinearGradient
+                    colors={gradientStops(GRADIENT_PRIMARY)}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={{
+                      height: 44,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                    }}
+                  >
+                    <FilePenLine size={16} color={COLORS.white} strokeWidth={2.4} />
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.white }}>
+                      Edit draft
+                    </Text>
+                  </LinearGradient>
+                </Pressable>
+              </Box>
+            ) : null}
+            <ApplicationRecordDetails app={app} showEmptyEngineer={false} />
+          </>
         )}
       </ScrollView>
     </ScreenShell>

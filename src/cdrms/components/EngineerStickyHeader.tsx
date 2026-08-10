@@ -64,7 +64,7 @@ export function EngineerStickyHeader() {
     <GlassCard>
       <GlassCardHeader
         title="ZC site details"
-        subtitle="Assigned by Zonal Commissioner"
+        subtitle="Assigned by Zone Commissioner"
         icon={Building2}
         badge={
           <GlassHeaderBadge tone="neutral">

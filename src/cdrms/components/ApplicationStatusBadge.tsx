@@ -1,6 +1,7 @@
 import {
   CheckCircle2,
   Clock,
+  FilePenLine,
   PlayCircle,
   RotateCcw,
   UserCheck,
@@ -20,6 +21,7 @@ import {
 import { FONTS } from '@/src/cdrms/theme';
 
 const STATUS_ICONS: Partial<Record<MobileApplicationStatus, LucideIcon>> = {
+  draft: FilePenLine,
   assigned: UserCheck,
   in_progress: PlayCircle,
   submitted: Clock,

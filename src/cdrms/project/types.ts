@@ -1,3 +1,5 @@
+import type { MobileApplicationStatus } from '@/src/api/applications';
+
 export type Cardinal = 'N' | 'S' | 'E' | 'W';
 
 export type GpsFix = {
@@ -55,6 +57,12 @@ export type ProjectDraft = {
   addressPincode: string;
   zoneCode: string;
   createdByZcName: string;
+  /** ZC-assigned engineer display name (from backend application). */
+  assignedEngineerName: string;
+  /** ISO timestamp when ZC created/assigned the application. */
+  backendAssignedAt: string | null;
+  /** Latest status from the backend application (assigned / in_progress / submitted). */
+  backendStatus: MobileApplicationStatus | null;
   /** Even | Odd — drives opposite-side dimension sync (web parity). */
   siteDimensionType: 'Even' | 'Odd';
   /** ZC master site dimension string e.g. 20*30 */
@@ -181,6 +189,9 @@ export function createEmptyDraft(): ProjectDraft {
     addressPincode: '',
     zoneCode: '',
     createdByZcName: '',
+    assignedEngineerName: '',
+    backendAssignedAt: null,
+    backendStatus: null,
     siteDimensionType: 'Even',
     siteDimensionMaster: '',
     siteDimensionComment: '',

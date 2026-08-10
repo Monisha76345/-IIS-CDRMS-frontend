@@ -97,18 +97,6 @@ function diagramSchedule(app: MobileApplication, side: 'N' | 'S' | 'E' | 'W') {
   return base || null;
 }
 
-function scheduleNoteLine(app: MobileApplication, side: 'N' | 'S' | 'E' | 'W') {
-  const note =
-    app.engineerScheduleNotes?.[side]?.trim() ||
-    app.engineerScheduleNotes?.[side.toLowerCase()]?.trim() ||
-    '';
-  const road = isRoadSide(app, side);
-  if (!note && !road) return '—';
-  if (note && road) return `${note} · Road`;
-  if (road) return 'Road';
-  return note;
-}
-
 function isVideoMedia(url: string) {
   return /\.(mp4|mov|webm|m4v)(\?|$)/i.test(url) || /\/video/i.test(url);
 }
@@ -238,7 +226,7 @@ function zcFormTable(app: MobileApplication) {
     : '';
 
   return `
-    ${cardOpen('ZC details', app.status)}
+    ${cardOpen('Application Details', app.status)}
       ${eOfficeRow}
       ${formRowPair(['Application no', fmt(app.applicationNumber)])}
       ${formRowPair(['Site no', fmt(app.siteNo)], ['Site type', fmt(app.siteDimensionType)])}
@@ -247,7 +235,7 @@ function zcFormTable(app: MobileApplication) {
       ${formRowPair(['Block', fmt(app.addressBlock)], ['Pincode', fmt(app.addressPincode)])}
       ${formRowPair(['Created by ZC', fmt(app.createdByZcName)], ['Assigned on', fmt(formatDateTime(app.createdAt))])}
       ${formRowPair(['Assigned engineer', fmt(app.assignedEngineerName)])}
-      ${sectionSubHeader('Schedules')}
+      ${sectionSubHeader('Site Schedules')}
       ${formRowPair(['North', fmt(app.scheduleNorth)], ['South', fmt(app.scheduleSouth)])}
       ${formRowPair(['West', fmt(app.scheduleWest)], ['East', fmt(app.scheduleEast)])}
       ${zcCommentsBlock}
@@ -255,28 +243,60 @@ function zcFormTable(app: MobileApplication) {
   `;
 }
 
+function engineerScheduleDisplay(app: MobileApplication, side: 'N' | 'S' | 'E' | 'W'): string {
+  const engNotes = app.engineerScheduleNotes || {};
+  const note = engNotes[side]?.trim() || engNotes[side.toLowerCase()]?.trim() || '';
+  const road = isRoadSide(app, side);
+  if (road && note) return `Road · ${note}`;
+  if (road) return 'Road';
+  return note || '—';
+}
+
+function formatEngineerMeasuredDimension(dims: {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+}): string {
+  const parts = [dims.north, dims.south, dims.east, dims.west].map((n) =>
+    Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2))),
+  );
+  return parts.join(' × ');
+}
+
 function engineerBlock(app: MobileApplication) {
   const boundary = resolveBoundaryDims(app);
+  const hasEngineerDims = boundary.source === 'engineer' && boundary.dims != null;
+  const engineerDims = hasEngineerDims ? boundary.dims! : null;
 
-  const svgXml = boundary.dims
-    ? buildSiteDimensionPlotSvg({
-        north: boundary.dims.north,
-        south: boundary.dims.south,
-        east: boundary.dims.east,
-        west: boundary.dims.west,
-        odd: app.siteDimensionType === 'Odd',
-        siteNo: app.siteNo,
-        totalArea: boundary.total,
-        scheduleNorth: diagramSchedule(app, 'N'),
-        scheduleSouth: diagramSchedule(app, 'S'),
-        scheduleEast: diagramSchedule(app, 'E'),
-        scheduleWest: diagramSchedule(app, 'W'),
-        roadNorth: isRoadSide(app, 'N'),
-        roadSouth: isRoadSide(app, 'S'),
-        roadEast: isRoadSide(app, 'E'),
-        roadWest: isRoadSide(app, 'W'),
-      })
+  const measuredType = engineerDims
+    ? deriveSiteTypeFromDims(
+        engineerDims.north,
+        engineerDims.south,
+        engineerDims.east,
+        engineerDims.west,
+      )
     : null;
+
+  const svgXml =
+    engineerDims &&
+    buildSiteDimensionPlotSvg({
+      north: engineerDims.north,
+      south: engineerDims.south,
+      east: engineerDims.east,
+      west: engineerDims.west,
+      odd: measuredType === 'Odd',
+      siteNo: app.siteNo,
+      totalArea: boundary.total,
+      scheduleNorth: diagramSchedule(app, 'N'),
+      scheduleSouth: diagramSchedule(app, 'S'),
+      scheduleEast: diagramSchedule(app, 'E'),
+      scheduleWest: diagramSchedule(app, 'W'),
+      roadNorth: isRoadSide(app, 'N'),
+      roadSouth: isRoadSide(app, 'S'),
+      roadEast: isRoadSide(app, 'E'),
+      roadWest: isRoadSide(app, 'W'),
+    });
 
   const cleanSvg = svgXml
     ? compactPlotSvgForPdf(svgXml.replace(/<div class="plot-footer">[\s\S]*?<\/div>\s*$/, ''))
@@ -286,12 +306,9 @@ function engineerBlock(app: MobileApplication) {
   const totalAreaLabel = areaSqFt
     ? `${areaSqFt.toFixed(2)} Sq.Ft${areaSqM ? ` (${areaSqM} Sq.M)` : ''}`
     : null;
-  const measuredType = deriveSiteTypeFromDims(
-    app.dimNorth || app.engineerDimensions?.N,
-    app.dimSouth || app.engineerDimensions?.S,
-    app.dimEast || app.engineerDimensions?.E,
-    app.dimWest || app.engineerDimensions?.W,
-  );
+  const measuredDimensionLabel = engineerDims
+    ? formatEngineerMeasuredDimension(engineerDims)
+    : null;
   const occupancyReasonRow =
     app.occupancy === 'Occupied'
       ? formRowPair(['Occupancy reason', fmt(app.occupancyReason)])
@@ -324,14 +341,17 @@ function engineerBlock(app: MobileApplication) {
         </td>
         <td style="width:54%;vertical-align:top;padding:0;background:#ffffff;">
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-            ${formRowPair(
-              ['Dim North', fmt(boundary.dims?.north || app.dimNorth)],
-              ['Dim South', fmt(boundary.dims?.south || app.dimSouth)],
-            )}
-            ${formRowPair(
-              ['Dim East', fmt(boundary.dims?.east || app.dimEast)],
-              ['Dim West', fmt(boundary.dims?.west || app.dimWest)],
-            )}
+            ${
+              engineerDims
+                ? `${formRowPair(
+                    ['Dim North', fmt(engineerDims.north)],
+                    ['Dim South', fmt(engineerDims.south)],
+                  )}${formRowPair(
+                    ['Dim East', fmt(engineerDims.east)],
+                    ['Dim West', fmt(engineerDims.west)],
+                  )}`
+                : formRowPair(['Measured dimensions', fmt(null)])
+            }
           </table>
           ${
             areaSqFt
@@ -342,38 +362,13 @@ function engineerBlock(app: MobileApplication) {
           `
               : ''
           }
-          <div style="margin:5px 6px;padding:6px 7px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;">
-            <div style="font-size:8px;font-weight:bold;color:#475569;text-transform:uppercase;letter-spacing:0.35px;margin-bottom:4px;border-bottom:1px solid #e2e8f0;padding-bottom:3px;">
-              Boundary &amp; Schedule Overview
-            </div>
-            <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-size:8.5px;">
-              <tr>
-                <td style="padding:2px 4px;color:#64748b;font-weight:600;width:20%;">North:</td>
-                <td style="padding:2px 4px;color:#0f172a;font-weight:700;width:30%;">${fmt(scheduleNoteLine(app, 'N'))}</td>
-                <td style="padding:2px 4px;color:#64748b;font-weight:600;width:20%;">South:</td>
-                <td style="padding:2px 4px;color:#0f172a;font-weight:700;width:30%;">${fmt(scheduleNoteLine(app, 'S'))}</td>
-              </tr>
-              <tr>
-                <td style="padding:2px 4px;color:#64748b;font-weight:600;">East:</td>
-                <td style="padding:2px 4px;color:#0f172a;font-weight:700;">${fmt(scheduleNoteLine(app, 'E'))}</td>
-                <td style="padding:2px 4px;color:#64748b;font-weight:600;">West:</td>
-                <td style="padding:2px 4px;color:#0f172a;font-weight:700;">${fmt(scheduleNoteLine(app, 'W'))}</td>
-              </tr>
-            </table>
-            <div style="margin-top:4px;padding-top:4px;border-top:1px solid #e2e8f0;font-size:8px;color:#64748b;line-height:1.35;">
-              <span><strong>Type:</strong> ${escapeHtml(app.siteDimensionType || 'Even')}</span>
-              &nbsp;·&nbsp;
-              <span><strong>Site:</strong> #${escapeHtml(app.siteNo || '—')}</span>
-              &nbsp;·&nbsp;
-              <span><strong>Zone:</strong> ${escapeHtml(app.zoneCode || '—')}</span>
-            </div>
-          </div>
         </td>
       </tr>
     </table>
   `;
 
-  const dimensionsBlock = `
+  const dimensionsBlock = hasEngineerDims
+    ? `
       ${sectionSubHeader('Dimensions')}
       <tr>
         <td colspan="4" style="padding:0;border-top:1px solid #e2e8f0;page-break-inside:avoid;break-inside:avoid;">
@@ -382,6 +377,7 @@ function engineerBlock(app: MobileApplication) {
               ['Measured site type', siteTypeBadgeHtml(measuredType)],
               ['Total area', fmt(totalAreaLabel)],
             )}
+            ${formRowPair(['Measured site dimension', fmt(measuredDimensionLabel)])}
             <tr>
               <td colspan="4" style="padding:0;background:#ffffff;border-top:1px solid #e2e8f0;">
                 ${dimSideBySideHtml}
@@ -390,29 +386,16 @@ function engineerBlock(app: MobileApplication) {
           </table>
         </td>
       </tr>
-  `;
+  `
+    : '';
 
   return `
     ${cardOpen('Engineer details', app.status)}
       ${formRowPair(['Assigned on', fmt(formatDateTime(app.createdAt))], ['Submitted on', fmt(formatDateTime(app.engineerSubmittedAt))])}
 
-      ${sectionSubHeader('Schedules')}
-      ${formRowPair(
-        ['North', fmt(scheduleNoteLine(app, 'N'))],
-        ['South', fmt(scheduleNoteLine(app, 'S'))],
-      )}
-      ${formRowPair(
-        ['West', fmt(scheduleNoteLine(app, 'W'))],
-        ['East', fmt(scheduleNoteLine(app, 'E'))],
-      )}
-      ${formRowPair(
-        ['Road N', fmt(isRoadSide(app, 'N') ? 'Yes' : 'No')],
-        ['Road S', fmt(isRoadSide(app, 'S') ? 'Yes' : 'No')],
-      )}
-      ${formRowPair(
-        ['Road W', fmt(isRoadSide(app, 'W') ? 'Yes' : 'No')],
-        ['Road E', fmt(isRoadSide(app, 'E') ? 'Yes' : 'No')],
-      )}
+      ${sectionSubHeader('Boundary capture')}
+      ${formRowPair(['North', fmt(engineerScheduleDisplay(app, 'N'))], ['South', fmt(engineerScheduleDisplay(app, 'S'))])}
+      ${formRowPair(['West', fmt(engineerScheduleDisplay(app, 'W'))], ['East', fmt(engineerScheduleDisplay(app, 'E'))])}
 
       ${sectionSubHeader('Compass & GPS')}
       ${formRowPair(['Compass', fmt(app.compass)], ['Occupancy', fmt(app.occupancy)])}

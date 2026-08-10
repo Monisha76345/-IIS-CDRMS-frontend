@@ -11,7 +11,6 @@ import {
   Edit3,
   Eye,
   FileText,
-  FolderOpen,
   HelpCircle,
   Layers,
   Lock,
@@ -22,7 +21,6 @@ import {
   Settings,
   ShieldCheck,
   Trash2,
-  Undo2,
   Upload,
   User,
   UserCheck,
@@ -64,14 +62,16 @@ import { GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
 import {
   BdaPageWatermark,
   WelcomeHomeHeader,
-  welcomeCardSurface,
   welcomeFilterGap,
+  listCardSurface,
+  listCardInnerClipStyle,
+  listCardStatusRailStyle,
 } from '@/src/cdrms/components/WelcomeHomeChrome';
 import { useTheme } from '@/src/theme/ThemeContext';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go, Screen } from '@/src/cdrms/types';
 import { useAuth } from '@/src/auth/AuthContext';
-import { displayName, homeScreenForRole, resolveAppRole } from '@/src/auth/roles';
+import { displayName, homeScreenForRole, resolveAppRole, roleDisplayTitle } from '@/src/auth/roles';
 import { ApiError } from '@/src/api/client';
 import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 import {
@@ -81,12 +81,12 @@ import {
   applicationCardDateLine,
   engineerResumeScreen,
   engineerTaskProgressPercent,
+  engineerApplicationListStatus,
   type MobileApplication,
 } from '@/src/api/applications';
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
 import { DateZoneMetaRow } from '@/src/cdrms/components/DateZoneMetaRow';
 import { useNotifications } from '@/src/cdrms/hooks/useNotifications';
-import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
 import {
   formatNotifTime,
   navigateFromNotification,
@@ -96,15 +96,14 @@ import {
 import {
   getSelectedOfficeAppId,
   setSelectedOfficeAppId,
+  setZcEditApplicationId,
   consumeEngineerAppsFilter,
   consumeEngineerAppsReturn,
 } from '@/src/cdrms/officeSelection';
 import { ensureCameraPermission } from '@/src/cdrms/mediaPermission';
 
-function mapTaskStatus(status: MobileApplication['status']) {
-  if (status === 'submitted') return 'Submitted';
-  if (status === 'in_progress') return 'In progress';
-  return 'Assigned';
+function mapTaskStatus(app: MobileApplication) {
+  return engineerApplicationListStatus(app);
 }
 
 function taskCoverImage(app: MobileApplication): string | null {
@@ -123,7 +122,7 @@ function mapTaskCard(app: MobileApplication) {
     id: app.id,
     project: app.applicationNumber || `Site ${app.siteNo}`,
     siteNo: app.siteNo?.trim() || '',
-    status: mapTaskStatus(app.status),
+    status: mapTaskStatus(app),
     zone: app.zoneCode?.trim() || '',
     date: applicationCardDateLine(app),
     village: [app.addressArea, app.addressBlock].filter(Boolean).join(', ') || '—',
@@ -199,6 +198,7 @@ export function Dashboard({ go }: { go: Go }) {
   );
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [openingId, setOpeningId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   /** Home list filter from the 4 status cards. */
   const [recentFilter, setRecentFilter] = useState<
     'all' | 'assigned' | 'in_progress' | 'submitted'
@@ -254,24 +254,45 @@ export function Dashboard({ go }: { go: Go }) {
     }
   };
 
-  const assignedTasks = allApps.filter((t) => t.status === 'assigned');
-  const inProgressTasks = allApps.filter((t) => t.status === 'in_progress');
-  const submittedTasks = allApps.filter(
-    (t) => t.status === 'submitted' || Boolean(t.engineerSubmittedAt?.trim()),
-  );
-  /** All tasks = open work only (assigned + in progress). */
-  const openTasks = [...assignedTasks, ...inProgressTasks];
+  const { assignedTasks, inProgressTasks, submittedTasks } = useMemo(() => {
+    const assigned: MobileApplication[] = [];
+    const inProgress: MobileApplication[] = [];
+    const submitted: MobileApplication[] = [];
+    for (const app of allApps) {
+      const status = engineerApplicationListStatus(app);
+      if (status === 'Assigned') assigned.push(app);
+      else if (status === 'In progress') inProgress.push(app);
+      else if (status === 'Submitted') submitted.push(app);
+    }
+    return {
+      assignedTasks: assigned,
+      inProgressTasks: inProgress,
+      submittedTasks: submitted,
+    };
+  }, [allApps]);
 
-  const filteredApps =
-    recentFilter === 'assigned'
-      ? assignedTasks
-      : recentFilter === 'in_progress'
-        ? inProgressTasks
-        : recentFilter === 'submitted'
-          ? submittedTasks
-          : openTasks;
+  const filteredApps = useMemo(() => {
+    if (recentFilter === 'assigned') return assignedTasks;
+    if (recentFilter === 'in_progress') return inProgressTasks;
+    if (recentFilter === 'submitted') return submittedTasks;
+    return allApps;
+  }, [allApps, recentFilter, assignedTasks, inProgressTasks, submittedTasks]);
 
-  const recentCards = filteredApps.slice(0, 12).map(mapTaskCard);
+  const searchedApps = useMemo(() => {
+    if (!searchQuery.trim()) return filteredApps;
+    const needle = searchQuery.trim().toLowerCase();
+    return filteredApps.filter(
+      (a) =>
+        a.applicationNumber.toLowerCase().includes(needle) ||
+        a.siteNo.toLowerCase().includes(needle) ||
+        (a.zoneCode || '').toLowerCase().includes(needle) ||
+        (a.addressArea || '').toLowerCase().includes(needle) ||
+        (a.addressBlock || '').toLowerCase().includes(needle) ||
+        (a.eOfficeNumber || '').toLowerCase().includes(needle),
+    );
+  }, [filteredApps, searchQuery]);
+
+  const recentCards = searchedApps.slice(0, 12).map(mapTaskCard);
 
   const filterCards: Array<{
     id: 'all' | 'assigned' | 'in_progress' | 'submitted';
@@ -284,7 +305,7 @@ export function Dashboard({ go }: { go: Go }) {
     {
       id: 'all',
       label: 'All tasks',
-      value: openTasks.length,
+      value: allApps.length,
       bg: usesLightHeader() ? '#ECFDF5' : GLASS.tintBlue,
       fg: usesLightHeader() ? '#059669' : COLORS.primary,
       icon: Layers,
@@ -340,7 +361,7 @@ export function Dashboard({ go }: { go: Go }) {
         ? 'No in-progress tasks yet.'
         : recentFilter === 'submitted'
           ? 'No submitted applications yet.'
-          : 'No open tasks. Assigned and in-progress applications will appear here.';
+          : 'No tasks yet. Assigned applications will appear here.';
 
   return (
     <ScreenShell className="bg-background">
@@ -351,6 +372,7 @@ export function Dashboard({ go }: { go: Go }) {
         style={{ zIndex: 1 }}
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <WelcomeHomeHeader
           user={user}
@@ -440,6 +462,14 @@ export function Dashboard({ go }: { go: Go }) {
           </HStack>
         </Box>
 
+        <Box className="px-4 mt-3">
+          <SearchField
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search by application no, site, zone…"
+          />
+        </Box>
+
         {/* Filtered activity list */}
         <Box className="px-4 mt-3">
           <Text className="text-[15px] font-bold mb-2" style={{ color: COLORS.ink }}>
@@ -484,8 +514,7 @@ export function Dashboard({ go }: { go: Go }) {
                 <Box
                   key={a.id}
                   style={[
-                    cardSurfaceStyle(),
-                    welcomeCardSurface(cardIdx),
+                    listCardSurface(cardIdx),
                     { padding: 0 },
                     DESIGN.listVariant === 'ghost'
                       ? {
@@ -496,27 +525,27 @@ export function Dashboard({ go }: { go: Go }) {
                           borderBottomWidth: StyleSheet.hairlineWidth,
                           borderBottomColor: COLORS.border,
                         }
-                      : { borderRadius: DESIGN.cardRadius },
+                      : null,
                   ]}
                 >
                   <HStack
-                    style={{
-                      alignItems: 'stretch',
-                      overflow: DESIGN.listVariant === 'ghost' ? undefined : 'hidden',
-                      borderRadius:
-                        DESIGN.listVariant === 'ghost' ? 0 : DESIGN.cardRadius - 1,
-                    }}
+                    style={
+                      DESIGN.listVariant === 'ghost'
+                        ? { alignItems: 'stretch' }
+                        : listCardInnerClipStyle()
+                    }
                   >
-                    {/* Status-colored left rail */}
                     <Box
-                      style={{
-                        width: 5,
-                        backgroundColor: accent,
-                        borderTopLeftRadius:
-                          DESIGN.listVariant === 'ghost' ? 0 : DESIGN.cardRadius - 1,
-                        borderBottomLeftRadius:
-                          DESIGN.listVariant === 'ghost' ? 0 : DESIGN.cardRadius - 1,
-                      }}
+                      style={
+                        DESIGN.listVariant === 'ghost'
+                          ? {
+                              width: 5,
+                              backgroundColor: accent,
+                              alignSelf: 'stretch',
+                              borderRadius: 2,
+                            }
+                          : listCardStatusRailStyle(accent)
+                      }
                     />
                     <HStack
                       className="items-start flex-1"
@@ -751,6 +780,7 @@ export function NotificationsScreen({ go }: { go: Go }) {
         key={themeId}
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 120 }}
+        keyboardShouldPersistTaps="handled"
       >
         <Box className="px-5 pt-4">
           <SearchField
@@ -839,21 +869,25 @@ export function NotificationsScreen({ go }: { go: Go }) {
         appsTarget={home === 'dashboard' ? 'history' : home}
         hidePlus={home !== 'zc_home'}
         hideAlerts={home !== 'zc_home'}
-        onPlus={home === 'zc_home' ? () => go('zc_create') : undefined}
+        onPlus={home === 'zc_home' ? () => { setZcEditApplicationId(null); go('zc_create'); } : undefined}
       />
     </ScreenShell>
   );
 }
 
-const APP_FILTERS: Array<{ key: string; label: string; icon: LucideIcon }> = [
+const ENGINEER_APP_FILTERS: Array<{ key: string; label: string; icon: LucideIcon }> = [
   { key: 'All', label: 'All', icon: Layers },
   { key: 'Assigned', label: 'Assigned', icon: FileText },
   { key: 'In progress', label: 'In progress', icon: Edit3 },
   { key: 'Submitted', label: 'Submitted', icon: Send },
-  { key: 'Draft', label: 'Draft', icon: FolderOpen },
-  { key: 'Returned', label: 'Returned', icon: Undo2 },
-  { key: 'Verified', label: 'Verified', icon: CheckCircle2 },
 ];
+
+const ENGINEER_APP_FILTER_KEYS = new Set(ENGINEER_APP_FILTERS.map((f) => f.key));
+
+function normalizeEngineerAppsFilter(pre: string | null): string {
+  if (pre && ENGINEER_APP_FILTER_KEYS.has(pre)) return pre;
+  return 'All';
+}
 
 function ApplicationThumb({ uri }: { uri: string | null }) {
   const [failed, setFailed] = useState(false);
@@ -977,91 +1011,83 @@ function ApplicationListCard({
   })();
 
   return (
-    <Box
-      style={{
-        backgroundColor: 'rgba(255,255,255,0.52)',
-        borderRadius: DESIGN.radiusLg,
-        overflow: 'hidden',
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: 'rgba(15,23,42,0.08)',
-        shadowColor: GLASS.shadow,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.03,
-        shadowRadius: 4,
-        elevation: 0,
-      }}
-    >
-      <HStack>
-        <Box style={{ width: 4, backgroundColor: accent, alignSelf: 'stretch' }} />
-        <HStack
-          className="flex-1 items-start"
-          style={{ paddingVertical: 12, paddingHorizontal: 12, gap: 10 }}
-        >
-          <Pressable onPress={onView} className="active:opacity-92" style={{ marginTop: 2 }}>
-            <ApplicationThumb uri={image} />
-          </Pressable>
-          <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
-            <Pressable onPress={onView} className="active:opacity-92">
-              <Text
-                style={{
-                  fontFamily: FONTS.bold,
-                  fontSize: 14,
-                  lineHeight: 19,
-                  color: COLORS.ink,
-                }}
-                numberOfLines={1}
-              >
-                {project}
-              </Text>
+    <Pressable onPress={onView} className="active:opacity-92">
+      <Box style={[listCardSurface(), { padding: 0 }]}>
+        <HStack style={listCardInnerClipStyle()}>
+          <Box style={listCardStatusRailStyle(accent)} />
+          <HStack
+            className="flex-1 items-start"
+            style={{ paddingVertical: 11, paddingHorizontal: 12, gap: 10 }}
+          >
+            <Pressable onPress={onView} className="active:opacity-92" style={{ marginTop: 2 }}>
+              <ApplicationThumb uri={image} />
+            </Pressable>
+            <VStack className="flex-1 min-w-0" style={{ gap: 6 }}>
+              <HStack className="items-center" style={{ gap: 8 }}>
+                <Pressable onPress={onView} className="flex-1 min-w-0 active:opacity-92">
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 14,
+                      lineHeight: 19,
+                      color: COLORS.ink,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {project}
+                  </Text>
+                </Pressable>
+                <Box style={{ flexShrink: 0 }}>
+                  <StatusChip status={status} />
+                </Box>
+              </HStack>
 
-              {meta ? (
+              <Pressable onPress={onView} className="active:opacity-92">
                 <Text
-                  style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.ink, marginTop: 3 }}
+                  style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.ink }}
                   numberOfLines={1}
                 >
                   {meta}
                 </Text>
-              ) : null}
-
-              {date ? (
-                <HStack className="items-center" style={{ gap: 4, marginTop: 5 }}>
-                  <Clock size={12} color={COLORS.primary} strokeWidth={2.3} />
-                  <Text
-                    style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}
-                    numberOfLines={1}
-                  >
-                    {date}
-                  </Text>
-                </HStack>
-              ) : null}
-            </Pressable>
-          </VStack>
-
-          <VStack className="items-end justify-between self-stretch" style={{ gap: 8 }}>
-            <StatusChip status={status} />
-            <HStack className="items-center" style={{ gap: 6 }}>
-              <Pressable
-                onPress={onView}
-                accessibilityRole="button"
-                accessibilityLabel="View application"
-                className="active:opacity-85 items-center justify-center"
-                style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: DESIGN.stepRadius,
-                  backgroundColor: GLASS.tintBlue,
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
-                }}
-              >
-                <Eye size={15} color={COLORS.primary} strokeWidth={2.4} />
               </Pressable>
-              {actionBtn}
-            </HStack>
-          </VStack>
+
+              <HStack className="items-center justify-between" style={{ gap: 8 }}>
+                {date ? (
+                  <HStack className="items-center flex-1 min-w-0" style={{ gap: 4 }}>
+                    <Clock size={12} color={COLORS.primary} strokeWidth={2.3} />
+                    <Text
+                      style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}
+                      numberOfLines={1}
+                    >
+                      {date}
+                    </Text>
+                  </HStack>
+                ) : (
+                  <Box style={{ flex: 1 }} />
+                )}
+                <HStack className="items-center" style={{ gap: 6, flexShrink: 0 }}>
+                  <Pressable
+                    onPress={onView}
+                    accessibilityRole="button"
+                    accessibilityLabel="View application"
+                    className="active:opacity-85 items-center justify-center"
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: DESIGN.stepRadius,
+                      backgroundColor: COLORS.primary,
+                    }}
+                  >
+                    <Eye size={15} color={COLORS.white} strokeWidth={2.4} />
+                  </Pressable>
+                  {actionBtn}
+                </HStack>
+              </HStack>
+            </VStack>
+          </HStack>
         </HStack>
-      </HStack>
-    </Box>
+      </Box>
+    </Pressable>
   );
 }
 
@@ -1069,7 +1095,9 @@ export function HistoryScreen({ go }: { go: Go }) {
   const { themeId } = useTheme();
   const { applications, draft, openApplication, openBackendTask } = useProject();
   const { accessToken } = useAuth();
-  const [tab, setTab] = useState(() => consumeEngineerAppsFilter() || 'All');
+  const [tab, setTab] = useState(() =>
+    normalizeEngineerAppsFilter(consumeEngineerAppsFilter()),
+  );
   const [backTarget] = useState(() => consumeEngineerAppsReturn());
   const [apiTasks, setApiTasks] = useState<MobileApplication[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
@@ -1117,11 +1145,6 @@ export function HistoryScreen({ go }: { go: Go }) {
       go('engineer_detail');
       return;
     }
-    if (status === 'Draft' && live) {
-      openApplication(id);
-      go('details');
-      return;
-    }
     openApplication(id);
     go('details');
   };
@@ -1130,40 +1153,8 @@ export function HistoryScreen({ go }: { go: Go }) {
     const apiRows = apiTasks.map(mapTaskCard);
 
     if (accessToken) {
-      // When authenticated with backend, live API tasks are the single source of truth.
-      // Include local draft only if it is attached to a backend task.
-      const backendDraftRow =
-        draft.status === 'draft' &&
-        draft.backendApplicationId &&
-        !apiRows.some((r) => r.id === draft.backendApplicationId)
-          ? [
-              {
-                id: draft.id,
-                project: draft.projectName.trim() || draft.applicationNumber || 'Untitled draft',
-                siteNo: draft.siteNo?.trim() || '',
-                status: 'Draft' as string,
-                zone: draft.zoneCode?.trim() || '',
-                date: draft.updatedAt
-                  ? `Updated · ${new Date(draft.updatedAt).toLocaleString(undefined, {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      hour12: true,
-                    })}`
-                  : 'Draft',
-                village: draft.village.trim() || '—',
-                image:
-                  draft.photos[0]?.uri ||
-                  draft.surroundingPhotos.N?.uri ||
-                  null,
-                live: true as const,
-                apiTask: false as const,
-              },
-            ]
-          : [];
-      return [...apiRows, ...backendDraftRow];
+      // Backend API is the single source of truth — ZC drafts are never shown to engineers.
+      return apiRows;
     }
 
     const submitted = applications.map((a) => ({
@@ -1202,7 +1193,7 @@ export function HistoryScreen({ go }: { go: Go }) {
               id: draft.id,
               project: draft.projectName.trim() || 'Untitled draft',
               siteNo: draft.siteNo?.trim() || '',
-              status: 'Draft' as string,
+              status: 'In progress' as string,
               zone: draft.zoneCode?.trim() || '',
               date: `Updated · ${new Date(draft.updatedAt).toLocaleString(undefined, {
                 day: '2-digit',
@@ -1253,7 +1244,7 @@ export function HistoryScreen({ go }: { go: Go }) {
             gap: 8,
           }}
         >
-          {APP_FILTERS.map((f) => {
+          {ENGINEER_APP_FILTERS.map((f) => {
             const Icon = f.icon;
             const on = tab === f.key;
             const count =
@@ -1465,7 +1456,7 @@ export function EngineerDetailScreen({ go }: { go: Go }) {
             </Text>
           </Box>
         ) : (
-          <ApplicationRecordDetails app={app} showEmptyEngineer={false} />
+          <ApplicationRecordDetails app={app} showEmptyEngineer={false} viewerRole="engineer" />
         )}
       </ScrollView>
     </ScreenShell>
@@ -1620,34 +1611,14 @@ export function ProfileScreen({ go }: { go: Go }) {
   const name =
     user?.name?.trim() ||
     [officer?.firstName, officer?.lastName].filter(Boolean).join(' ').trim() ||
-    (appRole === 'zc' ? 'Ramesh Kumar (ZC)' : appRole === 'cao' ? 'Monisha s' : 'Field Engineer');
+    (appRole === 'zc' ? 'Ramesh Kumar (ZC)' : appRole === 'cao' ? 'Monisha s' : 'Engineer');
   const nameParts = name.split(/\s+/).filter(Boolean);
   const firstName = nameParts[0] || 'Monisha';
   const lastName = nameParts.slice(1).join(' ') || 's';
   const initials = `${firstName[0]?.toUpperCase() || ''}${lastName[0]?.toUpperCase() || ''}` || 'U';
   const loginId =
     officer?.personUniqueId || user?.loginId || 'CDRMS00007';
-  const rawRoleTitle: string =
-    u.roleName ||
-    post?.postName ||
-    u.userType ||
-    (appRole === 'zc'
-      ? 'Zonal Commissioner'
-      : appRole === 'cao'
-        ? 'CAO'
-        : appRole === 'super_admin'
-          ? 'Administrator'
-          : 'Field Engineer');
-  const roleAcronyms = new Set(['cao', 'zc', 'bda', 'pwd', 'ae', 'je']);
-  const roleTitle = String(rawRoleTitle)
-    .split(/[\s_-]+/)
-    .filter(Boolean)
-    .map((w: string) => {
-      const lower = w.toLowerCase();
-      if (roleAcronyms.has(lower)) return lower.toUpperCase();
-      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-    })
-    .join(' ');
+  const roleTitle = roleDisplayTitle(user);
 
   const zone =
     post?.zoneCode?.trim() ||
@@ -1954,7 +1925,7 @@ export function ProfileScreen({ go }: { go: Go }) {
         appsTarget={appsTarget}
         hidePlus={appRole !== 'zc'}
         hideAlerts={appRole !== 'zc'}
-        onPlus={appRole === 'zc' ? () => go('zc_create') : undefined}
+        onPlus={appRole === 'zc' ? () => { setZcEditApplicationId(null); go('zc_create'); } : undefined}
       />
     </ScreenShell>
   );

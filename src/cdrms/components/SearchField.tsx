@@ -1,9 +1,15 @@
 import { Search, XCircle } from 'lucide-react-native';
-import type { ReactNode } from 'react';
-import { Platform, TextInput, type TextInputProps, type ViewStyle } from 'react-native';
+import { useCallback, useRef, type ReactNode } from 'react';
+import {
+  Keyboard,
+  Platform,
+  TextInput,
+  TouchableOpacity,
+  type TextInputProps,
+  type ViewStyle,
+} from 'react-native';
 
 import { Box } from '@/components/ui/box';
-import { Pressable } from '@/components/ui/pressable';
 import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
 import { COLORS, FONTS } from '@/src/cdrms/theme';
 
@@ -33,7 +39,14 @@ export function SearchField({
   style,
   inputStyle,
 }: SearchFieldProps) {
+  const inputRef = useRef<TextInput>(null);
   const hasValue = value.length > 0;
+
+  const handleClear = useCallback(() => {
+    onChangeText('');
+    inputRef.current?.blur();
+    Keyboard.dismiss();
+  }, [onChangeText]);
 
   return (
     <Box
@@ -46,10 +59,12 @@ export function SearchField({
     >
       <Search size={16} color={iconColor} />
       <TextInput
+        ref={inputRef}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={COLORS.slate}
+        returnKeyType="search"
         style={[
           {
             flex: 1,
@@ -63,16 +78,24 @@ export function SearchField({
         ]}
       />
       {hasValue ? (
-        <Pressable
-          onPress={() => onChangeText('')}
+        <TouchableOpacity
+          onPress={Platform.OS === 'web' ? undefined : handleClear}
+          {...(Platform.OS === 'web'
+            ? {
+                onMouseDown: (event) => {
+                  event.preventDefault();
+                  handleClear();
+                },
+              }
+            : null)}
           accessibilityRole="button"
           accessibilityLabel="Clear search"
-          hitSlop={8}
-          className="active:opacity-70"
-          style={{ marginLeft: 4, padding: 2 }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          activeOpacity={0.65}
+          style={{ marginLeft: 4, padding: 4, zIndex: 2 }}
         >
           <XCircle size={18} color={COLORS.slate} />
-        </Pressable>
+        </TouchableOpacity>
       ) : null}
       {endAdornment ? (
         <Box style={{ marginLeft: hasValue ? 6 : 4 }}>{endAdornment}</Box>
