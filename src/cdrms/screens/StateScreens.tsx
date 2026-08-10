@@ -51,6 +51,7 @@ import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
 import { ReviewMediaPanel } from '@/src/cdrms/components/ReviewMediaPanel';
 import { ReviewSchedulesPanel } from '@/src/cdrms/components/ReviewSchedulesPanel';
 import { showAppDialog } from '@/src/cdrms/components/AppDialog';
+import { formatApplicationDateTime, engineerReviewStatusBadge } from '@/src/api/applications';
 import { captureCurrentLocation } from '@/src/cdrms/hooks/useDeviceLocation';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { formatCoords, type Cardinal } from '@/src/cdrms/project/types';
@@ -249,6 +250,46 @@ function reviewStepBadge(stepLabel: string, total = 4) {
   return Number.isFinite(n) && n > 0 ? `${n}/${total}` : stepLabel;
 }
 
+function reviewRowSpansFullWidth(label: string, value: string) {
+  const text = value.trim();
+  if (label === 'ZC comments' || label === 'Engineer comments') {
+    return true;
+  }
+  return text.length > 34;
+}
+
+function ReviewPremiumField({ label, value }: { label: string; value: string }) {
+  const display = value.trim() || '—';
+
+  return (
+    <Box style={{ minWidth: 0 }}>
+      <Text
+        style={{
+          fontFamily: FONTS.bold,
+          fontSize: 13,
+          color: COLORS.ink,
+          letterSpacing: 0.3,
+          textTransform: 'uppercase',
+        }}
+        numberOfLines={2}
+      >
+        {label}
+      </Text>
+      <Text
+        style={{
+          marginTop: 4,
+          fontFamily: FONTS.regular,
+          fontSize: 15,
+          color: COLORS.ink,
+          lineHeight: 21,
+        }}
+      >
+        {display}
+      </Text>
+    </Box>
+  );
+}
+
 function ReviewDetailRow({
   label,
   value,
@@ -264,7 +305,7 @@ function ReviewDetailRow({
     <HStack
       className="items-start"
       style={{
-        gap: 10,
+        gap: 12,
         paddingVertical: 10,
         borderBottomWidth: isLast ? 0 : 1,
         borderBottomColor: '#F1F5F9',
@@ -274,7 +315,7 @@ function ReviewDetailRow({
         style={{
           width: 118,
           fontFamily: FONTS.bold,
-          fontSize: 12,
+          fontSize: 13,
           color: COLORS.ink,
           letterSpacing: 0.2,
         }}
@@ -285,23 +326,15 @@ function ReviewDetailRow({
         style={{
           flex: 1,
           fontFamily: FONTS.regular,
-          fontSize: 13,
+          fontSize: 15,
           color: COLORS.ink,
-          lineHeight: 18,
+          lineHeight: 21,
         }}
       >
         {display}
       </Text>
     </HStack>
   );
-}
-
-function reviewRowFullWidth(label: string, value: string) {
-  const text = value.trim();
-  if (!text || text === '—') return false;
-  if (label === 'Site details' || label === 'Engineer comments') return true;
-  if (label === 'Area / block' || label === 'Village') return text.length > 28;
-  return text.length > 42;
 }
 
 function filterReviewRows(rows: { label: string; value: string }[]) {
@@ -337,15 +370,11 @@ function ReviewSectionCard({
         variant === 'premium' ? (
           <Box
             style={{
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              justifyContent: 'space-between',
-              rowGap: SPACE[2],
               borderRadius: 12,
               backgroundColor: GLASS.surfaceSolid,
               borderWidth: 1.5,
               borderColor: `${COLORS.primary}59`,
-              paddingHorizontal: SPACE[2],
+              paddingHorizontal: SPACE[3],
               paddingVertical: SPACE[2],
               shadowColor: '#0F172A',
               shadowOffset: { width: 0, height: 2 },
@@ -354,40 +383,29 @@ function ReviewSectionCard({
               elevation: 2,
             }}
           >
-            {rows.map((row) => (
-              <Box
-                key={`${stepLabel}-${row.label}`}
-                style={{
-                  width: reviewRowFullWidth(row.label, row.value) ? '100%' : '48%',
-                  minWidth: 0,
-                  paddingVertical: 2,
-                }}
-              >
-                <Text
-                  style={{
-                    fontFamily: FONTS.semibold,
-                    fontSize: 12,
-                    color: COLORS.slate,
-                    letterSpacing: 0.4,
-                    textTransform: 'uppercase',
-                  }}
-                  numberOfLines={1}
-                >
-                  {row.label}
-                </Text>
-                <Text
-                  style={{
-                    marginTop: 2,
-                    fontFamily: FONTS.semibold,
-                    fontSize: 12,
-                    color: COLORS.ink,
-                    lineHeight: 16,
-                  }}
-                >
-                  {row.value.trim() || '—'}
-                </Text>
-              </Box>
-            ))}
+            <Box
+              style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                justifyContent: 'space-between',
+                rowGap: 14,
+              }}
+            >
+              {rows.map((row) => {
+                const fullWidth = reviewRowSpansFullWidth(row.label, row.value);
+                return (
+                  <Box
+                    key={`${stepLabel}-${row.label}`}
+                    style={{
+                      width: fullWidth ? '100%' : '48%',
+                      minWidth: 0,
+                    }}
+                  >
+                    <ReviewPremiumField label={row.label} value={row.value} />
+                  </Box>
+                );
+              })}
+            </Box>
           </Box>
         ) : (
           <Box>
@@ -567,6 +585,7 @@ export function ReviewScreen({ go }: { go: Go }) {
 
   const isResubmit = Boolean(draft.resubmitOfId);
   const canSubmit = terms && summary.allOk && !submitting;
+  const reviewStatusBadge = useMemo(() => engineerReviewStatusBadge(draft), [draft]);
 
   const titleId =
     draft.applicationNumber?.trim() ||
@@ -629,20 +648,26 @@ export function ReviewScreen({ go }: { go: Go }) {
             : 'ZC site particulars',
           iconBg: COLORS.primary,
           rows: filterReviewRows([
+            { label: 'E-office no', value: draft.eOfficeNumber.trim() },
             { label: 'Application', value: draft.applicationNumber?.trim() || titleId },
             { label: 'Site no', value: draft.siteNo.trim() || draft.surveyNo.trim() },
-            { label: 'Zone', value: draft.zoneCode.trim() },
-            { label: 'Village', value: draft.village.trim() || draft.addressArea.trim() },
-            {
-              label: 'Area / block',
-              value: [draft.addressArea.trim(), draft.addressBlock.trim()].filter(Boolean).join(', '),
-            },
-            { label: 'Pincode', value: draft.addressPincode.trim() },
-            { label: 'Taluk', value: draft.taluk.trim() },
-            { label: 'District', value: draft.district.trim() },
             { label: 'Site type', value: draft.siteDimensionType },
             { label: 'ZC dimension', value: draft.siteDimensionMaster.trim() },
-            { label: 'Site details', value: draft.siteDetails.trim() },
+            { label: 'Zone', value: draft.zoneCode.trim() },
+            { label: 'Area', value: draft.addressArea.trim() },
+            { label: 'Block', value: draft.addressBlock.trim() },
+            { label: 'Pincode', value: draft.addressPincode.trim() },
+            { label: 'Created by ZC', value: draft.createdByZcName.trim() },
+            {
+              label: 'Assigned on',
+              value: formatApplicationDateTime(draft.backendAssignedAt),
+            },
+            { label: 'Assigned engineer', value: draft.assignedEngineerName.trim() },
+            { label: 'Schedule north', value: draft.zcDirections.N.trim() },
+            { label: 'Schedule south', value: draft.zcDirections.S.trim() },
+            { label: 'Schedule west', value: draft.zcDirections.W.trim() },
+            { label: 'Schedule east', value: draft.zcDirections.E.trim() },
+            { label: 'ZC comments', value: draft.siteDimensionComment.trim() },
           ]),
         },
         {
@@ -911,8 +936,8 @@ export function ReviewScreen({ go }: { go: Go }) {
           }
           badge={
             <HeaderStatusBadge
-              label={draft.status === 'submitted' ? 'SUBMITTED' : 'DRAFT'}
-              tone={draft.status === 'submitted' ? 'success' : 'warning'}
+              label={reviewStatusBadge.label}
+              tone={reviewStatusBadge.tone}
             />
           }
         >
@@ -981,7 +1006,7 @@ export function ReviewScreen({ go }: { go: Go }) {
                 ? 'Refreshing from server…'
                 : surveyLine || 'Final check before CAO review'
             }
-            badge={draft.status === 'submitted' ? 'SUBMITTED' : 'DRAFT'}
+            badge={reviewStatusBadge.label}
             iconBg={COLORS.primary}
           />
         </SurveyCard>

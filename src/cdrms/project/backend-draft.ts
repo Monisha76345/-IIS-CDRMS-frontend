@@ -1,4 +1,4 @@
-import type { MobileApplication } from '@/src/api/applications';
+import { normalizeApplicationStatus, type MobileApplication } from '@/src/api/applications';
 import { siteDimensionToFormDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import {
   createEmptyDraft,
@@ -101,6 +101,9 @@ export function draftFromBackendApplication(app: MobileApplication): ProjectDraf
     addressPincode: app.addressPincode,
     zoneCode: app.zoneCode,
     createdByZcName: app.createdByZcName || '',
+    assignedEngineerName: app.assignedEngineerName || '',
+    backendAssignedAt: app.createdAt || null,
+    backendStatus: normalizeApplicationStatus(app.status) ?? app.status,
     siteDimensionType: app.siteDimensionType === 'Odd' ? 'Odd' : 'Even',
     siteDimensionMaster: app.siteDimension || '',
     siteDimensionComment: app.siteDimensionComment || '',

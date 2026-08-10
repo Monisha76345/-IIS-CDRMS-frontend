@@ -292,7 +292,7 @@ export function ProjectScreen({ go }: { go: Go }) {
       }
       subtitle={
         isBackendTask
-          ? 'View only · assigned by Zonal Commissioner'
+          ? 'View only · assigned by Zone Commissioner'
           : isResubmit
             ? TERMS.workflow.fixResubmitSubtitle
             : TERMS.workflow.newApplicationSubtitle

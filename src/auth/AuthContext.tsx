@@ -305,7 +305,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (res.user && !isMobileAllowedRole(res.user)) {
         throw new ApiError(
           403,
-          'This mobile app supports Engineers, Zonal Commissioners, and CAO. Use the web portal for other roles.',
+          'This mobile app supports Engineers, Zone Commissioners, and CAO. Use the web portal for other roles.',
         );
       }
       const nextUser = res.user ?? {};

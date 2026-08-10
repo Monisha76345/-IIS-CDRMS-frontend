@@ -12,14 +12,16 @@ import { HStack } from '@/components/ui/hstack';
 import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import { type MobileApplication } from '@/src/api/applications';
+import { type MobileApplication, engineerApplicationListStatus } from '@/src/api/applications';
 import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
 import { ApplicationStatusBadge } from '@/src/cdrms/components/ApplicationStatusBadge';
 import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
+import { EngineerSchedulesReadOnly } from '@/src/cdrms/components/EngineerSchedulesReadOnly';
 import { DimTypeBadge, GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
 import { GpsSiteCard } from '@/src/cdrms/components/GpsSiteCard';
 import { ImagePreviewModal } from '@/src/cdrms/components/ImagePreviewModal';
 import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
+import { StatusChip } from '@/src/cdrms/components/primitives';
 import { resolveBoundaryDims, deriveSiteTypeFromDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { COLORS, DESIGN, FONTS, GLASS, SPACE, hexAlpha } from '@/src/cdrms/theme';
 import { useTheme } from '@/src/theme/ThemeContext';
@@ -101,53 +103,6 @@ function InfoRow({
       ) : (
         <Box style={{ marginTop: 3 }}>{value}</Box>
       )}
-    </Box>
-  );
-}
-
-/** Full-width highlight for E-office number — key + value on one row. */
-function EOfficeHighlight({ value }: { value: string }) {
-  return (
-    <Box
-      style={{
-        marginBottom: 4,
-        marginTop: 2,
-        paddingVertical: 12,
-        paddingHorizontal: 12,
-        borderRadius: DESIGN.cardRadius,
-        backgroundColor: GLASS.tintBlue,
-        borderWidth: 1,
-        borderColor: `${COLORS.primary}33`,
-      }}
-    >
-      <HStack style={{ alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <Text
-          style={{
-            fontFamily: FONTS.bold,
-            fontWeight: '800',
-            fontSize: 12,
-            color: COLORS.primary,
-            textTransform: 'uppercase',
-            letterSpacing: 0.5,
-            flexShrink: 0,
-          }}
-        >
-          E-office number
-        </Text>
-        <Text
-          style={{
-            fontFamily: FONTS.bold,
-            fontSize: 16,
-            color: COLORS.ink,
-            letterSpacing: 0.3,
-            flex: 1,
-            textAlign: 'right',
-          }}
-          numberOfLines={1}
-        >
-          {value || '—'}
-        </Text>
-      </HStack>
     </Box>
   );
 }
@@ -315,48 +270,46 @@ function ZcDetailsCard({
   app,
   siteType,
   diagram,
+  badge,
 }: {
   app: MobileApplication;
   siteType: string;
   diagram?: ReactNode;
+  badge?: ReactNode;
 }) {
   return (
     <SectionCard
       title="ZC details"
-      subtitle="Submitted by Zonal Commissioner"
+      subtitle="Submitted by Zone Commissioner"
       icon={Building2}
-      badge={<ApplicationStatusBadge status={app.status} size="md" />}
+      badge={badge}
     >
-      <EOfficeHighlight value={app.eOfficeNumber?.trim() || '—'} />
-      <InfoRow label="Application no" value={app.applicationNumber} />
       <InfoPairRow
-        leftLabel="Site no"
-        leftValue={app.siteNo}
-        rightLabel="Site type"
-        rightValue={siteType}
+        leftLabel="E-office number"
+        leftValue={app.eOfficeNumber?.trim() || '—'}
+        rightLabel="Site no"
+        rightValue={app.siteNo}
       />
       <InfoPairRow
-        leftLabel="Site dimension"
-        leftValue={app.siteDimension || '—'}
-        rightLabel="Zone"
-        rightValue={app.zoneCode || '—'}
+        leftLabel="Site type"
+        leftValue={siteType}
+        rightLabel="Site dimension"
+        rightValue={app.siteDimension || '—'}
       />
-      <InfoRow label="Area" value={app.addressArea || '—'} />
+      <InfoPairRow
+        leftLabel="Zone"
+        leftValue={app.zoneCode || '—'}
+        rightLabel="Area"
+        rightValue={app.addressArea || '—'}
+      />
       <InfoPairRow
         leftLabel="Block"
         leftValue={app.addressBlock || '—'}
         rightLabel="Pincode"
         rightValue={app.addressPincode || '—'}
       />
-      <InfoPairRow
-        leftLabel="Created by ZC"
-        leftValue={app.createdByZcName || '—'}
-        rightLabel="Assigned on"
-        rightValue={formatSubmittedDateTime(app.createdAt)}
-      />
-      <InfoRow label="Assigned engineer" value={app.assignedEngineerName || '—'} />
 
-      <SectionLabel accent>Schedules</SectionLabel>
+      <SectionLabel accent> Site Schedules</SectionLabel>
       <InfoPairRow
         leftLabel="North"
         leftValue={app.scheduleNorth || '—'}
@@ -373,7 +326,7 @@ function ZcDetailsCard({
 
       {app.siteDimensionComment?.trim() ? (
         <>
-          <SectionLabel accent>ZC comments</SectionLabel>
+          <SectionLabel accent>Comments</SectionLabel>
           <Box
             style={{
               paddingVertical: 7,
@@ -395,7 +348,15 @@ function ZcDetailsCard({
         </>
       ) : null}
 
-      {diagram ? <Box style={{ marginTop: 8 }}>{diagram}</Box> : null}
+      {diagram ? <Box style={{ marginTop: 8, marginBottom: 4 }}>{diagram}</Box> : null}
+
+      <InfoPairRow
+        leftLabel="Created by ZC"
+        leftValue={app.createdByZcName || '—'}
+        rightLabel="Assigned on"
+        rightValue={formatSubmittedDateTime(app.createdAt)}
+      />
+      <InfoRow label="Assigned engineer" value={app.assignedEngineerName || '—'} last />
     </SectionCard>
   );
 }
@@ -406,9 +367,12 @@ function ZcDetailsCard({
 export function ApplicationRecordDetails({
   app,
   showEmptyEngineer = true,
+  viewerRole,
 }: {
   app: MobileApplication;
   showEmptyEngineer?: boolean;
+  /** When engineer, never show ZC draft badge — use workflow status only. */
+  viewerRole?: 'engineer' | 'zc' | 'cao';
 }) {
   const { themeId } = useTheme();
   const [preview, setPreview] = useState<{ uri: string; title: string } | null>(null);
@@ -479,14 +443,6 @@ export function ApplicationRecordDetails({
   const roadFlags = app.scheduleRoadFlags || {};
   const isRoadSide = (k: 'N' | 'S' | 'E' | 'W') =>
     Boolean(roadFlags[k] ?? roadFlags[k.toLowerCase()]);
-  const scheduleNote = (k: 'N' | 'S' | 'E' | 'W') => {
-    const note = engNotes[k]?.trim() || engNotes[k.toLowerCase()]?.trim() || '';
-    const road = isRoadSide(k);
-    if (!note && !road) return '—';
-    if (note && road) return `${note} · Road`;
-    if (road) return 'Road';
-    return note;
-  };
   /** Same labels as engineer Dimensions step — includes Road so diagram shows the strip. */
   const diagramSchedule = (k: 'N' | 'S' | 'E' | 'W') => {
     const eng =
@@ -546,8 +502,24 @@ export function ApplicationRecordDetails({
     schedulePhotos.W;
 
   const zcCard = (
-    <ZcDetailsCard app={app} siteType={zcSiteType} diagram={zcDiagram} />
+    <ZcDetailsCard
+      app={app}
+      siteType={zcSiteType}
+      diagram={zcDiagram}
+      badge={
+        viewerRole === 'engineer' ? undefined : (
+          <ApplicationStatusBadge status={app.status} size="md" />
+        )
+      }
+    />
   );
+
+  const engineerStatusBadge =
+    viewerRole === 'engineer' ? (
+      <StatusChip status={engineerApplicationListStatus(app)} />
+    ) : (
+      <ApplicationStatusBadge status={app.status} size="md" />
+    );
 
   const measuredSiteTypeValue = measuredType ? (
     <Box style={{ alignSelf: 'flex-start' }}>
@@ -578,7 +550,7 @@ export function ApplicationRecordDetails({
         title="Engineer details"
         subtitle="Submitted by field engineer"
         icon={Ruler}
-        badge={<ApplicationStatusBadge status={app.status} size="md" />}
+        badge={engineerStatusBadge}
       >
         <InfoPairRow
           leftLabel="Assigned on"
@@ -587,31 +559,22 @@ export function ApplicationRecordDetails({
           rightValue={formatSubmittedDateTime(app.engineerSubmittedAt)}
         />
 
-        <SectionLabel accent>Schedules</SectionLabel>
+        <SectionLabel accent>Site Schedules</SectionLabel>
         <InfoPairRow
           leftLabel="North"
-          leftValue={scheduleNote('N')}
+          leftValue={app.scheduleNorth?.trim() || '—'}
           rightLabel="South"
-          rightValue={scheduleNote('S')}
+          rightValue={app.scheduleSouth?.trim() || '—'}
         />
         <InfoPairRow
           leftLabel="West"
-          leftValue={scheduleNote('W')}
+          leftValue={app.scheduleWest?.trim() || '—'}
           rightLabel="East"
-          rightValue={scheduleNote('E')}
+          rightValue={app.scheduleEast?.trim() || '—'}
         />
-        <InfoPairRow
-          leftLabel="Road N"
-          leftValue={roadFlags.N ? 'Yes' : 'No'}
-          rightLabel="Road S"
-          rightValue={roadFlags.S ? 'Yes' : 'No'}
-        />
-        <InfoPairRow
-          leftLabel="Road W"
-          leftValue={roadFlags.W ? 'Yes' : 'No'}
-          rightLabel="Road E"
-          rightValue={roadFlags.E ? 'Yes' : 'No'}
-        />
+
+        <SectionLabel accent>Boundary capture</SectionLabel>
+        <EngineerSchedulesReadOnly app={app} />
 
         <SectionLabel accent>Compass & GPS</SectionLabel>
         <InfoPairRow

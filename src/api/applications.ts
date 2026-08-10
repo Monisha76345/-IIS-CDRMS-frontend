@@ -140,6 +140,8 @@ export type CreateApplicationInput = {
   scheduleWest?: string;
   scheduleEast?: string;
   assignedEngineerUserId: string;
+  /** When true, ZC saves as draft (not visible to engineer until submitted). */
+  saveAsDraft?: boolean;
 };
 
 export type SiteDimensionOption = {
@@ -354,10 +356,15 @@ export function isOpenEngineerTask(app: MobileApplication): boolean {
  * - `open` → home task list (hides submitted)
  * - `all` → Applications tab (full history for assigned engineer)
  */
+function isVisibleToEngineer(app: MobileApplication): boolean {
+  return normalizeApplicationStatus(app.status) !== 'draft';
+}
+
 export function fetchEngineerTasks(token: string, queue: 'open' | 'all' = 'open') {
-  return fetchApplicationList(token, 'engineer', queue).then((apps) =>
-    queue === 'open' ? apps.filter(isOpenEngineerTask) : apps,
-  );
+  return fetchApplicationList(token, 'engineer', queue).then((apps) => {
+    const visible = apps.filter(isVisibleToEngineer);
+    return queue === 'open' ? visible.filter(isOpenEngineerTask) : visible;
+  });
 }
 
 export function fetchZcApplications(token: string) {
@@ -392,6 +399,30 @@ export function createApplication(token: string, body: CreateApplicationInput) {
   }).then((raw) => normalizeApplication(asData<Record<string, unknown>>(raw)));
 }
 
+export function updateZcDraftApplication(
+  token: string,
+  id: string,
+  body: Omit<CreateApplicationInput, 'saveAsDraft'>,
+) {
+  return apiRequest<unknown>(`/applications/${id}/zc`, {
+    method: 'PATCH',
+    token,
+    body,
+  }).then((raw) => normalizeApplication(asData<Record<string, unknown>>(raw)));
+}
+
+export function submitZcDraftApplication(
+  token: string,
+  id: string,
+  body: Omit<CreateApplicationInput, 'saveAsDraft'>,
+) {
+  return apiRequest<unknown>(`/applications/${id}/zc-submit`, {
+    method: 'POST',
+    token,
+    body,
+  }).then((raw) => normalizeApplication(asData<Record<string, unknown>>(raw)));
+}
+
 export function caoDecideApplication(
   token: string,
   id: string,
@@ -420,6 +451,7 @@ export function formatApplicationDate(value?: string | null) {
 
 export function countZcBuckets(apps: MobileApplication[]) {
   return {
+    draft: apps.filter((a) => normalizeApplicationStatus(a.status) === 'draft').length,
     assigned: apps.filter((a) => normalizeApplicationStatus(a.status) === 'assigned').length,
     in_progress: apps.filter((a) => normalizeApplicationStatus(a.status) === 'in_progress')
       .length,
@@ -485,15 +517,98 @@ export function submitEngineerApplication(
 }
 
 export type MobileApplicationStatus =
+  | 'draft'
   | 'assigned'
   | 'in_progress'
   | 'submitted';
 
 export function applicationStatusLabel(status: MobileApplicationStatus) {
+  if (status === 'draft') return 'Draft';
   if (status === 'assigned') return 'Assigned';
   if (status === 'in_progress') return 'In progress';
   if (status === 'submitted') return 'Submitted';
   return status;
+}
+
+/** Engineer home / applications list label — includes returned & verified from raw API status. */
+export function engineerApplicationListStatus(app: MobileApplication): string {
+  const raw = String(app.status || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_');
+  if (app.engineerSubmittedAt?.trim()) return 'Submitted';
+  if (raw === 'returned') return 'Returned';
+  if (raw === 'verified' || raw === 'approved') return 'Verified';
+  if (raw === 'rejected') return 'Rejected';
+  const normalized = normalizeApplicationStatus(app.status);
+  if (normalized === 'draft') return 'Assigned';
+  if (normalized === 'in_progress') return 'In progress';
+  if (normalized === 'submitted') return 'Submitted';
+  return 'Assigned';
+}
+
+export type EngineerDashboardFilter = 'all' | 'assigned' | 'in_progress' | 'submitted';
+
+/** Home dashboard bucket — matches engineerApplicationListStatus for Assigned / In progress / Submitted. */
+export function engineerDashboardBucket(
+  app: MobileApplication,
+): Exclude<EngineerDashboardFilter, 'all'> | null {
+  const status = engineerApplicationListStatus(app);
+  if (status === 'Assigned') return 'assigned';
+  if (status === 'In progress') return 'in_progress';
+  if (status === 'Submitted') return 'submitted';
+  return null;
+}
+
+export function countEngineerDashboardBuckets(apps: MobileApplication[]) {
+  let assigned = 0;
+  let inProgress = 0;
+  let submitted = 0;
+  for (const app of apps) {
+    const bucket = engineerDashboardBucket(app);
+    if (bucket === 'assigned') assigned += 1;
+    else if (bucket === 'in_progress') inProgress += 1;
+    else if (bucket === 'submitted') submitted += 1;
+  }
+  return {
+    all: apps.length,
+    assigned,
+    in_progress: inProgress,
+    submitted,
+  };
+}
+
+export function filterEngineerDashboardApps(
+  apps: MobileApplication[],
+  filter: EngineerDashboardFilter,
+) {
+  if (filter === 'all') return apps;
+  return apps.filter((app) => engineerDashboardBucket(app) === filter);
+}
+
+export type EngineerReviewBadgeTone = 'success' | 'warning' | 'info' | 'default';
+
+/** Review & Submit header badge — aligned with engineer application list statuses. */
+export function engineerReviewStatusBadge(draft: {
+  status: string;
+  backendApplicationId: string | null;
+  backendStatus: MobileApplicationStatus | null;
+}): { label: string; tone: EngineerReviewBadgeTone } {
+  if (draft.status === 'submitted') {
+    return { label: 'SUBMITTED', tone: 'success' };
+  }
+  if (draft.backendApplicationId && draft.backendStatus) {
+    const listStatus = engineerApplicationListStatus({
+      status: draft.backendStatus,
+    } as MobileApplication);
+    if (listStatus === 'In progress') return { label: 'IN PROGRESS', tone: 'info' };
+    if (listStatus === 'Assigned') return { label: 'ASSIGNED', tone: 'warning' };
+    if (listStatus === 'Submitted') return { label: 'SUBMITTED', tone: 'success' };
+    if (listStatus === 'Returned') return { label: 'RETURNED', tone: 'warning' };
+    if (listStatus === 'Verified') return { label: 'VERIFIED', tone: 'success' };
+    if (listStatus === 'Rejected') return { label: 'REJECTED', tone: 'warning' };
+  }
+  return { label: 'IN PROGRESS', tone: 'info' };
 }
 
 function hasEngineerDimensions(app: MobileApplication): boolean {
@@ -612,6 +727,9 @@ export function applicationStatusTone(
     .toLowerCase()
     .replace(/\s+/g, '_');
 
+  if (raw === 'draft') {
+    return { bg: '#F1F5F9', fg: '#475569', bar: '#64748B', border: '#CBD5E1' };
+  }
   if (raw === 'assigned') {
     return { bg: '#E0F2FE', fg: '#075985', bar: '#0EA5E9', border: '#BAE6FD' };
   }
@@ -641,9 +759,19 @@ export function normalizeApplicationStatus(
     .toLowerCase()
     .replace(/\s+/g, '_');
 
+  if (raw === 'draft') return 'draft';
   if (raw === 'assigned') return 'assigned';
   if (raw === 'in_progress' || raw === 'inprogress') return 'in_progress';
-  if (raw === 'submitted' || raw === 'pending' || raw === 'pending_cao' || raw === 'verified' || raw === 'returned' || raw === 'rejected') return 'submitted';
+  if (
+    raw === 'submitted' ||
+    raw === 'pending' ||
+    raw === 'pending_cao' ||
+    raw === 'verified' ||
+    raw === 'returned' ||
+    raw === 'rejected'
+  ) {
+    return 'submitted';
+  }
   return null;
 }
 

@@ -297,9 +297,9 @@ export function SurveyHero({
   subtitle,
   onBack,
   step,
-  badge = 'Auto-saved',
   showSteps = true,
   total = 5,
+  badge: _badge,
   watermark,
   go,
   variant = 'default',
@@ -309,14 +309,16 @@ export function SurveyHero({
   subtitle?: string;
   onBack: () => void;
   step?: number;
-  badge?: string;
   showSteps?: boolean;
   total?: number;
+  /** @deprecated Header status line removed — kept for call-site compatibility. */
+  badge?: string;
   watermark?: 'compass';
   go?: Go;
   variant?: 'default' | 'premium';
   onStepPress?: (targetStep: number) => void;
 }) {
+  void _badge;
   const insets = useSafeAreaInsets();
   const isPremium = variant === 'premium';
   const displayTitle = step != null ? `Step ${step} - ${title}` : title;
@@ -376,18 +378,6 @@ export function SurveyHero({
                   Step {step} / {total}
                 </Text>
               </Box>
-              {badge ? (
-                <Text
-                  style={{
-                    fontFamily: FONTS.semibold,
-                    fontSize: 12,
-                    color: fg.muted,
-                  }}
-                  numberOfLines={1}
-                >
-                  {badge}
-                </Text>
-              ) : null}
             </HStack>
           ) : null}
           <Text
@@ -867,7 +857,7 @@ export function SurveyScaffold({
                 onBack={onBack}
                 step={step}
                 total={total}
-                badge={badge ?? 'Auto-saved'}
+                badge={badge}
                 showSteps={showSteps}
                 watermark={watermark}
                 go={go}

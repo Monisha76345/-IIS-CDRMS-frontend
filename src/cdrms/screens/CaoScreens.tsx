@@ -165,13 +165,13 @@ export function CaoHomeScreen({ go }: { go: Go }) {
         style={{ zIndex: 1 }}
         contentContainerStyle={{ paddingBottom: 96 }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <WelcomeHomeHeader
           user={user}
           zoneLabel={zoneLabel}
           go={go}
           tagline="Review submitted applications"
-          eyebrow="Chief accounts officer"
           onLogout={() => {
             void (async () => {
               await logout();

@@ -7,7 +7,7 @@ import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import { displayName } from '@/src/auth/roles';
+import { displayName, roleDisplayTitle } from '@/src/auth/roles';
 import type { AuthUser } from '@/src/auth/AuthContext';
 import {
   ProfileMenu,
@@ -89,6 +89,51 @@ export function welcomeCardSurface(index = 0) {
   };
 }
 
+/** Application list cards — single subtle border (no stacked cardSurface + welcome borders). */
+export function listCardSurface(index = 0) {
+  const plain = usesLightHeader();
+  return {
+    backgroundColor: plain
+      ? WELCOME_CARD_PASTELS[index % WELCOME_CARD_PASTELS.length]
+      : 'rgba(255,255,255,0.92)',
+    borderRadius: DESIGN.cardRadius,
+    marginBottom: 8,
+    padding: 0,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.1)',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 } as const,
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 1,
+  };
+}
+
+/** Inner clip radius — keeps left status rail flush with card corners. */
+export function listCardInnerRadius() {
+  return Math.max(DESIGN.cardRadius - 1, 0);
+}
+
+export function listCardInnerClipStyle() {
+  const radius = listCardInnerRadius();
+  return {
+    alignItems: 'stretch' as const,
+    overflow: 'hidden' as const,
+    borderRadius: radius,
+  };
+}
+
+export function listCardStatusRailStyle(color: string, width = 5) {
+  const radius = listCardInnerRadius();
+  return {
+    width,
+    backgroundColor: color,
+    alignSelf: 'stretch' as const,
+    borderTopLeftRadius: radius,
+    borderBottomLeftRadius: radius,
+  };
+}
+
 /**
  * Shared Welcome header — same chrome for Engineer / ZC / CAO.
  * Plain / Ocean Blue: no wave edge.
@@ -101,7 +146,7 @@ export function WelcomeHomeHeader({
   zoneLabel,
   go: _go,
   tagline = 'Manage your field surveys',
-  eyebrow = 'Field survey',
+  eyebrow,
   onLogout,
 }: {
   user: AuthUser | null | undefined;
@@ -113,6 +158,7 @@ export function WelcomeHomeHeader({
 }) {
   const insets = useSafeAreaInsets();
   const firstName = displayName(user).split(' ')[0] || 'there';
+  const headerEyebrow = eyebrow ?? roleDisplayTitle(user);
   const fg = headerFg();
   const resolvedZone =
     zoneLabel?.trim() || user?.activePost?.zoneCode?.trim() || null;
@@ -175,7 +221,7 @@ export function WelcomeHomeHeader({
       <ProfileMenu
         gradient={!usesLightHeader()}
         userName={displayName(user)}
-        roleName={user?.roleName}
+        roleName={roleDisplayTitle(user)}
         loginId={user?.officer?.personUniqueId || user?.loginId}
         photoUrl={user?.profilePhoto || user?.officer?.profilePhoto}
         zoneLabel={resolvedZone}
@@ -257,7 +303,7 @@ export function WelcomeHomeHeader({
                 }}
                 numberOfLines={1}
               >
-                {eyebrow}
+                {headerEyebrow}
               </Text>
               <Text
                 style={{
@@ -338,7 +384,7 @@ export function WelcomeHomeHeader({
                     }}
                     numberOfLines={1}
                   >
-                    {eyebrow}
+                    {headerEyebrow}
                   </Text>
                 </Box>
                 <Text
@@ -430,7 +476,7 @@ export function WelcomeHomeHeader({
                 }}
                 numberOfLines={1}
               >
-                {eyebrow}
+                {headerEyebrow}
               </Text>
               <Text
                 style={{

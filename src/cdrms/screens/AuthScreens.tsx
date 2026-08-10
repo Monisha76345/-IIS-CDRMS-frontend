@@ -828,7 +828,7 @@ export function LoginScreen({ go }: { go: Go }) {
 
                     <Pressable className="active:opacity-70">
                       <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.primary }}>
-                        Forgot Login ID?
+                        Forgot Password?
                       </Text>
                     </Pressable>
                   </HStack>
@@ -1786,15 +1786,6 @@ export function PermissionScreen({ go }: { go: Go }) {
                 {busy ? 'Requesting…' : alreadyGranted ? 'Continue' : 'Enable GPS'}
               </AppBtn>
             </Animated.View>
-
-            <Pressable
-              onPress={() => go('error', { errorKind: 'network', errorVariant: 'global' })}
-              className="mt-3 py-3.5 items-center active:opacity-60"
-            >
-              <Text className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                Not now
-              </Text>
-            </Pressable>
 
             <HStack className="items-center justify-center gap-2 mt-2 mb-2">
               <Lock size={12} color="rgba(255,255,255,0.75)" strokeWidth={2.2} />
