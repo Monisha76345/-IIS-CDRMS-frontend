@@ -13,6 +13,11 @@ export type LiveGeoMapProps = {
   zoom?: number;
   /** Native MapView region delta (preferred over zoom when set). */
   latitudeDelta?: number;
+  /**
+   * Bottom inset (px) so the GPS pin sits in the visible map above a sheet/card.
+   * Applied via map padding / biased center.
+   */
+  bottomPadding?: number;
   /** Allow pinch-zoom / pan (default true). */
   interactive?: boolean;
   /** Top-right "Google Maps" chip (default true). */

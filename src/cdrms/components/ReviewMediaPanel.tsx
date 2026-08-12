@@ -12,6 +12,9 @@ import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { COLORS, FONTS, GLASS, SPACE } from '@/src/cdrms/theme';
 
+const BLUE_SOFT = '#EEF4FF';
+const BLUE_BORDER = 'rgba(26,86,219,0.22)';
+
 function formatDuration(ms?: number | null) {
   if (ms == null || ms <= 0) return null;
   const sec = Math.round(ms / 1000);
@@ -42,19 +45,25 @@ function MediaBlock({
               ? {
                   width: 28,
                   height: 28,
-                  borderRadius: 8,
+                  borderRadius: 10,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  backgroundColor: GLASS.tintBlue,
+                  backgroundColor: BLUE_SOFT,
                   borderWidth: 1,
-                  borderColor: '#BFDBFE',
+                  borderColor: BLUE_BORDER,
                 }
               : undefined
           }
         >
           <Icon size={isPremium ? 14 : 16} color={COLORS.primary} strokeWidth={2.3} />
         </Box>
-        <Text style={{ fontFamily: FONTS.bold, fontSize: isPremium ? 12 : 13, color: COLORS.ink }}>
+        <Text
+          style={{
+            fontFamily: FONTS.bold,
+            fontSize: isPremium ? 14 : 13,
+            color: isPremium ? '#1A368E' : COLORS.ink,
+          }}
+        >
           {title}
         </Text>
       </HStack>
@@ -62,15 +71,15 @@ function MediaBlock({
         style={
           isPremium
             ? {
-                borderRadius: 12,
-                backgroundColor: GLASS.surfaceSolid,
-                borderWidth: 1,
-                borderColor: GLASS.border,
-                padding: SPACE[2],
-                shadowColor: '#0F172A',
+                borderRadius: 14,
+                backgroundColor: COLORS.white,
+                borderWidth: 1.5,
+                borderColor: BLUE_BORDER,
+                padding: 8,
+                shadowColor: COLORS.primaryDeep,
                 shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.06,
-                shadowRadius: 8,
+                shadowOpacity: 0.08,
+                shadowRadius: 5,
                 elevation: 2,
               }
             : undefined
@@ -93,7 +102,7 @@ export function ReviewMediaPanel({ variant = 'default' }: { variant?: 'default' 
 
   return (
     <>
-      <VStack style={{ gap: isPremium ? SPACE[2] : SPACE[4] }}>
+      <VStack style={{ gap: isPremium ? 6 : SPACE[4] }}>
         <MediaBlock title="Selfie" icon={UserRound} variant={variant}>
           {draft.selfie ? (
             <Pressable

@@ -16,18 +16,19 @@ import {
   Lock,
   LogOut,
   Mail,
+  MapPin,
   Phone,
   Send,
   Settings,
-  ShieldCheck,
-  Trash2,
-  Upload,
+  Shield,
   User,
   UserCheck,
   type LucideIcon,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { Image, Modal, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle, Ellipse, Path, Rect } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -45,6 +46,7 @@ import {
   IconBox,
   ScreenShell,
   StatusChip,
+  statusChipColors,
   ListLoader,
   ScreenLoader,
 } from '@/src/cdrms/components/primitives';
@@ -58,14 +60,10 @@ import {
   hexAlpha,
   usesLightHeader,
 } from '@/src/cdrms/theme';
-import { GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
 import {
   BdaPageWatermark,
   WelcomeHomeHeader,
   welcomeFilterGap,
-  listCardSurface,
-  listCardInnerClipStyle,
-  listCardStatusRailStyle,
 } from '@/src/cdrms/components/WelcomeHomeChrome';
 import { useTheme } from '@/src/theme/ThemeContext';
 import { TERMS } from '@/src/cdrms/terminology';
@@ -85,7 +83,7 @@ import {
   type MobileApplication,
 } from '@/src/api/applications';
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
-import { DateZoneMetaRow } from '@/src/cdrms/components/DateZoneMetaRow';
+import { ViewApplicationHeader } from '@/src/cdrms/components/ViewApplicationHeader';
 import { useNotifications } from '@/src/cdrms/hooks/useNotifications';
 import {
   formatNotifTime,
@@ -137,55 +135,6 @@ function siteNoMetaLine(siteNo?: string | null) {
   const site = (siteNo || '').replace(/^Site\s+/i, '').trim() || '—';
   const display = site.length > 22 ? `${site.slice(0, 21)}…` : site;
   return `Site no: ${display}`;
-}
-
-function siteZoneMetaLine(siteNo?: string | null, zone?: string | null) {
-  const site = (siteNo || '').replace(/^Site\s+/i, '').trim() || '—';
-  const z = (zone || '').trim() || '—';
-  return `Site no: ${site}  Zone: ${z}`;
-}
-
-function getAppStatusAccent(status: string): string {
-  switch (status) {
-    case 'Submitted':
-    case 'Verified':
-    case 'Approved':
-      return '#059669';
-    case 'Returned':
-      return '#D97706';
-    case 'Rejected':
-      return COLORS.destructive;
-    case 'In progress':
-      return '#0284C7';
-    case 'Assigned':
-      return '#4F46E5';
-    case 'Draft':
-      return '#7C3AED';
-    default:
-      return COLORS.primary;
-  }
-}
-
-/** Soft left-rail tint paired with status accent. */
-function welcomeAccentSoft(status: string): string {
-  switch (status) {
-    case 'Submitted':
-    case 'Verified':
-    case 'Approved':
-      return 'rgba(5,150,105,0.14)';
-    case 'Returned':
-      return 'rgba(217,119,6,0.14)';
-    case 'Rejected':
-      return 'rgba(220,38,38,0.12)';
-    case 'In progress':
-      return 'rgba(2,132,199,0.14)';
-    case 'Assigned':
-      return 'rgba(79,70,229,0.14)';
-    case 'Draft':
-      return 'rgba(124,58,237,0.12)';
-    default:
-      return hexAlpha(COLORS.primary, 0.12);
-  }
 }
 
 export function Dashboard({ go }: { go: Go }) {
@@ -370,7 +319,7 @@ export function Dashboard({ go }: { go: Go }) {
         key={themeId}
         className="flex-1"
         style={{ zIndex: 1 }}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 150 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -387,58 +336,56 @@ export function Dashboard({ go }: { go: Go }) {
         />
 
         {/* Status filters — always one row: All · Assigned · In progress · Submitted */}
-        <Box className="px-3" style={{ marginTop: welcomeFilterGap() }}>
-          <HStack style={{ gap: 6 }}>
+        <Box className="px-4" style={{ marginTop: welcomeFilterGap() }}>
+          <HStack style={{ gap: 8 }}>
             {filterCards.map((s) => {
               const Icon = s.icon;
               const selected = recentFilter === s.id;
-              const plainLite = usesLightHeader();
               return (
                 <Pressable
                   key={s.id}
                   onPress={() => setRecentFilter(s.id)}
                   className="flex-1 active:opacity-90"
                   style={{
-                    backgroundColor: selected
-                      ? COLORS.primary
-                      : plainLite
-                        ? s.bg
-                        : COLORS.white,
-                    borderRadius: DESIGN.cardRadius,
+                    backgroundColor: selected ? COLORS.primary : COLORS.white,
+                    borderRadius: 14,
                     paddingVertical: 8,
                     paddingHorizontal: 2,
                     alignItems: 'center',
-                    minHeight: 66,
+                    minHeight: 78,
                     justifyContent: 'center',
-                    shadowColor: selected ? COLORS.primaryDeep : GLASS.shadow,
-                    shadowOffset: { width: 0, height: plainLite ? 2 : 4 },
-                    shadowOpacity: selected ? 0.2 : plainLite ? 0.03 : 0.06,
-                    shadowRadius: plainLite ? 6 : 8,
-                    elevation: selected ? 3 : plainLite ? 1 : 2,
-                    borderWidth: 1.5,
-                    borderColor: selected ? COLORS.primary : hexAlpha(COLORS.primary, 0.55),
-                    gap: 4,
+                    shadowColor: selected ? COLORS.primaryDeep : '#0F172A',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: selected ? 0.1 : 0.04,
+                    shadowRadius: 5,
+                    elevation: selected ? 2 : 1,
+                    borderWidth: 1,
+                    borderColor: selected ? COLORS.primary : 'rgba(26,86,219,0.22)',
+                    gap: 3,
                   }}
                 >
                   <Box
                     className="items-center justify-center"
                     style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: plainLite ? 999 : 10,
+                      width: 26,
+                      height: 26,
+                      borderRadius: 999,
                       backgroundColor: selected
                         ? 'rgba(255,255,255,0.22)'
-                        : plainLite
-                          ? 'rgba(255,255,255,0.55)'
-                          : s.bg,
+                        : hexAlpha(COLORS.primary, 0.12),
                     }}
                   >
-                    <Icon size={14} color={selected ? COLORS.white : s.fg} strokeWidth={2.3} />
+                    <Icon
+                      size={13}
+                      color={selected ? COLORS.white : COLORS.primary}
+                      strokeWidth={2.3}
+                    />
                   </Box>
                   <Text
                     style={{
                       fontFamily: FONTS.bold,
-                      fontSize: 15,
+                      fontSize: 16,
+                      lineHeight: 19,
                       color: selected ? COLORS.white : COLORS.ink,
                     }}
                   >
@@ -448,8 +395,8 @@ export function Dashboard({ go }: { go: Go }) {
                     numberOfLines={1}
                     style={{
                       fontFamily: FONTS.semibold,
-                      fontSize: 9,
-                      color: selected ? 'rgba(255,255,255,0.9)' : COLORS.slate,
+                      fontSize: 11,
+                      color: selected ? COLORS.white : COLORS.ink,
                       textAlign: 'center',
                       paddingHorizontal: 2,
                     }}
@@ -462,21 +409,32 @@ export function Dashboard({ go }: { go: Go }) {
           </HStack>
         </Box>
 
-        <Box className="px-4 mt-3">
+        <Box className="px-4" style={{ marginTop: 8 }}>
           <SearchField
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="Search by application no, site, zone…"
+            height={46}
+            iconColor={COLORS.ink}
+            placeholderTextColor={COLORS.ink}
+            inputStyle={{ fontSize: 15, color: COLORS.ink }}
           />
         </Box>
 
         {/* Filtered activity list */}
-        <Box className="px-4 mt-3">
-          <Text className="text-[15px] font-bold mb-2" style={{ color: COLORS.ink }}>
+        <Box className="px-4" style={{ marginTop: 10 }}>
+          <Text
+            style={{
+              fontFamily: FONTS.bold,
+              fontSize: 17,
+              color: COLORS.ink,
+              marginBottom: 6,
+            }}
+          >
             {sectionTitle}
           </Text>
 
-          <VStack space="sm">
+          <VStack style={{ gap: 8 }}>
             {loadingTasks ? (
               <ListLoader count={3} />
             ) : recentCards.length === 0 ? (
@@ -487,12 +445,19 @@ export function Dashboard({ go }: { go: Go }) {
                   backgroundColor: 'rgba(255,255,255,0.42)',
                 }}
               >
-                <Text className="text-center text-sm" style={{ color: COLORS.slate }}>
+                <Text
+                  style={{
+                    textAlign: 'center',
+                    fontFamily: FONTS.medium,
+                    fontSize: 14,
+                    color: COLORS.ink,
+                  }}
+                >
                   {emptyMessage}
                 </Text>
               </Box>
             ) : (
-              recentCards.map((a, cardIdx) => {
+              recentCards.map((a) => {
               const pct =
                 typeof a.progress === 'number' ? a.progress : progressFor(a.status);
               const canOpen = a.status === 'Assigned' || a.status === 'In progress';
@@ -508,180 +473,138 @@ export function Dashboard({ go }: { go: Go }) {
                 }
                 go('history');
               };
-              const accent = getAppStatusAccent(a.status);
-              const accentSoft = welcomeAccentSoft(a.status);
+              const ringSize = 56;
+              const stroke = 4.5;
+              const radius = (ringSize - stroke) / 2;
+              const circ = 2 * Math.PI * radius;
+              const dash = (Math.max(0, Math.min(100, pct)) / 100) * circ;
+              const chip = statusChipColors(a.status);
+              const zoneDateLine = [a.zone?.trim() || null, a.date || null]
+                .filter(Boolean)
+                .join(' • ');
               return (
-                <Box
+                <Pressable
                   key={a.id}
-                  style={[
-                    listCardSurface(cardIdx),
-                    { padding: 0 },
-                    DESIGN.listVariant === 'ghost'
-                      ? {
-                          borderRadius: 0,
-                          marginBottom: 0,
-                          backgroundColor: 'transparent',
-                          borderWidth: 0,
-                          borderBottomWidth: StyleSheet.hairlineWidth,
-                          borderBottomColor: COLORS.border,
-                        }
-                      : null,
-                  ]}
+                  onPress={openOrContinue}
+                  disabled={openingId === a.id}
+                  className="active:opacity-92"
+                  style={{
+                    backgroundColor: COLORS.white,
+                    borderRadius: 18,
+                    marginBottom: 2,
+                    paddingVertical: 14,
+                    paddingHorizontal: 14,
+                    borderWidth: 1.5,
+                    borderColor: hexAlpha(chip.fg, 0.28),
+                    shadowColor: '#0F172A',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.04,
+                    shadowRadius: 4,
+                    elevation: 1,
+                    opacity: openingId === a.id ? 0.7 : 1,
+                  }}
                 >
-                  <HStack
-                    style={
-                      DESIGN.listVariant === 'ghost'
-                        ? { alignItems: 'stretch' }
-                        : listCardInnerClipStyle()
-                    }
-                  >
-                    <Box
-                      style={
-                        DESIGN.listVariant === 'ghost'
-                          ? {
-                              width: 5,
-                              backgroundColor: accent,
-                              alignSelf: 'stretch',
-                              borderRadius: 2,
-                            }
-                          : listCardStatusRailStyle(accent)
-                      }
-                    />
-                    <HStack
-                      className="items-start flex-1"
-                      style={{
-                        gap: 10,
-                        paddingVertical: DESIGN.listVariant === 'ghost' ? 10 : 7,
-                        paddingRight: 10,
-                        paddingLeft: 10,
-                      }}
-                    >
+                  <HStack style={{ alignItems: 'center', gap: 10 }}>
                     <Box
                       className="items-center justify-center rounded-full"
                       style={{
-                        width: 36,
-                        height: 36,
-                        backgroundColor: accentSoft,
+                        width: 44,
+                        height: 44,
+                        backgroundColor: chip.bg,
                         borderWidth: 1,
-                        borderColor: hexAlpha(accent, 0.28),
+                        borderColor: hexAlpha(chip.fg, 0.22),
+                        flexShrink: 0,
                       }}
                     >
-                      <FileText size={16} color={accent} strokeWidth={2.2} />
+                      <Edit3 size={18} color={chip.fg} strokeWidth={2.2} />
                     </Box>
-                    <VStack className="flex-1 min-w-0">
-                      <HStack className="items-start justify-between gap-2">
-                        <Pressable onPress={openOrContinue} className="flex-1 min-w-0 active:opacity-90">
-                          <Text
-                            style={{
-                              fontFamily: FONTS.bold,
-                              fontSize: 15,
-                              color: COLORS.ink,
-                            }}
-                            numberOfLines={1}
-                          >
-                            {a.project}
-                          </Text>
-                        </Pressable>
-                        <Box style={{ flexShrink: 0, marginLeft: 8 }}>
-                          <StatusChip status={a.status} />
-                        </Box>
-                      </HStack>
-                      <Pressable onPress={openOrContinue} className="active:opacity-90">
+
+                    <VStack style={{ flex: 1, minWidth: 0, gap: 3, justifyContent: 'center' }}>
+                      <Text
+                        style={{
+                          fontFamily: FONTS.bold,
+                          fontSize: 15,
+                          lineHeight: 19,
+                          color: '#0F172A',
+                        }}
+                        numberOfLines={2}
+                      >
+                        {a.project}
+                      </Text>
+                      <HStack style={{ alignItems: 'center', gap: 6, flexWrap: 'nowrap' }}>
+                        <StatusChip status={a.status} compact />
                         <Text
                           style={{
                             fontFamily: FONTS.semibold,
                             fontSize: 13,
-                            color: COLORS.ink,
-                            marginTop: 2,
+                            lineHeight: 16,
+                            color: '#1A368E',
+                            flexShrink: 1,
+                            minWidth: 0,
                           }}
                           numberOfLines={1}
                         >
                           {siteNoMetaLine(a.siteNo)}
                         </Text>
-                        {a.date ? (
-                          <DateZoneMetaRow date={a.date} zone={a.zone} marginTop={2} />
-                        ) : null}
-                      </Pressable>
-
-                      <HStack className="items-center gap-2" style={{ marginTop: 6 }}>
-                        <Box
-                          className="flex-1 rounded-full overflow-hidden"
-                          style={{ height: 5, backgroundColor: accentSoft }}
-                        >
-                          <Box
-                            style={{
-                              width: `${pct}%`,
-                              height: 5,
-                              borderRadius: 999,
-                              backgroundColor: accent,
-                            }}
-                          />
-                        </Box>
-                        <Text className="text-xs font-bold" style={{ color: accent }}>
-                          {pct}%
-                        </Text>
-                        {a.status === 'Submitted' ? (
-                          <Box
-                            className="items-center justify-center"
-                            style={{
-                              width: 34,
-                              height: 34,
-                              borderRadius: DESIGN.stepRadius,
-                              backgroundColor: '#DCFCE7',
-                              borderWidth: 1,
-                              borderColor: '#BBF7D0',
-                            }}
-                          >
-                            <CheckCircle2 size={16} color="#059669" strokeWidth={2.4} />
-                          </Box>
-                        ) : a.status === 'Assigned' && canOpen ? (
-                          <Pressable
-                            onPress={() => {
-                              if (a.apiTask) void openAssignedTask(a.id);
-                              else go('history');
-                            }}
-                            disabled={openingId === a.id}
-                            accessibilityRole="button"
-                            accessibilityLabel="Open task"
-                            className="active:opacity-85 items-center justify-center"
-                            style={{
-                              width: 34,
-                              height: 34,
-                              borderRadius: DESIGN.stepRadius,
-                              backgroundColor: accentSoft,
-                              borderWidth: 1,
-                              borderColor: hexAlpha(accent, 0.3),
-                              opacity: openingId === a.id ? 0.6 : 1,
-                            }}
-                          >
-                            <ChevronRight size={18} color={accent} strokeWidth={2.6} />
-                          </Pressable>
-                        ) : a.status === 'In progress' && canOpen ? (
-                          <Pressable
-                            onPress={() => {
-                              if (a.apiTask) void openAssignedTask(a.id);
-                              else go('history');
-                            }}
-                            disabled={openingId === a.id}
-                            accessibilityRole="button"
-                            accessibilityLabel="Continue task"
-                            className="active:opacity-85 items-center justify-center"
-                            style={{
-                              width: 34,
-                              height: 34,
-                              borderRadius: DESIGN.stepRadius,
-                              backgroundColor: accent,
-                              opacity: openingId === a.id ? 0.6 : 1,
-                            }}
-                          >
-                            <Edit3 size={15} color={COLORS.white} strokeWidth={2.4} />
-                          </Pressable>
-                        ) : null}
                       </HStack>
+                      {zoneDateLine ? (
+                        <Text
+                          style={{
+                            fontFamily: FONTS.medium,
+                            fontSize: 12,
+                            lineHeight: 15,
+                            color: '#64748B',
+                          }}
+                          numberOfLines={1}
+                        >
+                          {zoneDateLine}
+                        </Text>
+                      ) : null}
                     </VStack>
-                    </HStack>
+
+                    <Box
+                      style={{
+                        width: ringSize,
+                        height: ringSize,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Svg width={ringSize} height={ringSize}>
+                        <Circle
+                          cx={ringSize / 2}
+                          cy={ringSize / 2}
+                          r={radius}
+                          stroke={chip.bg}
+                          strokeWidth={stroke}
+                          fill="none"
+                        />
+                        <Circle
+                          cx={ringSize / 2}
+                          cy={ringSize / 2}
+                          r={radius}
+                          stroke={chip.fg}
+                          strokeWidth={stroke}
+                          fill="none"
+                          strokeDasharray={`${dash} ${circ}`}
+                          strokeLinecap="round"
+                          transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
+                        />
+                      </Svg>
+                      <Text
+                        style={{
+                          position: 'absolute',
+                          fontFamily: FONTS.bold,
+                          fontSize: 12,
+                          color: chip.fg,
+                        }}
+                      >
+                        {pct}%
+                      </Text>
+                    </Box>
                   </HStack>
-                </Box>
+                </Pressable>
               );
             })
             )}
@@ -867,9 +790,8 @@ export function NotificationsScreen({ go }: { go: Go }) {
         onNav={go}
         homeTarget={home}
         appsTarget={home === 'dashboard' ? 'history' : home}
-        hidePlus={home !== 'zc_home'}
-        hideAlerts={home !== 'zc_home'}
-        onPlus={home === 'zc_home' ? () => { setZcEditApplicationId(null); go('zc_create'); } : undefined}
+        hidePlus
+        hideAlerts
       />
     </ScreenShell>
   );
@@ -899,13 +821,11 @@ function ApplicationThumb({ uri }: { uri: string | null }) {
       style={{
         width: 44,
         height: 44,
-        borderRadius: DESIGN.cardRadius,
-        backgroundColor: GLASS.tintBlue,
-        shadowColor: GLASS.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 4,
-        elevation: 1,
+        borderRadius: 999,
+        backgroundColor: '#EEF4FF',
+        borderWidth: 1,
+        borderColor: 'rgba(26,86,219,0.18)',
+        flexShrink: 0,
       }}
     >
       {showImage ? (
@@ -926,7 +846,6 @@ function ApplicationListCard({
   project,
   siteNo,
   status,
-  village,
   zone,
   date,
   image,
@@ -936,7 +855,7 @@ function ApplicationListCard({
   project: string;
   siteNo?: string;
   status: string;
-  village: string;
+  village?: string;
   zone?: string;
   date: string;
   image: string | null;
@@ -944,8 +863,9 @@ function ApplicationListCard({
   /** Assigned / In progress — open capture flow. */
   onOpen?: () => void;
 }) {
-  const accent = getAppStatusAccent(status);
-  const meta = siteZoneMetaLine(siteNo, zone);
+  const chip = statusChipColors(status);
+  const site = (siteNo || '').replace(/^Site\s+/i, '').trim() || '—';
+  const zoneDateLine = [zone?.trim() || null, date || null].filter(Boolean).join(' • ');
   const isSubmitted = status === 'Submitted';
   const isAssigned = status === 'Assigned';
   const isInProgress = status === 'In progress';
@@ -957,9 +877,9 @@ function ApplicationListCard({
           className="items-center justify-center"
           accessibilityLabel="Submitted"
           style={{
-            width: 34,
-            height: 34,
-            borderRadius: DESIGN.stepRadius,
+            width: 36,
+            height: 36,
+            borderRadius: 999,
             backgroundColor: '#DCFCE7',
             borderWidth: 1,
             borderColor: '#BBF7D0',
@@ -977,15 +897,15 @@ function ApplicationListCard({
           accessibilityLabel="Open task"
           className="active:opacity-85 items-center justify-center"
           style={{
-            width: 34,
-            height: 34,
-            borderRadius: DESIGN.stepRadius,
-            backgroundColor: GLASS.tintBlue,
+            width: 36,
+            height: 36,
+            borderRadius: 999,
+            backgroundColor: chip.bg,
             borderWidth: 1,
-            borderColor: COLORS.border,
+            borderColor: hexAlpha(chip.fg, 0.22),
           }}
         >
-          <ChevronRight size={18} color={COLORS.primary} strokeWidth={2.6} />
+          <ChevronRight size={18} color={chip.fg} strokeWidth={2.6} />
         </Pressable>
       );
     }
@@ -997,9 +917,9 @@ function ApplicationListCard({
           accessibilityLabel="Continue task"
           className="active:opacity-85 items-center justify-center"
           style={{
-            width: 34,
-            height: 34,
-            borderRadius: DESIGN.stepRadius,
+            width: 36,
+            height: 36,
+            borderRadius: 999,
             backgroundColor: COLORS.primary,
           }}
         >
@@ -1011,82 +931,87 @@ function ApplicationListCard({
   })();
 
   return (
-    <Pressable onPress={onView} className="active:opacity-92">
-      <Box style={[listCardSurface(), { padding: 0 }]}>
-        <HStack style={listCardInnerClipStyle()}>
-          <Box style={listCardStatusRailStyle(accent)} />
-          <HStack
-            className="flex-1 items-start"
-            style={{ paddingVertical: 11, paddingHorizontal: 12, gap: 10 }}
+    <Pressable
+      onPress={onView}
+      className="active:opacity-92"
+      style={{
+        backgroundColor: COLORS.white,
+        borderRadius: 18,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        borderWidth: 1.5,
+        borderColor: hexAlpha(chip.fg, 0.28),
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 4,
+        elevation: 1,
+      }}
+    >
+      <HStack style={{ alignItems: 'center', gap: 10 }}>
+        <ApplicationThumb uri={image} />
+
+        <VStack style={{ flex: 1, minWidth: 0, gap: 3, justifyContent: 'center' }}>
+          <Text
+            style={{
+              fontFamily: FONTS.bold,
+              fontSize: 15,
+              lineHeight: 19,
+              color: '#0F172A',
+            }}
+            numberOfLines={2}
           >
-            <Pressable onPress={onView} className="active:opacity-92" style={{ marginTop: 2 }}>
-              <ApplicationThumb uri={image} />
-            </Pressable>
-            <VStack className="flex-1 min-w-0" style={{ gap: 6 }}>
-              <HStack className="items-center" style={{ gap: 8 }}>
-                <Pressable onPress={onView} className="flex-1 min-w-0 active:opacity-92">
-                  <Text
-                    style={{
-                      fontFamily: FONTS.bold,
-                      fontSize: 14,
-                      lineHeight: 19,
-                      color: COLORS.ink,
-                    }}
-                    numberOfLines={1}
-                  >
-                    {project}
-                  </Text>
-                </Pressable>
-                <Box style={{ flexShrink: 0 }}>
-                  <StatusChip status={status} />
-                </Box>
-              </HStack>
-
-              <Pressable onPress={onView} className="active:opacity-92">
-                <Text
-                  style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.ink }}
-                  numberOfLines={1}
-                >
-                  {meta}
-                </Text>
-              </Pressable>
-
-              <HStack className="items-center justify-between" style={{ gap: 8 }}>
-                {date ? (
-                  <HStack className="items-center flex-1 min-w-0" style={{ gap: 4 }}>
-                    <Clock size={12} color={COLORS.primary} strokeWidth={2.3} />
-                    <Text
-                      style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}
-                      numberOfLines={1}
-                    >
-                      {date}
-                    </Text>
-                  </HStack>
-                ) : (
-                  <Box style={{ flex: 1 }} />
-                )}
-                <HStack className="items-center" style={{ gap: 6, flexShrink: 0 }}>
-                  <Pressable
-                    onPress={onView}
-                    accessibilityRole="button"
-                    accessibilityLabel="View application"
-                    className="active:opacity-85 items-center justify-center"
-                    style={{
-                      width: 34,
-                      height: 34,
-                      borderRadius: DESIGN.stepRadius,
-                      backgroundColor: COLORS.primary,
-                    }}
-                  >
-                    <Eye size={15} color={COLORS.white} strokeWidth={2.4} />
-                  </Pressable>
-                  {actionBtn}
-                </HStack>
-              </HStack>
-            </VStack>
+            {project}
+          </Text>
+          <HStack style={{ alignItems: 'center', gap: 6, flexWrap: 'nowrap' }}>
+            <StatusChip status={status} compact />
+            <Text
+              style={{
+                fontFamily: FONTS.semibold,
+                fontSize: 13,
+                lineHeight: 16,
+                color: '#1A368E',
+                flexShrink: 1,
+                minWidth: 0,
+              }}
+              numberOfLines={1}
+            >
+              Site no: {site}
+            </Text>
           </HStack>
+          {zoneDateLine ? (
+            <Text
+              style={{
+                fontFamily: FONTS.medium,
+                fontSize: 12,
+                lineHeight: 15,
+                color: '#64748B',
+              }}
+              numberOfLines={1}
+            >
+              {zoneDateLine}
+            </Text>
+          ) : null}
+        </VStack>
+
+        <HStack style={{ alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <Pressable
+            onPress={onView}
+            accessibilityRole="button"
+            accessibilityLabel="View application"
+            className="active:opacity-85 items-center justify-center"
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 999,
+              backgroundColor: COLORS.primary,
+            }}
+          >
+            <Eye size={15} color={COLORS.white} strokeWidth={2.4} />
+          </Pressable>
+          {actionBtn}
         </HStack>
-      </Box>
+      </HStack>
     </Pressable>
   );
 }
@@ -1231,7 +1156,7 @@ export function HistoryScreen({ go }: { go: Go }) {
         onBack={() => go(backTarget ?? 'dashboard', { replace: true })}
       />
 
-      <Box style={{ backgroundColor: 'transparent' }}>
+      <Box style={{ backgroundColor: '#F7FAFF' }}>
         <ScrollView
           key={themeId}
           horizontal
@@ -1261,43 +1186,53 @@ export function HistoryScreen({ go }: { go: Go }) {
                 style={{
                   height: 36,
                   paddingHorizontal: 12,
-                  borderRadius: DESIGN.cardRadius,
-                  backgroundColor: COLORS.white,
-                  shadowColor: GLASS.shadow,
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: on ? 0.12 : 0.06,
-                  shadowRadius: 6,
-                  elevation: on ? 3 : 1,
-                  borderWidth: on ? 1.5 : 0,
-                  borderColor: on ? COLORS.primary : 'transparent',
+                  borderRadius: 999,
+                  backgroundColor: on ? '#EEF4FF' : COLORS.white,
+                  borderWidth: 1.5,
+                  borderColor: on ? hexAlpha(COLORS.primary, 0.45) : 'rgba(26,86,219,0.14)',
+                  shadowColor: COLORS.primaryDeep,
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: on ? 0.1 : 0.04,
+                  shadowRadius: 4,
+                  elevation: on ? 2 : 0,
                 }}
               >
                 <Icon
                   size={13}
-                  color={COLORS.ink}
+                  color={on ? COLORS.primary : COLORS.ink}
                   strokeWidth={on ? 2.4 : 2.1}
                 />
                 <Text
                   style={{
                     fontFamily: FONTS.bold,
-                    fontSize: 12,
-                    color: COLORS.ink,
+                    fontSize: 13,
+                    color: on ? COLORS.primaryDeep : COLORS.ink,
                   }}
                 >
                   {f.label}
                 </Text>
                 <Box
                   style={{
-                    minWidth: 18,
-                    height: 18,
-                    paddingHorizontal: 4,
-                    borderRadius: DESIGN.chipRadius,
-                    backgroundColor: on ? GLASS.tintBlue : COLORS.muted,
+                    width: 22,
+                    height: 22,
+                    minWidth: 22,
+                    borderRadius: 999,
+                    backgroundColor: on ? COLORS.primary : '#EEF4FF',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.ink }}>
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 12,
+                      lineHeight: 14,
+                      color: on ? COLORS.white : COLORS.primaryDeep,
+                      textAlign: 'center',
+                      includeFontPadding: false,
+                      textAlignVertical: 'center',
+                    }}
+                  >
                     {count == null ? '—' : count}
                   </Text>
                 </Box>
@@ -1310,22 +1245,21 @@ export function HistoryScreen({ go }: { go: Go }) {
       <ScrollView
         key={themeId}
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: 100, paddingTop: 8 }}
+        style={{ backgroundColor: '#F7FAFF' }}
+        contentContainerStyle={{ paddingBottom: 150, paddingTop: 8 }}
         showsVerticalScrollIndicator={false}
       >
-        <VStack className="px-4" style={{ gap: 12 }}>
+        <VStack className="px-4" style={{ gap: 10 }}>
           {loadingTasks ? (
             <ListLoader count={4} text="Loading engineer applications…" />
           ) : filtered.length === 0 ? (
             <Box
               className="items-center py-14 px-6"
               style={{
-                backgroundColor: 'rgba(255,255,255,0.45)',
-                borderRadius: DESIGN.radiusLg,
-                shadowOpacity: 0,
-                elevation: 0,
-                borderWidth: StyleSheet.hairlineWidth,
-                borderColor: 'rgba(15,23,42,0.08)',
+                backgroundColor: COLORS.white,
+                borderRadius: 16,
+                borderWidth: 1.5,
+                borderColor: hexAlpha(COLORS.primary, 0.16),
               }}
             >
               <Box
@@ -1416,49 +1350,207 @@ export function EngineerDetailScreen({ go }: { go: Go }) {
       .finally(() => setLoading(false));
   }, [accessToken, appId]);
 
+  const listStatus = app ? engineerApplicationListStatus(app) : null;
+  const cover = app ? taskCoverImage(app) : null;
+
   return (
     <ScreenShell className="bg-background">
-      <BdaPageWatermark />
-      <AppHeader
-        title="View Application"
-        subtitle={app?.applicationNumber || 'Application details'}
-        onBack={() => go('history')}
-        gradient
-        go={go}
-        showNotifications={false}
-        showLogout={false}
-      />
-      <ScrollView
-        key={themeId}
-        style={{ zIndex: 1 }}
-        contentContainerStyle={{ paddingTop: 12, paddingBottom: 40, gap: 12 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {loading ? (
-          <ScreenLoader text="Loading application details…" />
-        ) : error || !app ? (
+      <Box style={{ flex: 1, backgroundColor: '#F0F4F8' }}>
+        <ScrollView
+          key={themeId}
+          style={{ flex: 1, backgroundColor: '#F0F4F8' }}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 48 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <ViewApplicationHeader onBack={() => go('history')} zone={app?.zoneCode} />
           <Box
-            className="mx-4 rounded-2xl border px-4 py-6"
             style={{
-              borderColor: `${COLORS.destructive}40`,
-              backgroundColor: `${COLORS.destructive}0D`,
+              flexGrow: 1,
+              backgroundColor: COLORS.white,
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              paddingTop: 16,
+              gap: 12,
             }}
           >
-            <Text
+          {loading ? (
+            <ScreenLoader text="Loading application details…" />
+          ) : error || !app ? (
+            <Box
+              className="mx-4 rounded-2xl border px-4 py-6"
               style={{
-                color: COLORS.destructive,
-                fontFamily: FONTS.medium,
-                fontSize: 13,
-                textAlign: 'center',
+                borderColor: `${COLORS.destructive}40`,
+                backgroundColor: `${COLORS.destructive}0D`,
               }}
             >
-              {error || 'Not found'}
-            </Text>
+              <Text
+                style={{
+                  color: COLORS.destructive,
+                  fontFamily: FONTS.medium,
+                  fontSize: 13,
+                  textAlign: 'center',
+                }}
+              >
+                {error || 'Not found'}
+              </Text>
+            </Box>
+          ) : (
+            <>
+              <Box style={{ paddingHorizontal: SPACE.gutter }}>
+                <Box
+                  style={{
+                    backgroundColor: COLORS.white,
+                    borderRadius: 20,
+                    borderWidth: 1.75,
+                    borderColor: hexAlpha('#1A368E', 0.38),
+                    overflow: 'hidden',
+                    shadowColor: '#1A368E',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 12,
+                    elevation: 3,
+                  }}
+                >
+                  <Box style={{ paddingHorizontal: 12, paddingVertical: 12 }}>
+                    <HStack className="items-center" style={{ gap: 10, alignItems: 'center' }}>
+                      <Box
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 11,
+                          backgroundColor: '#E8F0FE',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <FileText size={16} color="#1A368E" strokeWidth={2.4} />
+                      </Box>
+                      <VStack style={{ flex: 1, minWidth: 0, flexShrink: 1, gap: 2, justifyContent: 'center' }}>
+                        <Text
+                          allowFontScaling={false}
+                          style={{
+                            fontFamily: FONTS.bold,
+                            fontSize: 15,
+                            lineHeight: 18,
+                            color: '#0F172A',
+                            letterSpacing: -0.2,
+                          }}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {app.applicationNumber || `Site ${app.siteNo}`}
+                        </Text>
+                        <Text
+                          allowFontScaling={false}
+                          style={{
+                            fontFamily: FONTS.medium,
+                            fontSize: 12,
+                            lineHeight: 15,
+                            color: '#64748B',
+                          }}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          Application overview
+                        </Text>
+                      </VStack>
+                      {listStatus ? <StatusChip status={listStatus} /> : null}
+                    </HStack>
+                  </Box>
+
+                  <HStack style={{ paddingHorizontal: 14, paddingBottom: 14, gap: 12, alignItems: 'center' }}>
+                    <Box
+                      style={{
+                        width: 56,
+                        height: 56,
+                        borderRadius: 14,
+                        overflow: 'hidden',
+                        backgroundColor: '#E8F0FE',
+                        borderWidth: 1.5,
+                        borderColor: hexAlpha('#1A368E', 0.42),
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {cover ? (
+                        <ApiMediaImage
+                          uri={cover}
+                          style={{ width: 56, height: 56 }}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <Building2 size={22} color="#1A368E" strokeWidth={2.2} />
+                      )}
+                    </Box>
+                    <VStack style={{ flex: 1, minWidth: 0, gap: 6 }}>
+                      <HStack style={{ gap: 6, flexWrap: 'wrap' }}>
+                        <Box
+                          style={{
+                            paddingHorizontal: 10,
+                            paddingVertical: 5,
+                            borderRadius: 999,
+                            backgroundColor: '#F7FAFF',
+                            borderWidth: 1.5,
+                            borderColor: hexAlpha('#1A368E', 0.35),
+                          }}
+                        >
+                          <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: COLORS.ink }}>
+                            Site no:{' '}
+                            <Text
+                              style={{
+                                fontFamily: FONTS.bold,
+                                fontSize: 11,
+                                color: '#1A368E',
+                              }}
+                            >
+                              {app.siteNo?.trim() || '—'}
+                            </Text>
+                          </Text>
+                        </Box>
+                        <Box
+                          style={{
+                            paddingHorizontal: 10,
+                            paddingVertical: 5,
+                            borderRadius: 999,
+                            backgroundColor: '#F7FAFF',
+                            borderWidth: 1.5,
+                            borderColor: hexAlpha('#1A368E', 0.35),
+                          }}
+                        >
+                          <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: COLORS.ink }}>
+                            Zone:{' '}
+                            <Text
+                              style={{
+                                fontFamily: FONTS.bold,
+                                fontSize: 11,
+                                color: '#1A368E',
+                              }}
+                            >
+                              {app.zoneCode?.trim() || '—'}
+                            </Text>
+                          </Text>
+                        </Box>
+                      </HStack>
+                      <HStack className="items-center" style={{ gap: 4 }}>
+                        <Clock size={12} color="#1A368E" strokeWidth={2.3} />
+                        <Text
+                          style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}
+                          numberOfLines={1}
+                        >
+                          {applicationCardDateLine(app)}
+                        </Text>
+                      </HStack>
+                    </VStack>
+                  </HStack>
+                </Box>
+              </Box>
+              <ApplicationRecordDetails app={app} showEmptyEngineer={false} viewerRole="engineer" />
+            </>
+          )}
           </Box>
-        ) : (
-          <ApplicationRecordDetails app={app} showEmptyEngineer={false} viewerRole="engineer" />
-        )}
-      </ScrollView>
+        </ScrollView>
+      </Box>
     </ScreenShell>
   );
 }
@@ -1645,33 +1737,215 @@ export function ProfileScreen({ go }: { go: Go }) {
           .replace(/_/g, ' ')
           .replace(/\b\w/g, (c) => c.toUpperCase());
 
+  const insets = useSafeAreaInsets();
+  const infoTiles: Array<{
+    label: string;
+    value: string;
+    icon: LucideIcon;
+    iconBg: string;
+    iconFg: string;
+  }> = [
+    { label: 'Name', value: name, icon: User, iconBg: '#DBEAFE', iconFg: COLORS.primary },
+    { label: 'Role', value: roleTitle, icon: Shield, iconBg: '#EDE9FE', iconFg: '#7C3AED' },
+    { label: 'Email', value: email, icon: Mail, iconBg: '#DCFCE7', iconFg: '#059669' },
+    { label: 'Mobile', value: phone, icon: Phone, iconBg: '#DBEAFE', iconFg: COLORS.primary },
+    { label: 'Gender', value: gender, icon: UserCheck, iconBg: '#FFEDD5', iconFg: '#C2410C' },
+    { label: 'Department', value: department, icon: Building2, iconBg: '#DCFCE7', iconFg: '#059669' },
+    { label: 'Location', value: districtState, icon: MapPin, iconBg: '#EDE9FE', iconFg: '#7C3AED' },
+    { label: 'Zone', value: zone, icon: Layers, iconBg: '#FFEDD5', iconFg: '#C2410C' },
+    { label: 'Office', value: officeAddress, icon: Building2, iconBg: '#DBEAFE', iconFg: COLORS.primary },
+    { label: 'Status', value: mappingLabel, icon: CheckCircle2, iconBg: '#DCFCE7', iconFg: '#059669' },
+  ];
+
   return (
     <ScreenShell className="bg-background">
-      <AppHeader
-        title="Profile"
-        subtitle="Officer details & personal information"
-        go={go}
-      />
+      <BdaPageWatermark />
+      <Box
+        style={{
+          backgroundColor: '#F7FAFF',
+          paddingTop: insets.top + 6,
+          paddingHorizontal: SPACE.gutter,
+          paddingBottom: 8,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: 'rgba(26,86,219,0.12)',
+          zIndex: 2,
+        }}
+      >
+        <HStack className="items-center" style={{ gap: 8 }}>
+          <Pressable
+            onPress={() => go(home)}
+            hitSlop={10}
+            className="active:opacity-75"
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 999,
+              backgroundColor: COLORS.white,
+              borderWidth: 1,
+              borderColor: 'rgba(26,86,219,0.2)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <ArrowLeft size={15} color={COLORS.primaryDeep} strokeWidth={2.3} />
+          </Pressable>
+
+          <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
+            <Text
+              style={{
+                fontFamily: FONTS.displayBold,
+                fontSize: 22,
+                lineHeight: 26,
+                color: '#1A368E',
+                letterSpacing: -0.3,
+              }}
+              numberOfLines={1}
+            >
+              My Profile
+            </Text>
+            <Text
+              style={{
+                fontFamily: FONTS.semibold,
+                fontSize: 12,
+                color: '#475569',
+                lineHeight: 16,
+              }}
+              numberOfLines={1}
+            >
+              Officer details & personal information
+            </Text>
+          </VStack>
+
+          <Box style={{ position: 'relative' }}>
+            <Box
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 999,
+                overflow: 'hidden',
+                backgroundColor: COLORS.primary,
+                borderWidth: 2,
+                borderColor: COLORS.white,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {profilePhoto ? (
+                <Image
+                  source={{ uri: profilePhoto }}
+                  style={{ width: '100%', height: '100%' }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: COLORS.white }}>
+                  {initials}
+                </Text>
+              )}
+            </Box>
+            <Box
+              style={{
+                position: 'absolute',
+                right: 0,
+                bottom: 0,
+                width: 9,
+                height: 9,
+                borderRadius: 5,
+                backgroundColor: '#22C55E',
+                borderWidth: 1.5,
+                borderColor: COLORS.white,
+              }}
+            />
+          </Box>
+        </HStack>
+      </Box>
 
       <ScrollView
         key={themeId}
         className="flex-1"
-        style={{ zIndex: 1 }}
+        style={{ zIndex: 1, backgroundColor: '#F7FAFF' }}
         contentContainerStyle={{
-          paddingBottom: 100,
-          paddingTop: 12,
-          gap: 12,
+          flexGrow: 1,
+          // Capsule nav (~70) + safe area + breathing room so Logout stays visible
+          paddingBottom: 70 + Math.max(insets.bottom, 10) + 28,
+          paddingTop: 8,
+          gap: 10,
+          paddingHorizontal: SPACE.gutter,
         }}
         showsVerticalScrollIndicator={false}
       >
-        <GlassSectionCard
-          title="Profile photo"
-          subtitle={profilePhoto ? 'Uploaded' : 'Add a photo'}
-          icon={Camera}
-          bodyStyle={{ paddingHorizontal: SPACE[3], paddingVertical: SPACE[2], gap: SPACE[2] }}
+        {/* Profile summary card */}
+        <Box
+          style={{
+            backgroundColor: COLORS.white,
+            borderRadius: 20,
+            borderWidth: 1.75,
+            borderColor: hexAlpha('#1A368E', 0.38),
+            overflow: 'hidden',
+            shadowColor: '#1A368E',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 12,
+            elevation: 3,
+          }}
         >
-          <HStack style={{ alignItems: 'center', gap: 12 }}>
-            <Box style={{ position: 'relative' }}>
+          <Box
+            style={{
+              position: 'relative',
+              overflow: 'hidden',
+              backgroundColor: '#EAF1FF',
+              borderBottomWidth: 1,
+              borderBottomColor: 'rgba(26,86,219,0.12)',
+              paddingHorizontal: 14,
+              paddingVertical: 13,
+              minHeight: 66,
+              justifyContent: 'center',
+            }}
+          >
+            <Box
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                bottom: 0,
+                top: 0,
+              }}
+            >
+              <ProfileSkylineLine width={360} height={64} />
+            </Box>
+            <HStack className="items-center" style={{ gap: 10, zIndex: 1 }}>
+              <Box
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 12,
+                  backgroundColor: '#E8F0FE',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Camera size={16} color="#1A368E" strokeWidth={2.4} />
+              </Box>
+              <VStack style={{ gap: 2 }}>
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 17, color: '#0F172A' }}>
+                  Profile Photo
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: FONTS.semibold,
+                    fontSize: 12,
+                    color: '#475569',
+                    lineHeight: 16,
+                  }}
+                >
+                  {profilePhoto ? 'Last updated' : 'Add a photo'}
+                </Text>
+              </VStack>
+            </HStack>
+          </Box>
+
+          <HStack style={{ padding: 14, gap: 10, alignItems: 'flex-start' }}>
+            <Box style={{ position: 'relative', flexShrink: 0 }}>
               <Pressable
                 onPress={() => {
                   if (profilePhoto) setPreviewModalOpen(true);
@@ -1682,13 +1956,15 @@ export function ProfileScreen({ go }: { go: Go }) {
               >
                 <Box
                   style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: DESIGN.headerRadius,
+                    width: 72,
+                    height: 72,
+                    borderRadius: 999,
                     overflow: 'hidden',
                     alignItems: 'center',
                     justifyContent: 'center',
                     backgroundColor: COLORS.primary,
+                    borderWidth: 3,
+                    borderColor: COLORS.primary,
                   }}
                 >
                   {profilePhoto ? (
@@ -1698,196 +1974,247 @@ export function ProfileScreen({ go }: { go: Go }) {
                       resizeMode="cover"
                     />
                   ) : (
-                    <Text style={{ fontFamily: FONTS.bold, fontSize: 18, color: COLORS.white }}>
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 22, color: COLORS.white }}>
                       {initials}
                     </Text>
                   )}
                 </Box>
               </Pressable>
-              {profilePhoto ? (
-                <Pressable
-                  onPress={handleDeletePhoto}
-                  disabled={savingPhoto}
-                  accessibilityLabel="Delete photo"
-                  className="active:opacity-85"
-                  style={{
-                    position: 'absolute',
-                    right: -2,
-                    bottom: -2,
-                    width: 26,
-                    height: 26,
-                    borderRadius: DESIGN.stepRadius,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: COLORS.destructive,
-                    borderWidth: 2,
-                    borderColor: COLORS.white,
-                    opacity: savingPhoto ? 0.6 : 1,
-                  }}
-                >
-                  <Trash2 size={12} color={COLORS.white} strokeWidth={2.4} />
-                </Pressable>
-              ) : (
-                <Box
-                  pointerEvents="none"
-                  style={{
-                    position: 'absolute',
-                    right: -2,
-                    bottom: -2,
-                    width: 26,
-                    height: 26,
-                    borderRadius: DESIGN.stepRadius,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: COLORS.primary,
-                    borderWidth: 2,
-                    borderColor: COLORS.white,
-                  }}
-                >
-                  <Camera size={12} color={COLORS.white} strokeWidth={2.4} />
-                </Box>
-              )}
+              <Pressable
+                onPress={showPhotoSourceOptions}
+                disabled={savingPhoto}
+                accessibilityLabel="Change profile photo"
+                className="active:opacity-85"
+                style={{
+                  position: 'absolute',
+                  right: -2,
+                  bottom: -2,
+                  width: 24,
+                  height: 24,
+                  borderRadius: 999,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: COLORS.primary,
+                  borderWidth: 2,
+                  borderColor: COLORS.white,
+                  opacity: savingPhoto ? 0.6 : 1,
+                }}
+              >
+                <Camera size={11} color={COLORS.white} strokeWidth={2.4} />
+              </Pressable>
             </Box>
-            <VStack style={{ flex: 1, gap: 2, minWidth: 0 }}>
-              <HStack style={{ alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <Text
-                  style={{ fontFamily: FONTS.bold, fontSize: 15, color: COLORS.ink }}
-                  numberOfLines={1}
-                >
-                  {name}
-                </Text>
+
+            <VStack style={{ flex: 1, minWidth: 0, gap: 5, paddingTop: 2 }}>
+              <Text
+                style={{
+                  fontFamily: FONTS.bold,
+                  fontSize: 16,
+                  lineHeight: 21,
+                  color: '#1A368E',
+                }}
+                numberOfLines={2}
+              >
+                {name}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: FONTS.semibold,
+                  fontSize: 13,
+                  color: '#1A368E',
+                  lineHeight: 17,
+                }}
+                numberOfLines={2}
+              >
+                {roleTitle}
+              </Text>
+              <HStack className="items-start" style={{ gap: 5 }}>
+                <Shield size={12} color="#1A368E" strokeWidth={2.4} style={{ marginTop: 1 }} />
+                <VStack style={{ gap: 1, flex: 1, minWidth: 0 }}>
+                  <Text style={{ fontFamily: FONTS.semibold, fontSize: 12, color: '#475569' }}>
+                    Login ID
+                  </Text>
+                  <Text
+                    style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#1A368E' }}
+                    numberOfLines={1}
+                  >
+                    {loginId}
+                  </Text>
+                </VStack>
+              </HStack>
+            </VStack>
+
+            {/* Active sits above the home/building art on the right */}
+            <VStack style={{ alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+              <Box
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 999,
+                  backgroundColor: '#ECFDF5',
+                  borderWidth: 1,
+                  borderColor: '#A7F3D0',
+                }}
+              >
                 <Box
                   style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 3,
-                    paddingHorizontal: 7,
-                    paddingVertical: 2,
-                    borderRadius: 999,
-                    backgroundColor: `${COLORS.success}14`,
-                    borderWidth: 1,
-                    borderColor: `${COLORS.success}40`,
+                    width: 6,
+                    height: 6,
+                    borderRadius: 3,
+                    backgroundColor: '#22C55E',
                   }}
-                >
-                  <CheckCircle2 size={10} color={COLORS.success} strokeWidth={2.5} />
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.success }}>
-                    Active
-                  </Text>
-                </Box>
-              </HStack>
-              <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.slate }} numberOfLines={1}>
-                {roleTitle} · {zone}
+                />
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#047857' }}>
+                  Active
+                </Text>
+              </Box>
+              <ProfileHeroArt />
+            </VStack>
+          </HStack>
+        </Box>
+
+        {/* Personal information */}
+        <Box
+          style={{
+            backgroundColor: COLORS.white,
+            borderRadius: 20,
+            borderWidth: 1.75,
+            borderColor: hexAlpha('#1A368E', 0.38),
+            padding: 12,
+            shadowColor: '#1A368E',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 12,
+            elevation: 3,
+          }}
+        >
+          <HStack className="items-center" style={{ marginBottom: 10, gap: 8 }}>
+            <Box
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 10,
+                backgroundColor: '#E8F0FE',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <User size={16} color="#1A368E" strokeWidth={2.4} />
+            </Box>
+            <VStack style={{ flex: 1, minWidth: 0, gap: 1 }}>
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 16, color: '#0F172A' }}>
+                Personal Information
               </Text>
-              <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.ink }} numberOfLines={1}>
-                Login ID: {loginId}
+              <Text
+                style={{
+                  fontFamily: FONTS.semibold,
+                  fontSize: 12,
+                  color: '#475569',
+                  lineHeight: 16,
+                }}
+              >
+                Officer details
               </Text>
             </VStack>
           </HStack>
 
-          {!profilePhoto ? (
-            <HStack style={{ gap: 8 }}>
-              <Pressable
-                onPress={() => void handleTakePhoto()}
-                disabled={savingPhoto}
-                className="flex-1 active:opacity-85"
-                style={{
-                  height: 36,
-                  borderRadius: DESIGN.stepRadius,
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
-                  backgroundColor: COLORS.white,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  opacity: savingPhoto ? 0.6 : 1,
-                }}
-              >
-                <Camera size={14} color={COLORS.primary} strokeWidth={2.2} />
-                <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.ink }}>
-                  {savingPhoto ? 'Saving…' : 'Take photo'}
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => void handlePickFromGallery()}
-                disabled={savingPhoto}
-                className="flex-1 active:opacity-85"
-                style={{
-                  height: 36,
-                  borderRadius: DESIGN.stepRadius,
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
-                  backgroundColor: COLORS.white,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  opacity: savingPhoto ? 0.6 : 1,
-                }}
-              >
-                <Upload size={14} color={COLORS.primary} strokeWidth={2.2} />
-                <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.ink }}>
-                  {savingPhoto ? 'Saving…' : 'Gallery'}
-                </Text>
-              </Pressable>
-            </HStack>
-          ) : null}
-        </GlassSectionCard>
-
-        <GlassSectionCard
-          title="Personal Information"
-          subtitle="Officer details"
-          icon={User}
-          bodyStyle={{ paddingHorizontal: SPACE[3], paddingVertical: SPACE[2], gap: 0 }}
-        >
-          <ProfilePairRow leftLabel="Name" leftValue={name} rightLabel="Role" rightValue={roleTitle} />
-          <ProfilePairRow leftLabel="Email" leftValue={email} rightLabel="Mobile" rightValue={phone} />
-          <ProfilePairRow
-            leftLabel="Gender"
-            leftValue={gender}
-            rightLabel="Department"
-            rightValue={department}
-          />
-          <ProfilePairRow
-            leftLabel="District / State"
-            leftValue={districtState}
-            rightLabel="Assigned zone"
-            rightValue={zone}
-          />
-          <ProfilePairRow
-            leftLabel="Office address"
-            leftValue={officeAddress}
-            rightLabel="Mapping status"
-            rightValue={mappingLabel}
-            last
-          />
-        </GlassSectionCard>
-
-        <Box style={{ marginHorizontal: SPACE.gutter }}>
-          <Pressable
-            onPress={async () => {
-              await logout();
-              go('login');
-            }}
-            className="active:opacity-90"
+          <Box
             style={{
-              height: 44,
-              borderRadius: DESIGN.cardRadius,
-              borderWidth: 1,
-              borderColor: `${COLORS.destructive}40`,
-              backgroundColor: `${COLORS.destructive}0D`,
               flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
+              flexWrap: 'wrap',
+              justifyContent: 'space-between',
+              rowGap: 8,
+              columnGap: 8,
             }}
           >
-            <LogOut size={16} color={COLORS.destructive} strokeWidth={2.2} />
-            <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.destructive }}>
-              Logout
-            </Text>
-          </Pressable>
+            {infoTiles.map((tile) => {
+              const Icon = tile.icon;
+              return (
+                <Box
+                  key={tile.label}
+                  style={{
+                    width: '48%',
+                    borderRadius: 12,
+                    borderWidth: 1.5,
+                    borderColor: hexAlpha('#1A368E', 0.42),
+                    backgroundColor: COLORS.white,
+                    paddingHorizontal: 8,
+                    paddingVertical: 7,
+                  }}
+                >
+                  {/* Icon + key on one line */}
+                  <HStack style={{ alignItems: 'center', gap: 5, marginBottom: 3 }}>
+                    <Box
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 999,
+                        backgroundColor: tile.iconBg,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Icon size={11} color={tile.iconFg} strokeWidth={2.3} />
+                    </Box>
+                    <Text
+                      style={{
+                        fontFamily: FONTS.bold,
+                        fontSize: 12,
+                        color: '#1A368E',
+                        letterSpacing: 0.1,
+                        lineHeight: 15,
+                        flex: 1,
+                        minWidth: 0,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {tile.label}
+                    </Text>
+                  </HStack>
+                  {/* Value on next line */}
+                  <Text
+                    style={{
+                      fontFamily: FONTS.medium,
+                      fontSize: 13,
+                      color: '#0F172A',
+                      lineHeight: 17,
+                    }}
+                  >
+                    {tile.value || '—'}
+                  </Text>
+                </Box>
+              );
+            })}
+          </Box>
         </Box>
+
+        <Pressable
+          onPress={async () => {
+            await logout();
+            go('login');
+          }}
+          className="active:opacity-90"
+          style={{
+            height: 48,
+            borderRadius: 999,
+            borderWidth: 1.5,
+            borderColor: `${COLORS.destructive}40`,
+            backgroundColor: COLORS.white,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            marginTop: 4,
+          }}
+        >
+          <LogOut size={16} color={COLORS.destructive} strokeWidth={2.2} />
+          <Text style={{ fontFamily: FONTS.bold, fontSize: 15, color: COLORS.destructive }}>
+            Logout
+          </Text>
+        </Pressable>
       </ScrollView>
 
       {previewModalOpen && profilePhoto ? (
@@ -1903,7 +2230,9 @@ export function ProfileScreen({ go }: { go: Go }) {
           >
             <Box className="w-full max-w-sm bg-white rounded-2xl p-4 overflow-hidden">
               <HStack className="justify-between items-center pb-3 mb-3 border-b border-slate-100">
-                <Text className="font-extrabold text-base text-slate-900">Profile Photo</Text>
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 17, color: '#0F172A' }}>
+                  Profile Photo
+                </Text>
                 <Pressable onPress={() => setPreviewModalOpen(false)} className="p-1">
                   <Text className="text-slate-400 font-bold text-base">✕</Text>
                 </Pressable>
@@ -1913,6 +2242,43 @@ export function ProfileScreen({ go }: { go: Go }) {
                 style={{ width: '100%', height: 300, borderRadius: DESIGN.cardRadius }}
                 resizeMode="contain"
               />
+              <HStack style={{ gap: 8, marginTop: 12 }}>
+                <Pressable
+                  onPress={() => {
+                    setPreviewModalOpen(false);
+                    showPhotoSourceOptions();
+                  }}
+                  className="flex-1 active:opacity-85"
+                  style={{
+                    height: 40,
+                    borderRadius: 999,
+                    backgroundColor: COLORS.primary,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.white }}>
+                    Change
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleDeletePhoto}
+                  className="flex-1 active:opacity-85"
+                  style={{
+                    height: 40,
+                    borderRadius: 999,
+                    backgroundColor: '#FEF2F2',
+                    borderWidth: 1,
+                    borderColor: '#FECACA',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: '#DC2626' }}>
+                    Delete
+                  </Text>
+                </Pressable>
+              </HStack>
             </Box>
           </Pressable>
         </Modal>
@@ -1923,84 +2289,92 @@ export function ProfileScreen({ go }: { go: Go }) {
         onNav={go}
         homeTarget={home}
         appsTarget={appsTarget}
-        hidePlus={appRole !== 'zc'}
-        hideAlerts={appRole !== 'zc'}
-        onPlus={appRole === 'zc' ? () => { setZcEditApplicationId(null); go('zc_create'); } : undefined}
+        hidePlus
+        hideAlerts
       />
     </ScreenShell>
   );
 }
 
-function ProfilePairRow({
-  leftLabel,
-  leftValue,
-  rightLabel,
-  rightValue,
-  last,
-}: {
-  leftLabel: string;
-  leftValue: string;
-  rightLabel: string;
-  rightValue: string;
-  last?: boolean;
-}) {
+/** Soft cityscape + trees + shade rays for Profile Photo header (ref mock). */
+function ProfileSkylineLine({ width = 360, height = 64 }: { width?: number; height?: number }) {
+  const shade = '#93C5FD';
   return (
-    <HStack
+    <Svg width={width} height={height} viewBox="0 0 360 64" preserveAspectRatio="xMaxYMax meet">
+      {/* diagonal shade rays */}
+      <Path d="M210 0 L250 64 L236 64 L196 0 Z" fill={shade} opacity={0.08} />
+      <Path d="M250 0 L295 64 L278 64 L233 0 Z" fill={shade} opacity={0.1} />
+      <Path d="M290 0 L340 64 L320 64 L270 0 Z" fill={shade} opacity={0.07} />
+      {/* far buildings */}
+      <Rect x={168} y={28} width={18} height={36} rx={1} fill="#BFDBFE" opacity={0.55} />
+      <Rect x={188} y={18} width={22} height={46} rx={1} fill="#93C5FD" opacity={0.5} />
+      <Rect x={212} y={24} width={14} height={40} rx={1} fill="#BFDBFE" opacity={0.55} />
+      <Rect x={228} y={10} width={26} height={54} rx={1} fill="#60A5FA" opacity={0.38} />
+      <Rect x={256} y={20} width={18} height={44} rx={1} fill="#93C5FD" opacity={0.48} />
+      <Rect x={276} y={14} width={30} height={50} rx={1} fill="#3B82F6" opacity={0.28} />
+      <Rect x={308} y={26} width={16} height={38} rx={1} fill="#93C5FD" opacity={0.45} />
+      <Rect x={326} y={16} width={22} height={48} rx={1} fill="#BFDBFE" opacity={0.5} />
+      {/* trees */}
+      <Ellipse cx={180} cy={52} rx={7} ry={9} fill="#86EFAC" opacity={0.45} />
+      <Rect x={178} y={54} width={4} height={10} fill="#86EFAC" opacity={0.35} />
+      <Ellipse cx={248} cy={50} rx={8} ry={11} fill="#6EE7B7" opacity={0.4} />
+      <Rect x={246} y={54} width={4} height={10} fill="#6EE7B7" opacity={0.32} />
+      <Ellipse cx={300} cy={51} rx={6} ry={8} fill="#86EFAC" opacity={0.42} />
+      <Rect x={298} y={54} width={3} height={10} fill="#86EFAC" opacity={0.32} />
+      <Ellipse cx={340} cy={50} rx={9} ry={12} fill="#6EE7B7" opacity={0.38} />
+      <Rect x={338} y={54} width={4} height={10} fill="#6EE7B7" opacity={0.3} />
+    </Svg>
+  );
+}
+
+/** Buildings + trees + map pin — matches ref profile hero art. */
+function ProfileHeroArt() {
+  return (
+    <Box
+      pointerEvents="none"
       style={{
-        paddingVertical: 7,
-        borderBottomWidth: last ? 0 : 1,
-        borderBottomColor: GLASS.divider,
-        gap: 10,
+        width: 72,
+        height: 78,
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        flexShrink: 0,
       }}
     >
-      <Box style={{ flex: 1 }}>
-        <Text
-          style={{
-            fontFamily: FONTS.bold,
-            fontSize: 12,
-            color: COLORS.ink,
-            textTransform: 'uppercase',
-            letterSpacing: 0.4,
-          }}
-        >
-          {leftLabel}
-        </Text>
-        <Text
-          style={{
-            fontFamily: FONTS.medium,
-            fontSize: 13,
-            color: COLORS.slate,
-            marginTop: 2,
-            lineHeight: 17,
-          }}
-        >
-          {leftValue || '—'}
-        </Text>
-      </Box>
-      <Box style={{ flex: 1 }}>
-        <Text
-          style={{
-            fontFamily: FONTS.bold,
-            fontSize: 12,
-            color: COLORS.ink,
-            textTransform: 'uppercase',
-            letterSpacing: 0.4,
-          }}
-        >
-          {rightLabel}
-        </Text>
-        <Text
-          style={{
-            fontFamily: FONTS.medium,
-            fontSize: 13,
-            color: COLORS.slate,
-            marginTop: 2,
-            lineHeight: 17,
-          }}
-        >
-          {rightValue || '—'}
-        </Text>
-      </Box>
-    </HStack>
+      <Svg width={72} height={78} viewBox="0 0 96 104">
+        {/* soft ground glow */}
+        <Ellipse cx={48} cy={94} rx={34} ry={8} fill={hexAlpha(COLORS.primary, 0.1)} />
+        {/* buildings */}
+        <Rect x={18} y={48} width={18} height={42} rx={3} fill="#BFDBFE" />
+        <Rect x={34} y={30} width={24} height={60} rx={3} fill="#60A5FA" />
+        <Rect x={54} y={40} width={18} height={50} rx={3} fill="#93C5FD" />
+        {/* windows */}
+        <Rect x={22} y={54} width={4} height={4} rx={0.8} fill="#EFF6FF" />
+        <Rect x={28} y={54} width={4} height={4} rx={0.8} fill="#EFF6FF" />
+        <Rect x={22} y={62} width={4} height={4} rx={0.8} fill="#EFF6FF" />
+        <Rect x={28} y={62} width={4} height={4} rx={0.8} fill="#EFF6FF" />
+        <Rect x={40} y={38} width={5} height={5} rx={1} fill="#DBEAFE" />
+        <Rect x={48} y={38} width={5} height={5} rx={1} fill="#DBEAFE" />
+        <Rect x={40} y={48} width={5} height={5} rx={1} fill="#DBEAFE" />
+        <Rect x={48} y={48} width={5} height={5} rx={1} fill="#DBEAFE" />
+        <Rect x={40} y={58} width={5} height={5} rx={1} fill="#DBEAFE" />
+        <Rect x={48} y={58} width={5} height={5} rx={1} fill="#DBEAFE" />
+        <Rect x={58} y={48} width={4} height={4} rx={0.8} fill="#EFF6FF" />
+        <Rect x={64} y={48} width={4} height={4} rx={0.8} fill="#EFF6FF" />
+        <Rect x={58} y={56} width={4} height={4} rx={0.8} fill="#EFF6FF" />
+        <Rect x={64} y={56} width={4} height={4} rx={0.8} fill="#EFF6FF" />
+        {/* green trees */}
+        <Ellipse cx={16} cy={82} rx={7} ry={9} fill="#4ADE80" />
+        <Rect x={14.5} y={86} width={3} height={8} rx={1} fill="#16A34A" />
+        <Ellipse cx={78} cy={84} rx={8} ry={10} fill="#22C55E" />
+        <Rect x={76.5} y={88} width={3} height={8} rx={1} fill="#15803D" />
+        <Ellipse cx={68} cy={88} rx={5} ry={6} fill="#86EFAC" />
+        {/* map pin above buildings */}
+        <Path
+          d="M48 8 C39 8 32 15 32 24 C32 36 48 52 48 52 C48 52 64 36 64 24 C64 15 57 8 48 8 Z"
+          fill={COLORS.primary}
+        />
+        <Circle cx={48} cy={23} r={6} fill={COLORS.white} />
+      </Svg>
+    </Box>
   );
 }

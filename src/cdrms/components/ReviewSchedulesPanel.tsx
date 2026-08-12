@@ -11,9 +11,11 @@ import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
 import { ImagePreviewModal } from '@/src/cdrms/components/ImagePreviewModal';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { DIRECTION_META, type Cardinal } from '@/src/cdrms/project/types';
-import { CARDINAL_ACCENT, COLORS, FONTS, GLASS, SPACE } from '@/src/cdrms/theme';
+import { CARDINAL_ACCENT, COLORS, FONTS, GLASS, hexAlpha } from '@/src/cdrms/theme';
 
 const CARDINALS: Cardinal[] = ['N', 'S', 'E', 'W'];
+const BLUE_SOFT = '#EEF4FF';
+const BLUE_BORDER = 'rgba(26,86,219,0.22)';
 
 /** Read-only schedules — same row layout as SchedulesEditorCard when filling Step 2. */
 export function ReviewSchedulesPanel({ variant = 'default' }: { variant?: 'default' | 'premium' }) {
@@ -24,7 +26,7 @@ export function ReviewSchedulesPanel({ variant = 'default' }: { variant?: 'defau
 
   return (
     <>
-      <VStack style={{ gap: isPremium ? SPACE[2] : SPACE[2] }}>
+      <VStack style={{ gap: isPremium ? 4 : 8 }}>
         {CARDINALS.map((k) => {
           const accent = CARDINAL_ACCENT[k];
           const isRoad = Boolean(draft.roadFlags?.[k]);
@@ -35,47 +37,65 @@ export function ReviewSchedulesPanel({ variant = 'default' }: { variant?: 'defau
             <Box
               key={`review-sched-${k}`}
               style={{
-                borderRadius: 12,
-                padding: SPACE[2],
-                backgroundColor: isPremium ? GLASS.surfaceSolid : COLORS.white,
-                borderWidth: 1,
-                borderColor: isPremium ? GLASS.border : COLORS.border,
-                shadowColor: '#0F172A',
+                borderRadius: isPremium ? 12 : 12,
+                padding: isPremium ? 6 : 8,
+                backgroundColor: COLORS.white,
+                borderWidth: isPremium ? 1.5 : 1,
+                borderColor: isPremium ? hexAlpha(accent, 0.35) : COLORS.border,
+                shadowColor: isPremium ? COLORS.primaryDeep : '#0F172A',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.08,
-                shadowRadius: 8,
+                shadowRadius: 5,
                 elevation: 2,
               }}
             >
-              <HStack className="items-center" style={{ gap: SPACE[2], minHeight: 44 }}>
-                <Box style={{ width: 44, justifyContent: 'center', flexShrink: 0 }}>
-                  <Box
-                    style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: 999,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: GLASS.tintBlue,
-                      borderWidth: 1,
-                      borderColor: '#BFDBFE',
-                      marginBottom: 2,
-                    }}
-                  >
-                    <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: accent }}>
-                      {k}
-                    </Text>
-                  </Box>
-                  <Text
-                    numberOfLines={1}
-                    style={{
-                      fontFamily: FONTS.medium,
-                      fontSize: 9,
-                      color: COLORS.slate,
-                    }}
-                  >
-                    {DIRECTION_META[k].label}
-                  </Text>
+              <HStack className="items-center" style={{ gap: 8, minHeight: 40 }}>
+                <Box style={{ width: isPremium ? 40 : 44, justifyContent: 'center', flexShrink: 0 }}>
+                  {isPremium ? (
+                    <HStack className="items-center" style={{ gap: 4 }}>
+                      <Box
+                        style={{
+                          width: 7,
+                          height: 7,
+                          borderRadius: 999,
+                          backgroundColor: accent,
+                        }}
+                      />
+                      <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: accent }}>
+                        {DIRECTION_META[k].label}
+                      </Text>
+                    </HStack>
+                  ) : (
+                    <>
+                      <Box
+                        style={{
+                          width: 22,
+                          height: 22,
+                          borderRadius: 999,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: GLASS.tintBlue,
+                          borderWidth: 1,
+                          borderColor: '#BFDBFE',
+                          marginBottom: 2,
+                        }}
+                      >
+                        <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: accent }}>
+                          {k}
+                        </Text>
+                      </Box>
+                      <Text
+                        numberOfLines={1}
+                        style={{
+                          fontFamily: FONTS.medium,
+                          fontSize: 9,
+                          color: COLORS.slate,
+                        }}
+                      >
+                        {DIRECTION_META[k].label}
+                      </Text>
+                    </>
+                  )}
                 </Box>
 
                 <Box
@@ -83,12 +103,16 @@ export function ReviewSchedulesPanel({ variant = 'default' }: { variant?: 'defau
                     flexDirection: 'row',
                     alignItems: 'center',
                     gap: 5,
-                    height: 32,
+                    height: 30,
                     paddingHorizontal: 8,
-                    borderRadius: 8,
-                    backgroundColor: isRoad ? GLASS.tintBlue : GLASS.surface,
+                    borderRadius: isPremium ? 999 : 8,
+                    backgroundColor: isRoad
+                      ? isPremium
+                        ? BLUE_SOFT
+                        : GLASS.tintBlue
+                      : COLORS.white,
                     borderWidth: 1,
-                    borderColor: isRoad ? accent : GLASS.borderSoft,
+                    borderColor: isRoad ? accent : isPremium ? BLUE_BORDER : GLASS.borderSoft,
                     flexShrink: 0,
                   }}
                 >
@@ -109,7 +133,7 @@ export function ReviewSchedulesPanel({ variant = 'default' }: { variant?: 'defau
                   <Text
                     style={{
                       fontFamily: FONTS.bold,
-                      fontSize: 12,
+                      fontSize: 11,
                       color: isRoad ? accent : COLORS.ink,
                     }}
                   >
@@ -121,22 +145,22 @@ export function ReviewSchedulesPanel({ variant = 'default' }: { variant?: 'defau
                   style={{
                     flex: 1,
                     minWidth: 72,
-                    height: 32,
-                    borderRadius: 8,
+                    height: 30,
+                    borderRadius: isPremium ? 999 : 8,
                     borderWidth: 1,
-                    borderColor: GLASS.border,
-                    backgroundColor: COLORS.white,
-                    paddingHorizontal: 8,
+                    borderColor: isPremium ? BLUE_BORDER : GLASS.border,
+                    backgroundColor: isPremium ? BLUE_SOFT : COLORS.white,
+                    paddingHorizontal: 10,
                     justifyContent: 'center',
-                    paddingVertical: Platform.OS === 'android' ? 0 : 6,
+                    paddingVertical: Platform.OS === 'android' ? 0 : 5,
                   }}
                 >
                   <Text
                     numberOfLines={1}
                     style={{
                       fontSize: 11,
-                      fontFamily: FONTS.regular,
-                      color: note.trim() ? COLORS.ink : COLORS.slate,
+                      fontFamily: FONTS.medium,
+                      color: note.trim() ? COLORS.ink : '#94A3B8',
                       ...(Platform.OS === 'android' ? { includeFontPadding: false } : null),
                     }}
                   >
@@ -154,14 +178,14 @@ export function ReviewSchedulesPanel({ variant = 'default' }: { variant?: 'defau
                     disabled={!photo}
                     className="active:opacity-85 overflow-hidden"
                     style={{
-                      width: 52,
-                      height: 40,
-                      borderRadius: 8,
+                      width: 48,
+                      height: 36,
+                      borderRadius: 12,
                       backgroundColor: COLORS.white,
                       alignItems: 'center',
                       justifyContent: 'center',
                       borderWidth: 1,
-                      borderColor: photo ? accent : GLASS.border,
+                      borderColor: photo ? accent : isPremium ? BLUE_BORDER : GLASS.border,
                       opacity: photo ? 1 : 0.55,
                     }}
                     accessibilityLabel={

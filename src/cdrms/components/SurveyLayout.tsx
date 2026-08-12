@@ -2,6 +2,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import {
   ArrowLeft,
   ArrowRight,
+  MapPin,
+  Shield,
   type LucideIcon,
 } from 'lucide-react-native';
 import React, { type ReactNode, useEffect, useRef, useState } from 'react';
@@ -16,6 +18,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle, Rect } from 'react-native-svg';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -32,6 +35,68 @@ import { COLORS, DESIGN, FONTS, GRADIENT_HEADER, GRADIENT_PRIMARY, GLASS, SPACE,
 import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
 import type { Go, Screen } from '@/src/cdrms/types';
 import { useTheme } from '@/src/theme/ThemeContext';
+
+/** Decorative city-block illustration for engineer ZC-details header (mock). */
+function ZcHeroBuildingArt() {
+  return (
+    <Box
+      pointerEvents="none"
+      style={{
+        width: 58,
+        height: 58,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Svg width={58} height={58} viewBox="0 0 88 88">
+        <Circle cx={44} cy={44} r={40} fill={hexAlpha(COLORS.primary, 0.1)} />
+        <Circle cx={44} cy={44} r={30} fill={hexAlpha(COLORS.primary, 0.12)} />
+        <Rect x={28} y={34} width={22} height={30} rx={3} fill="#93C5FD" />
+        <Rect x={42} y={26} width={20} height={38} rx={3} fill="#60A5FA" />
+        <Rect x={34} y={42} width={10} height={22} rx={2} fill="#3B82F6" />
+      </Svg>
+      <Box
+        style={{
+          position: 'absolute',
+          top: 8,
+          right: 6,
+          width: 24,
+          height: 24,
+          borderRadius: 999,
+          backgroundColor: COLORS.white,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: 1,
+          borderColor: hexAlpha(COLORS.primary, 0.22),
+          shadowColor: COLORS.primaryDeep,
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.1,
+          shadowRadius: 3,
+          elevation: 2,
+        }}
+      >
+        <MapPin size={12} color={COLORS.primary} strokeWidth={2.5} />
+      </Box>
+      <Box
+        style={{
+          position: 'absolute',
+          bottom: 10,
+          left: 6,
+          width: 22,
+          height: 22,
+          borderRadius: 999,
+          backgroundColor: COLORS.white,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: 1,
+          borderColor: hexAlpha(COLORS.primary, 0.22),
+        }}
+      >
+        <Shield size={11} color={COLORS.primary} strokeWidth={2.4} />
+      </Box>
+    </Box>
+  );
+}
 
 function stepsForTotal(total: number) {
   return total === 4 ? ENGINEER_SURVEY_STEPS : SURVEY_STEPS;
@@ -87,12 +152,13 @@ function StepDoneMark({ size = 14, color = '#FFFFFF' }: { size?: number; color?:
 
 /**
  * Survey step rail — white for pending/current, green when complete.
+ * Premium (engineer) matches ZC-details mock: filled blue active + outlined icons.
  * Completed steps are tappable to go back.
  */
 export function StepRail({
   step,
   total = 5,
-  variant: _variant = 'default',
+  variant = 'default',
   onStepPress,
 }: {
   step: number;
@@ -103,24 +169,29 @@ export function StepRail({
 }) {
   const steps = stepsForTotal(total);
   const { themeId } = useTheme();
-  const node = 38;
-  const lineTop = 6 + node / 2 - 2;
+  const premium = variant === 'premium';
+  const node = premium ? 36 : 38;
+  const lineTop = 4 + node / 2 - 2;
   const endPadPct = 50 / Math.max(total, 1);
   const progress = Math.max(0, Math.min(1, (step - 1) / Math.max(1, total - 1)));
   const DONE_GREEN = COLORS.success || '#10B981';
   const DONE_GREEN_DEEP = '#059669';
+  const trackBg = premium ? hexAlpha(COLORS.primary, 0.14) : hexAlpha('#FFFFFF', 0.35);
+  const trackFill = premium ? hexAlpha(COLORS.primary, 0.55) : DONE_GREEN;
 
   return (
-    <Box key={themeId} style={{ marginTop: SPACE[3], marginBottom: SPACE[1] }}>
+    <Box
+      key={themeId}
+      style={{ marginTop: premium ? 0 : SPACE[3], marginBottom: 0 }}
+    >
       <Box
         style={{
           position: 'relative',
-          paddingTop: 6,
-          paddingBottom: 4,
+          paddingTop: premium ? 0 : 6,
+          paddingBottom: premium ? 0 : 4,
           paddingHorizontal: 2,
         }}
       >
-        {/* Track — soft white; filled portion turns green as steps complete */}
         <Box
           pointerEvents="none"
           style={{
@@ -128,9 +199,9 @@ export function StepRail({
             left: `${endPadPct}%`,
             right: `${endPadPct}%`,
             top: lineTop,
-            height: 4,
+            height: premium ? 3 : 4,
             borderRadius: 999,
-            backgroundColor: hexAlpha('#FFFFFF', 0.35),
+            backgroundColor: trackBg,
             zIndex: 0,
             overflow: 'hidden',
           }}
@@ -140,7 +211,7 @@ export function StepRail({
               width: `${Math.round(progress * 100)}%`,
               height: '100%',
               borderRadius: 999,
-              backgroundColor: DONE_GREEN,
+              backgroundColor: trackFill,
             }}
           />
         </Box>
@@ -154,7 +225,39 @@ export function StepRail({
             const canPress = Boolean(onStepPress) && done;
             const Icon = item.icon;
 
-            const nodeInner = (
+            const nodeInner = premium ? (
+              <Box
+                style={{
+                  width: node,
+                  height: node,
+                  borderRadius: 999,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: done
+                    ? DONE_GREEN
+                    : active
+                      ? COLORS.primary
+                      : COLORS.white,
+                  borderWidth: done ? 0 : active ? 0 : 2,
+                  borderColor: hexAlpha(COLORS.primary, 0.45),
+                  shadowColor: active ? COLORS.primaryDeep : '#0F172A',
+                  shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: active ? 0.22 : 0.06,
+                  shadowRadius: active ? 8 : 4,
+                  elevation: active ? 4 : 1,
+                }}
+              >
+                {done ? (
+                  <StepDoneMark size={16} color="#FFFFFF" />
+                ) : (
+                  <Icon
+                    size={17}
+                    color={active ? COLORS.white : COLORS.primary}
+                    strokeWidth={2.4}
+                  />
+                )}
+              </Box>
+            ) : (
               <Box
                 style={{
                   width: node,
@@ -194,14 +297,24 @@ export function StepRail({
               </Box>
             );
 
-            const labelColor = done
-              ? '#A7F3D0'
-              : active
-                ? '#FFFFFF'
-                : hexAlpha('#FFFFFF', 0.55);
+            const labelColor = premium
+              ? done
+                ? DONE_GREEN_DEEP
+                : active
+                  ? COLORS.primaryDeep
+                  : COLORS.ink
+              : done
+                ? '#A7F3D0'
+                : active
+                  ? '#FFFFFF'
+                  : hexAlpha('#FFFFFF', 0.55);
 
             return (
-              <VStack key={item.label} className="items-center" style={{ flex: 1, gap: 8 }}>
+              <VStack
+                key={item.label}
+                className="items-center"
+                style={{ flex: 1, gap: premium ? 5 : 8 }}
+              >
                 {canPress ? (
                   <Pressable
                     onPress={() => onStepPress?.(stepNum)}
@@ -226,7 +339,7 @@ export function StepRail({
                   numberOfLines={1}
                   style={{
                     fontFamily: active || done ? FONTS.bold : FONTS.semibold,
-                    fontSize: 11,
+                    fontSize: premium ? 11 : 11,
                     letterSpacing: 0.3,
                     color: labelColor,
                     textAlign: 'center',
@@ -292,6 +405,104 @@ export function SurveyCard({
   );
 }
 
+/**
+ * Engineer premium step body card — same chrome as ZC details (Step 1).
+ */
+export function PremiumStepCard({
+  icon: Icon,
+  title,
+  subtitle,
+  badge,
+  children,
+  dense = false,
+}: {
+  icon: LucideIcon;
+  title: string;
+  subtitle?: string;
+  badge?: ReactNode;
+  children: ReactNode;
+  /** Tighter padding — Review / Validate summary stacks. */
+  dense?: boolean;
+}) {
+  return (
+    <Box style={{ paddingHorizontal: SPACE.gutter }}>
+      <Box
+        style={{
+          backgroundColor: COLORS.white,
+          borderRadius: dense ? 14 : 18,
+          padding: dense ? 8 : 10,
+          borderWidth: 1.5,
+          borderColor: hexAlpha(COLORS.primary, 0.28),
+          shadowColor: COLORS.primaryDeep,
+          shadowOffset: { width: 0, height: dense ? 2 : 4 },
+          shadowOpacity: dense ? 0.08 : 0.12,
+          shadowRadius: dense ? 6 : 10,
+          elevation: dense ? 2 : 4,
+        }}
+      >
+        <HStack
+          className="items-start justify-between"
+          style={{ gap: 6, marginBottom: subtitle || children ? (dense ? 4 : 8) : 0 }}
+        >
+          <HStack className="items-start" style={{ gap: 6, flex: 1, minWidth: 0 }}>
+            <Box
+              style={{
+                width: dense ? 26 : 30,
+                height: dense ? 26 : 30,
+                borderRadius: dense ? 8 : 10,
+                backgroundColor: '#EEF4FF',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Icon size={dense ? 13 : 15} color={COLORS.primary} strokeWidth={2.3} />
+            </Box>
+            <VStack style={{ flex: 1, minWidth: 0, gap: 0 }}>
+              <Text
+                style={{
+                  fontFamily: FONTS.bold,
+                  fontSize: dense ? 15 : 16,
+                  color: '#1A368E',
+                }}
+                numberOfLines={2}
+              >
+                {title.endsWith(' *') ? (
+                  <>
+                    {title.slice(0, -2)}
+                    <Text style={{ color: '#DC2626', fontFamily: FONTS.bold }}> *</Text>
+                  </>
+                ) : title.endsWith('*') ? (
+                  <>
+                    {title.slice(0, -1)}
+                    <Text style={{ color: '#DC2626', fontFamily: FONTS.bold }}>*</Text>
+                  </>
+                ) : (
+                  title
+                )}
+              </Text>
+              {subtitle ? (
+                <Text
+                  style={{
+                    fontFamily: FONTS.semibold,
+                    fontSize: dense ? 11 : 12,
+                    lineHeight: dense ? 14 : 16,
+                    color: '#475569',
+                  }}
+                  numberOfLines={2}
+                >
+                  {subtitle}
+                </Text>
+              ) : null}
+            </VStack>
+          </HStack>
+          {badge ? <Box style={{ flexShrink: 0 }}>{badge}</Box> : null}
+        </HStack>
+        {children}
+      </Box>
+    </Box>
+  );
+}
+
 export function SurveyHero({
   title,
   subtitle,
@@ -322,13 +533,134 @@ export function SurveyHero({
   const insets = useSafeAreaInsets();
   const isPremium = variant === 'premium';
   const displayTitle = step != null ? `Step ${step} - ${title}` : title;
-  const underTitle = subtitle;
+  const underTitle = subtitle; // kept for easy restore of commented hero subtitle
+  void underTitle;
   const { themeId } = useTheme();
   const fg = headerFg();
 
   const solid = usesSolidHeader();
   const light = usesLightHeader();
   const normal = usesNormalHeader();
+
+  /** Engineer premium flow — compact white + blue-shade mock header. */
+  if (isPremium) {
+    return (
+      <Box key={themeId}>
+        <Box
+          style={{
+            backgroundColor: '#F7FAFF',
+            paddingHorizontal: SPACE.gutter,
+            paddingTop: insets.top + 8,
+            paddingBottom: 10,
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: 'rgba(26,86,219,0.12)',
+            zIndex: 2,
+          }}
+        >
+          <HStack className="items-start" style={{ gap: 10 }}>
+            <Pressable
+              onPress={onBack}
+              hitSlop={10}
+              className="active:opacity-75"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 999,
+                backgroundColor: COLORS.white,
+                borderWidth: 1,
+                borderColor: 'rgba(26,86,219,0.2)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                marginTop: 2,
+              }}
+            >
+              <ArrowLeft size={16} color={COLORS.primaryDeep} strokeWidth={2.3} />
+            </Pressable>
+
+            <VStack className="flex-1 min-w-0" style={{ gap: 3, flexShrink: 1 }}>
+              {step != null ? (
+                <Box
+                  style={{
+                    alignSelf: 'flex-start',
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 999,
+                    backgroundColor: COLORS.primary,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 10,
+                      letterSpacing: 0.6,
+                      color: COLORS.white,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Step {step} of {total}
+                  </Text>
+                </Box>
+              ) : null}
+              <Text
+                style={{
+                  fontFamily: FONTS.displayBold,
+                  fontSize: 20,
+                  lineHeight: 24,
+                  color: '#1A368E',
+                  letterSpacing: -0.3,
+                  flexWrap: 'wrap',
+                }}
+                numberOfLines={2}
+              >
+                {title}
+              </Text>
+              {/* Subtitle hidden — step rail already identifies the step
+              {underTitle ? (
+                <Text
+                  style={{
+                    fontFamily: FONTS.semibold,
+                    fontSize: 12,
+                    lineHeight: 16,
+                    color: '#475569',
+                  }}
+                  numberOfLines={2}
+                >
+                  {underTitle}
+                </Text>
+              ) : null}
+              */}
+            </VStack>
+
+            <Box style={{ flexShrink: 0, marginTop: -2 }}>
+              <ZcHeroBuildingArt />
+            </Box>
+          </HStack>
+
+          {showSteps && step ? (
+            <Box
+              style={{
+                marginTop: 8,
+                borderRadius: 999,
+                borderWidth: 1.5,
+                borderColor: hexAlpha(COLORS.primary, 0.28),
+                backgroundColor: COLORS.white,
+                paddingHorizontal: 6,
+                paddingVertical: 6,
+              }}
+            >
+              <StepRail
+                step={step}
+                total={total}
+                variant="premium"
+                onStepPress={onStepPress}
+              />
+            </Box>
+          ) : null}
+        </Box>
+      </Box>
+    );
+  }
 
   const headerBody = (
     <>
@@ -392,19 +724,21 @@ export function SurveyHero({
           >
             {step != null ? title : displayTitle}
           </Text>
+          {/* Subtitle hidden — step rail already identifies the step
           {underTitle ? (
             <Text
               style={{
-                fontFamily: FONTS.medium,
+                fontFamily: FONTS.semibold,
                 fontSize: 12,
-                lineHeight: 17,
-                color: fg.soft,
+                lineHeight: 16,
+                color: '#475569',
               }}
               numberOfLines={3}
             >
               {underTitle}
             </Text>
           ) : null}
+          */}
         </VStack>
       </HStack>
 
@@ -412,7 +746,7 @@ export function SurveyHero({
         <StepRail
           step={step}
           total={total}
-          variant={isPremium ? 'premium' : 'default'}
+          variant="default"
           onStepPress={onStepPress}
         />
       ) : null}
@@ -500,6 +834,7 @@ function CompactSurveyHeader({
   onBack,
   step,
   total = 5,
+  premium = false,
 }: {
   title: string;
   onBack: () => void;
@@ -507,10 +842,12 @@ function CompactSurveyHeader({
   total?: number;
   badge?: string;
   go?: Go;
+  /** Engineer flow — keep white (no blue bar). */
+  premium?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const displayTitle = step != null ? `Step ${step} - ${title}` : title;
-  const light = usesLightHeader();
+  const light = usesLightHeader() || premium;
   const fg = headerFg();
   const stepR = DESIGN.stepRadius > 40 ? 999 : DESIGN.stepRadius;
 
@@ -546,22 +883,22 @@ function CompactSurveyHeader({
               style={{
                 width: 32,
                 height: 32,
-                borderRadius: stepR,
+                borderRadius: 999,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: hexAlpha(COLORS.primary, 0.1),
+                backgroundColor: COLORS.white,
                 borderWidth: 1,
-                borderColor: hexAlpha(COLORS.primary, 0.2),
+                borderColor: 'rgba(15,23,42,0.12)',
               }}
             >
-              <ArrowLeft size={16} color={fg.icon} strokeWidth={2.2} />
+              <ArrowLeft size={16} color={COLORS.primaryDeep} strokeWidth={2.2} />
             </Pressable>
             <VStack className="flex-1 min-w-0">
               <Text
                 style={{
                   fontFamily: FONTS.bold,
                   fontSize: 14,
-                  color: fg.title,
+                  color: COLORS.primaryDeep,
                 }}
                 numberOfLines={1}
               >
@@ -677,7 +1014,7 @@ export function FooterContinueBtn({
       className={blocked ? '' : 'active:opacity-92'}
       style={{
         height: DESIGN.ctaHeight,
-        borderRadius: DESIGN.buttonRadius,
+        borderRadius: 999,
         overflow: 'hidden',
         opacity: blocked ? 0.42 : 1,
         shadowColor: COLORS.primaryDeep,
@@ -731,6 +1068,7 @@ export function SurveyScaffold({
   go,
   surface = 'default',
   onStepNav,
+  hero,
 }: {
   title: string;
   subtitle: string;
@@ -747,6 +1085,8 @@ export function SurveyScaffold({
   surface?: 'default' | 'premium';
   /** Extra work after jumping to a prior step (e.g. reloadBackendDraft). */
   onStepNav?: () => void;
+  /** Optional custom header (e.g. Create-style Review header). */
+  hero?: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
   const [compact, setCompact] = useState(false);
@@ -818,22 +1158,34 @@ export function SurveyScaffold({
         }
         keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 24}
       >
-        {/* Always mounted — toggling mount remounts the tree and blurs inputs */}
-        <Box
-          pointerEvents={compact ? 'box-none' : 'none'}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 40,
-            opacity: compact ? 1 : 0,
-          }}
-        >
-          <CompactSurveyHeader title={title} onBack={onBack} step={step} total={total} />
-        </Box>
+        {/*
+          Sticky compact header only for default themes.
+          Premium (engineer) hero already includes back + title + step rail —
+          the sticky bar was stacking over it on Steps 1–4 (web elevation).
+        */}
+        {compact && !isPremium ? (
+          <Box
+            pointerEvents="box-none"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 40,
+            }}
+          >
+            <CompactSurveyHeader
+              title={title}
+              onBack={onBack}
+              step={step}
+              total={total}
+              premium={false}
+            />
+          </Box>
+        ) : null}
 
         <ScrollView
+          key={`survey-scroll-${step ?? 0}-${isPremium ? 'p' : 'd'}`}
           className="flex-1"
           contentContainerStyle={{
             paddingBottom: footer
@@ -847,33 +1199,35 @@ export function SurveyScaffold({
           keyboardDismissMode="on-drag"
           nestedScrollEnabled
           scrollEventThrottle={32}
-          onScroll={onScroll}
+          onScroll={isPremium ? undefined : onScroll}
         >
           <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
             <View>
-              <SurveyHero
-                title={title}
-                subtitle={subtitle}
-                onBack={onBack}
-                step={step}
-                total={total}
-                badge={badge}
-                showSteps={showSteps}
-                watermark={watermark}
-                go={go}
-                variant={isPremium ? 'premium' : 'default'}
-                onStepPress={handleStepPress}
-              />
+              {hero ?? (
+                <SurveyHero
+                  title={title}
+                  subtitle={subtitle}
+                  onBack={onBack}
+                  step={step}
+                  total={total}
+                  badge={badge}
+                  showSteps={showSteps}
+                  watermark={watermark}
+                  go={go}
+                  variant={isPremium ? 'premium' : 'default'}
+                  onStepPress={handleStepPress}
+                />
+              )}
 
               <Box
                 style={{
-                  gap: DESIGN.sectionGap,
-                  paddingTop: Math.max(14, DESIGN.headerCardGap ?? 14),
-                  backgroundColor: COLORS.soft,
-                  paddingBottom: DESIGN.sectionGap,
+                  gap: isPremium ? (showSteps ? 8 : 8) : DESIGN.sectionGap,
+                  paddingTop: isPremium ? (showSteps ? 10 : 4) : Math.max(14, DESIGN.headerCardGap ?? 14),
+                  backgroundColor: isPremium ? '#F0F4F8' : COLORS.soft,
+                  paddingBottom: isPremium ? (showSteps ? 8 : 4) : DESIGN.sectionGap,
                 }}
               >
-                <Box style={{ gap: DESIGN.sectionGap }}>
+                <Box style={{ gap: isPremium ? (showSteps ? 6 : 8) : DESIGN.sectionGap }}>
                   {children}
                 </Box>
               </Box>

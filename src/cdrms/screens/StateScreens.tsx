@@ -21,7 +21,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { Box } from '@/components/ui/box';
@@ -42,12 +42,14 @@ import {
   StatusChip,
 } from '@/src/cdrms/components/primitives';
 import {
+  FooterContinueBtn,
+  PremiumStepCard,
   SurveyCard,
   SurveyScaffold,
   WorkspaceHeader,
 } from '@/src/cdrms/components/SurveyLayout';
-import { GlassSectionCard, HeaderStatusBadge } from '@/src/cdrms/components/GlassSurface';
 import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
+import { CreateApplicationHeader } from '@/src/cdrms/components/CreateApplicationHeader';
 import { ReviewMediaPanel } from '@/src/cdrms/components/ReviewMediaPanel';
 import { ReviewSchedulesPanel } from '@/src/cdrms/components/ReviewSchedulesPanel';
 import { showAppDialog } from '@/src/cdrms/components/AppDialog';
@@ -57,20 +59,63 @@ import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { formatCoords, type Cardinal } from '@/src/cdrms/project/types';
 import { validateDraft, validationSummary } from '@/src/cdrms/project/validation';
 import { setSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
-import { COLORS, FONTS, GLASS, GRADIENT_PRIMARY, GRADIENT_SUBTLE, SPACE, gradientStops } from '@/src/cdrms/theme';
+import {
+  COLORS,
+  FONTS,
+  GRADIENT_PRIMARY,
+  GRADIENT_SUBTLE,
+  SPACE,
+  gradientStops,
+  hexAlpha,
+} from '@/src/cdrms/theme';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go } from '@/src/cdrms/types';
 
 const REVIEW_CARDINALS: Cardinal[] = ['N', 'S', 'E', 'W'];
+const BLUE_SOFT = '#EEF4FF';
+const BLUE_BORDER = 'rgba(26,54,142,0.28)';
+const REVIEW_ACCENT = {
+  blue: { fg: '#1A368E', bg: '#E8F0FE' },
+  green: { fg: '#15803D', bg: '#DCFCE7' },
+  purple: { fg: '#6D28D9', bg: '#EDE9FE' },
+  sky: { fg: '#1D4ED8', bg: '#DBEAFE' },
+} as const;
+type ReviewAccent = keyof typeof REVIEW_ACCENT;
 
-function plotScheduleLabel(
-  note: string | undefined,
-  zc: string | undefined,
-  isRoad: boolean,
-): string {
-  const eng = (note || '').trim();
-  const zcNote = (zc || '').trim();
-  const base = eng || zcNote;
+function PremiumPillBadge({
+  label,
+  tone = 'blue',
+}: {
+  label: string;
+  tone?: 'blue' | 'green' | 'orange' | 'red';
+}) {
+  const styles =
+    tone === 'green'
+      ? { bg: '#ECFDF5', border: '#A7F3D0', fg: '#047857' }
+      : tone === 'orange'
+        ? { bg: '#FFF7ED', border: '#FDBA74', fg: '#C2410C' }
+        : tone === 'red'
+          ? { bg: '#FEF2F2', border: '#FECACA', fg: '#B91C1C' }
+          : { bg: BLUE_SOFT, border: BLUE_BORDER, fg: COLORS.primary };
+  return (
+    <Box
+      style={{
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 999,
+        backgroundColor: styles.bg,
+        borderWidth: 1,
+        borderColor: styles.border,
+      }}
+    >
+      <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: styles.fg }}>{label}</Text>
+    </Box>
+  );
+}
+
+function plotScheduleLabel(note: string | undefined, isRoad: boolean): string {
+  // Engineer review plot: only engineer notes + Road checkbox — never ZC text.
+  const base = (note || '').trim();
   if (isRoad && base) return `Road · ${base}`;
   if (isRoad) return 'Road';
   return base;
@@ -139,108 +184,291 @@ export function ValidateScreen({ go }: { go: Go }) {
       subtitle={TERMS.workflow.validateSubtitle}
       onBack={() => go(isBackendTask ? 'photos' : 'video')}
       showSteps={false}
+      surface={isBackendTask ? 'premium' : 'default'}
       badge={summary.allOk ? 'Ready' : `${summary.failed.length} to fix`}
       footer={
-        <AppBtn
-          disabled={!summary.allOk}
-          onPress={() => go('review')}
-          icon={ArrowRight}
-        >
-          {summary.allOk ? 'Continue to Review' : 'Fix issues to continue'}
-        </AppBtn>
+        isBackendTask ? (
+          <FooterContinueBtn
+            disabled={!summary.allOk}
+            label={summary.allOk ? 'Continue to Review' : 'Fix issues to continue'}
+            onPress={() => go('review')}
+          />
+        ) : (
+          <AppBtn
+            disabled={!summary.allOk}
+            onPress={() => go('review')}
+            icon={ArrowRight}
+          >
+            {summary.allOk ? 'Continue to Review' : 'Fix issues to continue'}
+          </AppBtn>
+        )
       }
       go={go}
     >
-      <SurveyCard>
-        <LinearGradient
-          colors={summary.allOk ? ['#ECFDF5', '#FFFFFF'] : ['#FEF3C7', '#FFFFFF']}
-          style={{ padding: 18 }}
-        >
-          <HStack className="items-center gap-4">
+      {isBackendTask ? (
+        <>
+          <PremiumStepCard
+            icon={ClipboardCheck}
+            title={summary.allOk ? 'All checks passed' : 'Checklist incomplete'}
+            subtitle={
+              summary.allOk
+                ? 'Application is complete and ready to submit.'
+                : `${summary.failed.length} item${summary.failed.length === 1 ? '' : 's'} still need attention.`
+            }
+            badge={
+              <PremiumPillBadge
+                label={summary.allOk ? `${summary.percent}%` : `${summary.passed}/${summary.total}`}
+                tone={summary.allOk ? 'green' : 'orange'}
+              />
+            }
+          >
             <Box
-              className="h-20 w-20 rounded-full items-center justify-center"
               style={{
-                borderWidth: 5,
-                borderColor: summary.allOk ? '#10B981' : '#F59E0B',
-                backgroundColor: summary.allOk ? '#D1FAE5' : '#FEF3C7',
+                borderRadius: 16,
+                backgroundColor: summary.allOk ? '#ECFDF5' : '#FFF7ED',
+                borderWidth: 1,
+                borderColor: summary.allOk ? '#A7F3D0' : '#FDBA74',
+                padding: 12,
               }}
             >
-              <Text
-                className="font-black text-lg"
-                style={{ color: summary.allOk ? '#047857' : '#B45309' }}
-              >
-                {summary.percent}%
-              </Text>
-            </Box>
-            <VStack className="flex-1">
-              <Text className="text-lg font-black text-foreground">
-                {summary.allOk ? 'All checks passed' : 'Checklist incomplete'}
-              </Text>
-              <Text className="text-xs text-muted-foreground mt-1">
-                {summary.allOk
-                  ? 'Application is complete and ready to submit.'
-                  : `${summary.failed.length} item${summary.failed.length === 1 ? '' : 's'} still need attention.`}
-              </Text>
-              <Box
-                className="self-start mt-2 px-2.5 py-1 rounded-full"
-                style={{ backgroundColor: summary.allOk ? '#D1FAE5' : '#FDE68A' }}
-              >
-                <Text
-                  className="text-[10px] font-extrabold"
-                  style={{ color: summary.allOk ? '#047857' : '#92400E' }}
+              <HStack className="items-center" style={{ gap: 12 }}>
+                <Box
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 999,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: COLORS.white,
+                    borderWidth: 3,
+                    borderColor: summary.allOk ? '#10B981' : '#F59E0B',
+                  }}
                 >
-                  {summary.allOk
-                    ? 'NO ISSUES FOUND'
-                    : `${summary.passed} / ${summary.total} PASSED`}
-                </Text>
-              </Box>
-            </VStack>
-          </HStack>
-        </LinearGradient>
-      </SurveyCard>
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 16,
+                      color: summary.allOk ? '#047857' : '#B45309',
+                    }}
+                  >
+                    {summary.percent}%
+                  </Text>
+                </Box>
+                <VStack style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 13,
+                      letterSpacing: 0.3,
+                      color: COLORS.ink,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {summary.allOk ? 'No issues found' : 'Requirements'}
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: FONTS.medium,
+                      fontSize: 13,
+                      lineHeight: 16,
+                      color: COLORS.ink,
+                    }}
+                  >
+                    {summary.passed} of {summary.total} checks passed
+                  </Text>
+                </VStack>
+              </HStack>
+            </Box>
+          </PremiumStepCard>
 
-      <SurveyCard>
-        <WorkspaceHeader
-          icon={ClipboardCheck}
-          title={TERMS.sections.checklist}
-          subtitle={`${summary.passed} / ${summary.total} requirements met`}
-          iconBg={summary.allOk ? '#059669' : '#D97706'}
-        />
-        <VStack>
-          {items.map((it, i) => (
-            <HStack
-              key={it.key}
-              className={`items-center gap-3 px-4 py-4 ${i > 0 ? 'border-t border-border' : ''}`}
+          <PremiumStepCard
+            icon={ClipboardList}
+            title={TERMS.sections.checklist}
+            subtitle={`${summary.passed} / ${summary.total} requirements met`}
+            badge={
+              <PremiumPillBadge
+                label={summary.allOk ? 'Ready' : 'Fix'}
+                tone={summary.allOk ? 'green' : 'orange'}
+              />
+            }
+          >
+            <VStack style={{ gap: 8 }}>
+              {items.map((it) => (
+                <Box
+                  key={it.key}
+                  style={{
+                    borderRadius: 16,
+                    padding: 10,
+                    backgroundColor: COLORS.white,
+                    borderWidth: 1.5,
+                    borderColor: it.ok ? hexAlpha('#10B981', 0.35) : hexAlpha('#DC2626', 0.3),
+                    shadowColor: COLORS.primaryDeep,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.08,
+                    shadowRadius: 5,
+                    elevation: 2,
+                  }}
+                >
+                  <HStack className="items-center" style={{ gap: 10 }}>
+                    <Box
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 999,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: it.ok ? '#D1FAE5' : '#FEE2E2',
+                      }}
+                    >
+                      {it.ok ? (
+                        <Check size={16} color="#059669" strokeWidth={3} />
+                      ) : (
+                        <X size={16} color="#DC2626" strokeWidth={3} />
+                      )}
+                    </Box>
+                    <VStack style={{ flex: 1, minWidth: 0, gap: 0 }}>
+                      <Text
+                        style={{
+                          fontFamily: FONTS.bold,
+                          fontSize: 13,
+                          color: COLORS.ink,
+                        }}
+                        numberOfLines={2}
+                      >
+                        {it.label}
+                      </Text>
+                      <Text
+                        style={{
+                          fontFamily: FONTS.medium,
+                          fontSize: 12,
+                          lineHeight: 15,
+                          color: COLORS.ink,
+                        }}
+                        numberOfLines={2}
+                      >
+                        {it.detail}
+                      </Text>
+                    </VStack>
+                    {it.ok ? (
+                      <PremiumPillBadge label="Passed" tone="green" />
+                    ) : (
+                      <Pressable
+                        onPress={() => go(it.fixScreen)}
+                        className="active:opacity-80"
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          borderRadius: 999,
+                          backgroundColor: '#FEF2F2',
+                          borderWidth: 1,
+                          borderColor: '#FECACA',
+                        }}
+                      >
+                        <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#DC2626' }}>
+                          Fix
+                        </Text>
+                      </Pressable>
+                    )}
+                  </HStack>
+                </Box>
+              ))}
+            </VStack>
+          </PremiumStepCard>
+        </>
+      ) : (
+        <>
+          <SurveyCard>
+            <LinearGradient
+              colors={summary.allOk ? ['#ECFDF5', '#FFFFFF'] : ['#FEF3C7', '#FFFFFF']}
+              style={{ padding: 18 }}
             >
-              <Box
-                className="h-10 w-10 rounded-full items-center justify-center"
-                style={{ backgroundColor: it.ok ? '#D1FAE5' : '#FEE2E2' }}
-              >
-                {it.ok ? (
-                  <Check size={18} color="#059669" strokeWidth={3} />
-                ) : (
-                  <X size={18} color="#DC2626" strokeWidth={3} />
-                )}
-              </Box>
-              <VStack className="flex-1 min-w-0">
-                <Text className="font-bold text-sm text-foreground">{it.label}</Text>
-                <Text className="text-[11px] text-muted-foreground mt-0.5" numberOfLines={1}>
-                  {it.detail}
-                </Text>
-              </VStack>
-              {it.ok ? (
-                <Text className="text-[11px] font-bold" style={{ color: '#059669' }}>
-                  Passed
-                </Text>
-              ) : (
-                <Pressable onPress={() => go(it.fixScreen)} className="active:opacity-70">
-                  <Text className="text-xs text-destructive font-semibold">Fix</Text>
-                </Pressable>
-              )}
-            </HStack>
-          ))}
-        </VStack>
-      </SurveyCard>
+              <HStack className="items-center gap-4">
+                <Box
+                  className="h-20 w-20 rounded-full items-center justify-center"
+                  style={{
+                    borderWidth: 5,
+                    borderColor: summary.allOk ? '#10B981' : '#F59E0B',
+                    backgroundColor: summary.allOk ? '#D1FAE5' : '#FEF3C7',
+                  }}
+                >
+                  <Text
+                    className="font-black text-lg"
+                    style={{ color: summary.allOk ? '#047857' : '#B45309' }}
+                  >
+                    {summary.percent}%
+                  </Text>
+                </Box>
+                <VStack className="flex-1">
+                  <Text className="text-lg font-black text-foreground">
+                    {summary.allOk ? 'All checks passed' : 'Checklist incomplete'}
+                  </Text>
+                  <Text className="text-xs text-muted-foreground mt-1">
+                    {summary.allOk
+                      ? 'Application is complete and ready to submit.'
+                      : `${summary.failed.length} item${summary.failed.length === 1 ? '' : 's'} still need attention.`}
+                  </Text>
+                  <Box
+                    className="self-start mt-2 px-2.5 py-1 rounded-full"
+                    style={{ backgroundColor: summary.allOk ? '#D1FAE5' : '#FDE68A' }}
+                  >
+                    <Text
+                      className="text-[10px] font-extrabold"
+                      style={{ color: summary.allOk ? '#047857' : '#92400E' }}
+                    >
+                      {summary.allOk
+                        ? 'NO ISSUES FOUND'
+                        : `${summary.passed} / ${summary.total} PASSED`}
+                    </Text>
+                  </Box>
+                </VStack>
+              </HStack>
+            </LinearGradient>
+          </SurveyCard>
+
+          <SurveyCard>
+            <WorkspaceHeader
+              icon={ClipboardCheck}
+              title={TERMS.sections.checklist}
+              subtitle={`${summary.passed} / ${summary.total} requirements met`}
+              iconBg={summary.allOk ? '#059669' : '#D97706'}
+            />
+            <VStack>
+              {items.map((it, i) => (
+                <HStack
+                  key={it.key}
+                  className={`items-center gap-3 px-4 py-4 ${i > 0 ? 'border-t border-border' : ''}`}
+                >
+                  <Box
+                    className="h-10 w-10 rounded-full items-center justify-center"
+                    style={{ backgroundColor: it.ok ? '#D1FAE5' : '#FEE2E2' }}
+                  >
+                    {it.ok ? (
+                      <Check size={18} color="#059669" strokeWidth={3} />
+                    ) : (
+                      <X size={18} color="#DC2626" strokeWidth={3} />
+                    )}
+                  </Box>
+                  <VStack className="flex-1 min-w-0">
+                    <Text className="font-bold text-sm text-foreground">{it.label}</Text>
+                    <Text className="text-[11px] text-muted-foreground mt-0.5" numberOfLines={1}>
+                      {it.detail}
+                    </Text>
+                  </VStack>
+                  {it.ok ? (
+                    <Text className="text-[11px] font-bold" style={{ color: '#059669' }}>
+                      Passed
+                    </Text>
+                  ) : (
+                    <Pressable onPress={() => go(it.fixScreen)} className="active:opacity-70">
+                      <Text className="text-xs text-destructive font-semibold">Fix</Text>
+                    </Pressable>
+                  )}
+                </HStack>
+              ))}
+            </VStack>
+          </SurveyCard>
+        </>
+      )}
     </SurveyScaffold>
   );
 }
@@ -258,35 +486,56 @@ function reviewRowSpansFullWidth(label: string, value: string) {
   return text.length > 34;
 }
 
-function ReviewPremiumField({ label, value }: { label: string; value: string }) {
+function ReviewPremiumField({
+  label,
+  value,
+  accent = 'blue',
+}: {
+  label: string;
+  value: string;
+  accent?: ReviewAccent;
+}) {
   const display = value.trim() || '—';
+  const tone = REVIEW_ACCENT[accent];
 
   return (
-    <Box style={{ minWidth: 0 }}>
+    <VStack style={{ minWidth: 0, gap: 4 }}>
       <Text
         style={{
           fontFamily: FONTS.bold,
           fontSize: 13,
-          color: COLORS.ink,
-          letterSpacing: 0.3,
-          textTransform: 'uppercase',
+          color: '#1A368E',
+          letterSpacing: 0.1,
         }}
-        numberOfLines={2}
+        numberOfLines={1}
       >
         {label}
       </Text>
-      <Text
+      <Box
         style={{
-          marginTop: 4,
-          fontFamily: FONTS.regular,
-          fontSize: 15,
-          color: COLORS.ink,
-          lineHeight: 21,
+          minHeight: 38,
+          borderRadius: 12,
+          borderWidth: 1.5,
+          borderColor: hexAlpha(tone.fg, 0.42),
+          backgroundColor: COLORS.white,
+          paddingHorizontal: 10,
+          paddingVertical: 8,
+          justifyContent: 'center',
         }}
       >
-        {display}
-      </Text>
-    </Box>
+        <Text
+          style={{
+            fontFamily: FONTS.medium,
+            fontSize: 13,
+            color: '#0F172A',
+            lineHeight: 17,
+          }}
+          numberOfLines={4}
+        >
+          {display}
+        </Text>
+      </Box>
+    </VStack>
   );
 }
 
@@ -351,6 +600,8 @@ function ReviewSectionCard({
   footer,
   variant = 'default',
   stepTotal = 4,
+  accent = 'blue',
+  rowsAfterFooter = false,
 }: {
   stepLabel: string;
   icon: LucideIcon;
@@ -361,79 +612,118 @@ function ReviewSectionCard({
   footer?: ReactNode;
   variant?: 'default' | 'premium';
   stepTotal?: number;
+  accent?: ReviewAccent;
+  /** Put detail rows after footer (e.g. comments after media). */
+  rowsAfterFooter?: boolean;
 }) {
   if (!rows.length && !footer) return null;
+  const tone = REVIEW_ACCENT[accent];
 
-  const body = (
-    <VStack style={{ gap: variant === 'premium' ? SPACE[1] : SPACE[2] }}>
-      {rows.length ? (
-        variant === 'premium' ? (
-          <Box
-            style={{
-              borderRadius: 12,
-              backgroundColor: GLASS.surfaceSolid,
-              borderWidth: 1.5,
-              borderColor: `${COLORS.primary}59`,
-              paddingHorizontal: SPACE[3],
-              paddingVertical: SPACE[2],
-              shadowColor: '#0F172A',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.06,
-              shadowRadius: 8,
-              elevation: 2,
-            }}
-          >
+  const premiumRows =
+    rows.length > 0 ? (
+      <Box
+        style={{
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          rowGap: 8,
+          columnGap: 8,
+        }}
+      >
+        {rows.map((row) => {
+          const fullWidth = reviewRowSpansFullWidth(row.label, row.value);
+          return (
             <Box
+              key={`${stepLabel}-${row.label}`}
               style={{
-                flexDirection: 'row',
-                flexWrap: 'wrap',
-                justifyContent: 'space-between',
-                rowGap: 14,
+                width: fullWidth ? '100%' : '48%',
+                minWidth: 0,
               }}
             >
-              {rows.map((row) => {
-                const fullWidth = reviewRowSpansFullWidth(row.label, row.value);
-                return (
-                  <Box
-                    key={`${stepLabel}-${row.label}`}
-                    style={{
-                      width: fullWidth ? '100%' : '48%',
-                      minWidth: 0,
-                    }}
-                  >
-                    <ReviewPremiumField label={row.label} value={row.value} />
-                  </Box>
-                );
-              })}
+              <ReviewPremiumField label={row.label} value={row.value} accent={accent} />
             </Box>
-          </Box>
-        ) : (
-          <Box>
-            {rows.map((row, i) => (
-              <ReviewDetailRow
-                key={`${stepLabel}-${row.label}`}
-                label={row.label}
-                value={row.value}
-                isLast={i === rows.length - 1}
-              />
-            ))}
-          </Box>
-        )
-      ) : null}
-      {footer}
-    </VStack>
-  );
+          );
+        })}
+      </Box>
+    ) : null;
 
   if (variant === 'premium') {
     return (
-      <GlassSectionCard
-        icon={Icon}
-        title={title}
-        subtitle={subtitle}
-        badge={<HeaderStatusBadge label={reviewStepBadge(stepLabel, stepTotal)} tone="info" />}
-      >
-        {body}
-      </GlassSectionCard>
+      <Box style={{ paddingHorizontal: SPACE.gutter }}>
+        <Box
+          style={{
+            backgroundColor: COLORS.white,
+            borderRadius: 20,
+            borderWidth: 1.75,
+            borderColor: hexAlpha(tone.fg, 0.38),
+            overflow: 'hidden',
+            shadowColor: tone.fg,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: Platform.OS === 'ios' ? 0.1 : 0.07,
+            shadowRadius: 12,
+            elevation: 3,
+          }}
+        >
+          <HStack
+            className="items-center"
+            style={{ gap: 10, paddingHorizontal: 12, paddingVertical: 10, alignItems: 'center' }}
+          >
+            <Box
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 10,
+                backgroundColor: tone.bg,
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <Icon size={16} color={tone.fg} strokeWidth={2.4} />
+            </Box>
+            <VStack style={{ flex: 1, minWidth: 0, flexShrink: 1, gap: 2, justifyContent: 'center' }}>
+              <Text
+                allowFontScaling={false}
+                style={{
+                  fontFamily: FONTS.bold,
+                  fontSize: 15,
+                  lineHeight: 18,
+                  color: '#0F172A',
+                  letterSpacing: -0.2,
+                }}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {title}
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={{
+                  fontFamily: FONTS.semibold,
+                  fontSize: 12,
+                  lineHeight: 15,
+                  color: '#64748B',
+                }}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {subtitle}
+              </Text>
+            </VStack>
+            <Box style={{ flexShrink: 0 }}>
+              <PremiumPillBadge label={reviewStepBadge(stepLabel, stepTotal)} />
+            </Box>
+          </HStack>
+
+          <VStack style={{ paddingHorizontal: 12, paddingBottom: 10, paddingTop: 0, gap: 8 }}>
+            {rowsAfterFooter ? null : premiumRows}
+            {footer ? (
+              <Box style={{ marginTop: !rowsAfterFooter && rows.length ? 2 : 0 }}>{footer}</Box>
+            ) : null}
+            {rowsAfterFooter ? premiumRows : null}
+          </VStack>
+        </Box>
+      </Box>
     );
   }
 
@@ -441,10 +731,17 @@ function ReviewSectionCard({
     <SurveyCard>
       <WorkspaceHeader icon={Icon} title={title} subtitle={subtitle} iconBg={iconBg} />
       <VStack style={{ paddingHorizontal: SPACE[4], paddingBottom: SPACE[4], gap: SPACE[3] }}>
-        {rows.map((row) => (
-          <ReviewDetailRow key={`${stepLabel}-${row.label}`} label={row.label} value={row.value} />
-        ))}
+        {rowsAfterFooter
+          ? null
+          : rows.map((row) => (
+              <ReviewDetailRow key={`${stepLabel}-${row.label}`} label={row.label} value={row.value} />
+            ))}
         {footer}
+        {rowsAfterFooter
+          ? rows.map((row) => (
+              <ReviewDetailRow key={`${stepLabel}-${row.label}`} label={row.label} value={row.value} />
+            ))
+          : null}
       </VStack>
     </SurveyCard>
   );
@@ -627,14 +924,10 @@ export function ReviewScreen({ go }: { go: Go }) {
   const schedulesAround = useMemo(() => {
     const out: Record<Cardinal, string> = { N: '', S: '', E: '', W: '' };
     for (const k of REVIEW_CARDINALS) {
-      out[k] = plotScheduleLabel(
-        draft.directions[k],
-        draft.zcDirections[k],
-        Boolean(draft.roadFlags?.[k]),
-      );
+      out[k] = plotScheduleLabel(draft.directions[k], Boolean(draft.roadFlags?.[k]));
     }
     return out;
-  }, [draft.directions, draft.zcDirections, draft.roadFlags]);
+  }, [draft.directions, draft.roadFlags]);
 
   const reviewSections = useMemo(() => {
     if (isBackendTask) {
@@ -647,6 +940,7 @@ export function ReviewScreen({ go }: { go: Go }) {
             ? `Assigned by ${draft.createdByZcName.trim()}`
             : 'ZC site particulars',
           iconBg: COLORS.primary,
+          accent: 'blue' as ReviewAccent,
           rows: filterReviewRows([
             { label: 'E-office no', value: draft.eOfficeNumber.trim() },
             { label: 'Application', value: draft.applicationNumber?.trim() || titleId },
@@ -676,6 +970,7 @@ export function ReviewScreen({ go }: { go: Go }) {
           title: 'Compass & schedule',
           subtitle: 'Facing, GPS, occupancy & schedules',
           iconBg: COLORS.primary,
+          accent: 'green' as ReviewAccent,
           rows: filterReviewRows([
             { label: 'Compass', value: draft.compassReading.trim() },
             {
@@ -694,10 +989,16 @@ export function ReviewScreen({ go }: { go: Go }) {
           icon: Ruler,
           title: 'Dimensions',
           subtitle: plotDimsReady
-            ? `Live plot · Site No ${draft.siteNo.trim() || draft.surveyNo.trim() || '—'} · ${fullDimDisplay}`
+            ? `Live plot · Site No ${draft.siteNo.trim() || draft.surveyNo.trim() || '—'}`
             : 'Site measurements',
           iconBg: '#4F46E5',
-          rows: filterReviewRows([{ label: 'Dimensions', value: fullDimDisplay }]),
+          accent: 'purple' as ReviewAccent,
+          rows: filterReviewRows([
+            { label: 'Dim North', value: draft.dimNorth.trim() },
+            { label: 'Dim South', value: draft.dimSouth.trim() },
+            { label: 'Dim East', value: draft.dimEast.trim() },
+            { label: 'Dim West', value: draft.dimWest.trim() },
+          ]),
           plot: plotDimsReady,
         },
         {
@@ -706,6 +1007,7 @@ export function ReviewScreen({ go }: { go: Go }) {
           title: 'Media & comments',
           subtitle: 'Selfie, photos, comments & video',
           iconBg: '#DB2777',
+          accent: 'sky' as ReviewAccent,
           rows: filterReviewRows([
             { label: 'Engineer comments', value: draft.engineerComments.trim() },
           ]),
@@ -847,6 +1149,16 @@ export function ReviewScreen({ go }: { go: Go }) {
       showSteps={false}
       surface={isBackendTask ? 'premium' : 'default'}
       badge={summary.allOk ? 'Ready to submit' : 'Incomplete'}
+      hero={
+        isBackendTask ? (
+          <CreateApplicationHeader
+            onBack={() => go('validate')}
+            zone={draft.zoneCode}
+            title={TERMS.workflow.reviewSubmit}
+            subtitle={TERMS.workflow.reviewSubmitSubtitle}
+          />
+        ) : undefined
+      }
       footer={
         <VStack space="sm" className="items-stretch">
           <Pressable
@@ -894,7 +1206,7 @@ export function ReviewScreen({ go }: { go: Go }) {
                 <Text
                   style={{
                     fontFamily: FONTS.bold,
-                    fontSize: 14,
+                    fontSize: 15,
                     color: COLORS.white,
                   }}
                   numberOfLines={1}
@@ -926,76 +1238,89 @@ export function ReviewScreen({ go }: { go: Go }) {
       go={go}
     >
       {isBackendTask ? (
-        <GlassSectionCard
-          icon={ClipboardList}
-          title={titleId}
-          subtitle={
-            refreshing
-              ? 'Refreshing from server…'
-              : surveyLine || 'Final check before CAO review'
-          }
-          badge={
-            <HeaderStatusBadge
-              label={reviewStatusBadge.label}
-              tone={reviewStatusBadge.tone}
-            />
-          }
-        >
-          <HStack style={{ flexWrap: 'wrap', gap: 6 }}>
-            {draft.siteNo.trim() || draft.surveyNo.trim() ? (
+        <Box style={{ paddingHorizontal: SPACE.gutter }}>
+          <Box
+            style={{
+              backgroundColor: COLORS.white,
+              borderRadius: 20,
+              borderWidth: 1.75,
+              borderColor: hexAlpha('#1A368E', 0.38),
+              overflow: 'hidden',
+              shadowColor: '#1A368E',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: Platform.OS === 'ios' ? 0.1 : 0.07,
+              shadowRadius: 12,
+              elevation: 3,
+              padding: 12,
+              gap: 8,
+            }}
+          >
+            <HStack className="items-center" style={{ gap: 10 }}>
               <Box
                 style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 5,
-                  borderRadius: 999,
-                  backgroundColor: GLASS.tintBlue,
-                  borderWidth: 1,
-                  borderColor: '#BFDBFE',
+                  width: 34,
+                  height: 34,
+                  borderRadius: 10,
+                  backgroundColor: '#E8F0FE',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: COLORS.primary }}>
-                  Site {draft.siteNo.trim() || draft.surveyNo.trim()}
-                </Text>
+                <ClipboardList size={16} color="#1A368E" strokeWidth={2.4} />
               </Box>
-            ) : null}
-            {draft.zoneCode.trim() ? (
-              <Box
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 5,
-                  borderRadius: 999,
-                  backgroundColor: GLASS.surface,
-                  borderWidth: 1,
-                  borderColor: GLASS.border,
-                }}
-              >
-                <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: COLORS.ink }}>
-                  Zone {draft.zoneCode.trim()}
+              <VStack style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                <Text
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 16,
+                    color: '#0F172A',
+                    letterSpacing: -0.2,
+                  }}
+                  numberOfLines={1}
+                >
+                  {titleId}
                 </Text>
-              </Box>
-            ) : null}
-            <Box
-              style={{
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-                borderRadius: 999,
-                backgroundColor: summary.allOk ? '#ECFDF5' : '#FFFBEB',
-                borderWidth: 1,
-                borderColor: summary.allOk ? '#A7F3D0' : '#FCD34D',
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: FONTS.bold,
-                  fontSize: 10,
-                  color: summary.allOk ? '#047857' : '#B45309',
-                }}
-              >
-                {summary.allOk ? 'Validation passed' : `${summary.failed.length} to fix`}
-              </Text>
-            </Box>
-          </HStack>
-        </GlassSectionCard>
+                <Text
+                  style={{
+                    fontFamily: FONTS.semibold,
+                    fontSize: 12,
+                    color: '#475569',
+                    lineHeight: 15,
+                  }}
+                  numberOfLines={2}
+                >
+                  {refreshing
+                    ? 'Refreshing from server…'
+                    : surveyLine || 'Final check before CAO review'}
+                </Text>
+              </VStack>
+              <PremiumPillBadge
+                label={reviewStatusBadge.label}
+                tone={
+                  reviewStatusBadge.tone === 'success'
+                    ? 'green'
+                    : reviewStatusBadge.tone === 'warning'
+                      ? 'orange'
+                      : 'blue'
+                }
+              />
+            </HStack>
+            <HStack style={{ flexWrap: 'wrap', gap: 8 }}>
+              {draft.siteNo.trim() || draft.surveyNo.trim() ? (
+                <PremiumPillBadge
+                  label={`Site ${draft.siteNo.trim() || draft.surveyNo.trim()}`}
+                />
+              ) : null}
+              {draft.zoneCode.trim() ? (
+                <PremiumPillBadge label={`Zone ${draft.zoneCode.trim()}`} />
+              ) : null}
+              <PremiumPillBadge
+                label={summary.allOk ? 'Validation passed' : `${summary.failed.length} to fix`}
+                tone={summary.allOk ? 'green' : 'orange'}
+              />
+            </HStack>
+          </Box>
+        </Box>
       ) : (
         <SurveyCard>
           <WorkspaceHeader
@@ -1015,21 +1340,24 @@ export function ReviewScreen({ go }: { go: Go }) {
       <Box
         style={{
           marginHorizontal: isBackendTask ? SPACE.gutter : 16,
-          marginBottom: 4,
-          borderRadius: 14,
+          borderRadius: isBackendTask ? 14 : 14,
           paddingHorizontal: 12,
-          paddingVertical: 10,
+          paddingVertical: 8,
           backgroundColor: locationError
             ? '#FEF2F2'
             : draft.gps
               ? '#ECFDF5'
-              : '#EFF6FF',
-          borderWidth: 1,
+              : isBackendTask
+                ? BLUE_SOFT
+                : '#EFF6FF',
+          borderWidth: 1.5,
           borderColor: locationError
             ? '#FECACA'
             : draft.gps
               ? '#A7F3D0'
-              : '#BFDBFE',
+              : isBackendTask
+                ? BLUE_BORDER
+                : '#BFDBFE',
         }}
       >
         <HStack className="items-center justify-between" style={{ gap: 10 }}>
@@ -1037,8 +1365,8 @@ export function ReviewScreen({ go }: { go: Go }) {
             <Text
               style={{
                 fontFamily: FONTS.bold,
-                fontSize: 12,
-                color: locationError ? '#B91C1C' : draft.gps ? '#047857' : COLORS.primary,
+                fontSize: 14,
+                color: locationError ? '#B91C1C' : draft.gps ? '#047857' : '#1A368E',
               }}
             >
               {fetchingLocation
@@ -1051,9 +1379,10 @@ export function ReviewScreen({ go }: { go: Go }) {
             </Text>
             <Text
               style={{
-                fontFamily: FONTS.medium,
-                fontSize: 11,
-                color: locationError ? '#991B1B' : COLORS.slate,
+                fontFamily: FONTS.semibold,
+                fontSize: 12,
+                lineHeight: 16,
+                color: locationError ? '#991B1B' : '#475569',
               }}
               numberOfLines={2}
             >
@@ -1074,19 +1403,21 @@ export function ReviewScreen({ go }: { go: Go }) {
               flexDirection: 'row',
               alignItems: 'center',
               gap: 4,
-              paddingHorizontal: 10,
-              paddingVertical: 8,
-              borderRadius: 10,
+              paddingHorizontal: 12,
+              paddingVertical: 9,
+              borderRadius: 999,
               backgroundColor: COLORS.white,
+              borderWidth: 1.5,
+              borderColor: BLUE_BORDER,
               opacity: fetchingLocation ? 0.6 : 1,
             }}
           >
             {fetchingLocation ? (
-              <ActivityIndicator size="small" color={COLORS.primary} />
+              <ActivityIndicator size="small" color="#1A368E" />
             ) : (
-              <RefreshCw size={14} color={COLORS.primary} strokeWidth={2.4} />
+              <RefreshCw size={14} color="#1A368E" strokeWidth={2.4} />
             )}
-            <Text style={{ fontFamily: FONTS.semibold, fontSize: 11, color: COLORS.primary }}>
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: '#1A368E' }}>
               Refresh
             </Text>
           </Pressable>
@@ -1115,6 +1446,8 @@ export function ReviewScreen({ go }: { go: Go }) {
             footer={footer}
             variant={reviewVariant}
             stepTotal={reviewStepTotal}
+            accent={'accent' in section ? section.accent : 'blue'}
+            rowsAfterFooter={Boolean(showMediaPreview)}
           />
         );
       })}
@@ -1125,35 +1458,30 @@ export function ReviewScreen({ go }: { go: Go }) {
           className={isBackendTask ? undefined : 'mx-4'}
           style={{
             marginHorizontal: isBackendTask ? SPACE.gutter : undefined,
-            backgroundColor: isBackendTask ? GLASS.surfaceSolid : '#FFFBEB',
-            borderRadius: isBackendTask ? 16 : 14,
-            padding: isBackendTask ? 12 : 14,
-            borderWidth: 1,
-            borderColor: isBackendTask ? '#FCD34D' : '#FCD34D',
-            shadowColor: isBackendTask ? '#0F172A' : undefined,
-            shadowOffset: isBackendTask ? { width: 0, height: 2 } : undefined,
-            shadowOpacity: isBackendTask ? 0.06 : undefined,
-            shadowRadius: isBackendTask ? 8 : undefined,
-            elevation: isBackendTask ? 2 : undefined,
+            backgroundColor: COLORS.white,
+            borderRadius: 14,
+            padding: 10,
+            borderWidth: 1.5,
+            borderColor: '#FDBA74',
           }}
         >
-          <HStack className="items-center" style={{ gap: 12 }}>
+          <HStack className="items-center" style={{ gap: 10 }}>
             <Box
               className="items-center justify-center"
               style={{
-                width: 36,
-                height: 36,
+                width: 34,
+                height: 34,
                 borderRadius: 10,
-                backgroundColor: '#FEF3C7',
+                backgroundColor: '#FFF7ED',
               }}
             >
-              <AlertTriangle size={17} color="#B45309" strokeWidth={2.3} />
+              <AlertTriangle size={16} color="#B45309" strokeWidth={2.3} />
             </Box>
             <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
               <Text
                 style={{
                   fontFamily: FONTS.bold,
-                  fontSize: 13,
+                  fontSize: 14,
                   color: '#92400E',
                 }}
               >
@@ -1162,8 +1490,8 @@ export function ReviewScreen({ go }: { go: Go }) {
               </Text>
               <Text
                 style={{
-                  fontFamily: FONTS.medium,
-                  fontSize: 11,
+                  fontFamily: FONTS.semibold,
+                  fontSize: 12,
                   color: '#A16207',
                 }}
               >
@@ -1178,39 +1506,43 @@ export function ReviewScreen({ go }: { go: Go }) {
           className={isBackendTask ? undefined : 'mx-4'}
           style={{
             marginHorizontal: isBackendTask ? SPACE.gutter : undefined,
-            backgroundColor: isBackendTask ? GLASS.surfaceSolid : '#ECFDF5',
-            borderRadius: isBackendTask ? 16 : 14,
-            padding: isBackendTask ? 12 : 14,
-            borderWidth: 1,
-            borderColor: isBackendTask ? '#A7F3D0' : '#A7F3D0',
-            shadowColor: isBackendTask ? '#0F172A' : undefined,
-            shadowOffset: isBackendTask ? { width: 0, height: 2 } : undefined,
-            shadowOpacity: isBackendTask ? 0.06 : undefined,
-            shadowRadius: isBackendTask ? 8 : undefined,
-            elevation: isBackendTask ? 2 : undefined,
+            backgroundColor: COLORS.white,
+            borderRadius: 14,
+            padding: 10,
+            borderWidth: 1.5,
+            borderColor: '#A7F3D0',
           }}
         >
-          <HStack className="items-center" style={{ gap: 12 }}>
+          <HStack className="items-center" style={{ gap: 10 }}>
             <Box
               className="items-center justify-center"
               style={{
-                width: 36,
-                height: 36,
+                width: 34,
+                height: 34,
                 borderRadius: 10,
                 backgroundColor: '#D1FAE5',
               }}
             >
-              <CheckCircle2 size={18} color="#059669" strokeWidth={2.3} />
+              <CheckCircle2 size={16} color="#059669" strokeWidth={2.3} />
             </Box>
             <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
               <Text
                 style={{
                   fontFamily: FONTS.bold,
-                  fontSize: 13,
+                  fontSize: 14,
                   color: '#065F46',
                 }}
               >
                 Validation complete
+              </Text>
+              <Text
+                style={{
+                  fontFamily: FONTS.semibold,
+                  fontSize: 12,
+                  color: '#047857',
+                }}
+              >
+                Ready for CAO submission
               </Text>
             </VStack>
           </HStack>
@@ -1223,31 +1555,26 @@ export function ReviewScreen({ go }: { go: Go }) {
         className={isBackendTask ? undefined : 'mx-4'}
         style={{
           marginHorizontal: isBackendTask ? SPACE.gutter : undefined,
-          backgroundColor: isBackendTask ? GLASS.surfaceSolid : COLORS.white,
-          borderRadius: isBackendTask ? 16 : 16,
-          paddingVertical: isBackendTask ? 12 : 16,
-          paddingHorizontal: isBackendTask ? 12 : 14,
-          borderWidth: 1.5,
-          borderColor: terms ? '#6EE7B7' : isBackendTask ? GLASS.border : COLORS.border,
-          shadowColor: '#0F172A',
-          shadowOffset: { width: 0, height: isBackendTask ? 2 : 3 },
-          shadowOpacity: isBackendTask ? 0.06 : 0.06,
-          shadowRadius: isBackendTask ? 8 : 8,
-          elevation: 2,
+          backgroundColor: COLORS.white,
+          borderRadius: 14,
+          paddingVertical: 10,
+          paddingHorizontal: 12,
+          borderWidth: 1.75,
+          borderColor: terms ? hexAlpha('#15803D', 0.45) : BLUE_BORDER,
         }}
       >
-        <HStack className="items-center" style={{ gap: 12 }}>
+        <HStack className="items-center" style={{ gap: 10 }}>
           <Box
             className="items-center justify-center"
             style={{
-              width: 46,
-              height: 46,
-              borderRadius: 14,
+              width: 34,
+              height: 34,
+              borderRadius: 10,
               backgroundColor: terms ? '#D1FAE5' : '#F0FDF4',
             }}
           >
             <ShieldCheck
-              size={24}
+              size={16}
               color={terms ? '#059669' : '#34D399'}
               strokeWidth={2.2}
             />
@@ -1271,7 +1598,7 @@ export function ReviewScreen({ go }: { go: Go }) {
               fontFamily: FONTS.medium,
               fontSize: 13,
               lineHeight: 19,
-              color: COLORS.ink,
+              color: '#0F172A',
             }}
           >
             I certify that all information is accurate and captured on-site. I understand false
@@ -1286,22 +1613,57 @@ export function ReviewScreen({ go }: { go: Go }) {
         onClose={() => !submitting && setConfirm(false)}
         title={isResubmit ? 'Resubmit report?' : 'Submit report?'}
       >
-        <Text className="text-sm text-muted-foreground">
-          Are you sure you want to submit this report{' '}
-          <Text className="font-bold text-foreground">({titleId})</Text>?
-        </Text>
-        {submitting ? (
-          <ScreenLoader text="Submitting report…" minHeight={120} />
-        ) : (
-          <VStack space="sm" className="mt-4">
-            <AppBtn onPress={onConfirmSubmit}>
-              {isResubmit ? 'Confirm & Resubmit' : 'Confirm & Submit'}
-            </AppBtn>
-            <AppBtn variant="outline" onPress={() => setConfirm(false)}>
-              Cancel
-            </AppBtn>
-          </VStack>
-        )}
+        <VStack style={{ gap: 14 }}>
+          <Box
+            style={{
+              borderRadius: 16,
+              backgroundColor: '#ECFDF5',
+              borderWidth: 1.5,
+              borderColor: '#A7F3D0',
+              padding: 14,
+            }}
+          >
+            <HStack className="items-start" style={{ gap: 12 }}>
+              <Box
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 14,
+                  backgroundColor: '#D1FAE5',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Send size={20} color="#047857" strokeWidth={2.4} />
+              </Box>
+              <VStack style={{ flex: 1, minWidth: 0, gap: 4 }}>
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 15, color: '#0F172A' }}>
+                  {isResubmit ? 'Confirm resubmission' : 'Ready to send to CAO'}
+                </Text>
+                <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: '#475569', lineHeight: 18 }}>
+                  Application{' '}
+                  <Text style={{ fontFamily: FONTS.bold, color: '#1A368E' }}>{titleId}</Text>
+                  {isResubmit
+                    ? ' will be resubmitted for review.'
+                    : ' will be submitted for CAO verification.'}
+                </Text>
+              </VStack>
+            </HStack>
+          </Box>
+
+          {submitting ? (
+            <ScreenLoader text="Submitting report…" minHeight={100} />
+          ) : (
+            <VStack style={{ gap: 8 }}>
+              <AppBtn onPress={onConfirmSubmit} icon={ShieldCheck}>
+                {isResubmit ? 'Confirm & Resubmit' : 'Confirm & Submit'}
+              </AppBtn>
+              <AppBtn variant="outline" onPress={() => setConfirm(false)}>
+                Cancel
+              </AppBtn>
+            </VStack>
+          )}
+        </VStack>
       </AppSheet>
     </SurveyScaffold>
   );
@@ -1311,6 +1673,8 @@ export function SuccessScreen({ go }: { go: Go }) {
   const { lastSubmitted, draft, startNewProject, openApplication } = useProject();
   const appId = lastSubmitted?.applicationId || draft.applicationId || draft.id;
   const submittedAt = lastSubmitted?.submittedAt || draft.submittedAt;
+  const siteNo = draft.siteNo?.trim() || lastSubmitted?.surveyNo?.trim() || '—';
+  const zone = draft.zoneCode?.trim() || '—';
   const backendId =
     draft.backendApplicationId || lastSubmitted?.backendApplicationId || null;
 
@@ -1329,53 +1693,203 @@ export function SuccessScreen({ go }: { go: Go }) {
     go('history');
   };
 
+  const submittedLabel = submittedAt
+    ? new Date(submittedAt).toLocaleString(undefined, {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : 'Just now';
+
   return (
     <ScreenShell>
       <LinearGradient
-        colors={[...GRADIENT_SUBTLE]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ flex: 1 }}
+        colors={['#071E4A', '#123A8C', '#1A56DB']}
+        locations={[0, 0.45, 1]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 20 }}
       >
-        <VStack className="flex-1 items-center px-5 pt-16">
-          <Box className="h-32 w-32 rounded-full bg-success/15 items-center justify-center">
-            <CheckCircle2 size={64} color={COLORS.success} strokeWidth={2} />
-          </Box>
-          <Text className="mt-8 text-2xl font-extrabold text-foreground text-center">
-            Application Submitted
-          </Text>
-          <AppCard className="mt-6 w-full">
-            <VStack space="md">
-              <HStack className="items-center justify-between">
-                <Text className="text-xs text-muted-foreground font-semibold">Application ID</Text>
-                <Text className="font-bold text-foreground">{appId}</Text>
-              </HStack>
-              <HStack className="items-center justify-between">
-                <Text className="text-xs text-muted-foreground font-semibold">Status</Text>
-                <StatusChip status="Submitted" />
-              </HStack>
-              <HStack className="items-center justify-between">
-                <Text className="text-xs text-muted-foreground font-semibold">Submitted</Text>
-                <Text className="font-semibold text-sm text-foreground">
-                  {submittedAt ? new Date(submittedAt).toLocaleString() : 'Just now'}
-                </Text>
-              </HStack>
-            </VStack>
-          </AppCard>
-          <VStack space="md" className="mt-8 w-full">
-            <AppBtn
+        <Box
+          style={{
+            backgroundColor: COLORS.white,
+            borderRadius: 28,
+            paddingHorizontal: 20,
+            paddingTop: 28,
+            paddingBottom: 20,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: 0.22,
+            shadowRadius: 24,
+            elevation: 12,
+          }}
+        >
+          <VStack className="items-center" style={{ gap: 10 }}>
+            <Box
+              style={{
+                width: 92,
+                height: 92,
+                borderRadius: 999,
+                backgroundColor: '#ECFDF5',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 6,
+                borderColor: '#D1FAE5',
+              }}
+            >
+              <Box
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 999,
+                  backgroundColor: '#10B981',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <CheckCircle2 size={34} color="#FFFFFF" strokeWidth={2.6} />
+              </Box>
+            </Box>
+
+            <Text
+              style={{
+                fontFamily: FONTS.bold,
+                fontSize: 24,
+                color: '#0F172A',
+                textAlign: 'center',
+                letterSpacing: -0.3,
+                marginTop: 4,
+              }}
+            >
+              Application Submitted
+            </Text>
+            <Text
+              style={{
+                fontFamily: FONTS.medium,
+                fontSize: 13,
+                color: '#64748B',
+                textAlign: 'center',
+                lineHeight: 18,
+                paddingHorizontal: 8,
+              }}
+            >
+              Your site report was sent successfully and is now with CAO for verification.
+            </Text>
+
+            <Box
+              style={{
+                marginTop: 6,
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 999,
+                backgroundColor: '#EEF4FF',
+                borderWidth: 1.5,
+                borderColor: 'rgba(26,86,219,0.25)',
+              }}
+            >
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: '#1A368E' }}>
+                {appId}
+              </Text>
+            </Box>
+          </VStack>
+
+          <VStack
+            style={{
+              marginTop: 18,
+              borderRadius: 18,
+              backgroundColor: '#F8FAFC',
+              borderWidth: 1,
+              borderColor: 'rgba(15,23,42,0.08)',
+              padding: 14,
+              gap: 12,
+            }}
+          >
+            <HStack className="items-center justify-between">
+              <Text style={{ fontFamily: FONTS.semibold, fontSize: 12, color: '#64748B' }}>
+                Status
+              </Text>
+              <StatusChip status="Submitted" />
+            </HStack>
+            <HStack className="items-center justify-between">
+              <Text style={{ fontFamily: FONTS.semibold, fontSize: 12, color: '#64748B' }}>
+                Site no
+              </Text>
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: '#0F172A' }}>
+                {siteNo}
+              </Text>
+            </HStack>
+            <HStack className="items-center justify-between">
+              <Text style={{ fontFamily: FONTS.semibold, fontSize: 12, color: '#64748B' }}>
+                Zone
+              </Text>
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: '#0F172A' }}>
+                {zone}
+              </Text>
+            </HStack>
+            <HStack className="items-center justify-between">
+              <Text style={{ fontFamily: FONTS.semibold, fontSize: 12, color: '#64748B' }}>
+                Submitted
+              </Text>
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: '#0F172A' }}>
+                {submittedLabel}
+              </Text>
+            </HStack>
+          </VStack>
+
+          <VStack style={{ marginTop: 18, gap: 10 }}>
+            <Pressable
               onPress={() => {
                 startNewProject();
                 go('dashboard');
               }}
+              className="active:opacity-90 overflow-hidden"
+              style={{
+                borderRadius: 999,
+                shadowColor: '#1A56DB',
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.28,
+                shadowRadius: 10,
+                elevation: 4,
+              }}
             >
-              Back to Dashboard
-            </AppBtn>
-            <AppBtn variant="outline" onPress={viewSubmittedApplication}>
-              View Application
-            </AppBtn>
+              <LinearGradient
+                colors={gradientStops(GRADIENT_PRIMARY)}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{
+                  height: 52,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingHorizontal: 16,
+                }}
+              >
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 15, color: '#FFFFFF' }}>
+                  Back to Dashboard
+                </Text>
+              </LinearGradient>
+            </Pressable>
+
+            <Pressable
+              onPress={viewSubmittedApplication}
+              className="active:opacity-80"
+              style={{
+                height: 48,
+                borderRadius: 999,
+                borderWidth: 1.5,
+                borderColor: 'rgba(26,86,219,0.35)',
+                backgroundColor: COLORS.white,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#1A368E' }}>
+                View Application
+              </Text>
+            </Pressable>
           </VStack>
-        </VStack>
+        </Box>
       </LinearGradient>
     </ScreenShell>
   );

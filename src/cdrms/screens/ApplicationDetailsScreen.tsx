@@ -30,7 +30,7 @@ import {
 import { BdaPageWatermark } from '@/src/cdrms/components/WelcomeHomeChrome';
 import { findSampleApp } from '@/src/cdrms/data';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
-import { COLORS } from '@/src/cdrms/theme';
+import { COLORS, FONTS, hexAlpha } from '@/src/cdrms/theme';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go } from '@/src/cdrms/types';
 
@@ -69,10 +69,16 @@ type DetailView = {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <Box style={{ width: '47%' }}>
-      <Text className="text-[10px] uppercase font-extrabold tracking-wider" style={{ color: '#94A3B8' }}>
-        {label}
-      </Text>
-      <Text className="text-[13px] font-bold mt-0.5" style={{ color: '#0F172A' }}>
+      <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}>{label}</Text>
+      <Text
+        style={{
+          fontFamily: FONTS.medium,
+          fontSize: 13,
+          marginTop: 2,
+          color: COLORS.primaryDeep,
+          lineHeight: 17,
+        }}
+      >
         {value || '—'}
       </Text>
     </Box>
@@ -83,7 +89,6 @@ function SectionCard({
   title,
   icon: Icon,
   children,
-  accent = '#1D4ED8',
 }: {
   title: string;
   icon: typeof Building2;
@@ -94,27 +99,46 @@ function SectionCard({
     <Box
       style={{
         backgroundColor: '#FFFFFF',
-        borderRadius: 22,
-        padding: 16,
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
+        borderRadius: 16,
+        padding: 0,
+        overflow: 'hidden',
+        borderWidth: 1.5,
+        borderColor: hexAlpha(COLORS.primary, 0.22),
+        shadowColor: COLORS.primaryDeep,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
         elevation: 2,
       }}
     >
-      <HStack className="items-center gap-2.5 mb-3">
+      <HStack
+        className="items-center gap-2.5"
+        style={{
+          paddingHorizontal: 12,
+          paddingVertical: 10,
+          backgroundColor: '#EEF4FF',
+          borderBottomWidth: 1,
+          borderBottomColor: 'rgba(26,86,219,0.1)',
+        }}
+      >
         <Box
-          className="items-center justify-center rounded-xl"
-          style={{ width: 34, height: 34, backgroundColor: accent }}
+          className="items-center justify-center"
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            backgroundColor: '#FFFFFF',
+            borderWidth: 1,
+            borderColor: 'rgba(26,86,219,0.16)',
+          }}
         >
-          <Icon size={16} color="#fff" strokeWidth={2.3} />
+          <Icon size={14} color={COLORS.primary} strokeWidth={2.3} />
         </Box>
-        <Text className="text-[14px] font-extrabold" style={{ color: '#0F172A' }}>
+        <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.primaryDeep }}>
           {title}
         </Text>
       </HStack>
-      {children}
+      <Box style={{ padding: 12 }}>{children}</Box>
     </Box>
   );
 }
@@ -266,19 +290,33 @@ export function ApplicationDetailsScreen({ go }: { go: Go }) {
   }
 
   return (
-    <ScreenShell className="bg-[#F3F4F6]">
+    <ScreenShell className="bg-background">
       <BdaPageWatermark />
-      <AppHeader title="Project details" subtitle={detail.id} onBack={back} go={go} showLogout={false} showNotifications={false} />
+      <AppHeader
+        title="View Application"
+        subtitle={detail.id}
+        onBack={back}
+        go={go}
+        showLogout={false}
+        showNotifications={false}
+        gradient
+      />
 
       <ScrollView
         className="flex-1"
-        style={{ zIndex: 1 }}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        style={{ zIndex: 1, backgroundColor: '#F7FAFF' }}
+        contentContainerStyle={{ paddingBottom: 48 }}
         showsVerticalScrollIndicator={false}
       >
         <Box
-          className="mx-4 mt-4 overflow-hidden items-center justify-center"
-          style={{ borderRadius: 24, height: 200, backgroundColor: '#E2E8F0' }}
+          className="mx-4 mt-3 overflow-hidden items-center justify-center"
+          style={{
+            borderRadius: 16,
+            height: 180,
+            backgroundColor: '#EEF4FF',
+            borderWidth: 1.5,
+            borderColor: hexAlpha(COLORS.primary, 0.18),
+          }}
         >
           {detail.image ? (
             <Image

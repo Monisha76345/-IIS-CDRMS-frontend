@@ -1,415 +1,590 @@
 import {
   Building2,
+  Crosshair,
+  Eye,
   FileText,
+  Grid3X3,
   Hash,
-  Lock,
+  Layers,
   MapPinned,
   MessageSquareText,
-  Ruler,
+  Shield,
 } from 'lucide-react-native';
+import { StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
+import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
 import {
-  GlassCard,
-  GlassCardHeader,
-  GlassHeaderBadge,
-  GlassIcon,
-} from '@/src/cdrms/components/GlassSurface';
-import { cardBodyStyle } from '@/src/cdrms/lib/cardSurface';
+  computeBoundaryArea,
+  siteDimensionToFormDims,
+} from '@/src/cdrms/lib/resolveBoundaryDims';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import {
   CARDINAL_ACCENT,
   COLORS,
-  DESIGN,
   FONTS,
+  GRADIENT_PRIMARY,
   SPACE,
-  TYPE,
+  gradientStops,
   hexAlpha,
-  usesLightHeader,
 } from '@/src/cdrms/theme';
 
 const CARDINALS = [
   { k: 'N' as const, label: 'North', color: CARDINAL_ACCENT.N },
-  { k: 'S' as const, label: 'South', color: CARDINAL_ACCENT.S },
   { k: 'E' as const, label: 'East', color: CARDINAL_ACCENT.E },
+  { k: 'S' as const, label: 'South', color: CARDINAL_ACCENT.S },
   { k: 'W' as const, label: 'West', color: CARDINAL_ACCENT.W },
 ];
 
-/** Soft pastel fills for Plain (smart-home) field tiles. */
-const PASTEL_TILES = [
-  { bg: '#ECFDF5', fg: '#059669' },
-  { bg: '#EEF2FF', fg: '#4F46E5' },
-  { bg: '#E0F2FE', fg: '#0284C7' },
-  { bg: '#FEF3C7', fg: '#D97706' },
-  { bg: '#FCE7F3', fg: '#DB2777' },
-  { bg: '#F3E8FF', fg: '#7C3AED' },
-] as const;
+const BLUE_BORDER = 'rgba(26,86,219,0.18)';
+const BLUE_SOFT = '#EEF4FF';
+const BLUE_CARD = '#F5F8FF';
 
 /**
  * Step 1 — ZC assigned site details (view-only).
- * Chrome follows active theme (Plain pastels · Wave/Mesh accents · Ocean elevated).
+ * Compact blue-shade layout matching the ZC details mock.
  */
 export function EngineerStickyHeader() {
   const { draft } = useProject();
   const liveSiteDimension = draft.siteDimensionMaster?.trim() || '—';
   const appNo = draft.applicationNumber?.trim() || '—';
-  const plain = usesLightHeader();
-  let tile = 0;
-  const nextPastel = () => PASTEL_TILES[tile++ % PASTEL_TILES.length]!;
+  const siteNo = draft.siteNo?.trim() || '—';
+  const zone = draft.zoneCode?.trim() || '—';
+  const siteType = draft.siteDimensionType || '—';
+  const comment = draft.siteDimensionComment?.trim() || '—';
+
+  const parsed = siteDimensionToFormDims(draft.siteDimensionMaster);
+  const n = Number(parsed?.north) || 0;
+  const s = Number(parsed?.south) || 0;
+  const e = Number(parsed?.east) || 0;
+  const w = Number(parsed?.west) || 0;
+  const hasDiagram = n > 0 && s > 0 && e > 0 && w > 0;
+  const totalArea = hasDiagram
+    ? computeBoundaryArea({ north: n, south: s, east: e, west: w })
+    : null;
+  const isOdd = siteType === 'Odd';
 
   return (
-    <GlassCard>
-      <GlassCardHeader
-        title="ZC site details"
-        subtitle="Assigned by Zone Commissioner"
-        icon={Building2}
-        badge={
-          <GlassHeaderBadge tone="neutral">
-            <Lock size={10} color={COLORS.slate} strokeWidth={2.5} />
-            <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.slate }}>
-              View only
-            </Text>
-          </GlassHeaderBadge>
-        }
-      />
-
-      <VStack
+    <VStack style={{ gap: 8, paddingHorizontal: SPACE.gutter }}>
+      {/* Capsule-bordered ZC assigned panel — all ZC fields from draft/API */}
+      <Box
         style={{
-          padding: plain ? SPACE[2] : SPACE[3],
-          gap: plain ? 10 : SPACE[2],
-          ...cardBodyStyle(),
+          backgroundColor: COLORS.white,
+          borderRadius: 28,
+          padding: 10,
+          borderWidth: 1.5,
+          borderColor: hexAlpha(COLORS.primary, 0.28),
+          shadowColor: COLORS.primaryDeep,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.12,
+          shadowRadius: 10,
+          elevation: 4,
         }}
       >
-        <StatBlock
+        <HStack className="items-center justify-between" style={{ marginBottom: 8 }}>
+          <HStack className="items-center" style={{ gap: 6 }}>
+            <Box
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: 8,
+                backgroundColor: BLUE_SOFT,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Shield size={12} color={COLORS.primary} strokeWidth={2.4} />
+            </Box>
+            <Text
+              style={{
+                fontFamily: FONTS.bold,
+                fontSize: 13,
+                letterSpacing: 0.7,
+                color: '#1A368E',
+                textTransform: 'uppercase',
+              }}
+            >
+               APPLICATION DETAILS
+            </Text>
+          </HStack>
+          <HStack
+            className="items-center"
+            style={{
+              gap: 4,
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+              borderRadius: 999,
+              backgroundColor: BLUE_SOFT,
+              borderWidth: 1,
+              borderColor: hexAlpha(COLORS.primary, 0.28),
+            }}
+          >
+            <Eye size={11} color={COLORS.primary} strokeWidth={2.4} />
+            <Text
+              style={{
+                fontFamily: FONTS.semibold,
+                fontSize: 10,
+                color: COLORS.primary,
+              }}
+            >
+              View only
+            </Text>
+          </HStack>
+        </HStack>
+
+        <HStack style={{ gap: 8, alignItems: 'stretch' }}>
+          <Box style={{ flex: 1.2, borderRadius: 18, overflow: 'hidden' }}>
+            <LinearGradient
+              colors={gradientStops(GRADIENT_PRIMARY)}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                flex: 1,
+                paddingHorizontal: 12,
+                paddingTop: 10,
+                paddingBottom: 10,
+                overflow: 'hidden',
+              }}
+            >
+              <VStack style={{ flex: 1, justifyContent: 'space-between' }}>
+                <VStack style={{ gap: 3 }}>
+                  <Text
+                    style={{
+                      fontFamily: FONTS.semibold,
+                      fontSize: 10,
+                      letterSpacing: 0.6,
+                      color: 'rgba(255,255,255,0.85)',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Site no
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 30,
+                      lineHeight: 34,
+                      color: COLORS.white,
+                      letterSpacing: -0.4,
+                    }}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.65}
+                  >
+                    {siteNo}
+                  </Text>
+                </VStack>
+
+                <Box
+                  style={{
+                    height: StyleSheet.hairlineWidth,
+                    backgroundColor: 'rgba(255,255,255,0.35)',
+                    marginVertical: 8,
+                  }}
+                />
+
+                <VStack style={{ gap: 3 }}>
+                  <Text
+                    style={{
+                      fontFamily: FONTS.semibold,
+                      fontSize: 10,
+                      letterSpacing: 0.5,
+                      color: 'rgba(255,255,255,0.8)',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Application no
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 15,
+                      lineHeight: 19,
+                      color: COLORS.white,
+                    }}
+                    numberOfLines={2}
+                  >
+                    {appNo}
+                  </Text>
+                </VStack>
+
+                <HStack
+                  className="items-center justify-end"
+                  style={{ marginTop: 10 }}
+                >
+                  <Box
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 12,
+                      backgroundColor: 'rgba(255,255,255,0.18)',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.28)',
+                    }}
+                  >
+                    <FileText size={20} color={COLORS.white} strokeWidth={2.2} />
+                  </Box>
+                </HStack>
+              </VStack>
+            </LinearGradient>
+          </Box>
+
+          <VStack style={{ flex: 0.8, gap: 6 }}>
+            <SideStat
+              icon={MapPinned}
+              iconBg="#DCFCE7"
+              iconFg="#059669"
+              label="Zone"
+              value={zone}
+            />
+            <SideStat
+              icon={Layers}
+              iconBg="#EDE9FE"
+              iconFg="#7C3AED"
+              label="Type"
+              value={siteType}
+            />
+            <SideStat
+              icon={Crosshair}
+              iconBg={BLUE_SOFT}
+              iconFg={COLORS.primary}
+              label="Dimension"
+              value={liveSiteDimension}
+            />
+          </VStack>
+        </HStack>
+      </Box>
+
+      <HStack style={{ gap: 8 }}>
+        <MetaTile
           icon={FileText}
-          label="E-office number"
+          iconBg={BLUE_SOFT}
+          iconFg={COLORS.primary}
+          label="E-office"
           value={draft.eOfficeNumber?.trim() || '—'}
-          accent={COLORS.primary}
-          pastel={plain ? nextPastel() : undefined}
-          fullWidth
-          inline
         />
-
-        <HStack style={{ gap: SPACE[2] }}>
-          <StatBlock
-            icon={Hash}
-            label="Application number"
-            value={appNo}
-            accent={COLORS.primaryGlow}
-            pastel={plain ? nextPastel() : undefined}
-            wrap
-          />
-          <StatBlock
-            icon={MapPinned}
-            label="Zone"
-            value={draft.zoneCode?.trim() || '—'}
-            accent={COLORS.primary}
-            pastel={plain ? nextPastel() : undefined}
-          />
-        </HStack>
-
-        <HStack style={{ gap: SPACE[2] }}>
-          <StatBlock
-            icon={Hash}
-            label="Site no"
-            value={draft.siteNo?.trim() || '—'}
-            accent={COLORS.primary}
-            pastel={plain ? nextPastel() : undefined}
-          />
-          <StatBlock
-            icon={Building2}
-            label="Site type"
-            value={draft.siteDimensionType || '—'}
-            accent={COLORS.primaryGlow}
-            pastel={plain ? nextPastel() : undefined}
-          />
-        </HStack>
-
-        <StatBlock
+        <MetaTile
           icon={MapPinned}
+          iconBg="#DCFCE7"
+          iconFg="#059669"
           label="Area"
           value={draft.addressArea?.trim() || '—'}
-          accent={COLORS.primary}
-          pastel={plain ? nextPastel() : undefined}
-          fullWidth
         />
-
-        <HStack style={{ gap: SPACE[2] }}>
-          <StatBlock
-            icon={MapPinned}
-            label="Block"
-            value={draft.addressBlock?.trim() || '—'}
-            accent={COLORS.primary}
-            pastel={plain ? nextPastel() : undefined}
-          />
-          <StatBlock
-            icon={Hash}
-            label="Pincode"
-            value={draft.addressPincode?.trim() || '—'}
-            accent={COLORS.primaryGlow}
-            pastel={plain ? nextPastel() : undefined}
-          />
-        </HStack>
-
-        <StatBlock
-          icon={Ruler}
-          label="Dimension"
-          value={liveSiteDimension}
-          accent={COLORS.primaryGlow}
-          pastel={plain ? nextPastel() : undefined}
-          fullWidth
+      </HStack>
+      <HStack style={{ gap: 8 }}>
+        <MetaTile
+          icon={Grid3X3}
+          iconBg="#EDE9FE"
+          iconFg="#7C3AED"
+          label="Block"
+          value={draft.addressBlock?.trim() || '—'}
         />
-
-        <FieldRow
-          icon={MessageSquareText}
-          label="Comment"
-          value={draft.siteDimensionComment?.trim() || '—'}
-          plain={plain}
+        <MetaTile
+          icon={Hash}
+          iconBg="#FFEDD5"
+          iconFg="#C2410C"
+          label="Pincode"
+          value={draft.addressPincode?.trim() || '—'}
         />
+      </HStack>
+      <MetaTile
+        icon={MessageSquareText}
+        iconBg={BLUE_SOFT}
+        iconFg={COLORS.primary}
+        label="Comment"
+        value={comment}
+        full
+      />
 
-        <VStack style={{ gap: SPACE[2] }}>
-          <Text style={{ ...TYPE.label, color: COLORS.slate, fontSize: 12, letterSpacing: 0.6 }}>
-            Site Schedules
-          </Text>
+      {hasDiagram ? (
+        <Box
+          style={{
+            backgroundColor: COLORS.white,
+            borderRadius: 18,
+            padding: 10,
+            borderWidth: 1,
+            borderColor: BLUE_BORDER,
+            shadowColor: COLORS.primaryDeep,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.12,
+            shadowRadius: 10,
+            elevation: 4,
+          }}
+        >
+          <HStack className="items-center justify-between" style={{ marginBottom: 8, gap: 8 }}>
+            <HStack className="items-center" style={{ gap: 8, flex: 1 }}>
+              <Box
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 10,
+                  backgroundColor: BLUE_SOFT,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Crosshair size={15} color={COLORS.primary} strokeWidth={2.3} />
+              </Box>
+              <VStack style={{ flex: 1, gap: 1 }}>
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 16, color: '#1A368E' }}>
+                  Dimension sketch
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: FONTS.semibold,
+                    fontSize: 12,
+                    color: '#475569',
+                    lineHeight: 16,
+                  }}
+                >
+                  Plot outline · ZC schedules
+                </Text>
+              </VStack>
+            </HStack>
+            <Box
+              style={{
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderRadius: 999,
+                backgroundColor: BLUE_SOFT,
+              }}
+            >
+              <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: COLORS.primary }}>
+                {liveSiteDimension}
+              </Text>
+            </Box>
+          </HStack>
+
+          <Box
+            style={{
+              borderRadius: 14,
+              overflow: 'hidden',
+              backgroundColor: BLUE_CARD,
+              borderWidth: 1,
+              borderColor: BLUE_BORDER,
+            }}
+          >
+            <BoundariesDiagram
+              north={n}
+              south={s}
+              east={e}
+              west={w}
+              odd={isOdd}
+              siteNo={draft.siteNo}
+              totalArea={totalArea}
+              scheduleNorth={draft.zcDirections?.N}
+              scheduleSouth={draft.zcDirections?.S}
+              scheduleEast={draft.zcDirections?.E}
+              scheduleWest={draft.zcDirections?.W}
+              embedded
+            />
+          </Box>
+        </Box>
+      ) : (
+        <Box
+          style={{
+            backgroundColor: COLORS.white,
+            borderRadius: 18,
+            padding: 10,
+            borderWidth: 1,
+            borderColor: BLUE_BORDER,
+          }}
+        >
+          <HStack className="items-center" style={{ gap: 6, marginBottom: 8 }}>
+            <Building2 size={14} color={COLORS.primary} strokeWidth={2.3} />
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}>
+              Site Schedules
+            </Text>
+          </HStack>
           <HStack style={{ flexWrap: 'wrap', gap: 6 }}>
             {CARDINALS.map(({ k, label, color }) => (
-              <CompassCell
+              <Box
                 key={k}
-                letter={k}
-                label={label}
-                value={draft.zcDirections?.[k]?.trim() || '—'}
-                color={color}
-                plain={plain}
-              />
+                style={{
+                  width: '47%',
+                  flexGrow: 1,
+                  borderRadius: 12,
+                  padding: 8,
+                  backgroundColor: hexAlpha(color, 0.08),
+                  borderWidth: 1,
+                  borderColor: hexAlpha(color, 0.2),
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 11,
+                    color,
+                    marginBottom: 2,
+                  }}
+                >
+                  {label}
+                </Text>
+                <Text
+                  style={{ fontFamily: FONTS.medium, fontSize: 12, color: COLORS.ink }}
+                  numberOfLines={2}
+                >
+                  {draft.zcDirections?.[k]?.trim() || '—'}
+                </Text>
+              </Box>
             ))}
           </HStack>
-        </VStack>
-      </VStack>
-    </GlassCard>
+        </Box>
+      )}
+    </VStack>
   );
 }
 
-function StatBlock({
+function SideStat({
   icon: Icon,
+  iconBg,
+  iconFg,
   label,
   value,
-  accent,
-  pastel,
-  fullWidth,
-  inline,
-  wrap,
 }: {
-  icon: typeof Building2;
+  icon: typeof MapPinned;
+  iconBg: string;
+  iconFg: string;
   label: string;
   value: string;
-  accent: string;
-  pastel?: { bg: string; fg: string };
-  fullWidth?: boolean;
-  inline?: boolean;
-  /** Allow long values (e.g. application number) to wrap instead of truncating. */
-  wrap?: boolean;
 }) {
-  const radius = Math.max(10, DESIGN.cardRadius - 4);
-  const fg = pastel?.fg ?? accent;
-  const fill = pastel?.bg ?? hexAlpha(COLORS.primary, 0.05);
-  const maxLines = fullWidth || wrap ? 4 : 1;
-
   return (
     <Box
       style={{
-        flex: fullWidth ? undefined : 1,
-        width: fullWidth ? '100%' : undefined,
-        // Required so flex children can shrink and Text can wrap.
-        minWidth: fullWidth ? undefined : 0,
+        flex: 1,
+        borderRadius: 12,
+        paddingHorizontal: 7,
+        paddingVertical: 4,
+        backgroundColor: BLUE_CARD,
+        borderWidth: 1,
+        borderColor: BLUE_BORDER,
+        justifyContent: 'center',
+        shadowColor: COLORS.primaryDeep,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
       }}
     >
-      <Box
-        style={{
-          borderRadius: radius,
-          padding: inline ? SPACE[3] : SPACE[2],
-          backgroundColor: fill,
-          borderWidth: pastel ? 0 : 1,
-          borderColor: pastel ? 'transparent' : hexAlpha(accent, 0.18),
-          borderTopWidth: pastel ? 0 : 2,
-          borderTopColor: pastel ? 'transparent' : accent,
-        }}
-      >
-        {inline ? (
-          <HStack style={{ alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <HStack style={{ alignItems: 'center', gap: 6, flexShrink: 0 }}>
-              <Icon size={14} color={fg} strokeWidth={2.2} />
-              <Text
-                style={{
-                  fontFamily: FONTS.semibold,
-                  fontSize: 12,
-                  color: fg,
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.4,
-                }}
-              >
-                {label}
-              </Text>
-            </HStack>
-            <Text
-              style={{
-                fontFamily: FONTS.bold,
-                fontSize: 16,
-                color: COLORS.ink,
-                letterSpacing: 0.3,
-                flex: 1,
-                flexShrink: 1,
-                textAlign: 'right',
-              }}
-              numberOfLines={maxLines}
-            >
-              {value}
-            </Text>
-          </HStack>
-        ) : (
-          <>
-            <HStack style={{ alignItems: 'center', gap: 4, marginBottom: 4 }}>
-              <Icon size={12} color={fg} strokeWidth={2.2} />
-              <Text
-                style={{
-                  fontFamily: FONTS.semibold,
-                  fontSize: 12,
-                  color: pastel ? fg : COLORS.slate,
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.4,
-                }}
-              >
-                {label}
-              </Text>
-            </HStack>
-            <Text
-              style={{
-                fontFamily: FONTS.bold,
-                fontSize: wrap ? 14 : 16,
-                color: COLORS.ink,
-                letterSpacing: -0.3,
-                lineHeight: wrap ? 18 : undefined,
-                flexShrink: 1,
-              }}
-              numberOfLines={maxLines}
-            >
-              {value}
-            </Text>
-          </>
-        )}
-      </Box>
-    </Box>
-  );
-}
-
-function FieldRow({
-  icon,
-  label,
-  value,
-  plain,
-}: {
-  icon: typeof MessageSquareText;
-  label: string;
-  value: string;
-  plain: boolean;
-}) {
-  return (
-    <HStack
-      style={{
-        alignItems: 'flex-start',
-        gap: SPACE[2],
-        padding: plain ? SPACE[2] : 0,
-        borderRadius: plain ? Math.max(10, DESIGN.cardRadius - 4) : 0,
-        backgroundColor: plain ? '#F8FAFC' : 'transparent',
-      }}
-    >
-      <GlassIcon icon={icon} color={COLORS.slate} size={13} />
-      <VStack style={{ flex: 1, gap: 2 }}>
-        <Text
+      <HStack className="items-center" style={{ gap: 6 }}>
+        <Box
           style={{
-            fontFamily: FONTS.semibold,
-            fontSize: 12,
-            color: COLORS.slate,
-            textTransform: 'uppercase',
-            letterSpacing: 0.5,
+            width: 20,
+            height: 20,
+            borderRadius: 999,
+            backgroundColor: iconBg,
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          {label}
-        </Text>
-        <Text
-          style={{ fontFamily: FONTS.medium, fontSize: 13, color: COLORS.ink, lineHeight: 18 }}
-          numberOfLines={3}
-        >
-          {value}
-        </Text>
-      </VStack>
-    </HStack>
-  );
-}
-
-function CompassCell({
-  letter,
-  label,
-  value,
-  color,
-  plain,
-}: {
-  letter: string;
-  label: string;
-  value: string;
-  color: string;
-  plain: boolean;
-}) {
-  const radius = Math.max(10, DESIGN.cardRadius - 4);
-  return (
-    <Box style={{ width: '47%', flexGrow: 1 }}>
-      <Box
-        style={{
-          borderRadius: radius,
-          padding: SPACE[2],
-          backgroundColor: plain ? hexAlpha(color, 0.1) : hexAlpha(COLORS.primary, 0.04),
-          borderWidth: plain ? 0 : 1,
-          borderColor: plain ? 'transparent' : hexAlpha(color, 0.22),
-          borderTopWidth: plain ? 0 : 2,
-          borderTopColor: plain ? 'transparent' : color,
-        }}
-      >
-        <HStack style={{ alignItems: 'center', gap: 6, marginBottom: 4 }}>
-          <Box
-            style={{
-              width: 22,
-              height: 22,
-              borderRadius: 999,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: plain ? hexAlpha(color, 0.18) : hexAlpha(COLORS.primary, 0.1),
-              borderWidth: plain ? 0 : 1,
-              borderColor: plain ? 'transparent' : hexAlpha(color, 0.35),
-            }}
-          >
-            <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color }}>{letter}</Text>
-          </Box>
+          <Icon size={10} color={iconFg} strokeWidth={2.3} />
+        </Box>
+        <VStack style={{ flex: 1, minWidth: 0, gap: 0 }}>
           <Text
             style={{
-              fontFamily: FONTS.semibold,
-              fontSize: 12,
-              color: COLORS.slate,
-              textTransform: 'uppercase',
+              fontFamily: FONTS.bold,
+              fontSize: 11,
               letterSpacing: 0.3,
+              color: '#1A368E',
+              textTransform: 'uppercase',
             }}
           >
             {label}
           </Text>
-        </HStack>
-        <Text
-          numberOfLines={2}
-          style={{ fontFamily: FONTS.semibold, fontSize: 12, color: COLORS.ink, lineHeight: 16 }}
+          <Text
+            style={{
+              fontFamily: FONTS.medium,
+              fontSize: 13,
+              color: '#0F172A',
+            }}
+            numberOfLines={1}
+          >
+            {value}
+          </Text>
+        </VStack>
+      </HStack>
+    </Box>
+  );
+}
+
+function MetaTile({
+  icon: Icon,
+  iconBg,
+  iconFg,
+  label,
+  value,
+  full,
+}: {
+  icon: typeof FileText;
+  iconBg: string;
+  iconFg: string;
+  label: string;
+  value: string;
+  full?: boolean;
+}) {
+  return (
+    <Box
+      style={{
+        flex: full ? undefined : 1,
+        width: full ? '100%' : undefined,
+        minWidth: full ? undefined : 0,
+        borderRadius: full ? 18 : 999,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        backgroundColor: COLORS.white,
+        borderWidth: 1.5,
+        borderColor: hexAlpha(COLORS.primary, 0.22),
+        shadowColor: COLORS.primaryDeep,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.12,
+        shadowRadius: 6,
+        elevation: 3,
+      }}
+    >
+      <HStack className="items-center" style={{ gap: 7 }}>
+        <Box
+          style={{
+            width: 24,
+            height: 24,
+            borderRadius: 999,
+            backgroundColor: iconBg,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
         >
-          {value}
-        </Text>
-      </Box>
+          <Icon size={12} color={iconFg} strokeWidth={2.3} />
+        </Box>
+        <VStack style={{ flex: 1, minWidth: 0, gap: 0 }}>
+          <Text
+            style={{
+              fontFamily: FONTS.bold,
+              fontSize: 12,
+              letterSpacing: 0.3,
+              color: '#1A368E',
+              textTransform: 'uppercase',
+            }}
+          >
+            {label}
+          </Text>
+          <Text
+            style={{
+              fontFamily: FONTS.medium,
+              fontSize: 13,
+              color: '#0F172A',
+              lineHeight: 17,
+            }}
+            numberOfLines={full ? 3 : 1}
+          >
+            {value}
+          </Text>
+        </VStack>
+      </HStack>
     </Box>
   );
 }

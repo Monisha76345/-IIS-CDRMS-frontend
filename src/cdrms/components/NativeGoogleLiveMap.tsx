@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
-import MapView, { Circle, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { Box } from '@/components/ui/box';
 import { Text } from '@/components/ui/text';
@@ -9,6 +9,8 @@ import type { LiveGeoMapProps } from './LiveGeoMap.types';
 
 /**
  * Native Google Maps SDK via react-native-maps (dev client / production builds).
+ * Camera recenters only on zoom / explicit recenter — not on every GPS tick —
+ * so pan/zoom gestures are not cancelled.
  */
 export function NativeGoogleLiveMap({
   height = 280,
@@ -20,24 +22,32 @@ export function NativeGoogleLiveMap({
   zoom = 18,
   latitudeDelta,
   accuracyMeters,
+  zoneRadiusFeet,
+  bottomPadding = 0,
   interactive = true,
   showBrandBadge = true,
 }: LiveGeoMapProps) {
   const mapRef = useRef<MapView>(null);
   const latDelta = latitudeDelta ?? latitudeDeltaFromZoom(zoom);
   const lngDelta = latDelta;
+  const latestCoord = useRef({ latitude, longitude });
+  latestCoord.current = { latitude, longitude };
+  const fenceMeters =
+    zoneRadiusFeet != null && zoneRadiusFeet > 0 ? zoneRadiusFeet * 0.3048 : 0;
 
   useEffect(() => {
+    const { latitude: lat, longitude: lng } = latestCoord.current;
     mapRef.current?.animateToRegion(
       {
-        latitude,
-        longitude,
+        latitude: lat,
+        longitude: lng,
         latitudeDelta: latDelta,
         longitudeDelta: lngDelta,
       },
       280,
     );
-  }, [latitude, longitude, latDelta, lngDelta, recenterKey]);
+    // Intentionally omit live lat/lng — GPS updates must not yank the camera.
+  }, [recenterKey, latDelta, lngDelta]);
 
   return (
     <View
@@ -60,6 +70,7 @@ export function NativeGoogleLiveMap({
           longitudeDelta: lngDelta,
         }}
         mapType="standard"
+        // Keep blue dot if available, but always draw our own pin below.
         showsUserLocation
         showsMyLocationButton={false}
         showsCompass={false}
@@ -71,15 +82,36 @@ export function NativeGoogleLiveMap({
         pitchEnabled={false}
         loadingEnabled
         userInterfaceStyle="light"
+        moveOnMarkerPress={false}
+        // Push camera center into the visible map above the bottom sheet.
+        mapPadding={{ top: 12, right: 0, bottom: Math.max(0, bottomPadding), left: 0 }}
       >
         {accuracyMeters != null && accuracyMeters > 0 ? (
           <Circle
             center={{ latitude, longitude }}
             radius={accuracyMeters}
-            strokeColor={outside ? 'rgba(220,38,38,0.55)' : 'rgba(75,73,172,0.45)'}
-            fillColor={outside ? 'rgba(220,38,38,0.12)' : 'rgba(75,73,172,0.1)'}
+            strokeColor={outside ? 'rgba(220,38,38,0.55)' : 'rgba(34,197,94,0.5)'}
+            fillColor={outside ? 'rgba(220,38,38,0.12)' : 'rgba(34,197,94,0.14)'}
           />
         ) : null}
+
+        {fenceMeters > 0 ? (
+          <Circle
+            center={{ latitude, longitude }}
+            radius={Math.max(fenceMeters, 4)}
+            strokeColor={outside ? 'rgba(220,38,38,0.85)' : 'rgba(16,185,129,0.85)'}
+            fillColor={outside ? 'rgba(220,38,38,0.08)' : 'rgba(16,185,129,0.1)'}
+            strokeWidth={2}
+          />
+        ) : null}
+
+        {/* Default Google red pin + showsUserLocation green/blue live-dot */}
+        <Marker
+          coordinate={{ latitude, longitude }}
+          pinColor="red"
+          zIndex={10}
+          title="Current location"
+        />
       </MapView>
 
       {showBrandBadge ? (

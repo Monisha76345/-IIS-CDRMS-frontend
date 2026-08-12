@@ -47,6 +47,7 @@ import { runApplicationPdfDownload } from '@/src/cdrms/lib/runApplicationPdfDown
 import { usePdfDownloads } from '@/src/cdrms/hooks/usePdfDownloadProgress';
 import { PdfDownloadThinProgress } from '@/src/cdrms/components/PdfDownloadThinProgress';
 import { SearchField } from '@/src/cdrms/components/SearchField';
+import { ViewApplicationHeader } from '@/src/cdrms/components/ViewApplicationHeader';
 import {
   COLORS,
   FONTS,
@@ -163,7 +164,7 @@ export function CaoHomeScreen({ go }: { go: Go }) {
         key={themeId}
         className="flex-1"
         style={{ zIndex: 1 }}
-        contentContainerStyle={{ paddingBottom: 96 }}
+        contentContainerStyle={{ paddingBottom: 150 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -171,6 +172,7 @@ export function CaoHomeScreen({ go }: { go: Go }) {
           user={user}
           zoneLabel={zoneLabel}
           go={go}
+          eyebrow="CAO"
           tagline="Review submitted applications"
           onLogout={() => {
             void (async () => {
@@ -240,7 +242,7 @@ export function CaoHomeScreen({ go }: { go: Go }) {
                     numberOfLines={1}
                     style={{
                       fontFamily: FONTS.semibold,
-                      fontSize: 9,
+                      fontSize: 12,
                       color: selected ? 'rgba(255,255,255,0.9)' : COLORS.slate,
                       textAlign: 'center',
                       paddingHorizontal: 2,
@@ -273,8 +275,17 @@ export function CaoHomeScreen({ go }: { go: Go }) {
             value={q}
             onChangeText={setQ}
             placeholder="Search application, site, engineer…"
-            height={42}
-            style={{ paddingHorizontal: 10 }}
+            height={48}
+            iconColor={COLORS.ink}
+            placeholderTextColor={COLORS.ink}
+            inputStyle={{ fontSize: 15, color: COLORS.ink }}
+            style={{
+              borderRadius: 999,
+              borderWidth: 1.5,
+              borderColor: hexAlpha(COLORS.primary, 0.35),
+              backgroundColor: COLORS.white,
+              paddingHorizontal: 12,
+            }}
           />
 
           {loading ? (
@@ -303,6 +314,7 @@ export function CaoHomeScreen({ go }: { go: Go }) {
                   status={app.status}
                   dateLine={applicationCardDateLine(app)}
                   zoneBesideDate
+                  compactDateZone
                   onPress={() => {
                     setSelectedOfficeAppId(app.id);
                     setCaoReturnScreen('cao_home');
@@ -409,7 +421,16 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
             value={q}
             onChangeText={setQ}
             placeholder="Search application, site, engineer…"
+            height={48}
             iconColor={COLORS.primary}
+            placeholderTextColor={COLORS.ink}
+            inputStyle={{ fontSize: 15, color: COLORS.ink }}
+            style={{
+              borderRadius: 999,
+              borderWidth: 1.5,
+              borderColor: hexAlpha(COLORS.primary, 0.35),
+              backgroundColor: COLORS.white,
+            }}
             endAdornment={
               <Pressable onPress={() => void reload()} accessibilityLabel="Refresh">
                 <RefreshCw size={15} color={COLORS.primary} strokeWidth={2.4} />
@@ -470,6 +491,8 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
               engineerName={app.assignedEngineerName}
               status={app.status}
               dateLine={applicationCardDateLine(app)}
+              zoneBesideDate
+              compactDateZone
               onPress={() => {
                 setSelectedOfficeAppId(app.id);
                 setCaoReturnScreen('cao_apps');
@@ -530,113 +553,117 @@ export function CaoDetailScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-background">
-      <BdaPageWatermark />
-      <AppHeader
-        title="View Application"
-        subtitle={app?.applicationNumber || 'Application details'}
-        onBack={() => go(backTarget)}
-        gradient
-        go={go}
-        showNotifications={false}
-        showLogout={false}
-      />
-      <ScrollView
-        key={themeId}
-        style={{ zIndex: 1 }}
-        contentContainerStyle={{ paddingTop: 8, paddingBottom: 28, gap: 8 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {loading ? (
-          <ScreenLoader text="Loading application details…" />
-        ) : error || !app ? (
+      <Box style={{ flex: 1, backgroundColor: '#F0F4F8' }}>
+        <ScrollView
+          key={themeId}
+          style={{ flex: 1, backgroundColor: '#F0F4F8' }}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 28 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <ViewApplicationHeader onBack={() => go(backTarget)} zone={app?.zoneCode} />
           <Box
-            className="mx-4 rounded-2xl border px-4 py-6"
             style={{
-              borderColor: `${COLORS.destructive}40`,
-              backgroundColor: `${COLORS.destructive}0D`,
+              flexGrow: 1,
+              backgroundColor: COLORS.white,
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              paddingTop: 12,
+              gap: 8,
             }}
           >
-            <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: COLORS.destructive, textAlign: 'center' }}>
-              {error || 'Not found'}
-            </Text>
-          </Box>
-        ) : (
-          <VStack style={{ gap: 8 }}>
-            <ApplicationRecordDetails app={app} />
+          {loading ? (
+            <ScreenLoader text="Loading application details…" />
+          ) : error || !app ? (
+            <Box
+              className="mx-4 rounded-2xl border px-4 py-6"
+              style={{
+                borderColor: `${COLORS.destructive}40`,
+                backgroundColor: `${COLORS.destructive}0D`,
+              }}
+            >
+              <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: COLORS.destructive, textAlign: 'center' }}>
+                {error || 'Not found'}
+              </Text>
+            </Box>
+          ) : (
+            <VStack style={{ gap: 8 }}>
+              <ApplicationRecordDetails app={app} />
 
-            <Box style={{ marginHorizontal: 16 }}>
-              <Pressable
-                onPress={() => void handleDownload()}
-                disabled={isDownloadingThis}
-                className="overflow-hidden active:opacity-90"
-                style={{
-                  borderRadius: DESIGN.cardRadius,
-                  opacity: isDownloadingThis ? 0.7 : 1,
-                  shadowColor: COLORS.primary,
-                  shadowOffset: { width: 0, height: 8 },
-                  shadowOpacity: 0.24,
-                  shadowRadius: 12,
-                  elevation: 4,
-                }}
-              >
-                <LinearGradient
-                  colors={gradientStops(GRADIENT_PRIMARY)}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
+              <Box style={{ marginHorizontal: 16 }}>
+                <Pressable
+                  onPress={() => void handleDownload()}
+                  disabled={isDownloadingThis}
+                  className="overflow-hidden active:opacity-90"
                   style={{
-                    minHeight: 48,
-                    paddingHorizontal: 16,
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6,
-                    paddingVertical: isDownloadingThis ? 10 : 0,
+                    borderRadius: DESIGN.cardRadius,
+                    opacity: isDownloadingThis ? 0.7 : 1,
+                    shadowColor: COLORS.primary,
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.24,
+                    shadowRadius: 12,
+                    elevation: 4,
                   }}
                 >
-                  {isDownloadingThis && activeDownload ? (
-                    <VStack style={{ width: '100%', gap: 6 }}>
-                      <Text
-                        style={{
-                          fontFamily: FONTS.bold,
-                          fontSize: 14,
-                          color: COLORS.white,
-                          textAlign: 'center',
-                        }}
-                      >
-                        Downloading…
-                      </Text>
-                      <PdfDownloadThinProgress
-                        percent={activeDownload.percent}
-                        color="#FFFFFF"
-                        trackColor="rgba(255,255,255,0.35)"
-                        labelColor="#FFFFFF"
-                      />
-                      <Text
-                        style={{
-                          fontFamily: FONTS.medium,
-                          fontSize: 11,
-                          color: 'rgba(255,255,255,0.92)',
-                          textAlign: 'center',
-                        }}
-                        numberOfLines={1}
-                      >
-                        {activeDownload.label}
-                      </Text>
-                    </VStack>
-                  ) : (
-                    <HStack style={{ alignItems: 'center', gap: 8 }}>
-                      <Download size={16} color={COLORS.white} />
-                      <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.white }}>
-                        Download PDF
-                      </Text>
-                    </HStack>
-                  )}
-                </LinearGradient>
-              </Pressable>
-            </Box>
-          </VStack>
-        )}
-      </ScrollView>
+                  <LinearGradient
+                    colors={gradientStops(GRADIENT_PRIMARY)}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={{
+                      minHeight: 48,
+                      paddingHorizontal: 16,
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      paddingVertical: isDownloadingThis ? 10 : 0,
+                    }}
+                  >
+                    {isDownloadingThis && activeDownload ? (
+                      <VStack style={{ width: '100%', gap: 6 }}>
+                        <Text
+                          style={{
+                            fontFamily: FONTS.bold,
+                            fontSize: 14,
+                            color: COLORS.white,
+                            textAlign: 'center',
+                          }}
+                        >
+                          Downloading…
+                        </Text>
+                        <PdfDownloadThinProgress
+                          percent={activeDownload.percent}
+                          color="#FFFFFF"
+                          trackColor="rgba(255,255,255,0.35)"
+                          labelColor="#FFFFFF"
+                        />
+                        <Text
+                          style={{
+                            fontFamily: FONTS.medium,
+                            fontSize: 11,
+                            color: 'rgba(255,255,255,0.92)',
+                            textAlign: 'center',
+                          }}
+                          numberOfLines={1}
+                        >
+                          {activeDownload.label}
+                        </Text>
+                      </VStack>
+                    ) : (
+                      <HStack style={{ alignItems: 'center', gap: 8 }}>
+                        <Download size={16} color={COLORS.white} />
+                        <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.white }}>
+                          Download PDF
+                        </Text>
+                      </HStack>
+                    )}
+                  </LinearGradient>
+                </Pressable>
+              </Box>
+            </VStack>
+          )}
+          </Box>
+        </ScrollView>
+      </Box>
     </ScreenShell>
   );
 }

@@ -372,7 +372,13 @@ export function fetchZcApplications(token: string) {
 }
 
 export function fetchCaoApplications(token: string) {
-  return fetchApplicationList(token, 'cao');
+  return fetchApplicationList(token, 'cao').then((apps) =>
+    apps.filter((a) => {
+      // CAO only after engineer submit — hide assigned / in_progress.
+      if (a.engineerSubmittedAt?.trim()) return true;
+      return normalizeApplicationStatus(a.status) === 'submitted';
+    }),
+  );
 }
 
 export function fetchApplicationsAs(token: string, as: ApplicationAs) {

@@ -131,27 +131,43 @@ export function LiveGpsPanel({
             }}
           />
           <Text
-            style={{
-              ...TYPE.caption,
-              fontFamily: FONTS.bold,
-              color: COLORS.ink,
-              fontSize: isPremium ? 10 : undefined,
-            }}
+            style={
+              isPremium
+                ? {
+                    fontFamily: FONTS.bold,
+                    fontSize: 13,
+                    letterSpacing: 0.3,
+                    color: COLORS.ink,
+                    textTransform: 'uppercase',
+                  }
+                : {
+                    ...TYPE.caption,
+                    fontFamily: FONTS.bold,
+                    color: COLORS.ink,
+                  }
+            }
           >
             {hasFix
-              ? 'LIVE LOCATION'
+              ? 'Live location'
               : loading
                 ? 'Finding location…'
                 : error || 'Waiting for location'}
           </Text>
           {accuracyLabel ? (
             <Text
-              style={{
-                ...TYPE.caption,
-                fontFamily: FONTS.semibold,
-                color: isPremium ? COLORS.slate : COLORS.ink,
-                fontSize: isPremium ? 10 : undefined,
-              }}
+              style={
+                isPremium
+                  ? {
+                      fontFamily: FONTS.semibold,
+                      fontSize: 12,
+                      color: '#475569',
+                    }
+                  : {
+                      ...TYPE.caption,
+                      fontFamily: FONTS.semibold,
+                      color: COLORS.ink,
+                    }
+              }
             >
               {accuracyLabel}
             </Text>
@@ -161,10 +177,10 @@ export function LiveGpsPanel({
         <Text
           style={{
             fontFamily: FONTS.bold,
-            fontWeight: '800',
-            fontSize: 15,
+            fontSize: isPremium ? 14 : 15,
+            fontWeight: isPremium ? undefined : '800',
             color: COLORS.ink,
-            lineHeight: 21,
+            lineHeight: isPremium ? 18 : 21,
             flexShrink: 1,
           }}
         >
@@ -174,13 +190,22 @@ export function LiveGpsPanel({
 
         {areaLine ? (
           <Text
-            style={{
-              ...TYPE.caption,
-              color: COLORS.slate,
-              fontSize: isPremium ? 11 : undefined,
-              lineHeight: isPremium ? 16 : 18,
-              flexShrink: 1,
-            }}
+            style={
+              isPremium
+                ? {
+                    fontFamily: FONTS.semibold,
+                    fontSize: 12,
+                    lineHeight: 16,
+                    color: '#475569',
+                    flexShrink: 1,
+                  }
+                : {
+                    ...TYPE.caption,
+                    color: COLORS.slate,
+                    lineHeight: 18,
+                    flexShrink: 1,
+                  }
+            }
           >
             {areaLine}
             {pinCode ? ` · ${pinCode}` : ''}

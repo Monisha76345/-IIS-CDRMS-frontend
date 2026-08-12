@@ -9,13 +9,16 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { ImagePreviewModal } from '@/src/cdrms/components/ImagePreviewModal';
 import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
-import { GlassSectionCard, HeaderStatusBadge } from '@/src/cdrms/components/GlassSurface';
 import { captureSitePhoto } from '@/src/cdrms/hooks/useMediaCapture';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
 import { DIRECTION_META, type Cardinal } from '@/src/cdrms/project/types';
-import { CARDINAL_ACCENT, COLORS, FONTS, GLASS, SPACE, DESIGN } from '@/src/cdrms/theme';
+import { PremiumStepCard } from '@/src/cdrms/components/SurveyLayout';
+import { CARDINAL_ACCENT, COLORS, FONTS, DESIGN, hexAlpha } from '@/src/cdrms/theme';
+
+const BLUE_SOFT = '#EEF4FF';
+const BLUE_BORDER = 'rgba(26,86,219,0.22)';
 
 const CARDINALS: Cardinal[] = ['N', 'S', 'E', 'W'];
 
@@ -67,13 +70,28 @@ export function SchedulesEditorCard() {
   const photoCount = CARDINALS.filter((k) => Boolean(draft.surroundingPhotos[k])).length;
 
   return (
-    <GlassSectionCard
+    <PremiumStepCard
       title="Site Schedules *"
       subtitle="Check the box if road exists and upload image"
       icon={MapPinned}
-      badge={<HeaderStatusBadge label={`${photoCount}/4`} tone="info" />}
+      badge={
+        <Box
+          style={{
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+            borderRadius: 999,
+            backgroundColor: BLUE_SOFT,
+            borderWidth: 1,
+            borderColor: BLUE_BORDER,
+          }}
+        >
+          <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: COLORS.primary }}>
+            {photoCount}/4
+          </Text>
+        </Box>
+      }
     >
-      <VStack style={{ gap: SPACE[2] }}>
+      <VStack style={{ gap: 8 }}>
         {CARDINALS.map((k) => {
           const accent = CARDINAL_ACCENT[k];
           const isRoad = Boolean(draft.roadFlags?.[k]);
@@ -85,48 +103,34 @@ export function SchedulesEditorCard() {
             <Box
               key={`eng-sched-${k}`}
               style={{
-                borderRadius: DESIGN.cardRadius,
-                padding: SPACE[2],
-                backgroundColor: GLASS.surfaceSolid,
-                borderWidth: 1,
-                borderColor: GLASS.border,
+                borderRadius: 16,
+                padding: 8,
+                backgroundColor: COLORS.white,
+                borderWidth: 1.5,
+                borderColor: hexAlpha(accent, 0.35),
                 opacity: isClearing ? 0.55 : 1,
-                shadowColor: '#0F172A',
+                shadowColor: COLORS.primaryDeep,
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.08,
-                shadowRadius: 8,
+                shadowRadius: 5,
                 elevation: 2,
               }}
             >
-              <HStack className="items-center" style={{ gap: SPACE[2], minHeight: 44 }}>
-                <Box style={{ width: 44, justifyContent: 'center', flexShrink: 0 }}>
-                  <Box
-                    style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: 999,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: GLASS.tintBlue,
-                      borderWidth: 1,
-                      borderColor: '#BFDBFE',
-                      marginBottom: 2,
-                    }}
-                  >
-                    <Text style={{ fontFamily: FONTS.bold, fontSize: 10, color: accent }}>
-                      {k}
+              <HStack className="items-center" style={{ gap: 8, minHeight: 40 }}>
+                <Box style={{ width: 40, justifyContent: 'center', flexShrink: 0 }}>
+                  <HStack className="items-center" style={{ gap: 4, marginBottom: 2 }}>
+                    <Box
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: 999,
+                        backgroundColor: accent,
+                      }}
+                    />
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: accent }}>
+                      {DIRECTION_META[k].label}
                     </Text>
-                  </Box>
-                  <Text
-                    numberOfLines={1}
-                    style={{
-                      fontFamily: FONTS.medium,
-                      fontSize: 9,
-                      color: COLORS.slate,
-                    }}
-                  >
-                    {DIRECTION_META[k].label}
-                  </Text>
+                  </HStack>
                 </Box>
 
                 <Pressable
@@ -136,12 +140,12 @@ export function SchedulesEditorCard() {
                     flexDirection: 'row',
                     alignItems: 'center',
                     gap: 5,
-                    height: 32,
+                    height: 30,
                     paddingHorizontal: 8,
-                    borderRadius: 8,
-                    backgroundColor: isRoad ? GLASS.tintBlue : GLASS.surface,
+                    borderRadius: 999,
+                    backgroundColor: isRoad ? BLUE_SOFT : COLORS.white,
                     borderWidth: 1,
-                    borderColor: isRoad ? accent : GLASS.borderSoft,
+                    borderColor: isRoad ? accent : BLUE_BORDER,
                   }}
                 >
                   <Box
@@ -161,7 +165,7 @@ export function SchedulesEditorCard() {
                   <Text
                     style={{
                       fontFamily: FONTS.bold,
-                      fontSize: 12,
+                      fontSize: 11,
                       color: isRoad ? accent : COLORS.ink,
                     }}
                   >
@@ -178,17 +182,17 @@ export function SchedulesEditorCard() {
                   autoCorrect={false}
                   style={{
                     flex: 1,
-                    minWidth: 72,
+                    minWidth: 88,
                     height: 32,
-                    borderRadius: 8,
+                    borderRadius: 999,
                     borderWidth: 1,
-                    borderColor: GLASS.border,
-                    backgroundColor: COLORS.white,
+                    borderColor: BLUE_BORDER,
+                    backgroundColor: BLUE_SOFT,
                     paddingHorizontal: 8,
-                    paddingVertical: Platform.OS === 'android' ? 0 : 6,
+                    paddingVertical: Platform.OS === 'android' ? 0 : 5,
                     fontSize: 11,
-                    fontFamily: FONTS.medium,
-                    color: COLORS.ink,
+                    fontFamily: FONTS.semibold,
+                    color: '#0F172A',
                     ...(Platform.OS === 'android'
                       ? { textAlignVertical: 'center', includeFontPadding: false }
                       : null),
@@ -211,14 +215,14 @@ export function SchedulesEditorCard() {
                     disabled={isClearing}
                     className="active:opacity-85 overflow-hidden"
                     style={{
-                      width: 52,
-                      height: 40,
-                      borderRadius: DESIGN.stepRadius,
+                      width: 48,
+                      height: 36,
+                      borderRadius: 12,
                       backgroundColor: COLORS.white,
                       alignItems: 'center',
                       justifyContent: 'center',
                       borderWidth: 1,
-                      borderColor: photo ? accent : GLASS.border,
+                      borderColor: photo ? accent : BLUE_BORDER,
                     }}
                     accessibilityLabel={
                       photo
@@ -290,6 +294,6 @@ export function SchedulesEditorCard() {
         title={previewTitle}
         onClose={() => setPreviewUri(null)}
       />
-    </GlassSectionCard>
+    </PremiumStepCard>
   );
 }
