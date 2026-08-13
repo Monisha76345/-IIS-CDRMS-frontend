@@ -78,23 +78,14 @@ function isRoadSide(app: MobileApplication, side: 'N' | 'S' | 'E' | 'W') {
   return Boolean(flags[side] ?? flags[side.toLowerCase()]);
 }
 
-/** Same schedule labels as the in-app BoundariesDiagram (includes road strip). */
+/** Engineer plot labels (notes + road checkbox only — never ZC schedule text). */
 function diagramSchedule(app: MobileApplication, side: 'N' | 'S' | 'E' | 'W') {
   const engNotes = app.engineerScheduleNotes || {};
   const eng = engNotes[side]?.trim() || engNotes[side.toLowerCase()]?.trim() || '';
-  const zc =
-    side === 'N'
-      ? app.scheduleNorth
-      : side === 'S'
-        ? app.scheduleSouth
-        : side === 'E'
-          ? app.scheduleEast
-          : app.scheduleWest;
-  const base = eng || (zc || '').trim();
   const road = isRoadSide(app, side);
-  if (road && base) return `Road · ${base}`;
+  if (road && eng) return `Road · ${eng}`;
   if (road) return 'Road';
-  return base || null;
+  return eng || null;
 }
 
 function isVideoMedia(url: string) {

@@ -39,7 +39,7 @@ import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/src/auth/AuthContext';
 import { resolveAppRole, displayName, roleDisplayTitle } from '@/src/auth/roles';
 import { PremiumGradientBackground } from '@/src/cdrms/components/GlassSurface';
-import { ScreenWaves, HeaderMeshBackground, MeshSheetEdge, WaveSheetEdge } from '@/src/cdrms/components/WaveDecor';
+import { HeaderMeshBackground, MeshSheetEdge, WaveSheetEdge } from '@/src/cdrms/components/WaveDecor';
 import { COLORS, DESIGN, FONTS, GLASS, GRADIENT_CARD_HEADER, GRADIENT_HEADER, GRADIENT_PRIMARY, SPACE, TYPE, gradientStops, headerFg, hexAlpha, isMeshDesign, isWaveDesign, usesLightHeader, usesNormalHeader, usesSolidHeader } from '@/src/cdrms/theme';
 import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
 import type { Go, NavTab, Screen } from '@/src/cdrms/types';
@@ -65,14 +65,12 @@ export function ScreenShell({
   const { themeId } = useTheme();
   // Keep this a plain full-screen shell. Form screens add KeyboardAvoidingView
   // inside SurveyScaffold (iOS-only) so KAV does not fight every screen.
-  // Soft dual-tone waves sit behind content on every screen.
   return (
     <Box
       key={themeId}
       className={`flex-1 bg-background ${className}`}
       style={[{ backgroundColor: COLORS.soft, overflow: 'hidden' }, style]}
     >
-      <ScreenWaves />
       <Box style={{ flex: 1, zIndex: 1 }}>{children}</Box>
     </Box>
   );
@@ -650,8 +648,10 @@ export function AppHeader({
     return (
       <Box
         key={themeId}
-        className="bg-card border-b border-border"
         style={{
+          backgroundColor: '#F0F4F8',
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: 'rgba(26,54,142,0.12)',
           paddingTop: insets.top + (compact ? SPACE[1] : SPACE[2]),
           paddingHorizontal: SPACE.gutter,
           paddingBottom: compact ? SPACE[1] : SPACE[2],
@@ -1060,6 +1060,45 @@ function NotchedBarBg({
   );
 }
 
+/** Floating capsule with a soft U-notch so the center + sits in a curved cradle. */
+function CapsuleNotchedBarBg({
+  width,
+  height,
+  notchR,
+  fill = '#FFFFFF',
+  stroke = 'rgba(15,23,42,0.08)',
+}: {
+  width: number;
+  height: number;
+  notchR: number;
+  fill?: string;
+  stroke?: string;
+}) {
+  const cx = width / 2;
+  const r = height / 2;
+  const bowl = Math.min(notchR + 4, height * 0.55);
+  const wing = 14;
+  const d = [
+    `M0,${r}`,
+    `A${r},${r} 0 0 1 ${r},0`,
+    `L${cx - notchR - wing},0`,
+    `C${cx - notchR - 2},0 ${cx - notchR + 8},${bowl * 0.9} ${cx},${bowl}`,
+    `C${cx + notchR - 8},${bowl * 0.9} ${cx + notchR + 2},0 ${cx + notchR + wing},0`,
+    `L${width - r},0`,
+    `A${r},${r} 0 0 1 ${width},${r}`,
+    `A${r},${r} 0 0 1 ${width - r},${height}`,
+    `L${r},${height}`,
+    `A${r},${r} 0 0 1 0,${r}`,
+    'Z',
+  ].join(' ');
+
+  return (
+    <Svg width={width} height={height} style={{ position: 'absolute', left: 0, top: 0 }}>
+      <Path d={d} fill={fill} stroke={stroke} strokeWidth={1} />
+    </Svg>
+  );
+}
+
 export function BottomNav({
   active,
   onNav,
@@ -1234,6 +1273,171 @@ export function BottomNav({
     );
   };
 
+  /**
+   * Floating capsule nav:
+   * - Engineer / CAO: Home · Applications? · Profile (hidePlus)
+   * - ZC: Home · center + · Profile (keep capsule + restore plus)
+   */
+  if (hidePlus || role === 'zc') {
+    const capsuleIdle = COLORS.ink;
+    const capsuleActive = COLORS.primary;
+    const capsuleH = BAR_H + 6;
+    const showCapsulePlus = !hidePlus;
+    const capsuleFabOverhang = showCapsulePlus ? FAB_SIZE * 0.42 : 0;
+    const renderCapsuleTab = (it: (typeof leftItems)[number]) => {
+      const Icon = it.icon;
+      const on = active === it.k;
+      const isProfileTab = it.k === 'profile';
+      const profilePhoto = user?.profilePhoto?.trim() || null;
+      const profileInitials =
+        displayName(user)
+          .split(/\s+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((p) => p[0]?.toUpperCase() || '')
+          .join('') || 'U';
+      const tone = on ? capsuleActive : capsuleIdle;
+      return (
+        <Pressable
+          key={it.k}
+          onPress={() => onNav(it.target)}
+          accessibilityRole="button"
+          accessibilityLabel={it.label}
+          accessibilityState={{ selected: on }}
+          className="flex-1 items-center justify-center active:opacity-70"
+          style={{ height: capsuleH }}
+        >
+          <Box className="items-center justify-center relative" style={{ height: 24, width: 44 }}>
+            {isProfileTab ? (
+              <Box
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 12,
+                  overflow: 'hidden',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: profilePhoto ? COLORS.muted : COLORS.primary,
+                  borderWidth: on ? 2 : 1,
+                  borderColor: on ? capsuleActive : 'rgba(15,23,42,0.2)',
+                }}
+              >
+                {profilePhoto ? (
+                  <Image
+                    source={{ uri: profilePhoto }}
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 11,
+                      color: COLORS.white,
+                      lineHeight: 11,
+                    }}
+                  >
+                    {profileInitials}
+                  </Text>
+                )}
+              </Box>
+            ) : (
+              <Icon size={22} color={tone} strokeWidth={on ? 2.4 : 1.9} />
+            )}
+          </Box>
+          <Text
+            style={{
+              marginTop: 3,
+              fontFamily: on ? FONTS.semibold : FONTS.medium,
+              fontSize: 11,
+              lineHeight: 13,
+              color: tone,
+            }}
+          >
+            {it.label}
+          </Text>
+        </Pressable>
+      );
+    };
+
+    const capsuleW = Math.max(0, width - 36);
+    const capsuleNotchR = FAB_SIZE / 2 + 5;
+
+    return (
+      <Box
+        key={themeId}
+        pointerEvents="box-none"
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          paddingBottom: Math.max(insets.bottom, 10),
+          paddingHorizontal: 18,
+          paddingTop: capsuleFabOverhang + 4,
+          zIndex: 50,
+          elevation: 24,
+        }}
+      >
+        <Box
+          style={{
+            height: capsuleH,
+            borderRadius: 999,
+            backgroundColor: showCapsulePlus ? 'transparent' : COLORS.white,
+            borderWidth: showCapsulePlus ? 0 : 1,
+            borderColor: 'rgba(15,23,42,0.08)',
+            shadowColor: '#0F172A',
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.14,
+            shadowRadius: 16,
+            elevation: 16,
+            overflow: 'visible',
+            paddingHorizontal: 6,
+          }}
+        >
+          {showCapsulePlus ? (
+            <CapsuleNotchedBarBg
+              width={capsuleW}
+              height={capsuleH}
+              notchR={capsuleNotchR}
+              fill={COLORS.white}
+            />
+          ) : null}
+          <HStack style={{ height: capsuleH, alignItems: 'center' }}>
+            {leftItems.map(renderCapsuleTab)}
+            {showCapsulePlus ? <Box style={{ width: FAB_SIZE + 18 }} /> : null}
+            {rightItems.map(renderCapsuleTab)}
+          </HStack>
+        </Box>
+
+        {showCapsulePlus ? (
+          <Pressable
+            onPress={handlePlus}
+            accessibilityRole="button"
+            accessibilityLabel="New application"
+            className="absolute items-center justify-center active:opacity-90"
+            style={{
+              top: 4,
+              left: (width - FAB_SIZE) / 2,
+              width: FAB_SIZE,
+              height: FAB_SIZE,
+              borderRadius: 999,
+              backgroundColor: COLORS.primary,
+              shadowColor: COLORS.primaryDeep,
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.28,
+              shadowRadius: 14,
+              elevation: 18,
+              zIndex: 20,
+            }}
+          >
+            <Plus size={24} color={COLORS.white} strokeWidth={2.4} />
+          </Pressable>
+        ) : null}
+      </Box>
+    );
+  }
+
   return (
     <Box
       key={themeId}
@@ -1255,8 +1459,8 @@ export function BottomNav({
           // Solid base under the SVG notch so the footer never looks transparent
           backgroundColor: barFill,
           overflow: 'hidden',
-          borderTopLeftRadius: hidePlus ? DESIGN.radiusLg : 0,
-          borderTopRightRadius: hidePlus ? DESIGN.radiusLg : 0,
+          borderTopLeftRadius: 0,
+          borderTopRightRadius: 0,
           shadowColor: '#0F172A',
           shadowOffset: { width: 0, height: -4 },
           shadowOpacity: 0.12,
@@ -1269,20 +1473,18 @@ export function BottomNav({
         <NotchedBarBg
           width={width}
           height={barH}
-          notchR={hidePlus ? 0 : NOTCH_R}
+          notchR={NOTCH_R}
           topRadius={DESIGN.radiusLg}
           fill={barFill}
         />
 
         <HStack style={{ height: BAR_H, alignItems: 'center' }}>
           {leftItems.map(renderTab)}
-          {hidePlus ? null : <Box style={{ width: NOTCH_R * 2 }} />}
+          <Box style={{ width: NOTCH_R * 2 }} />
           {rightItems.map(renderTab)}
         </HStack>
       </Box>
 
-      {/* Center + nestled in the U */}
-      {hidePlus ? null : (
       <Pressable
         onPress={handlePlus}
         accessibilityRole="button"
@@ -1317,7 +1519,6 @@ export function BottomNav({
           <Plus size={24} color={fabIcon} strokeWidth={2.4} />
         </Box>
       </Pressable>
-      )}
     </Box>
   );
 }
@@ -1398,7 +1599,7 @@ export function ZoneTag({
   );
 }
 
-export function StatusChip({ status }: { status: string }) {
+export function statusChipColors(status: string): { bg: string; fg: string } {
   const styles: Record<string, { bg: string; fg: string }> = {
     Submitted: { bg: '#D1FAE5', fg: '#047857' },
     Verified: { bg: '#D1FAE5', fg: '#059669' },
@@ -1410,17 +1611,38 @@ export function StatusChip({ status }: { status: string }) {
     in_progress: { bg: '#FEE2E2', fg: '#DC2626' },
     Assigned: { bg: GLASS.tintBlue, fg: COLORS.primary },
   };
-  const s = styles[status] || { bg: '#F1F5F9', fg: '#0F172A' };
+  return styles[status] || { bg: '#F1F5F9', fg: '#0F172A' };
+}
+
+export function StatusChip({
+  status,
+  compact = false,
+}: {
+  status: string;
+  /** Smaller pill so long application numbers stay visible. */
+  compact?: boolean;
+}) {
+  const s = statusChipColors(status);
   return (
     <Box
       style={{
-        paddingHorizontal: 10,
-        paddingVertical: 4,
+        paddingHorizontal: compact ? 6 : 10,
+        paddingVertical: compact ? 2 : 5,
         borderRadius: 999,
         backgroundColor: s.bg,
+        flexShrink: 0,
       }}
     >
-      <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: s.fg }}>
+      <Text
+        allowFontScaling={false}
+        style={{
+          fontFamily: FONTS.bold,
+          fontSize: compact ? 9 : 12,
+          lineHeight: compact ? 11 : 15,
+          color: s.fg,
+        }}
+        numberOfLines={1}
+      >
         {status}
       </Text>
     </Box>

@@ -22,6 +22,7 @@ type SearchFieldProps = {
   nested?: boolean;
   height?: number;
   iconColor?: string;
+  placeholderTextColor?: string;
   className?: string;
   style?: ViewStyle;
   inputStyle?: TextInputProps['style'];
@@ -35,6 +36,7 @@ export function SearchField({
   nested = true,
   height = 44,
   iconColor = COLORS.slate,
+  placeholderTextColor = COLORS.slate,
   className,
   style,
   inputStyle,
@@ -57,21 +59,24 @@ export function SearchField({
         style,
       ]}
     >
-      <Search size={16} color={iconColor} />
+      <Search size={15} color={iconColor} />
       <TextInput
         ref={inputRef}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={COLORS.slate}
+        placeholderTextColor={placeholderTextColor}
         returnKeyType="search"
+        numberOfLines={1}
         style={[
           {
             flex: 1,
             marginLeft: 8,
-            fontSize: 13,
+            fontSize: 15,
+            lineHeight: 20,
             fontFamily: FONTS.medium,
             color: COLORS.ink,
+            paddingVertical: 0,
             ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null),
           },
           inputStyle,

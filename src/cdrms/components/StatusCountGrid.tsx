@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { ActivityIndicator, StyleSheet } from 'react-native';
+import { ActivityIndicator } from 'react-native';
 import { Clock, Download, Eye, FilePenLine, type LucideIcon } from 'lucide-react-native';
 
 import { Box } from '@/components/ui/box';
@@ -13,7 +13,6 @@ import {
 } from '@/src/api/applications';
 import { ApplicationStatusBadge } from '@/src/cdrms/components/ApplicationStatusBadge';
 import { DateZoneMetaRow } from '@/src/cdrms/components/DateZoneMetaRow';
-import { listCardSurface, listCardInnerClipStyle, listCardStatusRailStyle } from '@/src/cdrms/components/WelcomeHomeChrome';
 import { COLORS, DESIGN, FONTS, GLASS, hexAlpha } from '@/src/cdrms/theme';
 import { useTheme } from '@/src/theme/ThemeContext';
 
@@ -340,7 +339,7 @@ export function StatusCountGrid({
   );
 }
 
-/** Application list row — shape changes with theme listVariant. */
+/** Application list row — same simple card as engineer home (no left rail). */
 export function OfficeAppRow({
   title,
   siteNo,
@@ -355,6 +354,8 @@ export function OfficeAppRow({
   downloadPercent,
   /** ZC Recent Activity — show zone beside date/time instead of on site line. */
   zoneBesideDate = false,
+  /** Smaller date/time · zone line (CAO cards). */
+  compactDateZone = false,
   cardIndex = 0,
 }: {
   title: string;
@@ -369,14 +370,14 @@ export function OfficeAppRow({
   downloading?: boolean;
   downloadPercent?: number;
   zoneBesideDate?: boolean;
+  compactDateZone?: boolean;
   cardIndex?: number;
 }) {
   const { themeId } = useTheme();
   const tone = applicationStatusTone(status);
-  const lv = DESIGN.listVariant;
 
   const actions = (
-    <HStack className="items-center" style={{ gap: 6 }}>
+    <HStack className="items-center" style={{ gap: 5 }}>
       {onEdit ? (
         <Pressable
           onPress={(e) => {
@@ -388,11 +389,11 @@ export function OfficeAppRow({
           style={{
             width: 32,
             height: 32,
-            borderRadius: lv === 'tile' || lv === 'ghost' ? DESIGN.chipRadius : 999,
+            borderRadius: 999,
             backgroundColor: COLORS.slate,
           }}
         >
-          <FilePenLine size={14} color={COLORS.white} strokeWidth={2.4} />
+          <FilePenLine size={13} color={COLORS.white} strokeWidth={2.4} />
         </Pressable>
       ) : null}
       {onDownload ? (
@@ -410,7 +411,7 @@ export function OfficeAppRow({
           style={{
             width: 32,
             height: 32,
-            borderRadius: lv === 'tile' || lv === 'ghost' ? DESIGN.chipRadius : 999,
+            borderRadius: 999,
             backgroundColor: downloading ? COLORS.primary : COLORS.success,
             opacity: downloading ? 0.85 : 1,
           }}
@@ -418,7 +419,7 @@ export function OfficeAppRow({
           {downloading ? (
             <ActivityIndicator size="small" color={COLORS.white} />
           ) : (
-            <Download size={14} color={COLORS.white} strokeWidth={2.4} />
+            <Download size={13} color={COLORS.white} strokeWidth={2.4} />
           )}
         </Pressable>
       ) : null}
@@ -427,20 +428,20 @@ export function OfficeAppRow({
         style={{
           width: 32,
           height: 32,
-          borderRadius: lv === 'tile' || lv === 'ghost' ? DESIGN.chipRadius : 999,
+          borderRadius: 999,
           backgroundColor: COLORS.primary,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Eye size={14} color={COLORS.white} strokeWidth={2.4} />
+        <Eye size={13} color={COLORS.white} strokeWidth={2.4} />
       </Box>
     </HStack>
   );
 
   const meta = (
     <Text
-      style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.ink }}
+      style={{ fontFamily: FONTS.medium, fontSize: 14, lineHeight: 17, color: COLORS.ink }}
       numberOfLines={1}
     >
       Site #{siteNo || '—'}
@@ -451,12 +452,22 @@ export function OfficeAppRow({
 
   const dateRow = dateLine ? (
     zoneBesideDate ? (
-      <DateZoneMetaRow date={dateLine} zone={zoneCode} />
+      <DateZoneMetaRow date={dateLine} zone={zoneCode} compact={compactDateZone} />
     ) : (
       <HStack className="items-center" style={{ gap: 4 }}>
-        <Clock size={12} color={COLORS.primary} strokeWidth={2.3} />
+        <Clock
+          size={compactDateZone ? 12 : 13}
+          color={COLORS.primary}
+          strokeWidth={2.3}
+        />
         <Text
-          style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}
+          allowFontScaling={false}
+          style={{
+            fontFamily: FONTS.medium,
+            fontSize: compactDateZone ? 12.5 : 14,
+            lineHeight: compactDateZone ? 16 : 17,
+            color: COLORS.ink,
+          }}
           numberOfLines={1}
         >
           {dateLine}
@@ -465,112 +476,53 @@ export function OfficeAppRow({
     )
   ) : null;
 
-  const body = (
-    <VStack className="flex-1 min-w-0" style={{ paddingVertical: 11, paddingHorizontal: 12, gap: 6 }}>
-      <HStack className="items-center" style={{ gap: 8 }}>
-        <Text
-          style={{
-            flex: 1,
-            fontFamily: FONTS.bold,
-            fontSize: 14,
-            lineHeight: 18,
-            color: COLORS.ink,
-          }}
-          numberOfLines={1}
-        >
-          {title}
-        </Text>
-        <Box style={{ flexShrink: 0 }}>
-          <ApplicationStatusBadge status={status} />
-        </Box>
-      </HStack>
-      {meta}
-      <HStack className="items-center justify-between" style={{ gap: 8 }}>
-        <Box style={{ flex: 1, minWidth: 0 }}>{dateRow}</Box>
-        <Box style={{ flexShrink: 0 }}>{actions}</Box>
-      </HStack>
-    </VStack>
-  );
-
-  if (lv === 'ghost') {
-    return (
-      <Pressable
-        key={themeId}
-        onPress={onPress}
-        className="active:opacity-80"
-        style={{
-          paddingVertical: 10,
-          paddingHorizontal: 4,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: COLORS.border,
-          marginBottom: 0,
-        }}
-      >
-        <HStack style={{ alignItems: 'stretch', gap: 8 }}>
-          <Box style={{ width: 4, backgroundColor: tone.bar, borderRadius: 2 }} />
-          {body}
-        </HStack>
-      </Pressable>
-    );
-  }
-
-  if (lv === 'row') {
-    return (
-      <Pressable
-        key={themeId}
-        onPress={onPress}
-        className="active:opacity-90"
-        style={listCardSurface(cardIndex)}
-      >
-        <HStack style={listCardInnerClipStyle()}>
-          <Box style={listCardStatusRailStyle(tone.bar)} />
-          <HStack className="items-center flex-1" style={{ gap: 10, paddingVertical: 11, paddingHorizontal: 12 }}>
-            <Box
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: DESIGN.stepRadius,
-                backgroundColor: hexAlpha(tone.bar, 0.15),
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <Box style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: tone.bar }} />
-            </Box>
-            <VStack className="flex-1 min-w-0" style={{ gap: 6 }}>
-              <HStack className="items-center" style={{ gap: 8 }}>
-                <Text
-                  style={{ flex: 1, fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink }}
-                  numberOfLines={1}
-                >
-                  {title}
-                </Text>
-                <ApplicationStatusBadge status={status} />
-              </HStack>
-              {meta}
-              <HStack className="items-center justify-between" style={{ gap: 8 }}>
-                <Box style={{ flex: 1, minWidth: 0 }}>{dateRow}</Box>
-                {actions}
-              </HStack>
-            </VStack>
-          </HStack>
-        </HStack>
-      </Pressable>
-    );
-  }
-
   return (
     <Pressable
-      key={themeId}
+      key={`${themeId}-${cardIndex}`}
       onPress={onPress}
-      className="active:opacity-90"
-      style={listCardSurface(cardIndex)}
+      className="active:opacity-92"
+      style={{
+        backgroundColor: COLORS.white,
+        borderRadius: 16,
+        marginBottom: 8,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderWidth: 1,
+        borderColor: hexAlpha(tone.bar, 0.28),
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 4,
+        elevation: 1,
+      }}
     >
-      <HStack style={listCardInnerClipStyle()}>
-        <Box style={listCardStatusRailStyle(tone.bar)} />
-        {body}
-      </HStack>
+      <VStack style={{ gap: 3 }}>
+        <HStack className="items-center" style={{ gap: 8 }}>
+          <Text
+            style={{
+              flex: 1,
+              fontFamily: FONTS.bold,
+              fontSize: 16,
+              lineHeight: 19,
+              color: COLORS.ink,
+              minWidth: 0,
+            }}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+          >
+            {title}
+          </Text>
+          <Box style={{ flexShrink: 0 }}>
+            <ApplicationStatusBadge status={status} />
+          </Box>
+        </HStack>
+        {meta}
+        <HStack className="items-center justify-between" style={{ gap: 8 }}>
+          <Box style={{ flex: 1, minWidth: 0 }}>{dateRow}</Box>
+          <Box style={{ flexShrink: 0 }}>{actions}</Box>
+        </HStack>
+      </VStack>
     </Pressable>
   );
 }

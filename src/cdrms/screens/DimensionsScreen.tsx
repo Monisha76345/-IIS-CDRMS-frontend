@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Platform, TextInput } from 'react-native';
 import { Ruler } from 'lucide-react-native';
 
 import { Box } from '@/components/ui/box';
@@ -6,41 +7,71 @@ import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
-import { DimTypeBadge, GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
-import { Field } from '@/src/cdrms/components/primitives';
 import {
   SurveyScaffold,
   FooterContinueBtn,
+  PremiumStepCard,
 } from '@/src/cdrms/components/SurveyLayout';
 import { siteDimensionToFormDims, deriveSiteTypeFromDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
 import { type Cardinal } from '@/src/cdrms/project/types';
-import { CARDINAL_ACCENT, COLORS, FONTS, GLASS, SPACE, hexAlpha } from '@/src/cdrms/theme';
-import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
+import { CARDINAL_ACCENT, COLORS, FONTS, hexAlpha } from '@/src/cdrms/theme';
 import { useTheme } from '@/src/theme/ThemeContext';
 import type { Go } from '@/src/cdrms/types';
 
 const CARDINALS: Cardinal[] = ['N', 'S', 'E', 'W'];
 
-const DIM_FIELDS: Array<{ side: Cardinal; label: string; key: 'dimNorth' | 'dimSouth' | 'dimEast' | 'dimWest' }> = [
+const BLUE_SOFT = '#EEF4FF';
+const BLUE_BORDER = 'rgba(26,86,219,0.22)';
+const BLUE_CARD = '#F5F8FF';
+
+const DIM_FIELDS: Array<{
+  side: Cardinal;
+  label: string;
+  key: 'dimNorth' | 'dimSouth' | 'dimEast' | 'dimWest';
+}> = [
   { side: 'N', label: 'North', key: 'dimNorth' },
   { side: 'S', label: 'South', key: 'dimSouth' },
   { side: 'E', label: 'East', key: 'dimEast' },
   { side: 'W', label: 'West', key: 'dimWest' },
 ];
 
-function scheduleLabel(
-  note: string | undefined,
-  zc: string | undefined,
-  isRoad: boolean,
-): string {
-  const eng = (note || '').trim();
-  const zcNote = (zc || '').trim();
-  const base = eng || zcNote;
+function scheduleLabel(note: string | undefined, isRoad: boolean): string {
+  // Engineer plot: only Step-2 notes + Road checkbox — never ZC schedule text.
+  const base = (note || '').trim();
   if (isRoad && base) return `Road · ${base}`;
   if (isRoad) return 'Road';
   return base;
+}
+
+function PremiumPillBadge({
+  label,
+  tone = 'blue',
+}: {
+  label: string;
+  tone?: 'blue' | 'green' | 'orange';
+}) {
+  const styles =
+    tone === 'green'
+      ? { bg: '#ECFDF5', border: '#A7F3D0', fg: '#047857' }
+      : tone === 'orange'
+        ? { bg: '#FFF7ED', border: '#FDBA74', fg: '#C2410C' }
+        : { bg: BLUE_SOFT, border: BLUE_BORDER, fg: COLORS.primary };
+  return (
+    <Box
+      style={{
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 999,
+        backgroundColor: styles.bg,
+        borderWidth: 1,
+        borderColor: styles.border,
+      }}
+    >
+      <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: styles.fg }}>{label}</Text>
+    </Box>
+  );
 }
 
 function DimSideField({
@@ -59,55 +90,63 @@ function DimSideField({
   return (
     <Box style={{ flex: 1 }}>
       <Box
-        style={[
-          cardSurfaceStyle({ nested: true }),
-          {
-            paddingHorizontal: 10,
-            paddingTop: 8,
-            paddingBottom: 8,
-            borderWidth: 1.5,
-            borderColor: hexAlpha(accent, 0.45),
-            borderTopWidth: 3,
-            borderTopColor: accent,
-            backgroundColor: COLORS.white,
-          },
-        ]}
+        style={{
+          borderRadius: 16,
+          padding: 8,
+          backgroundColor: COLORS.white,
+          borderWidth: 1.5,
+          borderColor: hexAlpha(accent, 0.35),
+          shadowColor: COLORS.primaryDeep,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.08,
+          shadowRadius: 5,
+          elevation: 2,
+        }}
       >
-        <HStack style={{ alignItems: 'center', gap: 8, marginBottom: 4 }}>
+        <HStack className="items-center" style={{ gap: 6, marginBottom: 6 }}>
           <Box
             style={{
-              width: 30,
-              height: 30,
+              width: 7,
+              height: 7,
               borderRadius: 999,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: GLASS.tintBlue,
-              borderWidth: 1,
-              borderColor: '#BFDBFE',
+              backgroundColor: accent,
             }}
-          >
-            <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: accent }}>{side}</Text>
-          </Box>
+          />
           <Text
             style={{
               fontFamily: FONTS.bold,
-              fontSize: 14,
+              fontSize: 13,
               color: accent,
               textTransform: 'uppercase',
-              letterSpacing: 0.5,
+              letterSpacing: 0.3,
             }}
           >
             {label}
           </Text>
         </HStack>
-        <Field
-          compact
-          label=""
+        <TextInput
           value={value}
           onChangeText={onChangeText}
           placeholder={`Enter ${side}`}
+          placeholderTextColor="#94A3B8"
           keyboardType="decimal-pad"
-          showCheck={false}
+          underlineColorAndroid="transparent"
+          autoCorrect={false}
+          style={{
+            height: 36,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: BLUE_BORDER,
+            backgroundColor: BLUE_SOFT,
+            paddingHorizontal: 12,
+            paddingVertical: Platform.OS === 'android' ? 0 : 6,
+            fontSize: 14,
+            fontFamily: FONTS.semibold,
+            color: '#0F172A',
+            ...(Platform.OS === 'android'
+              ? { textAlignVertical: 'center', includeFontPadding: false }
+              : null),
+          }}
         />
       </Box>
     </Box>
@@ -189,24 +228,33 @@ export function DimensionsScreen({ go }: { go: Go }) {
   const schedulesAround = useMemo(() => {
     const out: Record<Cardinal, string> = { N: '', S: '', E: '', W: '' };
     for (const k of CARDINALS) {
-      out[k] = scheduleLabel(
-        draft.directions[k],
-        draft.zcDirections[k],
-        Boolean(draft.roadFlags?.[k]),
-      );
+      out[k] = scheduleLabel(draft.directions[k], Boolean(draft.roadFlags?.[k]));
     }
     return out;
-  }, [draft.directions, draft.zcDirections, draft.roadFlags]);
+  }, [draft.directions, draft.roadFlags]);
 
   if (!isBackendTask) {
     return (
-      <SurveyScaffold key={themeId} title="Dimensions" subtitle="" onBack={() => go('bandi')} step={3} total={4} go={go}>
+      <SurveyScaffold
+        key={themeId}
+        title="Dimensions"
+        subtitle=""
+        onBack={() => go('bandi')}
+        step={3}
+        total={4}
+        go={go}
+      >
         <Text className="px-4 py-8 text-center text-slate-500">
           Dimensions step is for assigned ZC tasks.
         </Text>
       </SurveyScaffold>
     );
   }
+
+  const typeTone =
+    measuredType === 'Even' ? 'green' : measuredType === 'Odd' ? 'orange' : 'blue';
+  const typeLabel =
+    !measuredType || measuredType === '—' ? 'Enter dims' : measuredType === 'Odd' ? 'Odd' : 'Even';
 
   return (
     <SurveyScaffold
@@ -246,14 +294,14 @@ export function DimensionsScreen({ go }: { go: Go }) {
       }
       go={go}
     >
-      <GlassSectionCard
+      <PremiumStepCard
         icon={Ruler}
         title="Site Dimension Sketch *"
         subtitle={sketchSubtitle}
-        badge={<DimTypeBadge type={measuredType} />}
+        badge={<PremiumPillBadge label={typeLabel} tone={typeTone} />}
       >
-        <VStack style={{ gap: SPACE[2] }}>
-          <HStack style={{ gap: SPACE[2] }}>
+        <VStack style={{ gap: 8 }}>
+          <HStack style={{ gap: 8 }}>
             {DIM_FIELDS.filter(({ side }) => side === 'N' || side === 'S').map(
               ({ side, label, key }) => (
                 <DimSideField
@@ -266,7 +314,7 @@ export function DimensionsScreen({ go }: { go: Go }) {
               ),
             )}
           </HStack>
-          <HStack style={{ gap: SPACE[2] }}>
+          <HStack style={{ gap: 8 }}>
             {DIM_FIELDS.filter(({ side }) => side === 'E' || side === 'W').map(
               ({ side, label, key }) => (
                 <DimSideField
@@ -280,25 +328,35 @@ export function DimensionsScreen({ go }: { go: Go }) {
             )}
           </HStack>
 
-          <BoundariesDiagram
-            embedded
-            north={Number(draft.dimNorth) || 0}
-            south={Number(draft.dimSouth) || 0}
-            east={Number(draft.dimEast) || 0}
-            west={Number(draft.dimWest) || 0}
-            odd={isOdd}
-            siteNo={siteNoLabel || null}
-            scheduleNorth={schedulesAround.N || null}
-            scheduleSouth={schedulesAround.S || null}
-            scheduleEast={schedulesAround.E || null}
-            scheduleWest={schedulesAround.W || null}
-            roadNorth={Boolean(draft.roadFlags?.N)}
-            roadSouth={Boolean(draft.roadFlags?.S)}
-            roadEast={Boolean(draft.roadFlags?.E)}
-            roadWest={Boolean(draft.roadFlags?.W)}
-          />
+          <Box
+            style={{
+              borderRadius: 14,
+              overflow: 'hidden',
+              backgroundColor: BLUE_CARD,
+              borderWidth: 1,
+              borderColor: BLUE_BORDER,
+            }}
+          >
+            <BoundariesDiagram
+              embedded
+              north={Number(draft.dimNorth) || 0}
+              south={Number(draft.dimSouth) || 0}
+              east={Number(draft.dimEast) || 0}
+              west={Number(draft.dimWest) || 0}
+              odd={isOdd}
+              siteNo={siteNoLabel || null}
+              scheduleNorth={schedulesAround.N || null}
+              scheduleSouth={schedulesAround.S || null}
+              scheduleEast={schedulesAround.E || null}
+              scheduleWest={schedulesAround.W || null}
+              roadNorth={Boolean(draft.roadFlags?.N)}
+              roadSouth={Boolean(draft.roadFlags?.S)}
+              roadEast={Boolean(draft.roadFlags?.E)}
+              roadWest={Boolean(draft.roadFlags?.W)}
+            />
+          </Box>
         </VStack>
-      </GlassSectionCard>
+      </PremiumStepCard>
     </SurveyScaffold>
   );
 }

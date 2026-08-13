@@ -1,15 +1,19 @@
 import {
+  Box as BoxIcon,
+  Building2,
   ChevronDown,
   ClipboardList,
   Compass,
   FilePlus2,
   FilePenLine,
+  Hash,
   Hourglass,
   Layers,
+  Link2,
+  Map as MapIcon,
   MapPin,
   Plus,
   RefreshCw,
-  Ruler,
   Send,
   UserCheck,
   type LucideIcon,
@@ -67,8 +71,9 @@ import {
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
 import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 import { SearchField } from '@/src/cdrms/components/SearchField';
+import { CreateApplicationHeader } from '@/src/cdrms/components/CreateApplicationHeader';
+import { ViewApplicationHeader } from '@/src/cdrms/components/ViewApplicationHeader';
 import {
-  AppHeader,
   BottomNav,
   ScreenShell,
   ScreenLoader,
@@ -371,7 +376,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
                     numberOfLines={1}
                     style={{
                       fontFamily: FONTS.semibold,
-                      fontSize: 9,
+                      fontSize: 12,
                       color: selected ? 'rgba(255,255,255,0.9)' : COLORS.slate,
                       textAlign: 'center',
                       paddingHorizontal: 2,
@@ -407,8 +412,8 @@ export function ZcHomeScreen({ go }: { go: Go }) {
                 className="flex-row items-center gap-1.5 active:opacity-90"
                 style={{
                   backgroundColor: COLORS.primary,
-                  borderRadius: DESIGN.cardRadius,
-                  paddingHorizontal: 12,
+                  borderRadius: 999,
+                  paddingHorizontal: 14,
                   paddingVertical: 8,
                 }}
               >
@@ -422,6 +427,17 @@ export function ZcHomeScreen({ go }: { go: Go }) {
             value={q}
             onChangeText={setQ}
             placeholder="Search by application no, site, engineer…"
+            height={48}
+            iconColor={COLORS.ink}
+            placeholderTextColor={COLORS.ink}
+            inputStyle={{ fontSize: 15, color: COLORS.ink }}
+            style={{
+              borderRadius: 999,
+              borderWidth: 1.5,
+              borderColor: hexAlpha(COLORS.primary, 0.35),
+              backgroundColor: COLORS.white,
+              marginTop: 4,
+            }}
           />
 
           {loading ? (
@@ -467,6 +483,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
         active="home"
         onNav={go}
         homeTarget="zc_home"
+        hideAlerts
         onPlus={() => {
           setZcEditApplicationId(null);
           go('zc_create');
@@ -492,6 +509,14 @@ const emptyForm: CreateApplicationInput = {
   assignedEngineerUserId: '',
 };
 
+const FIELD_RADIUS = 14;
+const ACCENT = {
+  blue: { fg: '#1A368E', bg: '#E8F0FE', soft: '#F3F7FF' },
+  green: { fg: '#15803D', bg: '#DCFCE7', soft: '#F0FDF4' },
+  purple: { fg: '#6D28D9', bg: '#EDE9FE', soft: '#F5F3FF' },
+  sky: { fg: '#1D4ED8', bg: '#DBEAFE', soft: '#EFF6FF' },
+} as const;
+
 function Field({
   label,
   value,
@@ -508,6 +533,8 @@ function Field({
   numberOfLines,
   keyboardType,
   maxLength,
+  leftIcon: LeftIcon,
+  accent = 'blue',
 }: {
   label: string;
   value: string;
@@ -524,70 +551,88 @@ function Field({
   numberOfLines?: number;
   keyboardType?: 'default' | 'number-pad' | 'numeric' | 'phone-pad';
   maxLength?: number;
+  leftIcon?: LucideIcon;
+  accent?: keyof typeof ACCENT;
 }) {
   const inputRef = useRef<TextInput>(null);
-  const inputHeight = multiline ? Math.max(96, (numberOfLines ?? 4) * 22) : 40;
+  const inputHeight = multiline ? Math.max(104, (numberOfLines ?? 4) * 24) : 48;
+  const tone = ACCENT[accent];
 
   return (
     <VStack style={[{ marginBottom: 0 }, style]}>
-      <Text
+      {label.trim() ? (
+        <Text
+          style={{
+            fontFamily: FONTS.bold,
+            fontSize: 15,
+            color: '#1A368E',
+            marginBottom: 7,
+            letterSpacing: 0.1,
+          }}
+        >
+          {label}
+          {required ? <Text style={{ color: COLORS.destructive, fontFamily: FONTS.bold }}> *</Text> : null}
+        </Text>
+      ) : null}
+      <HStack
         style={{
-          fontFamily: FONTS.bold,
-          fontSize: 14,
-          color: COLORS.ink,
-          marginBottom: 5,
-          letterSpacing: 0.2,
-        }}
-      >
-        {label}
-        {required ? <Text style={{ color: COLORS.destructive, fontFamily: FONTS.bold }}> *</Text> : null}
-      </Text>
-      <TextInput
-        ref={inputRef}
-        value={value}
-        onChangeText={onChange}
-        placeholder={placeholder}
-        placeholderTextColor={COLORS.slate}
-        multiline={multiline}
-        numberOfLines={multiline ? numberOfLines ?? 4 : 1}
-        textAlignVertical={multiline ? 'top' : 'center'}
-        scrollEnabled={multiline ? true : undefined}
-        keyboardType={keyboardType}
-        maxLength={maxLength}
-        onFocus={() => {
-          const report = () => {
-            inputRef.current?.measureInWindow((_x, y, _w, h) => {
-              onFocus?.({ y, height: h || inputHeight });
-            });
-          };
-          // Keyboard height often arrives after focus — measure twice.
-          setTimeout(report, Platform.OS === 'ios' ? 50 : 80);
-          setTimeout(report, Platform.OS === 'ios' ? 320 : 400);
-        }}
-        returnKeyType={returnKeyType ?? (multiline ? 'default' : 'next')}
-        onSubmitEditing={onSubmitEditing}
-        blurOnSubmit={blurOnSubmit ?? !multiline}
-        style={{
-          height: inputHeight,
           minHeight: inputHeight,
-          maxHeight: inputHeight,
-          borderRadius: 8,
+          borderRadius: FIELD_RADIUS,
           borderWidth: 1.5,
-          borderColor: error ? COLORS.destructive : '#94A3B8',
+          borderColor: error ? COLORS.destructive : hexAlpha(tone.fg, 0.42),
           backgroundColor: COLORS.white,
           paddingHorizontal: 12,
-          paddingTop: multiline ? 10 : undefined,
-          paddingBottom: multiline ? 10 : undefined,
-          fontSize: 13,
-          color: COLORS.ink,
-          fontFamily: FONTS.medium,
+          alignItems: multiline ? 'flex-start' : 'center',
+          gap: 8,
         }}
-      />
+      >
+        {LeftIcon ? (
+          <Box style={{ marginTop: multiline ? 13 : 0 }}>
+            <LeftIcon size={17} color={tone.fg} strokeWidth={2.3} />
+          </Box>
+        ) : null}
+        <TextInput
+          ref={inputRef}
+          value={value}
+          onChangeText={onChange}
+          placeholder={placeholder}
+          placeholderTextColor="#64748B"
+          multiline={multiline}
+          numberOfLines={multiline ? numberOfLines ?? 4 : 1}
+          textAlignVertical={multiline ? 'top' : 'center'}
+          scrollEnabled={multiline ? true : undefined}
+          keyboardType={keyboardType}
+          maxLength={maxLength}
+          onFocus={() => {
+            const report = () => {
+              inputRef.current?.measureInWindow((_x, y, _w, h) => {
+                onFocus?.({ y, height: h || inputHeight });
+              });
+            };
+            setTimeout(report, Platform.OS === 'ios' ? 50 : 80);
+            setTimeout(report, Platform.OS === 'ios' ? 320 : 400);
+          }}
+          returnKeyType={returnKeyType ?? (multiline ? 'default' : 'next')}
+          onSubmitEditing={onSubmitEditing}
+          blurOnSubmit={blurOnSubmit ?? !multiline}
+          style={{
+            flex: 1,
+            height: inputHeight,
+            minHeight: inputHeight,
+            maxHeight: inputHeight,
+            paddingTop: multiline ? 12 : 0,
+            paddingBottom: multiline ? 12 : 0,
+            fontSize: 15,
+            color: COLORS.ink,
+            fontFamily: FONTS.medium,
+          }}
+        />
+      </HStack>
       {error ? (
         <Text
           style={{
             marginTop: 4,
-            fontSize: 11,
+            fontSize: 12,
             color: COLORS.destructive,
             fontFamily: FONTS.medium,
           }}
@@ -605,91 +650,82 @@ function PlainSectionCard({
   icon: Icon,
   required,
   children,
+  accent = 'blue',
 }: {
   title: string;
   subtitle?: string;
   icon: LucideIcon;
   required?: boolean;
   children: ReactNode;
+  accent?: keyof typeof ACCENT;
 }) {
+  const tone = ACCENT[accent];
+
   return (
     <Box
       style={{
         marginHorizontal: SPACE.gutter,
-        borderRadius: DESIGN.radiusLg,
+        borderRadius: 20,
         backgroundColor: COLORS.white,
-        borderWidth: 1.5,
-        borderColor: hexAlpha(COLORS.primary, 0.55),
-        shadowColor: GLASS.shadow,
+        borderWidth: 1.75,
+        borderColor: hexAlpha(tone.fg, 0.38),
+        shadowColor: tone.fg,
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: Platform.OS === 'ios' ? 0.08 : 0.06,
+        shadowOpacity: Platform.OS === 'ios' ? 0.1 : 0.07,
         shadowRadius: 12,
         elevation: 3,
+        overflow: 'hidden',
       }}
     >
-      <Box
-        style={{
-          overflow: 'hidden',
-          borderTopLeftRadius: DESIGN.radiusLg - 1,
-          borderTopRightRadius: DESIGN.radiusLg - 1,
-          borderBottomWidth: 1.5,
-          borderBottomColor: hexAlpha(COLORS.primary, 0.35),
-          backgroundColor: `${COLORS.primary}18`,
-        }}
+      <HStack
+        className="items-center"
+        style={{ gap: 11, paddingHorizontal: 14, paddingVertical: 14, backgroundColor: COLORS.white }}
       >
-        <HStack
-          className="items-center"
+        <Box
           style={{
-            gap: 10,
-            paddingHorizontal: 14,
-            paddingVertical: 12,
+            width: 38,
+            height: 38,
+            borderRadius: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: tone.bg,
           }}
         >
-          <Box
+          <Icon size={17} color={tone.fg} strokeWidth={2.4} />
+        </Box>
+        <VStack style={{ flex: 1, gap: 3 }}>
+          <Text
             style={{
-              width: 32,
-              height: 32,
-              borderRadius: DESIGN.stepRadius,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: COLORS.white,
-              borderWidth: 1.5,
-              borderColor: hexAlpha(COLORS.primary, 0.55),
+              fontFamily: FONTS.bold,
+              fontSize: 17,
+              color: '#0F172A',
+              letterSpacing: -0.2,
             }}
+            numberOfLines={1}
           >
-            <Icon size={15} color={COLORS.primary} strokeWidth={2.5} />
-          </Box>
-          <VStack style={{ flex: 1, gap: 1 }}>
+            {title}
+            {required ? (
+              <Text style={{ color: COLORS.destructive, fontFamily: FONTS.bold }}> *</Text>
+            ) : null}
+          </Text>
+          {subtitle ? (
             <Text
               style={{
-                fontFamily: FONTS.bold,
-                fontSize: 16,
-                color: COLORS.ink,
-                letterSpacing: -0.1,
+                fontFamily: FONTS.semibold,
+                fontSize: 14,
+                color: '#475569',
+                lineHeight: 18,
               }}
-              numberOfLines={1}
+              numberOfLines={2}
             >
-              {title}
-              {required ? (
-                <Text style={{ color: COLORS.destructive, fontFamily: FONTS.bold }}> *</Text>
-              ) : null}
+              {subtitle}
             </Text>
-            {subtitle ? (
-              <Text
-                style={{
-                  fontFamily: FONTS.semibold,
-                  fontSize: 13,
-                  color: COLORS.slate,
-                }}
-                numberOfLines={1}
-              >
-                {subtitle}
-              </Text>
-            ) : null}
-          </VStack>
-        </HStack>
+          ) : null}
+        </VStack>
+      </HStack>
+      <Box style={{ paddingHorizontal: 14, paddingBottom: 14, paddingTop: 2, backgroundColor: COLORS.white }}>
+        {children}
       </Box>
-      <Box style={{ padding: 12, backgroundColor: COLORS.white }}>{children}</Box>
     </Box>
   );
 }
@@ -1128,16 +1164,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-background">
-      <AppHeader
-        title={isEditing ? 'Edit draft' : 'Create application'}
-        subtitle={zone ? `Zone ${zone.zoneCode}` : undefined}
-        onBack={() => go('zc_home')}
-        gradient
-        compact
-        go={go}
-        showNotifications={false}
-        showLogout={false}
-      />
+      <Box style={{ flex: 1, backgroundColor: '#F0F4F8' }}>
       {/*
         Bottom padding grows with keyboard so Comments (last field) can scroll
         above it. ensureVisible re-runs after keyboardDidShow to fix timing.
@@ -1150,9 +1177,8 @@ export function ZcCreateScreen({ go }: { go: Go }) {
         <ScrollView
           key={themeId}
           ref={scrollRef}
-          style={{ flex: 1 }}
+          style={{ flex: 1, backgroundColor: '#F0F4F8' }}
           contentContainerStyle={{
-            paddingTop: 12,
             // Extra space so Comments can scroll above the keyboard.
             // Android uses softwareKeyboardLayoutMode "resize" — use a capped
             // inset so we don't double-count the resized window.
@@ -1164,7 +1190,6 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                   ? Math.min(Math.max(keyboardHeight * 0.55, 160), 240)
                   : keyboardHeight
                 : 0),
-            gap: 12,
             flexGrow: 1,
           }}
           keyboardShouldPersistTaps="handled"
@@ -1179,6 +1204,12 @@ export function ZcCreateScreen({ go }: { go: Go }) {
             scrollYRef.current = e.nativeEvent.contentOffset.y;
           }}
         >
+          <CreateApplicationHeader
+            onBack={() => go('zc_home')}
+            zone={zone?.zoneCode}
+            title={isEditing ? 'Edit Draft' : 'Create Application'}
+          />
+          <Box style={{ gap: 12, paddingTop: 4 }}>
           {loading ? (
             <ScreenLoader text="Loading zone configuration…" minHeight={180} />
           ) : zoneError ? (
@@ -1195,11 +1226,18 @@ export function ZcCreateScreen({ go }: { go: Go }) {
             </Box>
           ) : (
             <VStack style={{ gap: 12 }}>
-              <PlainSectionCard title="Site details" icon={Ruler}>
+              <PlainSectionCard
+                title="Site Details"
+                subtitle="Provide basic information about the site."
+                icon={Link2}
+                accent="blue"
+              >
                 <Field
                   label="E-office number"
                   required
                   placeholder="Enter e-office number"
+                  leftIcon={Building2}
+                  accent="blue"
                   value={form.eOfficeNumber}
                   error={fieldErrors.eOfficeNumber}
                   maxLength={100}
@@ -1207,12 +1245,15 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     setForm((f) => ({ ...f, eOfficeNumber: sanitizeEOfficeInput(v) }));
                     clearFieldError('eOfficeNumber');
                   }}
-                  style={{ marginBottom: 10 }}
+                  style={{ marginBottom: 12 }}
                 />
-                <HStack style={{ gap: 8, marginBottom: 10 }}>
+                <HStack style={{ gap: 10, marginBottom: 12 }}>
                   <Field
                     label="Site no"
                     required
+                    placeholder="Enter site no"
+                    leftIcon={Hash}
+                    accent="blue"
                     value={form.siteNo}
                     error={fieldErrors.siteNo}
                     keyboardType="number-pad"
@@ -1228,16 +1269,15 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     <Text
                       style={{
                         fontFamily: FONTS.bold,
-                        fontSize: 14,
-                        color: COLORS.ink,
-                        marginBottom: 5,
-                        letterSpacing: 0.2,
+                        fontSize: 15,
+                        color: '#1A368E',
+                        marginBottom: 7,
                       }}
                     >
                       Site type
                       <Text style={{ color: COLORS.destructive, fontFamily: FONTS.bold }}> *</Text>
                     </Text>
-                    <HStack style={{ gap: 14, height: 40, alignItems: 'center' }}>
+                    <HStack style={{ gap: 10, height: 48, alignItems: 'center' }}>
                       {(['Even', 'Odd'] as const).map((opt) => {
                         const on = form.siteDimensionType === opt;
                         return (
@@ -1248,15 +1288,23 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                               clearFieldError('siteDimensionType');
                               if (opt !== 'Odd') clearFieldError('siteDimensionComment');
                             }}
-                            style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 7,
+                              paddingHorizontal: 10,
+                              paddingVertical: 8,
+                              borderRadius: 999,
+                              backgroundColor: on ? '#E8F0FE' : 'transparent',
+                            }}
                           >
                             <View
                               style={{
                                 width: 18,
                                 height: 18,
-                                borderRadius: DESIGN.chipRadius,
+                                borderRadius: 999,
                                 borderWidth: 2,
-                                borderColor: on ? COLORS.primary : COLORS.border,
+                                borderColor: on ? '#2563EB' : '#CBD5E1',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                               }}
@@ -1267,7 +1315,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                                     width: 8,
                                     height: 8,
                                     borderRadius: 4,
-                                    backgroundColor: COLORS.primary,
+                                    backgroundColor: '#2563EB',
                                   }}
                                 />
                               ) : null}
@@ -1275,8 +1323,8 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                             <Text
                               style={{
                                 fontFamily: FONTS.semibold,
-                                fontSize: 13,
-                                color: on ? COLORS.primary : COLORS.ink,
+                                fontSize: 14,
+                                color: on ? '#1A368E' : '#64748B',
                               }}
                             >
                               {opt}
@@ -1303,10 +1351,9 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                 <Text
                   style={{
                     fontFamily: FONTS.bold,
-                    fontSize: 14,
-                    color: COLORS.ink,
-                    marginBottom: 5,
-                    letterSpacing: 0.2,
+                    fontSize: 15,
+                    color: '#1A368E',
+                    marginBottom: 7,
                   }}
                 >
                   Site dimension
@@ -1318,29 +1365,32 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     onPress={openDimDropdown}
                     style={{
                       flex: 1,
-                      height: 40,
-                      borderRadius: 8,
+                      height: 48,
+                      borderRadius: FIELD_RADIUS,
                       borderWidth: 1.5,
-                      borderColor: fieldErrors.siteDimension ? COLORS.destructive : '#94A3B8',
+                      borderColor: fieldErrors.siteDimension
+                        ? COLORS.destructive
+                        : hexAlpha('#1A368E', 0.42),
                       backgroundColor: COLORS.white,
-                      paddingHorizontal: 11,
+                      paddingHorizontal: 12,
                       flexDirection: 'row',
                       alignItems: 'center',
-                      justifyContent: 'space-between',
+                      gap: 8,
                     }}
                   >
+                    <BoxIcon size={17} color="#1A368E" strokeWidth={2.3} />
                     <Text
                       style={{
                         flex: 1,
-                        fontSize: 13,
+                        fontSize: 15,
                         fontFamily: FONTS.medium,
-                        color: form.siteDimension ? COLORS.ink : COLORS.slate,
+                        color: form.siteDimension ? COLORS.ink : '#64748B',
                       }}
                       numberOfLines={1}
                     >
-                      {form.siteDimension || 'Select site dimension'}
+                      {form.siteDimension || 'Select dimension'}
                     </Text>
-                    <ChevronDown size={16} color={COLORS.slate} />
+                    <ChevronDown size={17} color="#64748B" />
                   </Pressable>
                   <Pressable
                     onPress={() => {
@@ -1349,27 +1399,17 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                       setNewDimValue('');
                     }}
                     style={{
-                      height: 40,
-                      paddingHorizontal: 12,
-                      borderRadius: 8,
-                      overflow: 'hidden',
+                      height: 48,
+                      paddingHorizontal: 14,
+                      borderRadius: 999,
+                      backgroundColor: '#2563EB',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
                     }}
                   >
-                    <LinearGradient
-                      colors={gradientStops(GRADIENT_PRIMARY)}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        paddingHorizontal: 12,
-                        paddingVertical: 10,
-                        gap: 4,
-                      }}
-                    >
-                      <Plus size={15} color={COLORS.white} strokeWidth={2.5} />
-                      <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.white }}>Add</Text>
-                    </LinearGradient>
+                    <Plus size={16} color={COLORS.white} strokeWidth={2.5} />
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.white }}>Add</Text>
                   </Pressable>
                 </HStack>
                 {fieldErrors.siteDimension ? (
@@ -1392,14 +1432,14 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                       value={newDimValue}
                       onChangeText={(v) => setNewDimValue(sanitizeSiteDimensionInput(v))}
                       placeholder="e.g. 20*40"
-                      placeholderTextColor={COLORS.slate}
+                      placeholderTextColor="#94A3B8"
                       autoFocus
                       style={{
                         flex: 1,
-                        height: 40,
-                        borderRadius: 8,
+                        height: 46,
+                        borderRadius: FIELD_RADIUS,
                         borderWidth: 1.5,
-                        borderColor: '#94A3B8',
+                        borderColor: hexAlpha('#1A368E', 0.42),
                         backgroundColor: COLORS.white,
                         paddingHorizontal: 12,
                         fontSize: 13,
@@ -1411,32 +1451,22 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                       onPress={() => void saveNewDimension()}
                       disabled={savingDim}
                       style={{
-                        height: 40,
+                        height: 46,
                         paddingHorizontal: 14,
-                        borderRadius: 8,
-                        overflow: 'hidden',
+                        borderRadius: 999,
+                        backgroundColor: '#2563EB',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                         opacity: savingDim ? 0.7 : 1,
                       }}
                     >
-                      <LinearGradient
-                        colors={gradientStops(GRADIENT_PRIMARY)}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={{
-                          height: 40,
-                          paddingHorizontal: 14,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        {savingDim ? (
-                          <ActivityIndicator size="small" color={COLORS.white} />
-                        ) : (
-                          <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.white }}>
-                            Save
-                          </Text>
-                        )}
-                      </LinearGradient>
+                      {savingDim ? (
+                        <ActivityIndicator size="small" color={COLORS.white} />
+                      ) : (
+                        <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.white }}>
+                          Save
+                        </Text>
+                      )}
                     </Pressable>
                     <Pressable
                       onPress={() => {
@@ -1444,11 +1474,11 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                         setNewDimValue('');
                       }}
                       style={{
-                        height: 40,
+                        height: 46,
                         paddingHorizontal: 12,
-                        borderRadius: DESIGN.cardRadius,
+                        borderRadius: FIELD_RADIUS,
                         borderWidth: 1,
-                        borderColor: COLORS.border,
+                        borderColor: '#D5DEE8',
                         backgroundColor: COLORS.white,
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -1462,11 +1492,18 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                 ) : null}
               </PlainSectionCard>
 
-              <PlainSectionCard title="Address" icon={MapPin}>
+              <PlainSectionCard
+                title="Address"
+                subtitle="Enter the address details of the site."
+                icon={MapPin}
+                accent="green"
+              >
                 <Field
                   label="Area"
                   required
-                  placeholder="e.g. Shivaji Nagar"
+                  placeholder="Enter area"
+                  leftIcon={MapIcon}
+                  accent="green"
                   value={form.addressArea}
                   error={fieldErrors.addressArea}
                   maxLength={150}
@@ -1474,13 +1511,15 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     setForm((f) => ({ ...f, addressArea: sanitizeAreaInput(v) }));
                     clearFieldError('addressArea');
                   }}
-                  style={{ marginBottom: 10 }}
+                  style={{ marginBottom: 12 }}
                 />
-                <HStack style={{ gap: 8 }}>
+                <HStack style={{ gap: 10 }}>
                   <Field
                     label="Block"
                     required
-                    placeholder="e.g. Block1"
+                    placeholder="Enter block"
+                    leftIcon={Building2}
+                    accent="green"
                     value={form.addressBlock}
                     error={fieldErrors.addressBlock}
                     maxLength={150}
@@ -1495,6 +1534,8 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     label="Pincode"
                     required
                     placeholder="e.g. 560001"
+                    leftIcon={BoxIcon}
+                    accent="green"
                     value={form.addressPincode}
                     error={fieldErrors.addressPincode}
                     keyboardType="number-pad"
@@ -1511,10 +1552,18 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                 </HStack>
               </PlainSectionCard>
 
-              <PlainSectionCard title="Site Schedules" icon={Compass}>
-                <HStack style={{ gap: 8, marginBottom: 10 }}>
+              <PlainSectionCard
+                title="Site Schedules"
+                subtitle="Add site schedule information."
+                icon={Compass}
+                accent="purple"
+              >
+                <HStack style={{ gap: 10, marginBottom: 12 }}>
                   <Field
                     label="North"
+                    placeholder=""
+                    leftIcon={Compass}
+                    accent="purple"
                     value={form.scheduleNorth || ''}
                     onChange={(v) => setForm((f) => ({ ...f, scheduleNorth: v }))}
                     onFocus={onFieldFocus}
@@ -1522,15 +1571,21 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                   />
                   <Field
                     label="South"
+                    placeholder=""
+                    leftIcon={Compass}
+                    accent="purple"
                     value={form.scheduleSouth || ''}
                     onChange={(v) => setForm((f) => ({ ...f, scheduleSouth: v }))}
                     onFocus={onFieldFocus}
                     style={{ flex: 1 }}
                   />
                 </HStack>
-                <HStack style={{ gap: 8 }}>
+                <HStack style={{ gap: 10 }}>
                   <Field
                     label="West"
+                    placeholder=""
+                    leftIcon={Compass}
+                    accent="purple"
                     value={form.scheduleWest || ''}
                     onChange={(v) => setForm((f) => ({ ...f, scheduleWest: v }))}
                     onFocus={onFieldFocus}
@@ -1538,6 +1593,9 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                   />
                   <Field
                     label="East"
+                    placeholder=""
+                    leftIcon={Compass}
+                    accent="purple"
                     value={form.scheduleEast || ''}
                     onChange={(v) => setForm((f) => ({ ...f, scheduleEast: v }))}
                     onFocus={onFieldFocus}
@@ -1551,7 +1609,9 @@ export function ZcCreateScreen({ go }: { go: Go }) {
 
               <PlainSectionCard
                 title="Assign engineer"
+                subtitle="Choose an engineer for this application."
                 icon={UserCheck}
+                accent="sky"
                 required
               >
                 <Pressable
@@ -1561,25 +1621,26 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     openEngDropdown();
                   }}
                   style={{
-                    height: 40,
-                    borderRadius: 8,
+                    height: 48,
+                    borderRadius: FIELD_RADIUS,
                     borderWidth: 1.5,
                     borderColor: fieldErrors.assignedEngineerUserId
                       ? COLORS.destructive
-                      : '#94A3B8',
+                      : hexAlpha('#1D4ED8', 0.42),
                     backgroundColor: COLORS.white,
                     paddingHorizontal: 12,
                     flexDirection: 'row',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
+                    gap: 8,
                   }}
                 >
+                  <UserCheck size={17} color="#1D4ED8" strokeWidth={2.3} />
                   <Text
                     style={{
                       flex: 1,
-                      fontSize: 13,
+                      fontSize: 15,
                       fontFamily: FONTS.medium,
-                      color: selectedEngineer ? COLORS.ink : COLORS.slate,
+                      color: selectedEngineer ? COLORS.ink : '#64748B',
                     }}
                     numberOfLines={1}
                   >
@@ -1589,7 +1650,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                         ? 'No engineers in this zone'
                         : 'Select engineer'}
                   </Text>
-                  <ChevronDown size={16} color={COLORS.slate} />
+                  <ChevronDown size={16} color="#94A3B8" />
                 </Pressable>
                 {fieldErrors.assignedEngineerUserId ? (
                   <Text
@@ -1612,11 +1673,13 @@ export function ZcCreateScreen({ go }: { go: Go }) {
 
               <PlainSectionCard
                 title="Comments"
+                subtitle="Add any extra notes for this application."
                 icon={ClipboardList}
+                accent="blue"
                 required={form.siteDimensionType === 'Odd'}
               >
                 <Field
-                  label="Comments"
+                  label=""
                   required={form.siteDimensionType === 'Odd'}
                   placeholder={
                     form.siteDimensionType === 'Odd'
@@ -1636,26 +1699,26 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                 />
               </PlainSectionCard>
 
-              <HStack style={{ gap: 10, marginHorizontal: SPACE.gutter, marginTop: 4 }}>
+              <HStack style={{ gap: 10, marginHorizontal: SPACE.gutter, marginTop: 4, marginBottom: 8 }}>
                 <Pressable
                   onPress={() => void onSaveDraft()}
                   disabled={saving}
                   className="flex-1 active:opacity-90"
                   style={{
-                    height: 48,
-                    borderRadius: DESIGN.cardRadius,
+                    height: 50,
+                    borderRadius: 999,
                     alignItems: 'center',
                     justifyContent: 'center',
                     borderWidth: 1.5,
-                    borderColor: COLORS.primary,
+                    borderColor: '#2563EB',
                     backgroundColor: COLORS.white,
                     opacity: saving ? 0.7 : 1,
                   }}
                 >
                   {saving && savingAction === 'save' ? (
-                    <ButtonLoader color={COLORS.primary} />
+                    <ButtonLoader color="#2563EB" />
                   ) : (
-                    <Text style={{ fontFamily: FONTS.bold, color: COLORS.primary }}>Save</Text>
+                    <Text style={{ fontFamily: FONTS.bold, color: '#2563EB' }}>Save</Text>
                   )}
                 </Pressable>
                 <Pressable
@@ -1663,9 +1726,9 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                   disabled={saving}
                   className="flex-1 overflow-hidden active:opacity-90"
                   style={{
-                    borderRadius: DESIGN.cardRadius,
+                    borderRadius: 999,
                     opacity: saving ? 0.7 : 1,
-                    shadowColor: COLORS.primary,
+                    shadowColor: '#2563EB',
                     shadowOffset: { width: 0, height: 6 },
                     shadowOpacity: 0.22,
                     shadowRadius: 10,
@@ -1692,6 +1755,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
               </HStack>
             </VStack>
           )}
+          </Box>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -1861,6 +1925,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
           </View>
         ) : null}
       </Modal>
+      </Box>
     </ScreenShell>
   );
 }
@@ -1890,22 +1955,24 @@ export function ZcDetailScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-background">
-      <BdaPageWatermark />
-      <AppHeader
-        title="View Application"
-        subtitle={app?.applicationNumber || 'Application details'}
-        onBack={() => go('zc_home')}
-        gradient
-        go={go}
-        showNotifications={false}
-        showLogout={false}
-      />
-      <ScrollView
-        key={themeId}
-        style={{ zIndex: 1 }}
-        contentContainerStyle={{ paddingTop: 12, paddingBottom: 40, gap: 12 }}
-        showsVerticalScrollIndicator={false}
-      >
+      <Box style={{ flex: 1, backgroundColor: '#F0F4F8' }}>
+        <ScrollView
+          key={themeId}
+          style={{ flex: 1, backgroundColor: '#F0F4F8' }}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <ViewApplicationHeader onBack={() => go('zc_home')} zone={app?.zoneCode} />
+          <Box
+            style={{
+              flexGrow: 1,
+              backgroundColor: COLORS.white,
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              paddingTop: 16,
+              gap: 12,
+            }}
+          >
         {loading ? (
           <ScreenLoader text="Loading application details…" />
         ) : error || !app ? (
@@ -1950,7 +2017,9 @@ export function ZcDetailScreen({ go }: { go: Go }) {
             <ApplicationRecordDetails app={app} showEmptyEngineer={false} />
           </>
         )}
-      </ScrollView>
+          </Box>
+        </ScrollView>
+      </Box>
     </ScreenShell>
   );
 }

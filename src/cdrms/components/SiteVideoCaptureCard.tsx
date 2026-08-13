@@ -7,13 +7,25 @@ import { HStack } from '@/components/ui/hstack';
 import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import { GlassSectionCard, HeaderStatusBadge } from '@/src/cdrms/components/GlassSurface';
 import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
+import { PremiumStepCard } from '@/src/cdrms/components/SurveyLayout';
 import { createDummyVideoAsset } from '@/src/cdrms/hooks/dummyMedia';
 import { captureVideo, useDummyCapture } from '@/src/cdrms/hooks/useMediaCapture';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
-import { COLORS, DESIGN, FONTS, GRADIENT_PRIMARY, GRADIENT_VIDEO, SPACE, gradientStops } from '@/src/cdrms/theme';
+import {
+  COLORS,
+  DESIGN,
+  FONTS,
+  GRADIENT_PRIMARY,
+  GRADIENT_VIDEO,
+  SPACE,
+  gradientStops,
+  hexAlpha,
+} from '@/src/cdrms/theme';
+
+const BLUE_SOFT = '#EEF4FF';
+const BLUE_BORDER = 'rgba(26,86,219,0.22)';
 
 function formatDuration(ms?: number | null) {
   if (ms == null || ms <= 0) return 'Video';
@@ -66,7 +78,7 @@ export function SiteVideoCaptureCard() {
   };
 
   return (
-    <GlassSectionCard
+    <PremiumStepCard
       icon={Video}
       title="Site walk-through video *"
       subtitle={
@@ -76,15 +88,32 @@ export function SiteVideoCaptureCard() {
             ? 'Simulator · use dummy sample video'
             : 'Live record only — upload from gallery/files is not allowed'
       }
-      badge={draft.video ? <HeaderStatusBadge label="Ready" /> : undefined}
+      badge={
+        draft.video ? (
+          <Box
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              borderRadius: 999,
+              backgroundColor: '#ECFDF5',
+              borderWidth: 1,
+              borderColor: '#A7F3D0',
+            }}
+          >
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#047857' }}>Ready</Text>
+          </Box>
+        ) : undefined
+      }
     >
-      <VStack style={{ gap: SPACE[2] }}>
+      <VStack style={{ gap: 8 }}>
         <Box
           className="rounded-xl overflow-hidden"
           style={{
             aspectRatio: 16 / 9,
             backgroundColor: '#0F172A',
-            shadowColor: '#0F172A',
+            borderWidth: 1,
+            borderColor: BLUE_BORDER,
+            shadowColor: COLORS.primaryDeep,
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.12,
             shadowRadius: 10,
@@ -128,14 +157,14 @@ export function SiteVideoCaptureCard() {
                 >
                   <Video size={24} color="#fff" strokeWidth={2.2} />
                 </Box>
-                <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: '#FFFFFF' }}>
-                  {busy ? 'Loading…' : simDummy ? 'No video yet' : 'No video yet'}
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 16, color: '#FFFFFF' }}>
+                  {busy ? 'Loading…' : 'No video yet'}
                 </Text>
                 <Text
                   style={{
                     fontFamily: FONTS.medium,
-                    fontSize: 11,
-                    color: 'rgba(255,255,255,0.75)',
+                    fontSize: 13,
+                    color: 'rgba(255,255,255,0.85)',
                   }}
                 >
                   {simDummy ? 'Tap to use dummy sample video' : 'Tap to record'}
@@ -175,33 +204,78 @@ export function SiteVideoCaptureCard() {
         ) : null}
 
         {draft.video ? (
-          <HStack style={{ alignItems: 'center', gap: SPACE[2] }}>
-            <VStack style={{ flex: 1, gap: 2 }}>
-              <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}>
-                Site walk-through
-              </Text>
-              <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: COLORS.slate }}>
-                {simDummy ? 'Simulator sample · stored on device' : 'Max 50 MB · stored on device'}
-              </Text>
-            </VStack>
-            <Pressable
-              onPress={() => void setVideo(null)}
-              className="h-10 w-10 rounded-full items-center justify-center active:opacity-80"
-              style={{
-                backgroundColor: COLORS.white,
-                shadowColor: '#0F172A',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.08,
-                shadowRadius: 6,
-                elevation: 2,
-              }}
-              accessibilityLabel="Remove site video"
-            >
-              <Trash2 size={16} color={COLORS.destructive} strokeWidth={2.2} />
-            </Pressable>
-          </HStack>
+          <Box
+            style={{
+              borderRadius: 999,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              backgroundColor: COLORS.white,
+              borderWidth: 1.5,
+              borderColor: BLUE_BORDER,
+              shadowColor: COLORS.primaryDeep,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 5,
+              elevation: 2,
+            }}
+          >
+            <HStack style={{ alignItems: 'center', gap: SPACE[2] }}>
+              <Box
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 999,
+                  backgroundColor: BLUE_SOFT,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Video size={14} color={COLORS.primary} strokeWidth={2.4} />
+              </Box>
+              <VStack style={{ flex: 1, minWidth: 0, gap: 0 }}>
+                <Text
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 13,
+                    letterSpacing: 0.3,
+                    color: COLORS.ink,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Site walk-through
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: FONTS.semibold,
+                    fontSize: 12,
+                    lineHeight: 16,
+                    color: '#475569',
+                  }}
+                >
+                  {simDummy ? 'Simulator sample · stored on device' : 'Max 50 MB · stored on device'}
+                </Text>
+              </VStack>
+              <Pressable
+                onPress={() => void setVideo(null)}
+                className="active:opacity-80"
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 999,
+                  backgroundColor: BLUE_SOFT,
+                  borderWidth: 1,
+                  borderColor: hexAlpha('#DC2626', 0.25),
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                accessibilityLabel="Remove site video"
+              >
+                <Trash2 size={15} color={COLORS.destructive} strokeWidth={2.2} />
+              </Pressable>
+            </HStack>
+          </Box>
         ) : null}
       </VStack>
-    </GlassSectionCard>
+    </PremiumStepCard>
   );
 }

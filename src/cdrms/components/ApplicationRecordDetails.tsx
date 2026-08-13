@@ -1,9 +1,12 @@
 import { useState, type ReactNode } from 'react';
+import { Platform } from 'react-native';
 import {
   Building2,
-  Camera,
-  Eye,
+  Compass,
+  Link2,
+  MapPin,
   Ruler,
+  UserCheck,
   type LucideIcon,
 } from 'lucide-react-native';
 
@@ -17,7 +20,6 @@ import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
 import { ApplicationStatusBadge } from '@/src/cdrms/components/ApplicationStatusBadge';
 import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
 import { EngineerSchedulesReadOnly } from '@/src/cdrms/components/EngineerSchedulesReadOnly';
-import { DimTypeBadge, GlassSectionCard } from '@/src/cdrms/components/GlassSurface';
 import { GpsSiteCard } from '@/src/cdrms/components/GpsSiteCard';
 import { ImagePreviewModal } from '@/src/cdrms/components/ImagePreviewModal';
 import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
@@ -26,104 +28,172 @@ import { resolveBoundaryDims, deriveSiteTypeFromDims } from '@/src/cdrms/lib/res
 import { COLORS, DESIGN, FONTS, GLASS, SPACE, hexAlpha } from '@/src/cdrms/theme';
 import { useTheme } from '@/src/theme/ThemeContext';
 
+const FIELD_RADIUS = 14;
+const ACCENT = {
+  blue: { fg: '#1A368E', bg: '#E8F0FE' },
+  green: { fg: '#15803D', bg: '#DCFCE7' },
+  purple: { fg: '#6D28D9', bg: '#EDE9FE' },
+  sky: { fg: '#1D4ED8', bg: '#DBEAFE' },
+} as const;
+
 function SectionCard({
   title,
   subtitle,
-  icon,
+  icon: Icon,
   badge,
   children,
+  accent = 'blue',
 }: {
   title: string;
   subtitle?: string;
   icon: LucideIcon;
   badge?: ReactNode;
   children: ReactNode;
+  accent?: keyof typeof ACCENT;
 }) {
+  const tone = ACCENT[accent];
+
   return (
-    <GlassSectionCard
-      title={title}
-      subtitle={subtitle ?? 'Application record'}
-      icon={icon}
-      badge={badge}
-      translucent
-      bodyStyle={{ paddingHorizontal: SPACE[3], paddingVertical: SPACE[2], gap: 0 }}
-    >
-      {children}
-    </GlassSectionCard>
+    <Box style={{ paddingHorizontal: SPACE.gutter }}>
+      <Box
+        style={{
+          backgroundColor: COLORS.white,
+          borderRadius: 20,
+          borderWidth: 1.75,
+          borderColor: hexAlpha(tone.fg, 0.38),
+          overflow: 'hidden',
+          shadowColor: tone.fg,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: Platform.OS === 'ios' ? 0.1 : 0.07,
+          shadowRadius: 12,
+          elevation: 3,
+        }}
+      >
+        <HStack
+          className="items-center"
+          style={{
+            gap: 10,
+            paddingHorizontal: 12,
+            paddingVertical: 12,
+            alignItems: 'center',
+          }}
+        >
+          <Box
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 11,
+              backgroundColor: tone.bg,
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Icon size={16} color={tone.fg} strokeWidth={2.4} />
+          </Box>
+          <VStack style={{ flex: 1, minWidth: 0, flexShrink: 1, gap: 2, justifyContent: 'center' }}>
+            <Text
+              allowFontScaling={false}
+              style={{
+                fontFamily: FONTS.bold,
+                fontSize: 15,
+                lineHeight: 18,
+                color: '#0F172A',
+                letterSpacing: -0.2,
+              }}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {title}
+            </Text>
+            {subtitle ? (
+              <Text
+                allowFontScaling={false}
+                style={{
+                  fontFamily: FONTS.semibold,
+                  fontSize: 12,
+                  lineHeight: 15,
+                  color: '#64748B',
+                }}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+              >
+                {subtitle}
+              </Text>
+            ) : null}
+          </VStack>
+          {badge ? <Box style={{ flexShrink: 0, marginLeft: 4 }}>{badge}</Box> : null}
+        </HStack>
+        <VStack style={{ paddingHorizontal: 14, paddingBottom: 14, paddingTop: 2, gap: 12 }}>
+          {children}
+        </VStack>
+      </Box>
+    </Box>
   );
 }
 
 const FIELD_LABEL_STYLE = {
   fontFamily: FONTS.bold,
-  fontWeight: '800' as const,
-  fontSize: 13,
-  color: '#0F172A',
-  textTransform: 'uppercase' as const,
-  letterSpacing: 0.45,
+  fontSize: 14,
+  color: '#1A368E',
+  letterSpacing: 0.1,
+  marginBottom: 6,
 };
 
 const EMPHASIS_FIELD_LABEL_STYLE = {
   ...FIELD_LABEL_STYLE,
-  fontSize: 14,
-  letterSpacing: 0.55,
 };
 
-function InfoRow({
-  label,
+function ReadValue({
   value,
-  last,
+  accent = 'blue',
 }: {
-  label: string;
   value: ReactNode;
-  last?: boolean;
+  accent?: keyof typeof ACCENT;
 }) {
+  const tone = ACCENT[accent];
   return (
     <Box
       style={{
-        paddingVertical: 7,
-        borderBottomWidth: last ? 0 : 1,
-        borderBottomColor: GLASS.divider,
+        height: 46,
+        borderRadius: FIELD_RADIUS,
+        borderWidth: 1.5,
+        borderColor: hexAlpha(tone.fg, 0.42),
+        backgroundColor: COLORS.white,
+        paddingHorizontal: 12,
+        justifyContent: 'center',
       }}
     >
-      <Text style={FIELD_LABEL_STYLE}>
-        {label}
-      </Text>
       {typeof value === 'string' || typeof value === 'number' ? (
-        <Text
-          style={{
-            fontFamily: FONTS.medium,
-            fontSize: 13,
-            color: COLORS.ink,
-            marginTop: 2,
-            lineHeight: 17,
-          }}
-        >
+        <Text style={{ fontFamily: FONTS.medium, fontSize: 14, color: COLORS.ink, lineHeight: 19 }}>
           {value || '—'}
         </Text>
       ) : (
-        <Box style={{ marginTop: 3 }}>{value}</Box>
+        value ?? (
+          <Text style={{ fontFamily: FONTS.medium, fontSize: 14, color: COLORS.ink }}>—</Text>
+        )
       )}
     </Box>
   );
 }
 
-function renderFieldValue(value: ReactNode) {
-  if (typeof value === 'string' || typeof value === 'number') {
-    return (
-      <Text
-        style={{
-          fontFamily: FONTS.medium,
-          fontSize: 13,
-          color: COLORS.ink,
-          marginTop: 2,
-          lineHeight: 17,
-        }}
-      >
-        {value || '—'}
-      </Text>
-    );
-  }
-  return <Box style={{ marginTop: 2 }}>{value ?? '—'}</Box>;
+function InfoRow({
+  label,
+  value,
+  last: _last,
+  accent = 'blue',
+}: {
+  label: string;
+  value: ReactNode;
+  last?: boolean;
+  accent?: keyof typeof ACCENT;
+}) {
+  return (
+    <VStack>
+      <Text style={FIELD_LABEL_STYLE}>{label}</Text>
+      <ReadValue value={value} accent={accent} />
+    </VStack>
+  );
 }
 
 function InfoPairRow({
@@ -131,8 +201,9 @@ function InfoPairRow({
   leftValue,
   rightLabel,
   rightValue,
-  last,
+  last: _last,
   emphasisLabels = false,
+  accent = 'blue',
 }: {
   leftLabel: string;
   leftValue: ReactNode;
@@ -140,29 +211,19 @@ function InfoPairRow({
   rightValue: ReactNode;
   last?: boolean;
   emphasisLabels?: boolean;
+  accent?: keyof typeof ACCENT;
 }) {
   const labelStyle = emphasisLabels ? EMPHASIS_FIELD_LABEL_STYLE : FIELD_LABEL_STYLE;
   return (
-    <HStack
-      style={{
-        paddingVertical: 7,
-        borderBottomWidth: last ? 0 : 1,
-        borderBottomColor: GLASS.divider,
-        gap: 10,
-      }}
-    >
-      <Box style={{ flex: 1 }}>
-        <Text style={labelStyle}>
-          {leftLabel}
-        </Text>
-        {renderFieldValue(leftValue)}
-      </Box>
-      <Box style={{ flex: 1 }}>
-        <Text style={labelStyle}>
-          {rightLabel}
-        </Text>
-        {renderFieldValue(rightValue)}
-      </Box>
+    <HStack style={{ gap: 10 }}>
+      <VStack style={{ flex: 1, minWidth: 0 }}>
+        <Text style={labelStyle}>{leftLabel}</Text>
+        <ReadValue value={leftValue} accent={accent} />
+      </VStack>
+      <VStack style={{ flex: 1, minWidth: 0 }}>
+        <Text style={labelStyle}>{rightLabel}</Text>
+        <ReadValue value={rightValue} accent={accent} />
+      </VStack>
     </HStack>
   );
 }
@@ -179,14 +240,16 @@ function MediaThumb({
   showLabel?: boolean;
 }) {
   return (
-    <Box style={{ width: '22%' }}>
+    <Box style={{ width: '23%', minWidth: 72, alignItems: 'center' }}>
       {showLabel ? (
         <Text
           style={{
-            ...FIELD_LABEL_STYLE,
-            fontSize: 10,
-            marginBottom: 4,
+            fontFamily: FONTS.bold,
+            fontSize: 13,
+            color: '#1A368E',
+            marginBottom: 6,
             textAlign: 'center',
+            letterSpacing: 0.1,
           }}
           numberOfLines={1}
         >
@@ -198,6 +261,7 @@ function MediaThumb({
         className="active:opacity-80"
         accessibilityLabel={`View ${label}`}
         style={{
+          width: '100%',
           borderRadius: 999,
           overflow: 'hidden',
           borderWidth: 1.5,
@@ -234,13 +298,11 @@ function SectionLabel({ children, accent = false }: { children: string; accent?:
     <Text
       style={{
         fontFamily: FONTS.bold,
-        fontWeight: '800',
-        fontSize: 12,
+        fontSize: 14,
         color: accent ? COLORS.primary : COLORS.ink,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-        marginTop: 12,
-        marginBottom: 6,
+        letterSpacing: 0.2,
+        marginTop: 4,
+        marginBottom: 2,
       }}
     >
       {children}
@@ -253,12 +315,10 @@ function MediaSectionHeading({ children }: { children: string }) {
     <Text
       style={{
         fontFamily: FONTS.bold,
-        fontWeight: '800',
-        fontSize: 12,
-        color: COLORS.primary,
-        marginBottom: 6,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
+        fontSize: 15,
+        color: '#1A368E',
+        marginBottom: 8,
+        letterSpacing: 0.15,
       }}
     >
       {children}
@@ -271,93 +331,111 @@ function ZcDetailsCard({
   siteType,
   diagram,
   badge,
+  schedulesTitle = 'Site Schedules',
 }: {
   app: MobileApplication;
   siteType: string;
   diagram?: ReactNode;
   badge?: ReactNode;
+  /** Avoid clashing with engineer “Site Schedules” on the same page. */
+  schedulesTitle?: string;
 }) {
   return (
-    <SectionCard
-      title="ZC details"
-      subtitle="Submitted by Zone Commissioner"
-      icon={Building2}
-      badge={badge}
-    >
-      <InfoPairRow
-        leftLabel="E-office number"
-        leftValue={app.eOfficeNumber?.trim() || '—'}
-        rightLabel="Site no"
-        rightValue={app.siteNo}
-      />
-      <InfoPairRow
-        leftLabel="Site type"
-        leftValue={siteType}
-        rightLabel="Site dimension"
-        rightValue={app.siteDimension || '—'}
-      />
-      <InfoPairRow
-        leftLabel="Zone"
-        leftValue={app.zoneCode || '—'}
-        rightLabel="Area"
-        rightValue={app.addressArea || '—'}
-      />
-      <InfoPairRow
-        leftLabel="Block"
-        leftValue={app.addressBlock || '—'}
-        rightLabel="Pincode"
-        rightValue={app.addressPincode || '—'}
-      />
+    <VStack style={{ gap: 12 }}>
+      <SectionCard
+        title="Application Details"
+        subtitle="Basic information about the site."
+        icon={Link2}
+        accent="blue"
+        badge={badge}
+      >
+        <InfoRow
+          label="E-office number"
+          value={app.eOfficeNumber?.trim() || '—'}
+          accent="blue"
+        />
+        <InfoPairRow
+          leftLabel="Site no"
+          leftValue={app.siteNo || '—'}
+          rightLabel="Site type"
+          rightValue={siteType}
+          accent="blue"
+        />
+        <InfoPairRow
+          leftLabel="Site dimension"
+          leftValue={app.siteDimension || '—'}
+          rightLabel="Zone"
+          rightValue={app.zoneCode || '—'}
+          accent="blue"
+        />
+        <InfoPairRow
+          leftLabel="Created by ZC"
+          leftValue={app.createdByZcName || '—'}
+          rightLabel="Assigned on"
+          rightValue={formatSubmittedDateTime(app.createdAt)}
+          accent="blue"
+        />
+      </SectionCard>
 
-      <SectionLabel accent> Site Schedules</SectionLabel>
-      <InfoPairRow
-        leftLabel="North"
-        leftValue={app.scheduleNorth || '—'}
-        rightLabel="South"
-        rightValue={app.scheduleSouth || '—'}
-      />
-      <InfoPairRow
-        leftLabel="West"
-        leftValue={app.scheduleWest || '—'}
-        rightLabel="East"
-        rightValue={app.scheduleEast || '—'}
-        last={!app.siteDimensionComment?.trim() && !diagram}
-      />
+      <SectionCard
+        title="Address"
+        subtitle="Address details of the site."
+        icon={MapPin}
+        accent="green"
+      >
+        <InfoRow label="Area" value={app.addressArea || '—'} accent="green" />
+        <InfoPairRow
+          leftLabel="Block"
+          leftValue={app.addressBlock || '—'}
+          rightLabel="Pincode"
+          rightValue={app.addressPincode || '—'}
+          accent="green"
+        />
+      </SectionCard>
+
+      <SectionCard
+        title={schedulesTitle}
+        subtitle="Site schedule information."
+        icon={Compass}
+        accent="purple"
+      >
+        <InfoPairRow
+          leftLabel="North"
+          leftValue={app.scheduleNorth || '—'}
+          rightLabel="South"
+          rightValue={app.scheduleSouth || '—'}
+          accent="purple"
+        />
+        <InfoPairRow
+          leftLabel="West"
+          leftValue={app.scheduleWest || '—'}
+          rightLabel="East"
+          rightValue={app.scheduleEast || '—'}
+          accent="purple"
+        />
+        {diagram ? <Box style={{ marginTop: 2 }}>{diagram}</Box> : null}
+      </SectionCard>
+
+      <SectionCard
+        title="Assign engineer"
+        subtitle="Engineer assigned to this application."
+        icon={UserCheck}
+        accent="sky"
+      >
+        <ReadValue value={app.assignedEngineerName || '—'} accent="sky" />
+      </SectionCard>
 
       {app.siteDimensionComment?.trim() ? (
-        <>
-          <SectionLabel accent>Comments</SectionLabel>
-          <Box
-            style={{
-              paddingVertical: 7,
-              borderBottomWidth: diagram ? 1 : 0,
-              borderBottomColor: GLASS.divider,
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: FONTS.medium,
-                fontSize: 13,
-                color: COLORS.ink,
-                lineHeight: 17,
-              }}
-            >
-              {app.siteDimensionComment}
-            </Text>
-          </Box>
-        </>
+        <SectionCard
+          title="ZC comments"
+          subtitle="Notes added for this application."
+          icon={Building2}
+          accent="blue"
+        >
+          <ReadValue value={app.siteDimensionComment} accent="blue" />
+        </SectionCard>
       ) : null}
-
-      {diagram ? <Box style={{ marginTop: 8, marginBottom: 4 }}>{diagram}</Box> : null}
-
-      <InfoPairRow
-        leftLabel="Created by ZC"
-        leftValue={app.createdByZcName || '—'}
-        rightLabel="Assigned on"
-        rightValue={formatSubmittedDateTime(app.createdAt)}
-      />
-      <InfoRow label="Assigned engineer" value={app.assignedEngineerName || '—'} last />
-    </SectionCard>
+    </VStack>
   );
 }
 
@@ -443,23 +521,14 @@ export function ApplicationRecordDetails({
   const roadFlags = app.scheduleRoadFlags || {};
   const isRoadSide = (k: 'N' | 'S' | 'E' | 'W') =>
     Boolean(roadFlags[k] ?? roadFlags[k.toLowerCase()]);
-  /** Same labels as engineer Dimensions step — includes Road so diagram shows the strip. */
+  /** Engineer diagram labels: engineer notes + Road checkbox only — never ZC text. */
   const diagramSchedule = (k: 'N' | 'S' | 'E' | 'W') => {
     const eng =
       engNotes[k]?.trim() || engNotes[k.toLowerCase()]?.trim() || '';
-    const zc =
-      k === 'N'
-        ? app.scheduleNorth
-        : k === 'S'
-          ? app.scheduleSouth
-          : k === 'E'
-            ? app.scheduleEast
-            : app.scheduleWest;
-    const base = eng || (zc || '').trim();
     const road = isRoadSide(k);
-    if (road && base) return `Road · ${base}`;
+    if (road && eng) return `Road · ${eng}`;
     if (road) return 'Road';
-    return base || null;
+    return eng || null;
   };
 
   const diagramNode = boundary.dims ? (
@@ -493,22 +562,17 @@ export function ApplicationRecordDetails({
   const zcDiagram = boundary.source !== 'engineer' ? diagramNode : null;
   const engineerDiagram = boundary.source === 'engineer' ? diagramNode : null;
 
-  const hasMedia =
-    app.selfieUrl ||
-    photos.length > 0 ||
-    schedulePhotos.N ||
-    schedulePhotos.S ||
-    schedulePhotos.E ||
-    schedulePhotos.W;
+  const hasGalleryMedia = Boolean(app.selfieUrl || photos.length > 0);
 
   const zcCard = (
     <ZcDetailsCard
       app={app}
       siteType={zcSiteType}
       diagram={zcDiagram}
+      schedulesTitle={viewerRole === 'engineer' ? 'ZC Site Schedules' : 'Site Schedules'}
       badge={
         viewerRole === 'engineer' ? undefined : (
-          <ApplicationStatusBadge status={app.status} size="md" />
+          <ApplicationStatusBadge status={app.status} size="sm" />
         )
       }
     />
@@ -518,12 +582,29 @@ export function ApplicationRecordDetails({
     viewerRole === 'engineer' ? (
       <StatusChip status={engineerApplicationListStatus(app)} />
     ) : (
-      <ApplicationStatusBadge status={app.status} size="md" />
+      <ApplicationStatusBadge status={app.status} size="sm" />
     );
 
   const measuredSiteTypeValue = measuredType ? (
-    <Box style={{ alignSelf: 'flex-start' }}>
-      <DimTypeBadge type={measuredType} />
+    <Box
+      style={{
+        alignSelf: 'flex-start',
+        paddingHorizontal: 8,
+        paddingVertical: 1,
+        borderRadius: 6,
+        backgroundColor: measuredType === 'Odd' ? '#FEE2E2' : '#DCFCE7',
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: FONTS.medium,
+          fontSize: 14,
+          lineHeight: 19,
+          color: measuredType === 'Odd' ? '#B91C1C' : '#15803D',
+        }}
+      >
+        {measuredType === 'Odd' ? 'Odd' : measuredType === 'Even' ? 'Even' : measuredType}
+      </Text>
     </Box>
   ) : (
     '—'
@@ -531,7 +612,7 @@ export function ApplicationRecordDetails({
 
   if (!showEmptyEngineer && !hasEngineerCapture) {
     return (
-      <VStack key={themeId} style={{ gap: Math.max(6, DESIGN.sectionGap - 2) }}>
+      <VStack key={themeId} style={{ gap: 12 }}>
         {zcCard}
         <ImagePreviewModal
           uri={preview?.uri ?? null}
@@ -543,13 +624,14 @@ export function ApplicationRecordDetails({
   }
 
   return (
-    <VStack key={themeId} style={{ gap: Math.max(6, DESIGN.sectionGap - 2) }}>
+    <VStack key={themeId} style={{ gap: 12 }}>
       {zcCard}
 
       <SectionCard
         title="Engineer details"
         subtitle="Submitted by field engineer"
         icon={Ruler}
+        accent="sky"
         badge={engineerStatusBadge}
       >
         <InfoPairRow
@@ -557,43 +639,27 @@ export function ApplicationRecordDetails({
           leftValue={formatSubmittedDateTime(app.createdAt)}
           rightLabel="Submitted on"
           rightValue={formatSubmittedDateTime(app.engineerSubmittedAt)}
+          accent="sky"
         />
 
-        <SectionLabel accent>Site Schedules</SectionLabel>
-        <InfoPairRow
-          leftLabel="North"
-          leftValue={app.scheduleNorth?.trim() || '—'}
-          rightLabel="South"
-          rightValue={app.scheduleSouth?.trim() || '—'}
-        />
-        <InfoPairRow
-          leftLabel="West"
-          leftValue={app.scheduleWest?.trim() || '—'}
-          rightLabel="East"
-          rightValue={app.scheduleEast?.trim() || '—'}
-        />
-
-        <SectionLabel accent>Boundary capture</SectionLabel>
-        <EngineerSchedulesReadOnly app={app} />
-
+        {/* Order matches engineer capture: Facing → Schedules → Dimensions → Media */}
         <SectionLabel accent>Compass & GPS</SectionLabel>
         <InfoPairRow
           leftLabel="Compass"
           leftValue={app.compass || '—'}
           rightLabel="Occupancy"
           rightValue={app.occupancy || '—'}
+          accent="sky"
         />
         {app.occupancy === 'Occupied' ? (
-          <InfoRow label="Occupancy reason" value={app.occupancyReason || '—'} />
+          <InfoRow label="Occupancy reason" value={app.occupancyReason || '—'} accent="sky" />
         ) : null}
-        <InfoRow
-          label="Location"
-          value={geoPlace || '—'}
-        />
+        <InfoRow label="Location" value={geoPlace || '—'} accent="green" />
         {geoAreaLine || geo?.postalCode ? (
           <InfoRow
             label="Area"
             value={[geoAreaLine, geo?.postalCode?.trim()].filter(Boolean).join(' · ') || '—'}
+            accent="green"
           />
         ) : null}
         <InfoPairRow
@@ -602,6 +668,7 @@ export function ApplicationRecordDetails({
           rightLabel="Longitude"
           rightValue={app.longitude?.trim() || '—'}
           last={!hasGps}
+          accent="sky"
         />
         {hasGps && gpsFix ? (
           <Box style={{ borderRadius: DESIGN.cardRadius, overflow: 'hidden', marginTop: 6 }}>
@@ -615,6 +682,9 @@ export function ApplicationRecordDetails({
             />
           </Box>
         ) : null}
+
+        <SectionLabel accent>Site Schedules</SectionLabel>
+        <EngineerSchedulesReadOnly app={app} />
 
         {engineerDiagram ? (
           <>
@@ -656,41 +726,20 @@ export function ApplicationRecordDetails({
           </>
         ) : null}
 
-        {hasMedia || app.videoUrl ? (
+        {hasGalleryMedia || app.videoUrl ? (
           <>
             <SectionLabel accent>Photos & Media</SectionLabel>
             <Box
               style={{
                 borderRadius: 14,
-                borderWidth: 1.5,
-                borderColor: hexAlpha(COLORS.primary, 0.55),
-                backgroundColor: 'rgba(255,255,255,0.5)',
+                borderWidth: 1,
+                borderColor: 'rgba(26,86,219,0.16)',
+                backgroundColor: '#F7FAFF',
                 padding: 12,
                 marginTop: 4,
                 gap: 12,
               }}
             >
-              <HStack className="items-center justify-between" style={{ marginBottom: 2 }}>
-                <HStack className="items-center" style={{ gap: 8 }}>
-                  <Box
-                    style={{
-                      height: 30,
-                      width: 30,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: 9,
-                      backgroundColor: COLORS.primary,
-                    }}
-                  >
-                    <Camera size={14} color="#FFFFFF" strokeWidth={2.35} />
-                  </Box>
-                  <Text style={{ fontFamily: FONTS.bold, fontWeight: '800', fontSize: 15, color: COLORS.ink }}>
-                    Captured photos & video
-                  </Text>
-                </HStack>
-              </HStack>
-              <Box style={{ height: 1, backgroundColor: GLASS.divider, marginVertical: 4 }} />
-
               <VStack style={{ gap: 12 }}>
                 {app.selfieUrl ? (
                   <Box>
@@ -722,33 +771,6 @@ export function ApplicationRecordDetails({
                   </Box>
                 ) : null}
 
-                {schedulePhotos.N || schedulePhotos.S || schedulePhotos.E || schedulePhotos.W ? (
-                  <Box>
-                    <MediaSectionHeading>Site schedule photos</MediaSectionHeading>
-                    <HStack className="flex-wrap" style={{ gap: 6 }}>
-                      {(
-                        [
-                          ['N', 'North'],
-                          ['S', 'South'],
-                          ['E', 'East'],
-                          ['W', 'West'],
-                        ] as const
-                      ).map(([key, label]) =>
-                        schedulePhotos[key] ? (
-                          <MediaThumb
-                            key={key}
-                            label={label}
-                            uri={schedulePhotos[key]}
-                            onView={() =>
-                              setPreview({ uri: schedulePhotos[key], title: `${label} photo` })
-                            }
-                          />
-                        ) : null,
-                      )}
-                    </HStack>
-                  </Box>
-                ) : null}
-
                 {app.videoUrl ? (
                   <Box>
                     <MediaSectionHeading>Site video</MediaSectionHeading>
@@ -772,7 +794,7 @@ export function ApplicationRecordDetails({
         {app.engineerComments ? (
           <>
             <SectionLabel accent>Comments</SectionLabel>
-            <InfoRow label="Engineer remarks" value={app.engineerComments} last />
+            <ReadValue value={app.engineerComments} accent="sky" />
           </>
         ) : null}
       </SectionCard>

@@ -48,7 +48,8 @@ function shortBeside(raw: string | null | undefined, max = 20): string | null {
 }
 
 function looksLikeRoad(raw: string | null | undefined, roadFlag?: boolean): boolean {
-  if (roadFlag) return true;
+  if (roadFlag === true) return true;
+  if (roadFlag === false) return false;
   return /\broad\b/i.test(raw || '');
 }
 
@@ -299,10 +300,6 @@ function isRoadSide(flags: Record<string, boolean>, k: 'N' | 'S' | 'E' | 'W') {
 function diagramScheduleForApp(
   app: {
     engineerScheduleNotes?: Record<string, string> | null;
-    scheduleNorth?: string | null;
-    scheduleSouth?: string | null;
-    scheduleEast?: string | null;
-    scheduleWest?: string | null;
     scheduleRoadFlags?: Record<string, boolean> | null;
   },
   k: 'N' | 'S' | 'E' | 'W',
@@ -310,19 +307,10 @@ function diagramScheduleForApp(
   const engNotes = app.engineerScheduleNotes ?? {};
   const flags = app.scheduleRoadFlags ?? {};
   const eng = engNotes[k]?.trim() || engNotes[k.toLowerCase()]?.trim() || '';
-  const zc =
-    k === 'N'
-      ? app.scheduleNorth
-      : k === 'S'
-        ? app.scheduleSouth
-        : k === 'E'
-          ? app.scheduleEast
-          : app.scheduleWest;
-  const base = eng || (zc || '').trim();
   const road = isRoadSide(flags, k);
-  if (road && base) return `Road · ${base}`;
+  if (road && eng) return `Road · ${eng}`;
   if (road) return 'Road';
-  return base || null;
+  return eng || null;
 }
 
 export function buildSiteDimensionPlotSvgFromApp(app: {

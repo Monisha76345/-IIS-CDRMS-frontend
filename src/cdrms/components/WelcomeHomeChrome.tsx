@@ -1,4 +1,4 @@
-import { Clock } from 'lucide-react-native';
+import { CalendarDays, Clock } from 'lucide-react-native';
 import { Image, StyleSheet, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,8 +18,6 @@ import {
   COLORS,
   DESIGN,
   FONTS,
-  GRADIENT_HEADER,
-  gradientStops,
   headerFg,
   hexAlpha,
   isMeshDesign,
@@ -29,6 +27,8 @@ import {
   usesSolidHeader,
 } from '@/src/cdrms/theme';
 import type { Go } from '@/src/cdrms/types';
+
+const BDA_BUILDING = require('../../../assets/bda-building.png');
 
 /** Soft transparent BDA seal behind Welcome / list pages (all themes). */
 export function BdaPageWatermark() {
@@ -163,7 +163,8 @@ export function WelcomeHomeHeader({
   const resolvedZone =
     zoneLabel?.trim() || user?.activePost?.zoneCode?.trim() || null;
 
-  const dateLabel = new Date().toLocaleString(undefined, {
+  const now = new Date();
+  const dateLabel = now.toLocaleString(undefined, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -172,6 +173,19 @@ export function WelcomeHomeHeader({
     minute: '2-digit',
     hour12: true,
   });
+  const compactDateLabel = now
+    .toLocaleString(undefined, {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    })
+    .replace(',', ' •');
+  const hour = now.getHours();
+  const timeGreeting =
+    hour < 12 ? 'Good morning,' : hour < 17 ? 'Good afternoon,' : 'Good evening,';
 
   const dateRow = (
     <HStack className="items-center" style={{ gap: 6, marginTop: usesLightHeader() ? 12 : 16 }}>
@@ -218,15 +232,34 @@ export function WelcomeHomeHeader({
       style={{ zIndex: 40, elevation: 12, position: 'relative' }}
     >
       {resolvedZone ? <ZoneTag zone={resolvedZone} onGradient={!usesLightHeader()} /> : null}
-      <ProfileMenu
-        gradient={!usesLightHeader()}
-        userName={displayName(user)}
-        roleName={roleDisplayTitle(user)}
-        loginId={user?.officer?.personUniqueId || user?.loginId}
-        photoUrl={user?.profilePhoto || user?.officer?.profilePhoto}
-        zoneLabel={resolvedZone}
-        onLogout={onLogout}
-      />
+      <Box style={{ position: 'relative' }}>
+        <ProfileMenu
+          gradient={!usesLightHeader()}
+          userName={displayName(user)}
+          roleName={roleDisplayTitle(user)}
+          loginId={user?.officer?.personUniqueId || user?.loginId}
+          photoUrl={user?.profilePhoto || user?.officer?.profilePhoto}
+          zoneLabel={resolvedZone}
+          onLogout={onLogout}
+        />
+        {!usesLightHeader() ? (
+          <Box
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              right: 1,
+              bottom: 1,
+              width: 11,
+              height: 11,
+              borderRadius: 999,
+              backgroundColor: '#22C55E',
+              borderWidth: 2,
+              borderColor: COLORS.white,
+              zIndex: 60,
+            }}
+          />
+        ) : null}
+      </Box>
     </HStack>
   );
 
@@ -283,58 +316,135 @@ export function WelcomeHomeHeader({
 
   if (usesSolidHeader()) {
     return (
-      <LinearGradient
-        colors={gradientStops(GRADIENT_HEADER)}
-        start={DESIGN.headerStart}
-        end={DESIGN.headerEnd}
-        style={{ paddingBottom: 16, zIndex: 30, elevation: 8 }}
-      >
-        <Box className="px-5" style={{ paddingTop: insets.top + 8, zIndex: 2 }}>
-          <HStack className="items-center justify-between">
-            <VStack className="flex-1 min-w-0" style={{ gap: 3 }}>
+      <Box style={{ zIndex: 30, elevation: 8, overflow: 'hidden' }}>
+        <Image
+          source={BDA_BUILDING}
+          style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%' }]}
+          resizeMode="cover"
+        />
+        <LinearGradient
+          colors={['rgba(15,23,42,0.62)', 'rgba(15,23,42,0.32)', 'rgba(15,23,42,0.5)']}
+          locations={[0, 0.5, 1]}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <Box
+          className="px-5"
+          style={{
+            paddingTop: insets.top + 10,
+            paddingBottom: 18,
+            zIndex: 2,
+          }}
+        >
+          <HStack className="items-center justify-between" style={{ gap: 10 }}>
+            <HStack
+              className="items-center"
+              style={{
+                flexShrink: 1,
+                minWidth: 0,
+                maxWidth: '58%',
+                gap: 6,
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 999,
+                backgroundColor: 'rgba(255,255,255,0.2)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.4)',
+              }}
+            >
+              <Box
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: 999,
+                  backgroundColor: '#60A5FA',
+                  flexShrink: 0,
+                }}
+              />
               <Text
                 style={{
-                  fontFamily: FONTS.medium,
-                  fontSize: 12,
-                  lineHeight: 16,
-                  letterSpacing: 1.2,
+                  fontFamily: FONTS.semibold,
+                  fontSize: 11,
+                  lineHeight: 14,
+                  letterSpacing: 0.8,
                   textTransform: 'uppercase',
-                  color: fg.muted,
+                  color: COLORS.white,
+                  flexShrink: 1,
                 }}
                 numberOfLines={1}
               >
                 {headerEyebrow}
               </Text>
-              <Text
-                style={{
-                  fontFamily: FONTS.displayBold,
-                  fontSize: 26,
-                  lineHeight: 32,
-                  letterSpacing: -0.4,
-                  color: fg.title,
-                }}
-                numberOfLines={1}
-              >
-                Welcome
-              </Text>
-              <Text
-                style={{
-                  fontFamily: FONTS.semibold,
-                  fontSize: 14,
-                  lineHeight: 18,
-                  letterSpacing: 0.1,
-                  color: fg.soft,
-                }}
-                numberOfLines={1}
-              >
-                {displayName(user)}
-              </Text>
-            </VStack>
-            {profile}
+            </HStack>
+            <Box style={{ flexShrink: 0 }}>{profile}</Box>
           </HStack>
-          {dateRow}
+
+          <VStack style={{ gap: 2, marginTop: 22 }}>
+            <Text
+              style={{
+                fontFamily: FONTS.medium,
+                fontSize: 16,
+                lineHeight: 22,
+                color: 'rgba(255,255,255,0.92)',
+              }}
+              numberOfLines={1}
+            >
+              {timeGreeting}
+            </Text>
+            <Text
+              style={{
+                fontFamily: FONTS.bold,
+                fontSize: 28,
+                lineHeight: 34,
+                letterSpacing: -0.3,
+                color: COLORS.white,
+              }}
+              numberOfLines={1}
+            >
+              {displayName(user)}
+            </Text>
+            <Box
+              style={{
+                marginTop: 6,
+                width: 36,
+                height: 3,
+                borderRadius: 999,
+                backgroundColor: '#3B82F6',
+              }}
+            />
+          </VStack>
+
+          <HStack
+            className="items-center"
+            style={{
+              alignSelf: 'flex-start',
+              gap: 8,
+              marginTop: 18,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 999,
+              backgroundColor: COLORS.white,
+              shadowColor: '#0F172A',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.14,
+              shadowRadius: 6,
+              elevation: 4,
+            }}
+          >
+            <CalendarDays size={14} color={COLORS.primary} strokeWidth={2.4} />
+            <Text
+              style={{
+                fontFamily: FONTS.semibold,
+                fontSize: 12,
+                lineHeight: 16,
+                color: COLORS.primaryDeep,
+              }}
+              numberOfLines={1}
+            >
+              {compactDateLabel}
+            </Text>
+          </HStack>
         </Box>
-      </LinearGradient>
+      </Box>
     );
   }
 
@@ -521,7 +631,8 @@ export function WelcomeHomeHeader({
 }
 
 export function welcomeFilterGap() {
-  // Mesh scallops sit closer; Wave date band needs a bit more air
+  // Mesh scallops sit closer; photo header needs a small air gap before status cards
   if (isMeshDesign()) return 6;
+  if (usesSolidHeader()) return 12;
   return usesNormalHeader() ? 12 : 8;
 }

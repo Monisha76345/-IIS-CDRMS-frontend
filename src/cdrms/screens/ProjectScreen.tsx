@@ -285,18 +285,18 @@ export function ProjectScreen({ go }: { go: Go }) {
       key={themeId}
       title={
         isBackendTask
-          ? 'ZC details'
+          ? 'ZC Application Details'
           : isResubmit
             ? TERMS.workflow.fixResubmit
             : TERMS.workflow.newApplication
       }
-      subtitle={
-        isBackendTask
-          ? 'View only · assigned by Zone Commissioner'
-          : isResubmit
-            ? TERMS.workflow.fixResubmitSubtitle
-            : TERMS.workflow.newApplicationSubtitle
-      }
+      // subtitle={
+      //   isBackendTask
+      //     ? 'View only · assigned by Zone Commissioner'
+      //     : isResubmit
+      //       ? TERMS.workflow.fixResubmitSubtitle
+      //       : TERMS.workflow.newApplicationSubtitle
+      // }
       surface={isBackendTask ? 'premium' : 'default'}
       onBack={() => {
         go(isResubmit || isBackendTask ? 'history' : 'dashboard', { replace: true });

@@ -64,7 +64,9 @@ function shortBeside(raw: string | null | undefined, max = 20): string | null {
 }
 
 function looksLikeRoad(raw: string | null | undefined, roadFlag?: boolean): boolean {
-  if (roadFlag) return true;
+  // Explicit engineer Road checkbox wins — never infer from ZC/engineer text.
+  if (roadFlag === true) return true;
+  if (roadFlag === false) return false;
   return /\broad\b/i.test(raw || '');
 }
 
@@ -721,7 +723,7 @@ export function BoundariesDiagram({
                     style={{ fontFamily: FONTS.bold, fontSize: 12, color: COLORS.ink }}
                     numberOfLines={1}
                   >
-                    {`${dir} · ${COMPASS_FULL[dir]}`}
+                    {COMPASS_FULL[dir]}
                   </Text>
                 </HStack>
               ))}
@@ -740,14 +742,25 @@ export function BoundariesDiagram({
               >
                 <HStack style={{ alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
                   <VStack style={{ gap: 1 }}>
-                    <Text style={{ fontFamily: FONTS.semibold, fontSize: 12, color: '#92400E', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    <Text
+                      style={{
+                        fontFamily: FONTS.bold,
+                        fontSize: 12,
+                        color: COLORS.ink,
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5,
+                      }}
+                    >
                       Total Area
                     </Text>
-                    <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#78350F' }}>
-                      {getFormattedArea().val}{' '}
-                      <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: '#92400E' }}>
-                        {getFormattedArea().label}
-                      </Text>
+                    <Text
+                      style={{
+                        fontFamily: FONTS.medium,
+                        fontSize: 14,
+                        color: COLORS.ink,
+                      }}
+                    >
+                      {getFormattedArea().val} {getFormattedArea().label}
                     </Text>
                   </VStack>
 

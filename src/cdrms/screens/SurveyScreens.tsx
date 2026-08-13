@@ -42,7 +42,6 @@ import { Textarea, TextareaInput } from '@/components/ui/textarea';
 import { VStack } from '@/components/ui/vstack';
 import { ApiMediaImage } from '@/src/cdrms/components/ApiMediaImage';
 import { ImagePreviewModal } from '@/src/cdrms/components/ImagePreviewModal';
-import { FrostedGlass, GlassHeaderBadge, GlassSectionCard, HeaderStatusBadge } from '@/src/cdrms/components/GlassSurface';
 import { LiveCompassDial } from '@/src/cdrms/components/LiveCompassDial';
 import { LiveGpsPanel } from '@/src/cdrms/components/LiveGpsPanel';
 import { SchedulesEditorCard } from '@/src/cdrms/components/SchedulesEditorCard';
@@ -55,6 +54,7 @@ import {
   SurveyScaffold,
   WorkspaceHeader,
   FooterContinueBtn,
+  PremiumStepCard,
 } from '@/src/cdrms/components/SurveyLayout';
 import { parseCompassReading, formatLiveReading, SIMULATOR_COMPASS_HEADING, isSimulatorOrEmulator } from '@/src/cdrms/hooks/useCompass';
 import Constants from 'expo-constants';
@@ -73,7 +73,17 @@ import {
   formatCoords,
   type Cardinal,
 } from '@/src/cdrms/project/types';
-import { COLORS, FONTS, GLASS, GRADIENT_PRIMARY, GRADIENT_VIDEO, SPACE, TYPE, gradientStops, DESIGN } from '@/src/cdrms/theme';
+import {
+  COLORS,
+  FONTS,
+  GLASS,
+  GRADIENT_PRIMARY,
+  GRADIENT_VIDEO,
+  SPACE,
+  TYPE,
+  gradientStops,
+  DESIGN,
+} from '@/src/cdrms/theme';
 import { useTheme } from '@/src/theme/ThemeContext';
 import { TERMS } from '@/src/cdrms/terminology';
 import type { Go } from '@/src/cdrms/types';
@@ -88,6 +98,9 @@ const DIR_ICONS = {
 } as const;
 
 const CARDINALS: Cardinal[] = ['N', 'S', 'E', 'W'];
+
+const BLUE_SOFT = '#EEF4FF';
+const BLUE_BORDER = 'rgba(26,86,219,0.22)';
 
 export function BandiScreen({ go }: { go: Go }) {
   const { themeId } = useTheme();
@@ -336,7 +349,7 @@ export function BandiScreen({ go }: { go: Go }) {
           go={go}
     >
       {isBackendTask ? (
-        <GlassSectionCard
+        <PremiumStepCard
           icon={Compass}
           title="Site facing direction *"
           subtitle={
@@ -344,14 +357,41 @@ export function BandiScreen({ go }: { go: Go }) {
               ? `Live ${draft.compassReading} · turn phone to update`
               : 'Hold phone flat — live sensor on real device'
           }
-            badge={
-              compassFace ? (
-                <HeaderStatusBadge label={compassFace} tone="info" />
-              ) : undefined
-            }
+          badge={
+            compassFace ? (
+              <Box
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  borderRadius: 999,
+                  backgroundColor: BLUE_SOFT,
+                  borderWidth: 1,
+                  borderColor: BLUE_BORDER,
+                }}
+              >
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: COLORS.primary }}>
+                  {compassFace}
+                </Text>
+              </Box>
+            ) : undefined
+          }
         >
-          <LiveCompassDial />
-        </GlassSectionCard>
+          <Box
+            style={{
+              borderRadius: 16,
+              backgroundColor: BLUE_SOFT,
+              borderWidth: 1,
+              borderColor: BLUE_BORDER,
+              paddingHorizontal: 8,
+              paddingTop: 8,
+              paddingBottom: 8,
+              alignItems: 'center',
+              width: '100%',
+            }}
+          >
+            <LiveCompassDial compact />
+          </Box>
+        </PremiumStepCard>
       ) : (
         <SurveyCard>
           <WorkspaceHeader
@@ -373,13 +413,24 @@ export function BandiScreen({ go }: { go: Go }) {
 
       {isBackendTask ? (
         <>
-          <GlassSectionCard
+          <PremiumStepCard
             icon={MapPin}
             title="Live GPS & coordinates *"
-            subtitle=""
             badge={
               mapGps ? (
-                <GlassHeaderBadge tone="success">
+                <Box
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 5,
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 999,
+                    backgroundColor: '#ECFDF5',
+                    borderWidth: 1,
+                    borderColor: '#A7F3D0',
+                  }}
+                >
                   <Box
                     style={{
                       width: 6,
@@ -388,101 +439,94 @@ export function BandiScreen({ go }: { go: Go }) {
                       backgroundColor: '#047857',
                     }}
                   />
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: '#047857' }}>
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#047857' }}>
                     {`±${Math.round(mapGps.accuracy ?? 6)}m`}
                   </Text>
-                </GlassHeaderBadge>
+                </Box>
               ) : geoBusy ? (
-                <GlassHeaderBadge tone="info">
-                  <ActivityIndicator size={10} color="#1E3A8A" />
-                </GlassHeaderBadge>
+                <ActivityIndicator size={12} color={COLORS.primary} />
               ) : undefined
             }
           >
-            <VStack style={{ gap: SPACE[2] }}>
-              <LiveGpsPanel
-                gps={mapGps}
-                address={liveAddress}
-                loading={geoBusy}
-                error={geoError}
-                onRefresh={() => void recaptureGps()}
-                syNo={draft.surveyNo || draft.siteNo || undefined}
-                title={null}
-                hideTitleHeader
-                variant="premium"
-              />
-
-              <FrostedGlass
-                borderRadius={DESIGN.cardRadius}
-                padding={SPACE[2]}
-                fill={GLASS.surfaceSolid}
-                sheen={false}
-                style={{ borderTopWidth: 2, borderTopColor: '#0891B2' }}
+            <VStack style={{ gap: 8 }}>
+              <Box
+                style={{
+                  borderRadius: 16,
+                  overflow: 'hidden',
+                  borderWidth: 1,
+                  borderColor: BLUE_BORDER,
+                }}
               >
-                <HStack className="items-center" style={{ gap: SPACE[2] }}>
+                <LiveGpsPanel
+                  gps={mapGps}
+                  address={liveAddress}
+                  loading={geoBusy}
+                  error={geoError}
+                  onRefresh={() => void recaptureGps()}
+                  syNo={draft.surveyNo || draft.siteNo || undefined}
+                  title={null}
+                  hideTitleHeader
+                  variant="premium"
+                />
+              </Box>
+
+              <Box
+                style={{
+                  borderRadius: 999,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  backgroundColor: COLORS.white,
+                  borderWidth: 1.5,
+                  borderColor: BLUE_BORDER,
+                  shadowColor: COLORS.primaryDeep,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 5,
+                  elevation: 2,
+                }}
+              >
+                <HStack className="items-center" style={{ gap: 8 }}>
                   <Box
                     style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: DESIGN.chipRadius,
-                      backgroundColor: GLASS.tintBlue,
+                      width: 28,
+                      height: 28,
+                      borderRadius: 999,
+                      backgroundColor: BLUE_SOFT,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      borderWidth: 1,
-                      borderColor: `${COLORS.primary}40`,
                     }}
                   >
-                    <Crosshair size={16} color={COLORS.primary} strokeWidth={2.4} />
+                    <Crosshair size={14} color={COLORS.primary} strokeWidth={2.4} />
                   </Box>
-
-                  <VStack className="flex-1 min-w-0" style={{ gap: 4 }}>
-                    <HStack className="items-center" style={{ gap: SPACE[2] }}>
-                      <Box
-                        style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: 3,
-                          backgroundColor: mapGps ? COLORS.success : COLORS.warning,
-                        }}
-                      />
-                      <Text
-                        style={{
-                          ...TYPE.caption,
-                          fontFamily: FONTS.bold,
-                          color: COLORS.ink,
-                          fontSize: 10,
-                        }}
-                      >
-                        {mapGps
-                          ? 'LIVE COORDINATES'
-                          : geoBusy
-                            ? 'Finding location…'
-                            : 'Waiting for location'}
-                      </Text>
-                      {mapGps ? (
-                        <Text style={{ ...TYPE.caption, fontFamily: FONTS.semibold, color: COLORS.slate, fontSize: 10 }}>
-                          {`±${Math.round(mapGps.accuracy ?? 6)} m`}
-                        </Text>
-                      ) : null}
-                    </HStack>
-
-                    <HStack className="items-center justify-between">
-                      <Text style={{ fontFamily: FONTS.bold, color: COLORS.ink, fontSize: 13 }}>Latitude</Text>
-                      <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink, fontWeight: '800' }}>
-                        {mapGps ? mapGps.latitude.toFixed(6) : '—'}
-                      </Text>
-                    </HStack>
-
-                    <Box style={{ height: 1, backgroundColor: GLASS.divider }} />
-
-                    <HStack className="items-center justify-between">
-                      <Text style={{ fontFamily: FONTS.bold, color: COLORS.ink, fontSize: 13 }}>Longitude</Text>
-                      <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.ink, fontWeight: '800' }}>
-                        {mapGps ? mapGps.longitude.toFixed(6) : '—'}
-                      </Text>
-                    </HStack>
+                  <VStack className="flex-1 min-w-0" style={{ gap: 0 }}>
+                    <Text
+                      style={{
+                        fontFamily: FONTS.bold,
+                        fontSize: 13,
+                        letterSpacing: 0.3,
+                        color: COLORS.ink,
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {mapGps
+                        ? 'Live coordinates'
+                        : geoBusy
+                          ? 'Finding location…'
+                          : 'Waiting for location'}
+                    </Text>
+                    <Text
+                      style={{
+                        fontFamily: FONTS.semibold,
+                        fontSize: 12,
+                        lineHeight: 16,
+                        color: '#475569',
+                      }}
+                    >
+                      Lat {mapGps ? mapGps.latitude.toFixed(6) : '—'}
+                      {'  ·  '}
+                      Lng {mapGps ? mapGps.longitude.toFixed(6) : '—'}
+                    </Text>
                   </VStack>
-
                   <Pressable
                     onPress={() => void recaptureGps()}
                     accessibilityLabel="Refresh live coordinates"
@@ -490,12 +534,12 @@ export function BandiScreen({ go }: { go: Go }) {
                     style={{
                       width: 30,
                       height: 30,
-                      borderRadius: DESIGN.stepRadius,
-                      backgroundColor: GLASS.tintBlue,
+                      borderRadius: 999,
+                      backgroundColor: BLUE_SOFT,
                       alignItems: 'center',
                       justifyContent: 'center',
                       borderWidth: 1,
-                      borderColor: `${COLORS.primary}40`,
+                      borderColor: BLUE_BORDER,
                     }}
                   >
                     {geoBusy ? (
@@ -505,11 +549,11 @@ export function BandiScreen({ go }: { go: Go }) {
                     )}
                   </Pressable>
                 </HStack>
-              </FrostedGlass>
+              </Box>
             </VStack>
-          </GlassSectionCard>
+          </PremiumStepCard>
 
-          <GlassSectionCard
+          <PremiumStepCard
             icon={Building2}
             title="Occupancy *"
             subtitle={
@@ -522,93 +566,95 @@ export function BandiScreen({ go }: { go: Go }) {
                   : 'Required before continuing'
             }
             badge={
-              draft.occupancy ? <HeaderStatusBadge label={draft.occupancy} /> : undefined
+              draft.occupancy ? (
+                <Box
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 999,
+                    backgroundColor: BLUE_SOFT,
+                    borderWidth: 1,
+                    borderColor: BLUE_BORDER,
+                  }}
+                >
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: COLORS.primary }}>
+                    {draft.occupancy}
+                  </Text>
+                </Box>
+              ) : undefined
             }
           >
-            <FrostedGlass
-              borderRadius={DESIGN.cardRadius}
-              padding={SPACE[2]}
-              fill={GLASS.surfaceSolid}
-              sheen={false}
-              style={{ borderTopWidth: 2, borderTopColor: COLORS.primary }}
-            >
-              <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginBottom: SPACE[2] }}>
-                <Text style={{ ...TYPE.label, color: COLORS.ink, fontSize: 10 }}>Occupancy</Text>
-                <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#DC2626', lineHeight: 14 }}>*</Text>
-              </Box>
-              <HStack style={{ gap: SPACE[3], alignItems: 'center' }}>
-                {(['Empty', 'Occupied'] as const).map((opt) => {
-                  const on = draft.occupancy === opt;
-                  const empty = opt === 'Empty';
-                  const activeBg = empty ? '#ECFDF5' : '#FFF7ED';
-                  const activeBorder = empty ? '#6EE7B7' : '#FDBA74';
-                  const activeFg = empty ? '#047857' : '#C2410C';
-                  return (
-                    <Pressable
-                      key={opt}
-                      onPress={() => updateField('occupancy', opt)}
-                      className="active:opacity-80"
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: on }}
+            <HStack style={{ gap: 8, alignItems: 'center' }}>
+              {(['Empty', 'Occupied'] as const).map((opt) => {
+                const on = draft.occupancy === opt;
+                const empty = opt === 'Empty';
+                const activeBg = empty ? '#ECFDF5' : '#FFF7ED';
+                const activeBorder = empty ? '#6EE7B7' : '#FDBA74';
+                const activeFg = empty ? '#047857' : '#C2410C';
+                return (
+                  <Pressable
+                    key={opt}
+                    onPress={() => updateField('occupancy', opt)}
+                    className="active:opacity-80"
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: on }}
+                    style={{
+                      flex: 1,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      paddingVertical: 10,
+                      paddingHorizontal: 8,
+                      borderRadius: 999,
+                      backgroundColor: on ? activeBg : COLORS.white,
+                      borderWidth: 1.5,
+                      borderColor: on ? activeBorder : BLUE_BORDER,
+                      shadowColor: COLORS.primaryDeep,
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: on ? 0.1 : 0.05,
+                      shadowRadius: 5,
+                      elevation: on ? 2 : 1,
+                    }}
+                  >
+                    <Box
                       style={{
-                        flex: 1,
-                        flexDirection: 'row',
+                        width: 16,
+                        height: 16,
+                        borderRadius: 999,
+                        borderWidth: 2,
+                        borderColor: on ? activeFg : '#94A3B8',
+                        backgroundColor: COLORS.white,
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: 6,
-                        paddingVertical: SPACE[2],
-                        paddingHorizontal: SPACE[2],
-                        borderRadius: DESIGN.stepRadius,
-                        backgroundColor: on ? activeBg : GLASS.surface,
-                        borderWidth: 1.5,
-                        borderColor: on ? activeBorder : GLASS.border,
                       }}
                     >
-                      <Box
-                        style={{
-                          width: 16,
-                          height: 16,
-                          borderRadius: DESIGN.stepRadius,
-                          borderWidth: 2,
-                          borderColor: on ? activeFg : '#94A3B8',
-                          backgroundColor: COLORS.white,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        {on ? (
-                          <Box
-                            style={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: 4,
-                              backgroundColor: activeFg,
-                            }}
-                          />
-                        ) : null}
-                      </Box>
-                      <Text
-                        style={{
-                          fontFamily: FONTS.bold,
-                          fontSize: 13,
-                          color: on ? activeFg : COLORS.ink,
-                        }}
-                      >
-                        {opt}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </HStack>
-            </FrostedGlass>
+                      {on ? (
+                        <Box
+                          style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: 4,
+                            backgroundColor: activeFg,
+                          }}
+                        />
+                      ) : null}
+                    </Box>
+                    <Text
+                      style={{
+                        fontFamily: FONTS.bold,
+                        fontSize: 13,
+                        color: on ? activeFg : COLORS.ink,
+                      }}
+                    >
+                      {opt}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </HStack>
             {draft.occupancy === 'Occupied' ? (
-              <FrostedGlass
-                borderRadius={DESIGN.cardRadius}
-                padding={SPACE[2]}
-                fill={GLASS.surfaceSolid}
-                sheen={false}
-                style={{ borderTopWidth: 2, borderTopColor: '#0891B2' }}
-              >
+              <Box style={{ marginTop: 8 }}>
                 <Field
                   compact
                   label="Occupied reason *"
@@ -616,9 +662,9 @@ export function BandiScreen({ go }: { go: Go }) {
                   onChangeText={(t) => updateField('occupancyReason', t)}
                   placeholder="Why is the site occupied?"
                 />
-              </FrostedGlass>
+              </Box>
             ) : null}
-          </GlassSectionCard>
+          </PremiumStepCard>
         </>
       ) : (
         <SurveyCard>
@@ -1401,37 +1447,53 @@ export function PhotosScreen({ go }: { go: Go }) {
     >
       {isBackendTask ? (
         <>
-          <GlassSectionCard
+          <PremiumStepCard
             icon={Camera}
             title="Selfie *"
-            subtitle=""
             badge={
-              draft.selfie ? <HeaderStatusBadge label="Done" /> : undefined
+              draft.selfie ? (
+                <Box
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 999,
+                    backgroundColor: '#ECFDF5',
+                    borderWidth: 1,
+                    borderColor: '#A7F3D0',
+                  }}
+                >
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#047857' }}>
+                    Done
+                  </Text>
+                </Box>
+              ) : undefined
             }
           >
             {draft.selfie ? (
               <Box
                 style={{
-                  borderRadius: DESIGN.cardRadius,
-                  backgroundColor: GLASS.surfaceSolid,
-                  borderWidth: 1,
-                  borderColor: `${COLORS.primary}59`,
-                  padding: SPACE[2],
-                  shadowColor: '#0F172A',
+                  borderRadius: 16,
+                  backgroundColor: COLORS.white,
+                  borderWidth: 1.5,
+                  borderColor: BLUE_BORDER,
+                  padding: 8,
+                  shadowColor: COLORS.primaryDeep,
                   shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.08,
-                  shadowRadius: 8,
+                  shadowOpacity: 0.1,
+                  shadowRadius: 5,
                   elevation: 2,
                 }}
               >
-                <HStack style={{ alignItems: 'center', gap: SPACE[3] }}>
+                <HStack style={{ alignItems: 'center', gap: 10 }}>
                   <Box
                     style={{
                       width: 72,
                       height: 72,
-                      borderRadius: DESIGN.cardRadius,
+                      borderRadius: 14,
                       overflow: 'hidden',
                       backgroundColor: '#0F172A',
+                      borderWidth: 1,
+                      borderColor: BLUE_BORDER,
                     }}
                   >
                     <Pressable
@@ -1448,17 +1510,36 @@ export function PhotosScreen({ go }: { go: Go }) {
                       />
                     </Pressable>
                   </Box>
-                  <VStack style={{ flex: 1, gap: 4 }}>
-                    <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: COLORS.ink }}>
+                  <VStack style={{ flex: 1, minWidth: 0, gap: 0 }}>
+                    <Text
+                      style={{
+                        fontFamily: FONTS.bold,
+                        fontSize: 13,
+                        letterSpacing: 0.3,
+                        color: COLORS.ink,
+                        textTransform: 'uppercase',
+                      }}
+                    >
                       Selfie captured
                     </Text>
-                    <HStack style={{ gap: SPACE[2], marginTop: 2 }}>
+                    <Text
+                      style={{
+                        fontFamily: FONTS.semibold,
+                        fontSize: 12,
+                        lineHeight: 16,
+                        color: '#475569',
+                      }}
+                    >
+                      Engineer verification photo ready
+                    </Text>
+                    <HStack style={{ gap: 8, marginTop: 6 }}>
                       <Pressable
                         onPress={() => void takeSelfieMedia()}
+                        className="active:opacity-80"
                         style={{
-                          paddingHorizontal: 10,
+                          paddingHorizontal: 12,
                           paddingVertical: 6,
-                          borderRadius: DESIGN.stepRadius,
+                          borderRadius: 999,
                           backgroundColor: COLORS.primary,
                         }}
                       >
@@ -1468,18 +1549,20 @@ export function PhotosScreen({ go }: { go: Go }) {
                       </Pressable>
                       <Pressable
                         onPress={() => void removeSelfie()}
-                        className="h-10 w-10 rounded-full items-center justify-center active:opacity-80"
+                        className="active:opacity-80"
                         style={{
-                          backgroundColor: COLORS.white,
-                          shadowColor: '#0F172A',
-                          shadowOffset: { width: 0, height: 2 },
-                          shadowOpacity: 0.08,
-                          shadowRadius: 6,
-                          elevation: 2,
+                          width: 32,
+                          height: 32,
+                          borderRadius: 999,
+                          backgroundColor: BLUE_SOFT,
+                          borderWidth: 1,
+                          borderColor: BLUE_BORDER,
+                          alignItems: 'center',
+                          justifyContent: 'center',
                         }}
                         accessibilityLabel="Remove selfie"
                       >
-                        <Trash2 size={16} color={COLORS.destructive} strokeWidth={2.2} />
+                        <Trash2 size={15} color={COLORS.destructive} strokeWidth={2.2} />
                       </Pressable>
                     </HStack>
                   </VStack>
@@ -1488,18 +1571,13 @@ export function PhotosScreen({ go }: { go: Go }) {
             ) : (
               <Box
                 style={{
-                  borderRadius: DESIGN.cardRadius,
-                  backgroundColor: GLASS.surfaceSolid,
+                  borderRadius: 16,
+                  backgroundColor: BLUE_SOFT,
                   borderWidth: 1,
-                  borderColor: `${COLORS.primary}59`,
-                  padding: SPACE[3],
+                  borderColor: BLUE_BORDER,
+                  paddingVertical: 18,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  shadowColor: '#0F172A',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.08,
-                  shadowRadius: 8,
-                  elevation: 2,
                 }}
               >
                 <Pressable
@@ -1508,17 +1586,22 @@ export function PhotosScreen({ go }: { go: Go }) {
                   style={{
                     width: 64,
                     height: 64,
-                    borderRadius: 32,
+                    borderRadius: 999,
                     backgroundColor: COLORS.primary,
+                    shadowColor: COLORS.primaryDeep,
+                    shadowOffset: { width: 0, height: 3 },
+                    shadowOpacity: 0.2,
+                    shadowRadius: 6,
+                    elevation: 3,
                   }}
                 >
                   <Camera size={26} color="#FFFFFF" strokeWidth={2.2} />
                 </Pressable>
               </Box>
             )}
-          </GlassSectionCard>
+          </PremiumStepCard>
 
-          <GlassSectionCard
+          <PremiumStepCard
             icon={ImageIcon}
             title="Site Photograph"
             subtitle={
@@ -1527,13 +1610,23 @@ export function PhotosScreen({ go }: { go: Go }) {
                 : `${draft.photos.length} of ${maxPhotos} uploaded`
             }
             badge={
-              <HeaderStatusBadge
-                label={`${draft.photos.length}/${maxPhotos}`}
-                tone="info"
-              />
+              <Box
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  borderRadius: 999,
+                  backgroundColor: BLUE_SOFT,
+                  borderWidth: 1,
+                  borderColor: BLUE_BORDER,
+                }}
+              >
+                <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: COLORS.primary }}>
+                  {`${draft.photos.length}/${maxPhotos}`}
+                </Text>
+              </Box>
             }
           >
-            <VStack style={{ gap: SPACE[2] }}>
+            <VStack style={{ gap: 8 }}>
               {draft.photos.length < maxPhotos ? (
                 <Pressable
                   onPress={() => void takeSitePhoto()}
@@ -1542,10 +1635,10 @@ export function PhotosScreen({ go }: { go: Go }) {
                     gap: 6,
                     paddingHorizontal: 12,
                     paddingVertical: 8,
-                    borderRadius: DESIGN.stepRadius,
-                    backgroundColor: GLASS.tintBlue,
+                    borderRadius: 999,
+                    backgroundColor: BLUE_SOFT,
                     borderWidth: 1,
-                    borderColor: `${COLORS.primary}40`,
+                    borderColor: BLUE_BORDER,
                   }}
                 >
                   <Plus size={14} color={COLORS.primary} strokeWidth={2.8} />
@@ -1559,14 +1652,17 @@ export function PhotosScreen({ go }: { go: Go }) {
                 {draft.photos.map((p, i) => (
                   <Box
                     key={p.id}
-                    className="rounded-xl overflow-hidden relative"
+                    className="overflow-hidden relative"
                     style={{
                       width: '31%',
                       aspectRatio: 1,
-                      shadowColor: '#0F172A',
+                      borderRadius: 14,
+                      borderWidth: 1.5,
+                      borderColor: BLUE_BORDER,
+                      shadowColor: COLORS.primaryDeep,
                       shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.08,
-                      shadowRadius: 8,
+                      shadowOpacity: 0.1,
+                      shadowRadius: 5,
                       elevation: 2,
                     }}
                   >
@@ -1577,7 +1673,11 @@ export function PhotosScreen({ go }: { go: Go }) {
                       }}
                       className="w-full h-full"
                     >
-                      <ApiMediaImage uri={p.uri} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                      <ApiMediaImage
+                        uri={p.uri}
+                        style={{ width: '100%', height: '100%' }}
+                        resizeMode="cover"
+                      />
                     </Pressable>
                     <Pressable
                       onPress={() => void removePhoto(p.id)}
@@ -1590,23 +1690,24 @@ export function PhotosScreen({ go }: { go: Go }) {
                 ))}
                 {draft.photos.length === 0 ? (
                   <Box
-                    className="items-center justify-center rounded-xl"
+                    className="items-center justify-center"
                     style={{
                       width: '100%',
                       minHeight: 72,
-                      backgroundColor: GLASS.surface,
+                      borderRadius: 16,
+                      backgroundColor: BLUE_SOFT,
                       borderWidth: 1,
-                      borderColor: `${COLORS.primary}59`,
+                      borderColor: BLUE_BORDER,
                       borderStyle: 'dashed',
-                      paddingVertical: SPACE[3],
-                      paddingHorizontal: SPACE[2],
+                      paddingVertical: 12,
+                      paddingHorizontal: 10,
                     }}
                   >
                     <Text
                       style={{
                         fontFamily: FONTS.semibold,
-                        fontSize: 13,
-                        color: COLORS.slate,
+                        fontSize: 12,
+                        color: '#475569',
                         textAlign: 'center',
                         lineHeight: 16,
                       }}
@@ -1617,31 +1718,43 @@ export function PhotosScreen({ go }: { go: Go }) {
                 ) : null}
               </Box>
             </VStack>
-          </GlassSectionCard>
+          </PremiumStepCard>
 
           <SiteVideoCaptureCard />
 
-          <GlassSectionCard
+          <PremiumStepCard
             icon={MessageSquareText}
             title="Engineer comments *"
-            subtitle=""
             badge={
               draft.engineerComments.trim() ? (
-                <HeaderStatusBadge label="Done" />
+                <Box
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 999,
+                    backgroundColor: '#ECFDF5',
+                    borderWidth: 1,
+                    borderColor: '#A7F3D0',
+                  }}
+                >
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#047857' }}>
+                    Done
+                  </Text>
+                </Box>
               ) : undefined
             }
           >
             <Box
               style={{
-                borderRadius: DESIGN.cardRadius,
-                backgroundColor: GLASS.surfaceSolid,
-                borderWidth: 1,
-                borderColor: `${COLORS.primary}59`,
-                padding: SPACE[2],
-                shadowColor: '#0F172A',
+                borderRadius: 16,
+                backgroundColor: COLORS.white,
+                borderWidth: 1.5,
+                borderColor: BLUE_BORDER,
+                padding: 8,
+                shadowColor: COLORS.primaryDeep,
                 shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.08,
-                shadowRadius: 8,
+                shadowOpacity: 0.1,
+                shadowRadius: 5,
                 elevation: 2,
               }}
             >
@@ -1653,7 +1766,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                 />
               </Textarea>
             </Box>
-          </GlassSectionCard>
+          </PremiumStepCard>
         </>
       ) : (
         <>
@@ -1789,7 +1902,7 @@ export function PhotosScreen({ go }: { go: Go }) {
                 Uploaded site photos
               </Text>
               <Text
-                style={{ fontFamily: FONTS.semibold, fontSize: 13, color: '#64748B', lineHeight: 17 }}
+                style={{ fontFamily: FONTS.semibold, fontSize: 12, color: '#475569', lineHeight: 16 }}
               >
                 {draft.photos.length === 0
                   ? 'No extra site photos yet'
