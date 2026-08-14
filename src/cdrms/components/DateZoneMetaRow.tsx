@@ -18,9 +18,9 @@ export function DateZoneMetaRow({
   compact?: boolean;
 }) {
   const zoneLabel = (zone || '').trim() || '—';
-  const fontSize = compact ? 12.5 : 14;
-  const lineHeight = compact ? 16 : 17;
-  const iconSize = compact ? 12 : 13;
+  const fontSize = compact ? 11.5 : 13;
+  const lineHeight = compact ? 14 : 16;
+  const iconSize = compact ? 11 : 12;
   return (
     <HStack className="items-center" style={{ gap: 4, marginTop }}>
       <Clock size={iconSize} color={COLORS.primary} strokeWidth={2.3} style={{ flexShrink: 0 }} />

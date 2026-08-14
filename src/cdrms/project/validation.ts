@@ -1,4 +1,5 @@
 import type { Go, Screen } from '@/src/cdrms/types';
+import { isOccupancyOk, validateOccupancyReason } from '@/src/cdrms/lib/occupancyValidation';
 import { formatCoords, type ProjectDraft } from '@/src/cdrms/project/types';
 import { TERMS } from '@/src/cdrms/terminology';
 
@@ -46,9 +47,11 @@ export function validateDraft(draft: ProjectDraft): ValidationItem[] {
     ? Boolean(draft.siteNo.trim() || draft.surveyNo.trim())
     : Boolean(draft.projectName.trim() && draft.surveyNo.trim() && draft.village.trim());
   const optionalSiteCount = Math.max(0, draft.photos.length - 1);
-  const occupancyOk =
-    draft.occupancy === 'Empty' ||
-    (draft.occupancy === 'Occupied' && draft.occupancyReason.trim().length > 0);
+  const occupancyOk = isOccupancyOk(draft.occupancy, draft.occupancyReason);
+  const occupancyReasonError = validateOccupancyReason(
+    draft.occupancy,
+    draft.occupancyReason,
+  );
   const commentsOk = isBackend
     ? draft.engineerComments.trim().length > 0
     : true;
@@ -109,7 +112,7 @@ export function validateDraft(draft: ProjectDraft): ValidationItem[] {
         ? draft.occupancy === 'Occupied'
           ? `Occupied · ${draft.occupancyReason.trim()}`
           : 'Empty'
-        : 'Reason required when site is Occupied',
+        : occupancyReasonError || 'Reason required when site is Occupied',
       fixScreen: 'bandi',
     });
     items.push({

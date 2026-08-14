@@ -1,6 +1,12 @@
 import { CalendarDays, Clock } from 'lucide-react-native';
 import { Image, StyleSheet, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  type SharedValue,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Box } from '@/components/ui/box';
@@ -134,6 +140,33 @@ export function listCardStatusRailStyle(color: string, width = 5) {
   };
 }
 
+/** Solid (Ocean) header body below status bar — keep in sync with collapse math. */
+export const WELCOME_SOLID_HEADER_BODY = 228;
+export const WELCOME_SOLID_HEADER_COLLAPSED_BODY = 96;
+
+export function welcomeSolidHeaderExpandedHeight(topInset: number) {
+  return topInset + WELCOME_SOLID_HEADER_BODY;
+}
+
+export function welcomeSolidHeaderCollapsedHeight(topInset: number) {
+  return topInset + WELCOME_SOLID_HEADER_COLLAPSED_BODY;
+}
+
+/**
+ * Top padding for home ScrollView when the solid header overlays (absolute).
+ * Non-solid themes keep the header in normal layout flow → 0.
+ */
+export function welcomeOverlayScrollPad(topInset: number) {
+  return usesSolidHeader() ? welcomeSolidHeaderExpandedHeight(topInset) : 0;
+}
+
+export function welcomeSolidCollapseDistance(topInset: number) {
+  return Math.max(
+    1,
+    welcomeSolidHeaderExpandedHeight(topInset) - welcomeSolidHeaderCollapsedHeight(topInset),
+  );
+}
+
 /**
  * Shared Welcome header — same chrome for Engineer / ZC / CAO.
  * Plain / Ocean Blue: no wave edge.
@@ -144,10 +177,11 @@ export function listCardStatusRailStyle(color: string, width = 5) {
 export function WelcomeHomeHeader({
   user,
   zoneLabel,
-  go: _go,
+  go,
   tagline = 'Manage your field surveys',
   eyebrow,
   onLogout,
+  scrollY,
 }: {
   user: AuthUser | null | undefined;
   zoneLabel?: string | null;
@@ -155,6 +189,8 @@ export function WelcomeHomeHeader({
   tagline?: string;
   eyebrow?: string;
   onLogout: () => void;
+  /** When set, solid header stays sticky and shrinks on scroll. */
+  scrollY?: SharedValue<number>;
 }) {
   const insets = useSafeAreaInsets();
   const firstName = displayName(user).split(' ')[0] || 'there';
@@ -162,6 +198,68 @@ export function WelcomeHomeHeader({
   const fg = headerFg();
   const resolvedZone =
     zoneLabel?.trim() || user?.activePost?.zoneCode?.trim() || null;
+
+  const expandedH = welcomeSolidHeaderExpandedHeight(insets.top);
+  const collapsedH = welcomeSolidHeaderCollapsedHeight(insets.top);
+  /** Must match height delta — mismatch causes scroll glitch. */
+  const collapseDist = welcomeSolidCollapseDistance(insets.top);
+  /** Hard switch point — avoid overlapping layers (that looked like blur). */
+  const switchY = collapseDist * 0.42;
+
+  /**
+   * Animate height only. Header is position:absolute when scrollY is set so
+   * shrinking does not reflow the ScrollView (that was the scroll glitch).
+   */
+  const solidHeaderStyle = useAnimatedStyle(() => {
+    if (!scrollY) return {};
+    const y = Math.max(0, scrollY.value);
+    return {
+      height: interpolate(y, [0, collapseDist], [expandedH, collapsedH], Extrapolation.CLAMP),
+    };
+  });
+  /** Role + expanded block: fully on, then snap off (no ghost fade with compact). */
+  const solidExpandedBlockStyle = useAnimatedStyle(() => {
+    if (!scrollY) return { opacity: 1 };
+    const y = Math.max(0, scrollY.value);
+    return {
+      opacity: interpolate(y, [switchY - 8, switchY], [1, 0], Extrapolation.CLAMP),
+    };
+  });
+  /** Compact Welcome block: snaps on after expanded is gone. */
+  const solidCompactStyle = useAnimatedStyle(() => {
+    if (!scrollY) return { opacity: 0 };
+    const y = Math.max(0, scrollY.value);
+    return {
+      opacity: interpolate(y, [switchY, switchY + 8], [0, 1], Extrapolation.CLAMP),
+    };
+  });
+  const solidPadStyle = useAnimatedStyle(() => {
+    if (!scrollY) {
+      return { paddingBottom: 28, paddingTop: insets.top + 12 };
+    }
+    const y = Math.max(0, scrollY.value);
+    return {
+      paddingBottom: interpolate(y, [0, collapseDist], [28, 12], Extrapolation.CLAMP),
+      paddingTop: insets.top + interpolate(y, [0, collapseDist], [12, 8], Extrapolation.CLAMP),
+    };
+  });
+  /** Compact title sizes shrink slightly as header finishes collapsing. */
+  const solidCompactWelcomeStyle = useAnimatedStyle(() => {
+    if (!scrollY) return { fontSize: 13, lineHeight: 16 };
+    const y = Math.max(0, scrollY.value);
+    return {
+      fontSize: interpolate(y, [switchY, collapseDist], [14, 12], Extrapolation.CLAMP),
+      lineHeight: interpolate(y, [switchY, collapseDist], [18, 15], Extrapolation.CLAMP),
+    };
+  });
+  const solidCompactNameStyle = useAnimatedStyle(() => {
+    if (!scrollY) return { fontSize: 18, lineHeight: 22 };
+    const y = Math.max(0, scrollY.value);
+    return {
+      fontSize: interpolate(y, [switchY, collapseDist], [20, 16], Extrapolation.CLAMP),
+      lineHeight: interpolate(y, [switchY, collapseDist], [24, 20], Extrapolation.CLAMP),
+    };
+  });
 
   const now = new Date();
   const dateLabel = now.toLocaleString(undefined, {
@@ -214,6 +312,7 @@ export function WelcomeHomeHeader({
       <Text
         numberOfLines={1}
         style={{
+          
           flex: 1,
           fontFamily: FONTS.semibold,
           fontSize: 11,
@@ -241,6 +340,7 @@ export function WelcomeHomeHeader({
           photoUrl={user?.profilePhoto || user?.officer?.profilePhoto}
           zoneLabel={resolvedZone}
           onLogout={onLogout}
+          onProfile={() => go('profile')}
         />
         {!usesLightHeader() ? (
           <Box
@@ -315,136 +415,256 @@ export function WelcomeHomeHeader({
   }
 
   if (usesSolidHeader()) {
+    const overlay = Boolean(scrollY);
     return (
-      <Box style={{ zIndex: 30, elevation: 8, overflow: 'hidden' }}>
+      <Animated.View
+        style={[
+          {
+            backgroundColor: '#0F172A',
+            zIndex: 100,
+            elevation: 24,
+            // Clip header collapse, but keep profile pressable above content
+            overflow: 'hidden',
+            // Absolute overlay → height shrink does not reflow list (no scroll glitch)
+            ...(overlay
+              ? {
+                  position: 'absolute' as const,
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                }
+              : null),
+          },
+          solidHeaderStyle,
+          !overlay ? { minHeight: expandedH } : null,
+        ]}
+      >
+        {/* Fixed-size photo — parent clips it. Resizing height:100% every frame caused blur. */}
         <Image
+          pointerEvents="none"
           source={BDA_BUILDING}
-          style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%' }]}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            width: '100%',
+            height: expandedH,
+          }}
           resizeMode="cover"
         />
         <LinearGradient
+          pointerEvents="none"
           colors={['rgba(15,23,42,0.62)', 'rgba(15,23,42,0.32)', 'rgba(15,23,42,0.5)']}
           locations={[0, 0.5, 1]}
-          style={StyleSheet.absoluteFillObject}
-        />
-        <Box
-          className="px-5"
           style={{
-            paddingTop: insets.top + 10,
-            paddingBottom: 18,
-            zIndex: 2,
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: expandedH,
           }}
+        />
+        <Animated.View
+          style={[
+            {
+              paddingHorizontal: 20,
+              zIndex: 2,
+              overflow: 'visible',
+            },
+            solidPadStyle,
+          ]}
         >
-          <HStack className="items-center justify-between" style={{ gap: 10 }}>
-            <HStack
-              className="items-center"
-              style={{
-                flexShrink: 1,
-                minWidth: 0,
-                maxWidth: '58%',
-                gap: 6,
-                paddingHorizontal: 12,
-                paddingVertical: 6,
-                borderRadius: 999,
-                backgroundColor: 'rgba(255,255,255,0.2)',
-                borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.4)',
-              }}
-            >
-              <Box
-                style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: 999,
-                  backgroundColor: '#60A5FA',
-                  flexShrink: 0,
-                }}
-              />
+          <HStack
+            className="items-start justify-between"
+            style={{ gap: 10, zIndex: 60, elevation: 20, minHeight: 44 }}
+          >
+            <VStack style={{ flex: 1, minWidth: 0, position: 'relative' }} pointerEvents="box-none">
+              {/* Expanded: role only (greeting sits below) */}
+              <Animated.View style={solidExpandedBlockStyle} pointerEvents="none">
+                <HStack
+                  className="items-center"
+                  style={{
+                    flexShrink: 1,
+                    minWidth: 0,
+                    maxWidth: '90%',
+                    gap: 6,
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 999,
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.4)',
+                    alignSelf: 'flex-start',
+                  }}
+                >
+                  <Box
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: 999,
+                      backgroundColor: '#60A5FA',
+                      flexShrink: 0,
+                    }}
+                  />
+                  <Text
+                    style={{
+                      fontFamily: FONTS.semibold,
+                      fontSize: 11,
+                      lineHeight: 14,
+                      letterSpacing: 0.8,
+                      textTransform: 'uppercase',
+                      color: COLORS.white,
+                      flexShrink: 1,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {headerEyebrow}
+                  </Text>
+                </HStack>
+              </Animated.View>
+
+              {/* Compact: Welcome + name + date — replaces role when scrolled */}
+              <Animated.View
+                style={[
+                  {
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                  },
+                  solidCompactStyle,
+                ]}
+                pointerEvents="none"
+              >
+                <Animated.Text
+                  numberOfLines={1}
+                  style={[
+                    {
+                      fontFamily: FONTS.medium,
+                      color: 'rgba(255,255,255,0.92)',
+                    },
+                    solidCompactWelcomeStyle,
+                  ]}
+                >
+                  Welcome
+                </Animated.Text>
+                <Animated.Text
+                  numberOfLines={1}
+                  style={[
+                    {
+                      fontFamily: FONTS.bold,
+                      color: COLORS.white,
+                      marginTop: 1,
+                    },
+                    solidCompactNameStyle,
+                  ]}
+                >
+                  {displayName(user)}
+                </Animated.Text>
+                <HStack
+                  className="items-center"
+                  style={{
+                    alignSelf: 'flex-start',
+                    gap: 6,
+                    marginTop: 8,
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    borderRadius: 999,
+                    backgroundColor: COLORS.white,
+                  }}
+                >
+                  <CalendarDays size={12} color={COLORS.primary} strokeWidth={2.4} />
+                  <Text
+                    style={{
+                      fontFamily: FONTS.semibold,
+                      fontSize: 11,
+                      lineHeight: 14,
+                      color: COLORS.primaryDeep,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {compactDateLabel}
+                  </Text>
+                </HStack>
+              </Animated.View>
+            </VStack>
+            <Box style={{ flexShrink: 0, zIndex: 70, elevation: 24 }}>{profile}</Box>
+          </HStack>
+
+          {/* Expanded greeting + name + date — hidden before compact shows (no overlap blur) */}
+          <Animated.View
+            style={[{ marginTop: 22 }, solidExpandedBlockStyle]}
+            pointerEvents="none"
+          >
+            <VStack style={{ gap: 2 }}>
               <Text
                 style={{
-                  fontFamily: FONTS.semibold,
-                  fontSize: 11,
-                  lineHeight: 14,
-                  letterSpacing: 0.8,
-                  textTransform: 'uppercase',
-                  color: COLORS.white,
-                  flexShrink: 1,
+                  fontFamily: FONTS.medium,
+                  fontSize: 16,
+                  lineHeight: 22,
+                  color: 'rgba(255,255,255,0.92)',
                 }}
                 numberOfLines={1}
               >
-                {headerEyebrow}
+                {timeGreeting}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: FONTS.bold,
+                  fontSize: 28,
+                  lineHeight: 34,
+                  letterSpacing: -0.3,
+                  color: COLORS.white,
+                }}
+                numberOfLines={1}
+              >
+                {displayName(user)}
+              </Text>
+              <Box
+                style={{
+                  marginTop: 6,
+                  width: 36,
+                  height: 3,
+                  borderRadius: 999,
+                  backgroundColor: '#3B82F6',
+                }}
+              />
+            </VStack>
+
+            <HStack
+              className="items-center"
+              style={{
+                alignSelf: 'flex-start',
+                gap: 8,
+                marginTop: 18,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 999,
+                backgroundColor: COLORS.white,
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.14,
+                shadowRadius: 6,
+                elevation: 4,
+              }}
+            >
+              <CalendarDays size={14} color={COLORS.primary} strokeWidth={2.4} />
+              <Text
+                style={{
+                  fontFamily: FONTS.semibold,
+                  fontSize: 12,
+                  lineHeight: 16,
+                  color: COLORS.primaryDeep,
+                }}
+                numberOfLines={1}
+              >
+                {compactDateLabel}
               </Text>
             </HStack>
-            <Box style={{ flexShrink: 0 }}>{profile}</Box>
-          </HStack>
-
-          <VStack style={{ gap: 2, marginTop: 22 }}>
-            <Text
-              style={{
-                fontFamily: FONTS.medium,
-                fontSize: 16,
-                lineHeight: 22,
-                color: 'rgba(255,255,255,0.92)',
-              }}
-              numberOfLines={1}
-            >
-              {timeGreeting}
-            </Text>
-            <Text
-              style={{
-                fontFamily: FONTS.bold,
-                fontSize: 28,
-                lineHeight: 34,
-                letterSpacing: -0.3,
-                color: COLORS.white,
-              }}
-              numberOfLines={1}
-            >
-              {displayName(user)}
-            </Text>
-            <Box
-              style={{
-                marginTop: 6,
-                width: 36,
-                height: 3,
-                borderRadius: 999,
-                backgroundColor: '#3B82F6',
-              }}
-            />
-          </VStack>
-
-          <HStack
-            className="items-center"
-            style={{
-              alignSelf: 'flex-start',
-              gap: 8,
-              marginTop: 18,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              borderRadius: 999,
-              backgroundColor: COLORS.white,
-              shadowColor: '#0F172A',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.14,
-              shadowRadius: 6,
-              elevation: 4,
-            }}
-          >
-            <CalendarDays size={14} color={COLORS.primary} strokeWidth={2.4} />
-            <Text
-              style={{
-                fontFamily: FONTS.semibold,
-                fontSize: 12,
-                lineHeight: 16,
-                color: COLORS.primaryDeep,
-              }}
-              numberOfLines={1}
-            >
-              {compactDateLabel}
-            </Text>
-          </HStack>
-        </Box>
-      </Box>
+          </Animated.View>
+        </Animated.View>
+      </Animated.View>
     );
   }
 

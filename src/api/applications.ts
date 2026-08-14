@@ -42,8 +42,11 @@ export type MobileApplication = {
   applicationNumber: string;
   eOfficeNumber?: string | null;
   siteNo: string;
-  addressArea: string;
+  addressLine1: string;
+  addressLine2?: string | null;
   addressBlock: string;
+  addressCity: string;
+  addressState: string;
   addressPincode: string;
   siteDimensionType: 'Even' | 'Odd' | 'Regular';
   siteDimension?: string | null;
@@ -128,8 +131,13 @@ export type CaoCounts = {
 export type CreateApplicationInput = {
   eOfficeNumber: string;
   siteNo: string;
-  addressArea: string;
+  addressLine1: string;
+  addressLine2?: string;
   addressBlock: string;
+  /** Display only — backend stamps/ignores on write. */
+  addressCity?: string;
+  /** Display only — backend stamps/ignores on write. */
+  addressState?: string;
   addressPincode: string;
   siteDimensionType: 'Even' | 'Odd';
   /** Plot size e.g. 20*40 — required by backend */
@@ -142,6 +150,13 @@ export type CreateApplicationInput = {
   assignedEngineerUserId: string;
   /** When true, ZC saves as draft (not visible to engineer until submitted). */
   saveAsDraft?: boolean;
+};
+
+export type AddressDefaults = {
+  city: string;
+  state: string;
+  cityLocked: boolean;
+  stateLocked: boolean;
 };
 
 export type SiteDimensionOption = {
@@ -268,8 +283,11 @@ function normalizeApplication(raw: Record<string, unknown>): MobileApplication {
     applicationNumber: String(raw.applicationNumber ?? ''),
     eOfficeNumber: raw.eOfficeNumber != null ? String(raw.eOfficeNumber) : null,
     siteNo: String(raw.siteNo ?? ''),
-    addressArea: String(raw.addressArea ?? ''),
+    addressLine1: String(raw.addressLine1 ?? raw.addressArea ?? ''),
+    addressLine2: raw.addressLine2 != null ? String(raw.addressLine2) : null,
     addressBlock: String(raw.addressBlock ?? ''),
+    addressCity: String(raw.addressCity ?? ''),
+    addressState: String(raw.addressState ?? ''),
     addressPincode: String(raw.addressPincode ?? ''),
     siteDimensionType:
       raw.siteDimensionType === 'Odd' || raw.siteDimensionType === 'Regular'
@@ -388,6 +406,12 @@ export function fetchApplicationsAs(token: string, as: ApplicationAs) {
 export function fetchMyZoneMeta(token: string) {
   return apiRequest<unknown>('/applications/meta/my-zone', { token }).then((raw) =>
     asData<MyZoneMeta>(raw),
+  );
+}
+
+export function fetchAddressDefaults(token: string) {
+  return apiRequest<unknown>('/applications/meta/address-defaults', { token }).then((raw) =>
+    asData<AddressDefaults>(raw),
   );
 }
 
@@ -724,7 +748,10 @@ export type ApplicationStatusTone = {
   border: string;
 };
 
-/** Match web ApplicationStatusBadge palette. */
+/**
+ * Canonical status colors for every role (ZC / Engineer / CAO):
+ * Assigned = sky blue · In progress = orange · Submitted = green · Draft = slate
+ */
 export function applicationStatusTone(
   status: MobileApplicationStatus | string | null | undefined,
 ): ApplicationStatusTone {
@@ -737,15 +764,15 @@ export function applicationStatusTone(
     return { bg: '#F1F5F9', fg: '#475569', bar: '#64748B', border: '#CBD5E1' };
   }
   if (raw === 'assigned') {
-    return { bg: '#E0F2FE', fg: '#075985', bar: '#0EA5E9', border: '#BAE6FD' };
+    return { bg: '#E0F2FE', fg: '#0369A1', bar: '#0EA5E9', border: '#BAE6FD' };
   }
   if (raw === 'in_progress' || raw === 'inprogress' || raw === 'in-progress') {
-    return { bg: '#FEE2E2', fg: '#DC2626', bar: '#EF4444', border: '#FCA5A5' };
+    return { bg: '#FFEDD5', fg: '#C2410C', bar: '#F97316', border: '#FED7AA' };
   }
   if (raw === 'submitted' || raw === 'pending_cao' || raw === 'pending') {
-    return { bg: '#F5F3FF', fg: '#5B21B6', bar: '#8B5CF6', border: '#DDD6FE' };
+    return { bg: '#D1FAE5', fg: '#047857', bar: '#059669', border: '#A7F3D0' };
   }
-  if (raw === 'verified') {
+  if (raw === 'verified' || raw === 'approved') {
     return { bg: '#D1FAE5', fg: '#047857', bar: '#059669', border: '#A7F3D0' };
   }
   if (raw === 'returned' || raw === 'send_back' || raw === 'sendback') {

@@ -184,7 +184,8 @@ export function ValidateScreen({ go }: { go: Go }) {
       subtitle={TERMS.workflow.validateSubtitle}
       onBack={() => go(isBackendTask ? 'photos' : 'video')}
       showSteps={false}
-      surface={isBackendTask ? 'premium' : 'default'}
+      showHeroArt={false}
+      surface="default"
       badge={summary.allOk ? 'Ready' : `${summary.failed.length} to fix`}
       footer={
         isBackendTask ? (
@@ -480,7 +481,12 @@ function reviewStepBadge(stepLabel: string, total = 4) {
 
 function reviewRowSpansFullWidth(label: string, value: string) {
   const text = value.trim();
-  if (label === 'ZC comments' || label === 'Engineer comments') {
+  if (
+    label === 'ZC comments' ||
+    label === 'Engineer comments' ||
+    label === 'Address line 1' ||
+    label === 'Address line 2'
+  ) {
     return true;
   }
   return text.length > 34;
@@ -941,28 +947,31 @@ export function ReviewScreen({ go }: { go: Go }) {
             : 'ZC site particulars',
           iconBg: COLORS.primary,
           accent: 'blue' as ReviewAccent,
-          rows: filterReviewRows([
-            { label: 'E-office no', value: draft.eOfficeNumber.trim() },
-            { label: 'Application', value: draft.applicationNumber?.trim() || titleId },
-            { label: 'Site no', value: draft.siteNo.trim() || draft.surveyNo.trim() },
-            { label: 'Site type', value: draft.siteDimensionType },
-            { label: 'ZC dimension', value: draft.siteDimensionMaster.trim() },
-            { label: 'Zone', value: draft.zoneCode.trim() },
-            { label: 'Area', value: draft.addressArea.trim() },
-            { label: 'Block', value: draft.addressBlock.trim() },
-            { label: 'Pincode', value: draft.addressPincode.trim() },
-            { label: 'Created by ZC', value: draft.createdByZcName.trim() },
+          rows: [
+            { label: 'E-office no', value: draft.eOfficeNumber.trim() || '—' },
+            { label: 'Application', value: draft.applicationNumber?.trim() || titleId || '—' },
+            { label: 'Site no', value: draft.siteNo.trim() || draft.surveyNo.trim() || '—' },
+            { label: 'Site type', value: draft.siteDimensionType || '—' },
+            { label: 'ZC dimension', value: draft.siteDimensionMaster.trim() || '—' },
+            { label: 'Zone', value: draft.zoneCode.trim() || '—' },
+            { label: 'Address line 1', value: draft.addressLine1.trim() || '—' },
+            { label: 'Address line 2', value: draft.addressLine2.trim() || '—' },
+            { label: 'Block', value: draft.addressBlock.trim() || '—' },
+            { label: 'City', value: draft.addressCity.trim() || '—' },
+            { label: 'State', value: draft.addressState.trim() || '—' },
+            { label: 'Pincode', value: draft.addressPincode.trim() || '—' },
+            { label: 'Schedule north', value: draft.zcDirections.N.trim() || '—' },
+            { label: 'Schedule south', value: draft.zcDirections.S.trim() || '—' },
+            { label: 'Schedule west', value: draft.zcDirections.W.trim() || '—' },
+            { label: 'Schedule east', value: draft.zcDirections.E.trim() || '—' },
+            { label: 'ZC comments', value: draft.siteDimensionComment.trim() || '—' },
+            { label: 'Created by ZC', value: draft.createdByZcName.trim() || '—' },
             {
               label: 'Assigned on',
-              value: formatApplicationDateTime(draft.backendAssignedAt),
+              value: formatApplicationDateTime(draft.backendAssignedAt) || '—',
             },
-            { label: 'Assigned engineer', value: draft.assignedEngineerName.trim() },
-            { label: 'Schedule north', value: draft.zcDirections.N.trim() },
-            { label: 'Schedule south', value: draft.zcDirections.S.trim() },
-            { label: 'Schedule west', value: draft.zcDirections.W.trim() },
-            { label: 'Schedule east', value: draft.zcDirections.E.trim() },
-            { label: 'ZC comments', value: draft.siteDimensionComment.trim() },
-          ]),
+            { label: 'Assigned engineer', value: draft.assignedEngineerName.trim() || '—' },
+          ],
         },
         {
           stepLabel: 'STEP 02',
@@ -988,9 +997,7 @@ export function ReviewScreen({ go }: { go: Go }) {
           stepLabel: 'STEP 03',
           icon: Ruler,
           title: 'Dimensions',
-          subtitle: plotDimsReady
-            ? `Live plot · Site No ${draft.siteNo.trim() || draft.surveyNo.trim() || '—'}`
-            : 'Site measurements',
+          subtitle: 'Site measurements',
           iconBg: '#4F46E5',
           accent: 'purple' as ReviewAccent,
           rows: filterReviewRows([
@@ -1184,41 +1191,31 @@ export function ReviewScreen({ go }: { go: Go }) {
                 flex: 1,
                 flexDirection: 'row',
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                justifyContent: 'center',
+                gap: 8,
                 paddingHorizontal: 14,
               }}
             >
-              <HStack className="items-center gap-2.5">
-                {submitting ? (
-                  <ButtonLoader color="#fff" />
-                ) : (
-                  <Box
-                    className="items-center justify-center rounded-xl"
-                    style={{
-                      width: 34,
-                      height: 34,
-                      backgroundColor: 'rgba(255,255,255,0.18)',
-                    }}
-                  >
-                    <Send size={16} color="#fff" strokeWidth={2.4} />
-                  </Box>
-                )}
-                <Text
-                  style={{
-                    fontFamily: FONTS.bold,
-                    fontSize: 15,
-                    color: COLORS.white,
-                  }}
-                  numberOfLines={1}
-                >
-                  {submitting
-                    ? 'Submitting…'
-                    : isResubmit
-                      ? 'Resubmit Report'
-                      : 'Submit Report'}
-                </Text>
-              </HStack>
-              <ArrowRight size={16} color={COLORS.white} strokeWidth={2.5} />
+              {submitting ? (
+                <ButtonLoader color="#fff" />
+              ) : (
+                <Send size={16} color="#fff" strokeWidth={2.4} />
+              )}
+              <Text
+                style={{
+                  fontFamily: FONTS.bold,
+                  fontSize: 15,
+                  color: COLORS.white,
+                  textAlign: 'center',
+                }}
+                numberOfLines={1}
+              >
+                {submitting
+                  ? 'Submitting…'
+                  : isResubmit
+                    ? 'Resubmit Report'
+                    : 'Submit Report'}
+              </Text>
             </LinearGradient>
           </Pressable>
           <HStack className="items-center justify-center gap-1.5">
@@ -1601,9 +1598,9 @@ export function ReviewScreen({ go }: { go: Go }) {
               color: '#0F172A',
             }}
           >
-            I certify that all information is accurate and captured on-site. I understand false
-            reporting is subject to disciplinary action under{' '}
-            <Text style={{ fontFamily: FONTS.bold, color: '#059669' }}>CDRMS-2019</Text>.
+            I hereby certify that all information provided is true, accurate, and was captured
+            on site. 
+            {/* <Text style={{ fontFamily: FONTS.bold, color: '#059669' }}>CDRMS-2019</Text>. */}
           </Text>
         </HStack>
       </Pressable>

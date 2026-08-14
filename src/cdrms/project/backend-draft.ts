@@ -62,7 +62,14 @@ function engineerDimsFromApp(app: MobileApplication): {
 export function draftFromBackendApplication(app: MobileApplication): ProjectDraft {
   const now = Date.now();
   const base = createEmptyDraft();
-  const address = [app.addressArea, app.addressBlock, app.addressPincode]
+  const address = [
+    app.addressLine1,
+    app.addressLine2,
+    app.addressBlock,
+    app.addressCity,
+    app.addressState,
+    app.addressPincode,
+  ]
     .filter(Boolean)
     .join(', ');
 
@@ -96,8 +103,11 @@ export function draftFromBackendApplication(app: MobileApplication): ProjectDraf
     applicationNumber: app.applicationNumber,
     eOfficeNumber: app.eOfficeNumber?.trim() || '',
     siteNo: app.siteNo,
-    addressArea: app.addressArea,
+    addressLine1: app.addressLine1,
+    addressLine2: app.addressLine2 || '',
     addressBlock: app.addressBlock,
+    addressCity: app.addressCity || '',
+    addressState: app.addressState || '',
     addressPincode: app.addressPincode,
     zoneCode: app.zoneCode,
     createdByZcName: app.createdByZcName || '',
@@ -127,10 +137,10 @@ export function draftFromBackendApplication(app: MobileApplication): ProjectDraf
     plotNo: app.siteNo,
     // Do NOT copy ZC siteDimension into dimensionArea — that used to prefill Step 3.
     dimensionArea: '',
-    village: app.addressArea || '',
+    village: app.addressLine1 || '',
     taluk: app.addressBlock || '',
     district: address,
-    state: 'Karnataka',
+    state: app.addressState || 'Karnataka',
     gps:
       app.latitude && app.longitude
         ? {
@@ -147,10 +157,10 @@ export function draftFromBackendApplication(app: MobileApplication): ProjectDraf
     geoAddress: app.engineerGeoAddress
       ? {
           displayName: app.engineerGeoAddress.displayName || '',
-          village: app.engineerGeoAddress.village || app.addressArea || '',
+          village: app.engineerGeoAddress.village || app.addressLine1 || '',
           taluk: app.engineerGeoAddress.taluk || app.addressBlock || '',
-          district: app.engineerGeoAddress.district || '',
-          state: app.engineerGeoAddress.state || 'Karnataka',
+          district: app.engineerGeoAddress.district || app.addressCity || '',
+          state: app.engineerGeoAddress.state || app.addressState || 'Karnataka',
           street: app.engineerGeoAddress.street,
           name: app.engineerGeoAddress.name,
           layoutName: app.engineerGeoAddress.layoutName,

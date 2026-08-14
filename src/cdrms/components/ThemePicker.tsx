@@ -137,7 +137,7 @@ export function ThemeToggleButton({
   variant = 'header',
   go,
 }: {
-  variant?: 'header' | 'plain';
+  variant?: 'header' | 'plain' | 'profilePill';
   go?: Go;
 }) {
   const { themeId, setTheme } = useTheme();
@@ -151,6 +151,8 @@ export function ThemeToggleButton({
   const quickOptions = HEADER_THEME_OPTIONS;
   const active = getThemeOption(themeId);
   const activeIsQuick = quickOptions.some((o) => o.id === themeId);
+  /** Visual swatches for profile header pill (matches ref mock). */
+  const profilePillDots = ['#1A56DB', '#60A5FA', '#1E3A8A', '#22D3EE'] as const;
 
   const openMenu = () => {
     btnRef.current?.measure((_fx, _fy, _w, h, _px, py) => {
@@ -188,17 +190,59 @@ export function ThemeToggleButton({
 
   return (
     <>
-      <RNPressable ref={btnRef} onPress={openMenu} style={{ padding: 6 }}>
-        <Box
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: 999,
-            backgroundColor: active.swatch,
-            borderWidth: 2,
-            borderColor: variant === 'header' ? '#FFFFFF' : COLORS.border,
-          }}
-        />
+      <RNPressable
+        ref={btnRef}
+        onPress={openMenu}
+        style={
+          variant === 'profilePill'
+            ? { paddingVertical: 4, paddingHorizontal: 2 }
+            : { padding: 6 }
+        }
+        accessibilityLabel="Theme"
+      >
+        {variant === 'profilePill' ? (
+          <Box
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 5,
+              paddingHorizontal: 10,
+              paddingVertical: 7,
+              borderRadius: 999,
+              backgroundColor: COLORS.white,
+              borderWidth: 1,
+              borderColor: 'rgba(26,86,219,0.18)',
+              shadowColor: '#1A368E',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.08,
+              shadowRadius: 3,
+              elevation: 1,
+            }}
+          >
+            {profilePillDots.map((c) => (
+              <Box
+                key={c}
+                style={{
+                  width: 9,
+                  height: 9,
+                  borderRadius: 5,
+                  backgroundColor: c,
+                }}
+              />
+            ))}
+          </Box>
+        ) : (
+          <Box
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 999,
+              backgroundColor: active.swatch,
+              borderWidth: 2,
+              borderColor: variant === 'header' ? '#FFFFFF' : COLORS.border,
+            }}
+          />
+        )}
       </RNPressable>
       <Modal visible={open} transparent animationType="none" onRequestClose={() => closeMenu()}>
         <RNPressable style={{ flex: 1 }} onPress={() => closeMenu()}>

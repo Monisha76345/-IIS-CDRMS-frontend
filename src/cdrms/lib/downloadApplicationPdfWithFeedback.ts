@@ -57,7 +57,7 @@ export async function downloadApplicationPdfWithFeedback(
       );
     } else {
       showPdfDownloadBanner({
-        title: 'Download complete',
+        title: 'Download completed',
         body: result.fileName,
         variant: 'complete',
         openUri: result.openUri || result.savedPath,
@@ -67,7 +67,7 @@ export async function downloadApplicationPdfWithFeedback(
 
     showAppDialog({
       variant: 'success',
-      title: 'Download complete',
+      title: 'Download completed',
       message: 'Your PDF has been saved on this device.',
       highlightLabel: 'File',
       highlight: result.fileName,

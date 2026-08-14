@@ -1,6 +1,16 @@
 import { type ReactNode } from 'react';
 import { ActivityIndicator } from 'react-native';
-import { Clock, Download, Eye, FilePenLine, type LucideIcon } from 'lucide-react-native';
+import {
+  ClipboardCheck,
+  Clock,
+  Download,
+  Edit3,
+  Eye,
+  FilePenLine,
+  FileText,
+  FolderOpen,
+  type LucideIcon,
+} from 'lucide-react-native';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -9,12 +19,69 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import {
   applicationStatusTone,
+  normalizeApplicationStatus,
   type MobileApplicationStatus,
 } from '@/src/api/applications';
 import { ApplicationStatusBadge } from '@/src/cdrms/components/ApplicationStatusBadge';
 import { DateZoneMetaRow } from '@/src/cdrms/components/DateZoneMetaRow';
 import { COLORS, DESIGN, FONTS, GLASS, hexAlpha } from '@/src/cdrms/theme';
 import { useTheme } from '@/src/theme/ThemeContext';
+
+/** Left card icon per status — matches home list ref (folder / pencil / clipboard). */
+export function applicationStatusLeadingIcon(
+  status: string | null | undefined,
+): LucideIcon {
+  const key = normalizeApplicationStatus(status);
+  const raw = String(status || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_');
+
+  if (key === 'draft' || raw === 'draft') return FilePenLine;
+  if (key === 'assigned' || raw === 'assigned') return FolderOpen;
+  if (key === 'in_progress' || raw === 'in_progress' || raw === 'inprogress') {
+    return Edit3;
+  }
+  if (
+    key === 'submitted' ||
+    raw === 'submitted' ||
+    raw === 'verified' ||
+    raw === 'approved'
+  ) {
+    return ClipboardCheck;
+  }
+  return FileText;
+}
+
+/** Compact circular status glyph for application list cards. */
+export function StatusLeadingIcon({
+  status,
+  size = 30,
+}: {
+  status: string | null | undefined;
+  size?: number;
+}) {
+  const tone = applicationStatusTone(status);
+  const Icon = applicationStatusLeadingIcon(status);
+  const glyph = Math.max(12, Math.round(size * 0.42));
+
+  return (
+    <Box
+      className="items-center justify-center"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 999,
+        backgroundColor: tone.bg,
+        borderWidth: 1,
+        borderColor: hexAlpha(tone.fg, 0.2),
+        flexShrink: 0,
+      }}
+    >
+      <Icon size={glyph} color={tone.fg} strokeWidth={2.2} />
+    </Box>
+  );
+}
 
 export type StatusCountItem = {
   key: string;
@@ -339,7 +406,7 @@ export function StatusCountGrid({
   );
 }
 
-/** Application list row — same simple card as engineer home (no left rail). */
+/** Application list row — left status icon (small) + content, matches home ref. */
 export function OfficeAppRow({
   title,
   siteNo,
@@ -387,13 +454,13 @@ export function OfficeAppRow({
           accessibilityLabel="Edit draft"
           className="items-center justify-center active:opacity-80"
           style={{
-            width: 32,
-            height: 32,
+            width: 28,
+            height: 28,
             borderRadius: 999,
             backgroundColor: COLORS.slate,
           }}
         >
-          <FilePenLine size={13} color={COLORS.white} strokeWidth={2.4} />
+          <FilePenLine size={12} color={COLORS.white} strokeWidth={2.4} />
         </Pressable>
       ) : null}
       {onDownload ? (
@@ -409,8 +476,8 @@ export function OfficeAppRow({
           }
           className="items-center justify-center active:opacity-80"
           style={{
-            width: 32,
-            height: 32,
+            width: 28,
+            height: 28,
             borderRadius: 999,
             backgroundColor: downloading ? COLORS.primary : COLORS.success,
             opacity: downloading ? 0.85 : 1,
@@ -419,29 +486,29 @@ export function OfficeAppRow({
           {downloading ? (
             <ActivityIndicator size="small" color={COLORS.white} />
           ) : (
-            <Download size={13} color={COLORS.white} strokeWidth={2.4} />
+            <Download size={12} color={COLORS.white} strokeWidth={2.4} />
           )}
         </Pressable>
       ) : null}
       <Box
         accessibilityLabel="View"
         style={{
-          width: 32,
-          height: 32,
+          width: 28,
+          height: 28,
           borderRadius: 999,
           backgroundColor: COLORS.primary,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Eye size={13} color={COLORS.white} strokeWidth={2.4} />
+        <Eye size={12} color={COLORS.white} strokeWidth={2.4} />
       </Box>
     </HStack>
   );
 
   const meta = (
     <Text
-      style={{ fontFamily: FONTS.medium, fontSize: 14, lineHeight: 17, color: COLORS.ink }}
+      style={{ fontFamily: FONTS.medium, fontSize: 13, lineHeight: 16, color: COLORS.ink }}
       numberOfLines={1}
     >
       Site #{siteNo || '—'}
@@ -456,7 +523,7 @@ export function OfficeAppRow({
     ) : (
       <HStack className="items-center" style={{ gap: 4 }}>
         <Clock
-          size={compactDateZone ? 12 : 13}
+          size={compactDateZone ? 11 : 12}
           color={COLORS.primary}
           strokeWidth={2.3}
         />
@@ -464,8 +531,8 @@ export function OfficeAppRow({
           allowFontScaling={false}
           style={{
             fontFamily: FONTS.medium,
-            fontSize: compactDateZone ? 12.5 : 14,
-            lineHeight: compactDateZone ? 16 : 17,
+            fontSize: compactDateZone ? 11.5 : 12,
+            lineHeight: compactDateZone ? 14 : 15,
             color: COLORS.ink,
           }}
           numberOfLines={1}
@@ -496,33 +563,36 @@ export function OfficeAppRow({
         elevation: 1,
       }}
     >
-      <VStack style={{ gap: 3 }}>
-        <HStack className="items-center" style={{ gap: 8 }}>
-          <Text
-            style={{
-              flex: 1,
-              fontFamily: FONTS.bold,
-              fontSize: 16,
-              lineHeight: 19,
-              color: COLORS.ink,
-              minWidth: 0,
-            }}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.85}
-          >
-            {title}
-          </Text>
-          <Box style={{ flexShrink: 0 }}>
-            <ApplicationStatusBadge status={status} />
-          </Box>
-        </HStack>
-        {meta}
-        <HStack className="items-center justify-between" style={{ gap: 8 }}>
-          <Box style={{ flex: 1, minWidth: 0 }}>{dateRow}</Box>
-          <Box style={{ flexShrink: 0 }}>{actions}</Box>
-        </HStack>
-      </VStack>
+      <HStack style={{ alignItems: 'center', gap: 10 }}>
+        <StatusLeadingIcon status={status} size={38} />
+        <VStack style={{ flex: 1, minWidth: 0, gap: 3 }}>
+          <HStack className="items-center" style={{ gap: 8 }}>
+            <Text
+              style={{
+                flex: 1,
+                fontFamily: FONTS.bold,
+                fontSize: 15,
+                lineHeight: 18,
+                color: COLORS.ink,
+                minWidth: 0,
+              }}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
+              {title}
+            </Text>
+            <Box style={{ flexShrink: 0 }}>
+              <ApplicationStatusBadge status={status} />
+            </Box>
+          </HStack>
+          {meta}
+          <HStack className="items-center justify-between" style={{ gap: 8 }}>
+            <Box style={{ flex: 1, minWidth: 0 }}>{dateRow}</Box>
+            <Box style={{ flexShrink: 0 }}>{actions}</Box>
+          </HStack>
+        </VStack>
+      </HStack>
     </Pressable>
   );
 }

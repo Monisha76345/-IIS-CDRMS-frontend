@@ -2,12 +2,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import {
   ArrowLeft,
   ArrowRight,
-  MapPin,
-  Shield,
   type LucideIcon,
 } from 'lucide-react-native';
 import React, { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
+  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -18,7 +17,6 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Rect } from 'react-native-svg';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -36,64 +34,17 @@ import { cardSurfaceStyle } from '@/src/cdrms/lib/cardSurface';
 import type { Go, Screen } from '@/src/cdrms/types';
 import { useTheme } from '@/src/theme/ThemeContext';
 
-/** Decorative city-block illustration for engineer ZC-details header (mock). */
-function ZcHeroBuildingArt() {
+const SURVEY_STEP_HERO = require('../../../assets/illustrations/survey-step-hero.png');
+
+/** City + pin hero for engineer 4-step headers. */
+function SurveyStepHeroArt({ size = 72 }: { size?: number }) {
   return (
-    <Box
-      pointerEvents="none"
-      style={{
-        width: 58,
-        height: 58,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <Svg width={58} height={58} viewBox="0 0 88 88">
-        <Circle cx={44} cy={44} r={40} fill={hexAlpha(COLORS.primary, 0.1)} />
-        <Circle cx={44} cy={44} r={30} fill={hexAlpha(COLORS.primary, 0.12)} />
-        <Rect x={28} y={34} width={22} height={30} rx={3} fill="#93C5FD" />
-        <Rect x={42} y={26} width={20} height={38} rx={3} fill="#60A5FA" />
-        <Rect x={34} y={42} width={10} height={22} rx={2} fill="#3B82F6" />
-      </Svg>
-      <Box
-        style={{
-          position: 'absolute',
-          top: 8,
-          right: 6,
-          width: 24,
-          height: 24,
-          borderRadius: 999,
-          backgroundColor: COLORS.white,
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderWidth: 1,
-          borderColor: hexAlpha(COLORS.primary, 0.22),
-          shadowColor: COLORS.primaryDeep,
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: 0.1,
-          shadowRadius: 3,
-          elevation: 2,
-        }}
-      >
-        <MapPin size={12} color={COLORS.primary} strokeWidth={2.5} />
-      </Box>
-      <Box
-        style={{
-          position: 'absolute',
-          bottom: 10,
-          left: 6,
-          width: 22,
-          height: 22,
-          borderRadius: 999,
-          backgroundColor: COLORS.white,
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderWidth: 1,
-          borderColor: hexAlpha(COLORS.primary, 0.22),
-        }}
-      >
-        <Shield size={11} color={COLORS.primary} strokeWidth={2.4} />
-      </Box>
+    <Box pointerEvents="none" style={{ width: size, height: size }}>
+      <Image
+        source={SURVEY_STEP_HERO}
+        style={{ width: size, height: size }}
+        resizeMode="contain"
+      />
     </Box>
   );
 }
@@ -515,6 +466,7 @@ export function SurveyHero({
   go,
   variant = 'default',
   onStepPress,
+  showHeroArt = true,
 }: {
   title: string;
   subtitle?: string;
@@ -528,13 +480,16 @@ export function SurveyHero({
   go?: Go;
   variant?: 'default' | 'premium';
   onStepPress?: (targetStep: number) => void;
+  /** City/pin illustration on premium headers (off for Validate). */
+  showHeroArt?: boolean;
 }) {
   void _badge;
   const insets = useSafeAreaInsets();
   const isPremium = variant === 'premium';
   const displayTitle = step != null ? `Step ${step} - ${title}` : title;
-  const underTitle = subtitle; // kept for easy restore of commented hero subtitle
-  void underTitle;
+  const underTitle = subtitle;
+  /** Show subtitle when there is no step rail (e.g. Validate Report). */
+  const showSubtitle = Boolean(underTitle) && !(showSteps && step != null);
   const { themeId } = useTheme();
   const fg = headerFg();
 
@@ -615,8 +570,7 @@ export function SurveyHero({
               >
                 {title}
               </Text>
-              {/* Subtitle hidden — step rail already identifies the step
-              {underTitle ? (
+              {showSubtitle ? (
                 <Text
                   style={{
                     fontFamily: FONTS.semibold,
@@ -629,12 +583,13 @@ export function SurveyHero({
                   {underTitle}
                 </Text>
               ) : null}
-              */}
             </VStack>
 
-            <Box style={{ flexShrink: 0, marginTop: -2 }}>
-              <ZcHeroBuildingArt />
-            </Box>
+            {showHeroArt ? (
+              <Box style={{ flexShrink: 0, marginTop: -4 }}>
+                <SurveyStepHeroArt size={78} />
+              </Box>
+            ) : null}
           </HStack>
 
           {showSteps && step ? (
@@ -724,21 +679,19 @@ export function SurveyHero({
           >
             {step != null ? title : displayTitle}
           </Text>
-          {/* Subtitle hidden — step rail already identifies the step
-          {underTitle ? (
+          {showSubtitle ? (
             <Text
               style={{
                 fontFamily: FONTS.semibold,
                 fontSize: 12,
                 lineHeight: 16,
-                color: '#475569',
+                color: fg.muted,
               }}
               numberOfLines={3}
             >
               {underTitle}
             </Text>
           ) : null}
-          */}
         </VStack>
       </HStack>
 
@@ -867,12 +820,14 @@ function CompactSurveyHeader({
       {light ? (
         <Box
           style={{
-            backgroundColor: COLORS.white,
+            backgroundColor: premium ? '#F7FAFF' : COLORS.white,
             paddingTop: insets.top + 6,
             paddingBottom: 10,
             paddingHorizontal: 12,
             borderBottomWidth: 1,
-            borderBottomColor: hexAlpha(COLORS.ink, 0.06),
+            borderBottomColor: premium
+              ? 'rgba(26,86,219,0.12)'
+              : hexAlpha(COLORS.ink, 0.06),
           }}
         >
           <HStack className="items-center gap-2.5">
@@ -888,12 +843,26 @@ function CompactSurveyHeader({
                 justifyContent: 'center',
                 backgroundColor: COLORS.white,
                 borderWidth: 1,
-                borderColor: 'rgba(15,23,42,0.12)',
+                borderColor: premium ? 'rgba(26,86,219,0.2)' : 'rgba(15,23,42,0.12)',
               }}
             >
               <ArrowLeft size={16} color={COLORS.primaryDeep} strokeWidth={2.2} />
             </Pressable>
-            <VStack className="flex-1 min-w-0">
+            <VStack className="flex-1 min-w-0" style={{ gap: 2 }}>
+              {premium && step != null ? (
+                <Text
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 10,
+                    letterSpacing: 0.5,
+                    color: COLORS.primary,
+                    textTransform: 'uppercase',
+                  }}
+                  numberOfLines={1}
+                >
+                  Step {step} of {total}
+                </Text>
+              ) : null}
               <Text
                 style={{
                   fontFamily: FONTS.bold,
@@ -902,9 +871,10 @@ function CompactSurveyHeader({
                 }}
                 numberOfLines={1}
               >
-                {displayTitle}
+                {premium ? title : displayTitle}
               </Text>
             </VStack>
+            {premium ? <SurveyStepHeroArt size={56} /> : null}
           </HStack>
         </Box>
       ) : (
@@ -1069,6 +1039,7 @@ export function SurveyScaffold({
   surface = 'default',
   onStepNav,
   hero,
+  showHeroArt = true,
 }: {
   title: string;
   subtitle: string;
@@ -1087,6 +1058,8 @@ export function SurveyScaffold({
   onStepNav?: () => void;
   /** Optional custom header (e.g. Create-style Review header). */
   hero?: ReactNode;
+  /** City/pin illustration on premium headers (off for Validate). */
+  showHeroArt?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const [compact, setCompact] = useState(false);
@@ -1136,6 +1109,11 @@ export function SurveyScaffold({
     };
   }, []);
 
+  // New step / surface → reset sticky compact so the full hero shows first.
+  useEffect(() => {
+    setCompact(false);
+  }, [step, isPremium, title]);
+
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (keyboardOpenRef.current) return;
     const y = e.nativeEvent.contentOffset.y;
@@ -1159,11 +1137,10 @@ export function SurveyScaffold({
         keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 24}
       >
         {/*
-          Sticky compact header only for default themes.
-          Premium (engineer) hero already includes back + title + step rail —
-          the sticky bar was stacking over it on Steps 1–4 (web elevation).
+          Sticky compact header for all survey themes (default + engineer premium),
+          including Review — pins back + title while the large hero scrolls away.
         */}
-        {compact && !isPremium ? (
+        {compact ? (
           <Box
             pointerEvents="box-none"
             style={{
@@ -1172,6 +1149,7 @@ export function SurveyScaffold({
               left: 0,
               right: 0,
               zIndex: 40,
+              elevation: 20,
             }}
           >
             <CompactSurveyHeader
@@ -1179,7 +1157,7 @@ export function SurveyScaffold({
               onBack={onBack}
               step={step}
               total={total}
-              premium={false}
+              premium={isPremium}
             />
           </Box>
         ) : null}
@@ -1198,8 +1176,8 @@ export function SurveyScaffold({
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           nestedScrollEnabled
-          scrollEventThrottle={32}
-          onScroll={isPremium ? undefined : onScroll}
+          scrollEventThrottle={16}
+          onScroll={onScroll}
         >
           <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
             <View>
@@ -1216,6 +1194,7 @@ export function SurveyScaffold({
                   go={go}
                   variant={isPremium ? 'premium' : 'default'}
                   onStepPress={handleStepPress}
+                  showHeroArt={showHeroArt}
                 />
               )}
 

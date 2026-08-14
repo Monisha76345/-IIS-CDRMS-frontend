@@ -52,8 +52,11 @@ export type ProjectDraft = {
   /** E-office file / reference number from ZC create. */
   eOfficeNumber: string;
   siteNo: string;
-  addressArea: string;
+  addressLine1: string;
+  addressLine2: string;
   addressBlock: string;
+  addressCity: string;
+  addressState: string;
   addressPincode: string;
   zoneCode: string;
   createdByZcName: string;
@@ -184,8 +187,11 @@ export function createEmptyDraft(): ProjectDraft {
     applicationNumber: null,
     eOfficeNumber: '',
     siteNo: '',
-    addressArea: '',
+    addressLine1: '',
+    addressLine2: '',
     addressBlock: '',
+    addressCity: '',
+    addressState: '',
     addressPincode: '',
     zoneCode: '',
     createdByZcName: '',

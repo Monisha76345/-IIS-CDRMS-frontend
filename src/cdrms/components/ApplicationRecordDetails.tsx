@@ -383,12 +383,20 @@ function ZcDetailsCard({
         icon={MapPin}
         accent="green"
       >
-        <InfoRow label="Area" value={app.addressArea || '—'} accent="green" />
+        <InfoRow label="Address line 1" value={app.addressLine1?.trim() || '—'} accent="green" />
+        <InfoRow label="Address line 2" value={app.addressLine2?.trim() || '—'} accent="green" />
         <InfoPairRow
           leftLabel="Block"
-          leftValue={app.addressBlock || '—'}
+          leftValue={app.addressBlock?.trim() || '—'}
+          rightLabel="City"
+          rightValue={app.addressCity?.trim() || '—'}
+          accent="green"
+        />
+        <InfoPairRow
+          leftLabel="State"
+          leftValue={app.addressState?.trim() || '—'}
           rightLabel="Pincode"
-          rightValue={app.addressPincode || '—'}
+          rightValue={app.addressPincode?.trim() || '—'}
           accent="green"
         />
       </SectionCard>

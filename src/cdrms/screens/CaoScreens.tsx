@@ -6,7 +6,13 @@ import {
   Send,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useAnimatedScrollHandler,
+  useSharedValue,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Pressable } from '@/components/ui/pressable';
@@ -17,6 +23,7 @@ import { useAuth } from '@/src/auth/AuthContext';
 import { ApiError } from '@/src/api/client';
 import {
   applicationCardDateLine,
+  applicationStatusTone,
   countZcBuckets,
   fetchApplication,
   fetchCaoApplications,
@@ -40,6 +47,8 @@ import {
   BdaPageWatermark,
   WelcomeHomeHeader,
   welcomeFilterGap,
+  welcomeOverlayScrollPad,
+  welcomeSolidCollapseDistance,
 } from '@/src/cdrms/components/WelcomeHomeChrome';
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
 import { getCaoReturnScreen, getSelectedOfficeAppId, setCaoReturnScreen, setSelectedOfficeAppId } from '@/src/cdrms/officeSelection';
@@ -47,7 +56,7 @@ import { runApplicationPdfDownload } from '@/src/cdrms/lib/runApplicationPdfDown
 import { usePdfDownloads } from '@/src/cdrms/hooks/usePdfDownloadProgress';
 import { PdfDownloadThinProgress } from '@/src/cdrms/components/PdfDownloadThinProgress';
 import { SearchField } from '@/src/cdrms/components/SearchField';
-import { ViewApplicationHeader } from '@/src/cdrms/components/ViewApplicationHeader';
+import { ViewApplicationScroll } from '@/src/cdrms/components/ViewApplicationHeader';
 import {
   COLORS,
   FONTS,
@@ -63,7 +72,17 @@ import { useTheme } from '@/src/theme/ThemeContext';
 import type { Go } from '@/src/cdrms/types';
 
 function addressLine(app: MobileApplication) {
-  return [app.addressArea, app.addressBlock, app.addressPincode].filter(Boolean).join(', ');
+  return [
+    app.addressLine1,
+    app.addressLine2,
+    app.addressBlock,
+    app.addressCity,
+    app.addressState,
+    app.addressPincode,
+  ]
+    .map((p) => (p || '').trim())
+    .filter(Boolean)
+    .join(', ');
 }
 
 function submittedApps(apps: MobileApplication[]) {
@@ -79,6 +98,8 @@ const CAO_STATUS_FILTERS: { key: CaoTab; label: string }[] = [
 
 export function CaoHomeScreen({ go }: { go: Go }) {
   const { themeId } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { height: windowH } = useWindowDimensions();
   const { accessToken, user, logout } = useAuth();
   const [apps, setApps] = useState<MobileApplication[]>([]);
   const [zoneLabel, setZoneLabel] = useState<string | null>(null);
@@ -86,6 +107,15 @@ export function CaoHomeScreen({ go }: { go: Go }) {
   const [tab, setTab] = useState<CaoTab>('all');
   const [q, setQ] = useState('');
   const pdfDownloads = usePdfDownloads();
+  const headerScrollY = useSharedValue(0);
+  const onHeaderScroll = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      headerScrollY.value = e.contentOffset.y;
+    },
+  });
+  const overlayPad = welcomeOverlayScrollPad(insets.top);
+  const collapseDist = welcomeSolidCollapseDistance(insets.top);
+  const scrollMinH = windowH + (overlayPad > 0 ? collapseDist : 0);
 
   const reload = useCallback(async () => {
     if (!accessToken) return;
@@ -120,21 +150,22 @@ export function CaoHomeScreen({ go }: { go: Go }) {
 
   const counts = useMemo(() => countZcBuckets(apps), [apps]);
 
+  const submittedTone = applicationStatusTone('submitted');
   const filterCards = [
     {
       id: 'all' as const,
       label: 'All',
       value: counts.total,
-      bg: usesLightHeader() ? '#ECFDF5' : GLASS.tintBlue,
-      fg: usesLightHeader() ? '#059669' : COLORS.primary,
+      bg: GLASS.tintBlue,
+      fg: COLORS.primary,
       icon: Layers,
     },
     {
       id: 'submitted' as const,
       label: 'Submitted',
       value: counts.submitted,
-      bg: usesLightHeader() ? '#E0F2FE' : GLASS.tintSky,
-      fg: usesLightHeader() ? '#0284C7' : COLORS.primary,
+      bg: submittedTone.bg,
+      fg: submittedTone.fg,
       icon: Send,
     },
   ];
@@ -160,28 +191,37 @@ export function CaoHomeScreen({ go }: { go: Go }) {
   return (
     <ScreenShell className="bg-background">
       <BdaPageWatermark />
-      <ScrollView
+      {/* Header outside ScrollView so profile menu stays tappable when collapsed */}
+      <WelcomeHomeHeader
+        user={user}
+        zoneLabel={zoneLabel}
+        go={go}
+        scrollY={headerScrollY}
+        eyebrow="CAO"
+        tagline="Review submitted applications"
+        onLogout={() => {
+          void (async () => {
+            await logout();
+            go('login');
+          })();
+        }}
+      />
+      <Animated.ScrollView
         key={themeId}
         className="flex-1"
-        style={{ zIndex: 1 }}
-        contentContainerStyle={{ paddingBottom: 150 }}
+        style={{ flex: 1, minHeight: 0, zIndex: 1 }}
+        contentContainerStyle={{
+          paddingTop: overlayPad,
+          paddingBottom: 150,
+          minHeight: scrollMinH,
+        }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        bounces={false}
+        overScrollMode="never"
+        onScroll={onHeaderScroll}
+        scrollEventThrottle={16}
       >
-        <WelcomeHomeHeader
-          user={user}
-          zoneLabel={zoneLabel}
-          go={go}
-          eyebrow="CAO"
-          tagline="Review submitted applications"
-          onLogout={() => {
-            void (async () => {
-              await logout();
-              go('login');
-            })();
-          }}
-        />
-
         <Box className="px-3" style={{ marginTop: welcomeFilterGap() }}>
           <HStack style={{ gap: 6 }}>
             {filterCards.map((s) => {
@@ -332,7 +372,7 @@ export function CaoHomeScreen({ go }: { go: Go }) {
             </VStack>
           )}
         </Box>
-      </ScrollView>
+      </Animated.ScrollView>
 
       <BottomNav
         active="home"
@@ -407,42 +447,53 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell key={themeId} className="bg-[#F8FAFC]">
-      <AppHeader
-        title="Applications"
-        subtitle={`${submittedApps(apps).length} submitted · view & download only`}
-        go={go}
-      />
-
-      <Box style={{ backgroundColor: '#F8FAFC' }}>
-
-
-        <Box className="px-4 pb-2">
-          <SearchField
-            value={q}
-            onChangeText={setQ}
-            placeholder="Search application, site, engineer…"
-            height={48}
-            iconColor={COLORS.primary}
-            placeholderTextColor={COLORS.ink}
-            inputStyle={{ fontSize: 15, color: COLORS.ink }}
-            style={{
-              borderRadius: 999,
-              borderWidth: 1.5,
-              borderColor: hexAlpha(COLORS.primary, 0.35),
-              backgroundColor: COLORS.white,
-            }}
-            endAdornment={
-              <Pressable onPress={() => void reload()} accessibilityLabel="Refresh">
-                <RefreshCw size={15} color={COLORS.primary} strokeWidth={2.4} />
-              </Pressable>
-            }
+      <Box style={{ flex: 1 }}>
+        {/* Sticky Applications header + search */}
+        <Box
+          style={{
+            zIndex: 40,
+            elevation: 12,
+            backgroundColor: '#F8FAFC',
+            shadowColor: '#0F172A',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.06,
+            shadowRadius: 6,
+          }}
+        >
+          <AppHeader
+            title="Applications"
+            subtitle={`${submittedApps(apps).length} submitted · view & download only`}
+            go={go}
           />
+          <Box className="px-4 pb-2" style={{ backgroundColor: '#F8FAFC' }}>
+            <SearchField
+              value={q}
+              onChangeText={setQ}
+              placeholder="Search application, site, engineer…"
+              height={48}
+              iconColor={COLORS.primary}
+              placeholderTextColor={COLORS.ink}
+              inputStyle={{ fontSize: 15, color: COLORS.ink }}
+              style={{
+                borderRadius: 999,
+                borderWidth: 1.5,
+                borderColor: hexAlpha(COLORS.primary, 0.35),
+                backgroundColor: COLORS.white,
+              }}
+              endAdornment={
+                <Pressable onPress={() => void reload()} accessibilityLabel="Refresh">
+                  <RefreshCw size={15} color={COLORS.primary} strokeWidth={2.4} />
+                </Pressable>
+              }
+            />
+          </Box>
         </Box>
-      </Box>
 
       <ScrollView
+        style={{ flex: 1, minHeight: 0, zIndex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100, paddingTop: 8 }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {loading ? (
           <ListLoader text="Loading all CAO applications…" />
@@ -518,6 +569,7 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
         hidePlus
         hideAlerts
       />
+      </Box>
     </ScreenShell>
   );
 }
@@ -553,14 +605,12 @@ export function CaoDetailScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-background">
-      <Box style={{ flex: 1, backgroundColor: '#F0F4F8' }}>
-        <ScrollView
-          key={themeId}
-          style={{ flex: 1, backgroundColor: '#F0F4F8' }}
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: 28 }}
-          showsVerticalScrollIndicator={false}
-        >
-          <ViewApplicationHeader onBack={() => go(backTarget)} zone={app?.zoneCode} />
+      <ViewApplicationScroll
+        scrollKey={themeId}
+        onBack={() => go(backTarget)}
+        zone={app?.zoneCode}
+        contentContainerStyle={{ paddingBottom: 28 }}
+      >
           <Box
             style={{
               flexGrow: 1,
@@ -662,8 +712,7 @@ export function CaoDetailScreen({ go }: { go: Go }) {
             </VStack>
           )}
           </Box>
-        </ScrollView>
-      </Box>
+      </ViewApplicationScroll>
     </ScreenShell>
   );
 }

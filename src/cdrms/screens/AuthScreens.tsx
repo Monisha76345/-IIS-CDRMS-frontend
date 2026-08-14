@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Eye,
   EyeOff,
+  Globe2,
   Headphones,
   LocateFixed,
   Lock,
@@ -39,7 +40,7 @@ import {
   View,
   type ScrollView as RNScrollView,
 } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient as SvgGradient, Path, Stop } from 'react-native-svg';
 import Animated, {
   Easing,
   FadeIn,
@@ -58,7 +59,6 @@ import Animated, {
   withSequence,
   withSpring,
   withTiming,
-  type SharedValue,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Box } from '@/components/ui/box';
@@ -117,6 +117,14 @@ import { homeScreenForRole, needsGeoValidation } from '@/src/auth/roles';
 
 const BDA_BUILDING = require('../../../assets/bda-building.png');
 const BDA_LOGO = require('../../../assets/bda-logo.png');
+const LOGIN_LOCK = require('../../../assets/login-lock.png');
+const PERM_HERO = require('../../../assets/illustrations/location-access-hero-v2.png');
+const PERM_ICON_GPS = require('../../../assets/illustrations/perm-icon-gps.png');
+const PERM_ICON_CAMERA = require('../../../assets/illustrations/perm-icon-camera.png');
+const PERM_ICON_MIC = require('../../../assets/illustrations/perm-icon-mic.png');
+const PERM_ICON_FOREGROUND = require('../../../assets/illustrations/perm-icon-foreground.png');
+const PERM_ICON_PRIVACY = require('../../../assets/illustrations/perm-icon-privacy.png');
+const GEO_VERIFIED_BADGE = require('../../../assets/illustrations/geo-verified-badge.png');
 const LOGIN_NAVY = '#0B1F4A';
 const LOGIN_BLUE = '#1A56DB';
 const LOGIN_BLUE_BRIGHT = '#2B6CED';
@@ -231,7 +239,7 @@ export function SplashScreen({ go }: { go: Go }) {
   }));
 
   const lineStyle = useAnimatedStyle(() => ({
-    width: interpolate(lineWidth.value, [0, 1], [0, 118]),
+    width: `${interpolate(lineWidth.value, [0, 1], [0, 90])}%` as `${number}%`,
     opacity: interpolate(lineWidth.value, [0, 0.15, 1], [0, 1, 1]),
   }));
 
@@ -373,36 +381,6 @@ export function SplashScreen({ go }: { go: Go }) {
   );
 }
 
-function LoginStepDot({
-  index,
-  progress,
-}: {
-  index: number;
-  progress: SharedValue<number>;
-}) {
-  const style = useAnimatedStyle(() => {
-    const dist = Math.abs(progress.value - index);
-    const active = interpolate(dist, [0, 0.55, 1.1], [1, 0.4, 0], 'clamp');
-    return {
-      backgroundColor: interpolateColor(active, [0, 1], ['#C5D4F0', LOGIN_BLUE]),
-      transform: [{ scale: interpolate(active, [0, 1], [1, 1.28]) }],
-    };
-  });
-
-  return (
-    <Animated.View
-      style={[
-        {
-          width: 8,
-          height: 8,
-          borderRadius: 4,
-        },
-        style,
-      ]}
-    />
-  );
-}
-
 export function LoginScreen({ go }: { go: Go }) {
   const { login } = useAuth();
   const insets = useSafeAreaInsets();
@@ -422,21 +400,23 @@ export function LoginScreen({ go }: { go: Go }) {
   const passwordRef = useRef<TextInput>(null);
   const scrollRef = useRef<RNScrollView>(null);
   const formYRef = useRef(0);
-  const dotProgress = useSharedValue(0);
 
-  // Photo header — keep compact so less empty space under title
+  // Fit Oppo A78 / other mid-range widths — keep footer text on-screen
+  const isNarrow = winW < 390;
+  const isShort = winH < 780;
+  const formPadX = isNarrow ? 18 : 24;
+  // Photo header — slightly shorter on compact phones so footer stays reachable
   const heroH = keyboardOpen
     ? Math.max(118, Math.round(winH * 0.17))
-    : Math.max(260, Math.round(winH * 0.36));
-  const waveH = keyboardOpen ? 48 : 72;
-  const waveW = Math.max(winW, 360);
-  /** Shallow symmetrical valley — high L/R, gentle center dip (exact mock). */
-  const waveEdgeY = Math.round(waveH * 0.18);
-  const waveDipY = Math.round(waveH * 0.72);
+    : Math.max(isShort ? 250 : 280, Math.round(winH * (isShort ? 0.34 : 0.38)));
+  // Soft curve — a bit deeper than before, still not a harsh bowl
+  const waveH = keyboardOpen ? 48 : 70;
+  const waveW = winW;
+  const waveEdgeY = Math.round(waveH * 0.14);
+  const waveDipY = Math.round(waveH * 0.66);
   const valleyFromBottom = waveH - waveDipY;
-  const lockOuter = Math.round(Math.min(winW * 0.2, 90)); // white disc
-  const lockInner = Math.round(lockOuter * 0.7); // blue circle
-  const lockHalo = lockOuter + 36; // full overlay footprint (glow included)
+  const lockOuter = Math.round(Math.min(winW * 0.155, 72)); // lock badge — slightly smaller
+  const lockHalo = lockOuter + 28; // full overlay footprint (glow included)
 
   const scrollFormIntoView = useCallback(() => {
     requestAnimationFrame(() => {
@@ -474,18 +454,6 @@ export function LoginScreen({ go }: { go: Go }) {
     const t = setTimeout(scrollFormIntoView, Platform.OS === 'ios' ? 50 : 160);
     return () => clearTimeout(t);
   }, [keyboardOpen, scrollFormIntoView]);
-
-  useEffect(() => {
-    // Active step dot walks left → right across the 6 indicators.
-    dotProgress.value = withRepeat(
-      withSequence(
-        withTiming(5, { duration: 4200, easing: Easing.linear }),
-        withTiming(0, { duration: 0 })
-      ),
-      -1,
-      false
-    );
-  }, [dotProgress]);
 
   async function onSecureLogin() {
     if (loading) return;
@@ -539,7 +507,7 @@ export function LoginScreen({ go }: { go: Go }) {
             flexGrow: 1,
             paddingBottom: keyboardOpen
               ? Math.max(keyboardHeight * 0.3, 88)
-              : Math.max(insets.bottom, 12) + 8,
+              : Math.max(insets.bottom, 16) + 20,
           }}
           showsVerticalScrollIndicator={false}
         >
@@ -578,49 +546,57 @@ export function LoginScreen({ go }: { go: Go }) {
                     <Box
                       className="items-center justify-center overflow-hidden"
                       style={{
-                        width: 92,
-                        height: 92,
-                        borderRadius: 46,
+                        width: 84,
+                        height: 84,
+                        borderRadius: 42,
                         backgroundColor: '#FFFFFF',
-                        borderWidth: 3,
+                        borderWidth: 2.5,
                         borderColor: 'rgba(255,255,255,0.95)',
                         shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 6 },
-                        shadowOpacity: 0.22,
-                        shadowRadius: 12,
-                        elevation: 8,
-                        marginBottom: 21,
+                        shadowOffset: { width: 0, height: 5 },
+                        shadowOpacity: 0.2,
+                        shadowRadius: 10,
+                        elevation: 7,
+                        marginBottom: 18,
                       }}
                     >
                       <Image
                         source={BDA_LOGO}
-                        style={{ width: 82, height: 82 }}
+                        style={{ width: 74, height: 74 }}
                         resizeMode="contain"
                         accessibilityLabel="Bangalore Development Authority"
                       />
                     </Box>
                   ) : null}
                   <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.8}
                     style={{
                       fontFamily: FONTS.bold,
-                      fontSize: keyboardOpen ? 17 : 24,
+                      fontSize: keyboardOpen ? 16 : isNarrow ? 20 : 22,
                       letterSpacing: 0.6,
                       color: '#FFFFFF',
                       textAlign: 'center',
                       width: '100%',
+                      paddingHorizontal: 8,
                       marginTop: keyboardOpen ? 0 : 4,
                     }}
                   >
                     BDA CDRMS PORTAL
                   </Text>
                   <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.85}
                     style={{
                       fontFamily: FONTS.medium,
-                      fontSize: keyboardOpen ? 12 : 15,
+                      fontSize: keyboardOpen ? 12 : isNarrow ? 13 : 15,
                       color: 'rgba(255,255,255,0.92)',
                       marginTop: 5,
                       textAlign: 'center',
                       width: '100%',
+                      paddingHorizontal: 8,
                     }}
                   >
                     {TERMS.app.ministry}
@@ -629,7 +605,7 @@ export function LoginScreen({ go }: { go: Go }) {
               </LinearGradient>
             </ImageBackground>
 
-            {/* Shallow valley curve — matches mock pixel profile */}
+            {/* Soft shallow valley — gentle arc like 2nd screenshot */}
             <View
               pointerEvents="none"
               style={{
@@ -638,23 +614,31 @@ export function LoginScreen({ go }: { go: Go }) {
                 right: 0,
                 bottom: -1,
                 height: waveH,
+                alignItems: 'center',
+                overflow: 'hidden',
               }}
             >
               <Svg width={waveW} height={waveH} viewBox={`0 0 ${waveW} ${waveH}`}>
                 <Path
-                  d={`M0 ${waveEdgeY} Q ${waveW / 2} ${waveDipY} ${waveW} ${waveEdgeY} L ${waveW} ${waveH} L 0 ${waveH} Z`}
+                  d={[
+                    `M0 ${waveEdgeY}`,
+                    `C ${waveW * 0.25} ${waveEdgeY}, ${waveW * 0.35} ${waveDipY}, ${waveW / 2} ${waveDipY}`,
+                    `C ${waveW * 0.65} ${waveDipY}, ${waveW * 0.75} ${waveEdgeY}, ${waveW} ${waveEdgeY}`,
+                    `L ${waveW} ${waveH} L 0 ${waveH} Z`,
+                  ].join(' ')}
                   fill="#FFFFFF"
                 />
               </Svg>
             </View>
           </View>
 
-          {/* Lock centered ON the valley — half photo / half white */}
+          {/* Lock centered ON the valley — true horizontal center */}
           <View
             pointerEvents="none"
             style={{
               zIndex: 40,
               elevation: 40,
+              width: '100%',
               alignItems: 'center',
               height: 0,
             }}
@@ -666,73 +650,48 @@ export function LoginScreen({ go }: { go: Go }) {
                 marginTop: -(lockHalo / 2 + valleyFromBottom),
                 width: lockHalo,
                 height: lockHalo,
+                alignSelf: 'center',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              {/* Soft outer glow rings */}
+              {/* One soft white halo (ref style) */}
               <View
                 style={{
                   position: 'absolute',
-                  width: lockOuter + 26,
-                  height: lockOuter + 26,
-                  borderRadius: (lockOuter + 26) / 2,
-                  backgroundColor: 'rgba(43, 108, 237, 0.1)',
+                  width: lockOuter + 16,
+                  height: lockOuter + 16,
+                  borderRadius: (lockOuter + 16) / 2,
+                  backgroundColor: 'rgba(255, 255, 255, 0.75)',
                 }}
               />
-              <View
-                style={{
-                  position: 'absolute',
-                  width: lockOuter + 12,
-                  height: lockOuter + 12,
-                  borderRadius: (lockOuter + 12) / 2,
-                  backgroundColor: 'rgba(43, 108, 237, 0.07)',
-                }}
-              />
-              {/* Thick white ring + shadow */}
+              {/* Exact lock badge asset + thick white ring */}
               <View
                 style={{
                   width: lockOuter,
                   height: lockOuter,
                   borderRadius: lockOuter / 2,
                   backgroundColor: '#FFFFFF',
+                  padding: 5,
                   alignItems: 'center',
                   justifyContent: 'center',
                   shadowColor: '#0F172A',
-                  shadowOffset: { width: 0, height: 8 },
-                  shadowOpacity: 0.22,
-                  shadowRadius: 16,
-                  elevation: 16,
+                  shadowOffset: { width: 0, height: 6 },
+                  shadowOpacity: 0.18,
+                  shadowRadius: 12,
+                  elevation: 12,
                 }}
               >
-                <View
+                <Image
+                  source={LOGIN_LOCK}
                   style={{
-                    width: lockInner,
-                    height: lockInner,
-                    borderRadius: lockInner / 2,
-                    backgroundColor: LOGIN_BLUE,
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    width: lockOuter - 10,
+                    height: lockOuter - 10,
+                    borderRadius: (lockOuter - 10) / 2,
                   }}
-                >
-                  <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-                    <Lock size={Math.round(lockInner * 0.42)} color="#FFFFFF" strokeWidth={2.5} />
-                    <View
-                      style={{
-                        position: 'absolute',
-                        bottom: Math.round(lockInner * 0.14),
-                        width: Math.round(lockInner * 0.2),
-                        height: Math.round(lockInner * 0.2),
-                        borderRadius: Math.round(lockInner * 0.1),
-                        backgroundColor: LOGIN_BLUE,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Plus size={Math.round(lockInner * 0.16)} color="#FFFFFF" strokeWidth={3.8} />
-                    </View>
-                  </View>
-                </View>
+                  resizeMode="cover"
+                  accessibilityLabel="Secure login"
+                />
               </View>
             </Animated.View>
           </View>
@@ -741,26 +700,12 @@ export function LoginScreen({ go }: { go: Go }) {
           <View
             style={{
               backgroundColor: '#FFFFFF',
-              paddingHorizontal: 24,
+              paddingHorizontal: formPadX,
               paddingTop: lockHalo / 2 - valleyFromBottom + 2,
               marginTop: -2,
               flexGrow: 1,
             }}
           >
-            {/* Step dots — active indicator walks left → right */}
-            <HStack
-              style={{
-                alignSelf: 'center',
-                gap: 10,
-                marginBottom: 8,
-                marginTop: 0,
-              }}
-            >
-              {Array.from({ length: 6 }).map((_, i) => (
-                <LoginStepDot key={i} index={i} progress={dotProgress} />
-              ))}
-            </HStack>
-
             <Animated.View
               entering={FadeInDown.duration(480).delay(60)}
               onLayout={(e) => {
@@ -771,7 +716,7 @@ export function LoginScreen({ go }: { go: Go }) {
                 <Text
                   style={{
                     fontFamily: FONTS.bold,
-                    fontSize: 28,
+                    fontSize: 25,
                     color: LOGIN_NAVY,
                   }}
                 >
@@ -780,7 +725,7 @@ export function LoginScreen({ go }: { go: Go }) {
                 <Text
                   style={{
                     fontFamily: FONTS.bold,
-                    fontSize: 22,
+                    fontSize: 18,
                     color: LOGIN_BLUE,
                   }}
                 >
@@ -790,8 +735,8 @@ export function LoginScreen({ go }: { go: Go }) {
               <Text
                 style={{
                   fontFamily: FONTS.medium,
-                  fontSize: 14,
-                  color: LOGIN_MUTED,
+                  fontSize: 13,
+                  color: '#64748B',
                   textAlign: 'center',
                   marginBottom: 10,
                 }}
@@ -978,7 +923,7 @@ export function LoginScreen({ go }: { go: Go }) {
 
                   <Pressable className="active:opacity-70">
                     <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: LOGIN_BLUE }}>
-                      Forgot Login ID?
+                      Forgot Password?
                     </Text>
                   </Pressable>
                 </HStack>
@@ -988,7 +933,7 @@ export function LoginScreen({ go }: { go: Go }) {
                   disabled={loading}
                   className="active:opacity-90 overflow-hidden"
                   style={{
-                    borderRadius: 999,
+                    borderRadius: 12,
                     marginTop: 4,
                     shadowColor: LOGIN_BLUE,
                     shadowOffset: { width: 0, height: 8 },
@@ -998,11 +943,13 @@ export function LoginScreen({ go }: { go: Go }) {
                   }}
                 >
                   <LinearGradient
-                    colors={['#153A9E', LOGIN_BLUE, LOGIN_BLUE_BRIGHT]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
+                    colors={['#0B2F8A', '#1A56DB', '#3B82F6']}
+                    locations={[0, 0.45, 1]}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
                     style={{
-                      height: 54,
+                      height: 52,
+                      borderRadius: 12,
                       flexDirection: 'row',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -1032,13 +979,16 @@ export function LoginScreen({ go }: { go: Go }) {
                     width: '100%',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: 10,
+                    gap: 8,
                   }}
                 >
                   <View style={{ flex: 1, height: 1.5, backgroundColor: '#94A3B8' }} />
-                  <HStack style={{ alignItems: 'center', gap: 5, paddingHorizontal: 4 }}>
+                  <HStack style={{ alignItems: 'center', gap: 5, paddingHorizontal: 2, flexShrink: 1 }}>
                     <ShieldCheck size={15} color="#0F172A" strokeWidth={2.2} />
                     <Text
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.85}
                       style={{
                         fontFamily: FONTS.bold,
                         fontSize: 13,
@@ -1055,35 +1005,56 @@ export function LoginScreen({ go }: { go: Go }) {
                   style={{
                     width: '100%',
                     justifyContent: 'space-around',
-                    paddingHorizontal: 16,
+                    paddingHorizontal: isNarrow ? 4 : 12,
                   }}
                 >
-                  <VStack style={{ alignItems: 'center', gap: 2 }}>
-                    <ShieldCheck size={18} color={LOGIN_SKY} strokeWidth={2.2} />
+                  <VStack style={{ alignItems: 'center', gap: 2, flex: 1, paddingHorizontal: 4 }}>
+                    <ShieldCheck size={16} color={LOGIN_SKY} strokeWidth={2.2} />
                     <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: LOGIN_BLUE }}>
                       Secure
                     </Text>
-                    <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: '#0F172A' }}>
+                    <Text
+                      numberOfLines={2}
+                      style={{
+                        fontFamily: FONTS.medium,
+                        fontSize: 11,
+                        color: '#0F172A',
+                        textAlign: 'center',
+                      }}
+                    >
                       Data Protection
                     </Text>
                   </VStack>
-                  <VStack style={{ alignItems: 'center', gap: 2 }}>
-                    <UserCheck size={18} color={LOGIN_SKY} strokeWidth={2.2} />
+                  <VStack style={{ alignItems: 'center', gap: 2, flex: 1, paddingHorizontal: 4 }}>
+                    <UserCheck size={16} color={LOGIN_SKY} strokeWidth={2.2} />
                     <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: LOGIN_BLUE }}>
                       Authorized
                     </Text>
-                    <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: '#0F172A' }}>
-                      Access
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        fontFamily: FONTS.medium,
+                        fontSize: 11,
+                        color: '#0F172A',
+                        textAlign: 'center',
+                      }}
+                    >
+                      Access Only
                     </Text>
                   </VStack>
                 </HStack>
 
                 <Text
+                  numberOfLines={2}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
                   style={{
                     fontFamily: FONTS.medium,
-                    fontSize: 12,
-                    color: '#0F172A',
+                    fontSize: isNarrow ? 10 : 11,
+                    color: '#64748B',
                     textAlign: 'center',
+                    width: '100%',
+                    paddingHorizontal: 4,
                   }}
                 >
                   © 2026 Bangalore Development Authority. All rights reserved.
@@ -1585,53 +1556,79 @@ export function OtpScreen({ go }: { go: Go }) {
   );
 }
 
-/** Colored chevron end with dotted grid — matches permission mock cards. */
+/** Gradient chevron end + white-bordered tick/arrow — matches ref screenshot 2. */
 function PermissionChevronEnd({
-  color,
+  colorFrom,
+  colorTo,
   trailing,
 }: {
-  color: string;
+  colorFrom: string;
+  colorTo: string;
   trailing: 'check' | 'arrow';
 }) {
-  const w = 58;
-  const h = 68;
+  // Wider left-arrow / chevron end — matches ref
+  const w = 72;
+  const h = 76;
+  const gradId = `permChevron_${colorTo.replace('#', '')}`;
   return (
     <View style={{ width: w, height: h, justifyContent: 'center', alignItems: 'center' }}>
       <Svg width={w} height={h} style={{ position: 'absolute', top: 0, right: 0 }}>
+        <Defs>
+          <SvgGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor={colorFrom} />
+            <Stop offset="1" stopColor={colorTo} />
+          </SvgGradient>
+        </Defs>
         <Path
-          d={`M14 0 L${w} 0 L${w} ${h} L14 ${h} L0 ${h / 2} Z`}
-          fill={color}
+          d={`M18 0 L${w} 0 L${w} ${h} L18 ${h} L0 ${h / 2} Z`}
+          fill={`url(#${gradId})`}
         />
-        {/* Dot grid pattern */}
-        {Array.from({ length: 6 }).map((_, row) =>
-          Array.from({ length: 4 }).map((__, col) => (
+        {Array.from({ length: 7 }).map((_, row) =>
+          Array.from({ length: 5 }).map((__, col) => (
             <Circle
               key={`${row}-${col}`}
-              cx={22 + col * 9}
+              cx={24 + col * 9}
               cy={10 + row * 10}
               r={1.15}
-              fill="rgba(255,255,255,0.35)"
+              fill="rgba(255,255,255,0.4)"
             />
           )),
         )}
       </Svg>
-      <View style={{ marginLeft: 8 }}>
-        {trailing === 'check' ? (
-          <View
-            style={{
-              width: 26,
-              height: 26,
-              borderRadius: 13,
-              backgroundColor: 'rgba(255,255,255,0.22)',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Check size={15} color="#FFFFFF" strokeWidth={3} />
-          </View>
-        ) : (
-          <ChevronRight size={22} color="#FFFFFF" strokeWidth={2.8} />
-        )}
+      <View style={{ marginLeft: 10, alignItems: 'center', justifyContent: 'center' }}>
+        {/* Soft frosted shade ring (ref) */}
+        <View
+          style={{
+            position: 'absolute',
+            width: 34,
+            height: 34,
+            borderRadius: 17,
+            backgroundColor: 'rgba(255,255,255,0.18)',
+          }}
+        />
+        <View
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 14,
+            backgroundColor: 'rgba(255,255,255,0.32)',
+            borderWidth: 2,
+            borderColor: 'rgba(255,255,255,0.95)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: '#FFFFFF',
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.55,
+            shadowRadius: 4,
+            elevation: 2,
+          }}
+        >
+          {trailing === 'check' ? (
+            <Check size={15} color="#FFFFFF" strokeWidth={3.2} />
+          ) : (
+            <ChevronRight size={16} color="#FFFFFF" strokeWidth={2.8} />
+          )}
+        </View>
       </View>
     </View>
   );
@@ -1651,48 +1648,63 @@ export function PermissionScreen({ go }: { go: Go }) {
 
   const items = [
     {
-      icon: Navigation,
+      image: PERM_ICON_GPS,
       title: TERMS.permissions.gpsTitle,
       desc: 'Required for accurate survey geo-tagging',
-      accent: '#16A34A',
-      soft: '#DCFCE7',
-      chevron: '#22C55E',
+      accent: '#14B8A6',
+      ring: '#99F6E4',
+      soft: '#F0FDFA',
+      cardBg: '#F0FDFA',
+      chevronFrom: '#2DD4BF',
+      chevronTo: '#0D9488',
       trailing: 'check' as const,
     },
     {
-      icon: Camera,
+      image: PERM_ICON_CAMERA,
       title: TERMS.permissions.cameraTitle,
       desc: TERMS.permissions.cameraDesc,
-      accent: '#7C3AED',
-      soft: '#EDE9FE',
-      chevron: '#8B5CF6',
+      accent: '#8B5CF6',
+      ring: '#DDD6FE',
+      soft: '#FAF5FF',
+      cardBg: '#F5F3FF',
+      chevronFrom: '#A78BFA',
+      chevronTo: '#7C3AED',
       trailing: 'check' as const,
     },
     {
-      icon: Mic,
+      image: PERM_ICON_MIC,
       title: TERMS.permissions.microphoneTitle,
       desc: TERMS.permissions.microphoneDesc,
-      accent: '#EA580C',
-      soft: '#FFEDD5',
-      chevron: '#F97316',
+      accent: '#F97316',
+      ring: '#FED7AA',
+      soft: '#FFF7ED',
+      cardBg: '#FFF7ED',
+      chevronFrom: '#FB923C',
+      chevronTo: '#EA580C',
       trailing: 'check' as const,
     },
     {
-      icon: MapPinned,
+      image: PERM_ICON_FOREGROUND,
       title: TERMS.permissions.foregroundTitle,
       desc: TERMS.permissions.foregroundDesc,
-      accent: '#2563EB',
-      soft: '#DBEAFE',
-      chevron: '#3B82F6',
+      accent: '#3B82F6',
+      ring: '#BFDBFE',
+      soft: '#EFF6FF',
+      cardBg: '#EFF6FF',
+      chevronFrom: '#60A5FA',
+      chevronTo: '#2563EB',
       trailing: 'check' as const,
     },
     {
-      icon: ShieldCheck,
+      image: PERM_ICON_PRIVACY,
       title: 'Your data is safe with us',
       desc: 'Used only for survey verification · Encrypted',
-      accent: '#1E3A8A',
-      soft: '#DBEAFE',
-      chevron: '#1E40AF',
+      accent: '#38BDF8',
+      ring: '#BAE6FD',
+      soft: '#F0F9FF',
+      cardBg: '#F0F9FF',
+      chevronFrom: '#38BDF8',
+      chevronTo: '#0284C7',
       trailing: 'arrow' as const,
     },
   ] as const;
@@ -1841,9 +1853,16 @@ export function PermissionScreen({ go }: { go: Go }) {
                 width: 40,
                 height: 40,
                 borderRadius: 20,
-                backgroundColor: '#F1F5F9',
+                backgroundColor: '#FFFFFF',
+                borderWidth: 1,
+                borderColor: '#E2E8F0',
                 alignItems: 'center',
                 justifyContent: 'center',
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.08,
+                shadowRadius: 6,
+                elevation: 2,
               }}
               accessibilityLabel="Back"
             >
@@ -1877,105 +1896,15 @@ export function PermissionScreen({ go }: { go: Go }) {
 
             <Animated.View
               entering={ZoomIn.delay(60).duration(480).springify().damping(14)}
-              style={[{ marginTop: 18 }, iconWrapStyle]}
+              style={[{ marginTop: 8 }, iconWrapStyle]}
             >
-              <View style={{ width: 160, height: 140, alignItems: 'center', justifyContent: 'center' }}>
-                <Animated.View
-                  style={[
-                    {
-                      position: 'absolute',
-                      width: 120,
-                      height: 120,
-                      borderRadius: 60,
-                      borderWidth: 1.5,
-                      borderColor: 'rgba(37, 99, 235, 0.18)',
-                    },
-                    ringAStyle,
-                  ]}
-                />
-                <Animated.View
-                  style={[
-                    {
-                      position: 'absolute',
-                      width: 120,
-                      height: 120,
-                      borderRadius: 60,
-                      borderWidth: 1.5,
-                      borderColor: 'rgba(37, 99, 235, 0.12)',
-                    },
-                    ringBStyle,
-                  ]}
-                />
-                {/* Soft cloud dots */}
-                <View
-                  style={{
-                    position: 'absolute',
-                    top: 8,
-                    left: 18,
-                    width: 14,
-                    height: 14,
-                    borderRadius: 7,
-                    backgroundColor: '#FFFFFF',
-                    borderWidth: 1,
-                    borderColor: '#E2E8F0',
-                  }}
-                />
-                <View
-                  style={{
-                    position: 'absolute',
-                    top: 22,
-                    right: 14,
-                    width: 10,
-                    height: 10,
-                    borderRadius: 5,
-                    backgroundColor: '#FFFFFF',
-                    borderWidth: 1,
-                    borderColor: '#E2E8F0',
-                  }}
-                />
-                <View
-                  style={{
-                    position: 'absolute',
-                    bottom: 28,
-                    left: 28,
-                    width: 12,
-                    height: 12,
-                    borderRadius: 6,
-                    backgroundColor: '#FFFFFF',
-                    borderWidth: 1,
-                    borderColor: '#E2E8F0',
-                  }}
-                />
-                <LinearGradient
-                  colors={['#DBEAFE', '#93C5FD', '#2563EB']}
-                  start={{ x: 0.2, y: 0 }}
-                  end={{ x: 0.8, y: 1 }}
-                  style={{
-                    width: 72,
-                    height: 72,
-                    borderRadius: 36,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    shadowColor: '#2563EB',
-                    shadowOffset: { width: 0, height: 10 },
-                    shadowOpacity: 0.28,
-                    shadowRadius: 16,
-                    elevation: 8,
-                  }}
-                >
-                  <MapPin size={34} color="#FFFFFF" strokeWidth={2.4} fill="rgba(255,255,255,0.25)" />
-                </LinearGradient>
-                <View
-                  style={{
-                    marginTop: 6,
-                    width: 54,
-                    height: 10,
-                    borderRadius: 8,
-                    backgroundColor: '#BFDBFE',
-                    transform: [{ scaleX: 1.2 }],
-                  }}
-                />
-              </View>
+              {/* Transparent PNG hero — no square image frame */}
+              <Image
+                source={PERM_HERO}
+                style={{ width: 118, height: 118 }}
+                resizeMode="contain"
+                accessibilityLabel="Location access"
+              />
             </Animated.View>
 
             <Animated.View
@@ -1995,7 +1924,7 @@ export function PermissionScreen({ go }: { go: Go }) {
               <Text
                 style={{
                   fontFamily: FONTS.medium,
-                  fontSize: 14,
+                  fontSize: 12,
                   color: '#64748B',
                   textAlign: 'center',
                   marginTop: 8,
@@ -2009,76 +1938,105 @@ export function PermissionScreen({ go }: { go: Go }) {
             </Animated.View>
           </VStack>
 
-          <VStack style={{ paddingHorizontal: 16, marginTop: 16, gap: 10 }}>
-            {items.map((it, i) => {
-              const Icon = it.icon;
-              return (
-                <Animated.View
-                  key={it.title}
-                  entering={FadeInRight.delay(160 + i * 70).duration(380).springify().damping(16)}
+          <VStack style={{ paddingHorizontal: 16, marginTop: 16, gap: 12 }}>
+            {items.map((it, i) => (
+              <Animated.View
+                key={it.title}
+                entering={FadeInRight.delay(160 + i * 70).duration(380).springify().damping(16)}
+              >
+                <Box
+                  className="overflow-hidden"
+                  style={{
+                    borderRadius: 16,
+                    backgroundColor: it.cardBg,
+                    borderWidth: 1,
+                    borderColor: it.accent,
+                    height: 76,
+                    shadowColor: '#0F172A',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 6,
+                    elevation: 1,
+                  }}
                 >
-                  <Box
-                    className="overflow-hidden"
-                    style={{
-                      borderRadius: 18,
-                      backgroundColor: '#FFFFFF',
-                      borderWidth: 1.5,
-                      borderColor: it.accent,
-                      height: 68,
-                      shadowColor: '#0F172A',
-                      shadowOffset: { width: 0, height: 3 },
-                      shadowOpacity: 0.06,
-                      shadowRadius: 8,
-                      elevation: 2,
-                    }}
-                  >
-                    <HStack className="items-stretch" style={{ flex: 1 }}>
-                      <HStack
-                        className="items-center flex-1"
-                        style={{ paddingLeft: 12, paddingRight: 4 }}
+                  <HStack className="items-stretch" style={{ flex: 1 }}>
+                    <HStack
+                      className="items-center flex-1"
+                      style={{ paddingLeft: 12, paddingRight: 4 }}
+                    >
+                      {/* Soft curved icon tile + accent color border (ref) */}
+                      <View
+                        style={{
+                          width: 50,
+                          height: 50,
+                          borderRadius: 16,
+                          backgroundColor: it.soft,
+                          borderWidth: 2,
+                          borderColor: it.accent,
+                          padding: 3,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          shadowColor: it.accent,
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.14,
+                          shadowRadius: 4,
+                          elevation: 2,
+                        }}
                       >
-                        <Box
-                          className="items-center justify-center"
+                        <View
                           style={{
-                            width: 42,
-                            height: 42,
-                            borderRadius: 12,
-                            backgroundColor: it.soft,
+                            flex: 1,
+                            alignSelf: 'stretch',
+                            borderRadius: 11,
+                            backgroundColor: '#FFFFFF',
+                            borderWidth: 1,
+                            borderColor: it.ring,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            overflow: 'hidden',
                           }}
                         >
-                          <Icon size={20} color={it.accent} strokeWidth={2.2} />
-                        </Box>
-                        <VStack className="flex-1 min-w-0 ml-3">
-                          <Text
-                            style={{
-                              fontFamily: FONTS.bold,
-                              fontSize: 14,
-                              color: '#0F172A',
-                            }}
-                            numberOfLines={1}
-                          >
-                            {it.title}
-                          </Text>
-                          <Text
-                            style={{
-                              fontFamily: FONTS.medium,
-                              fontSize: 12,
-                              color: '#64748B',
-                              marginTop: 2,
-                              lineHeight: 16,
-                            }}
-                            numberOfLines={2}
-                          >
-                            {it.desc}
-                          </Text>
-                        </VStack>
-                      </HStack>
-                      <PermissionChevronEnd color={it.chevron} trailing={it.trailing} />
+                          <Image
+                            source={it.image}
+                            style={{ width: 30, height: 30 }}
+                            resizeMode="contain"
+                          />
+                        </View>
+                      </View>
+                      <VStack className="flex-1 min-w-0 ml-3">
+                        <Text
+                          style={{
+                            fontFamily: FONTS.bold,
+                            fontSize: 14,
+                            color: '#0F172A',
+                          }}
+                          numberOfLines={1}
+                        >
+                          {it.title}
+                        </Text>
+                        <Text
+                          style={{
+                            fontFamily: FONTS.medium,
+                            fontSize: 12,
+                            color: '#64748B',
+                            marginTop: 2,
+                            lineHeight: 16,
+                          }}
+                          numberOfLines={2}
+                        >
+                          {it.desc}
+                        </Text>
+                      </VStack>
                     </HStack>
-                  </Box>
-                </Animated.View>
-              );
-            })}
+                    <PermissionChevronEnd
+                      colorFrom={it.chevronFrom}
+                      colorTo={it.chevronTo}
+                      trailing={it.trailing}
+                    />
+                  </HStack>
+                </Box>
+              </Animated.View>
+            ))}
           </VStack>
 
           <Animated.View
@@ -2091,20 +2049,21 @@ export function PermissionScreen({ go }: { go: Go }) {
                 disabled={busy}
                 className="active:opacity-90 overflow-hidden"
                 style={{
-                  borderRadius: 999,
+                  borderRadius: 14,
                   shadowColor: '#2563EB',
-                  shadowOffset: { width: 0, height: 8 },
-                  shadowOpacity: 0.28,
-                  shadowRadius: 14,
-                  elevation: 5,
+                  shadowOffset: { width: 0, height: 6 },
+                  shadowOpacity: 0.22,
+                  shadowRadius: 10,
+                  elevation: 4,
                 }}
               >
                 <LinearGradient
-                  colors={['#1E40AF', '#2563EB', '#3B82F6']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
+                  colors={['#1D4ED8', '#2563EB', '#3B82F6']}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
                   style={{
                     height: 52,
+                    borderRadius: 14,
                     flexDirection: 'row',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -2117,7 +2076,7 @@ export function PermissionScreen({ go }: { go: Go }) {
                     <>
                       <Navigation size={17} color="#FFFFFF" strokeWidth={2.4} />
                       <Text style={{ fontFamily: FONTS.bold, fontSize: 16, color: '#FFFFFF' }}>
-                        {alreadyGranted ? 'Continue' : 'Enable GPS'}
+                        Continue
                       </Text>
                     </>
                   )}
@@ -2128,9 +2087,9 @@ export function PermissionScreen({ go }: { go: Go }) {
             <Pressable
               onPress={() => go('login')}
               className="active:opacity-70"
-              style={{ marginTop: 12, alignItems: 'center', paddingVertical: 6 }}
+              style={{ marginTop: 14, alignItems: 'center', paddingVertical: 6 }}
             >
-             
+              
             </Pressable>
           </Animated.View>
         </ScrollView>
@@ -2155,6 +2114,7 @@ export function GeoScreen({ go }: { go: Go }) {
   const [mapDelta, setMapDelta] = useState(0.008);
   const [mapRecenterKey, setMapRecenterKey] = useState(0);
   const [mapHeight, setMapHeight] = useState(320);
+  const [sheetH, setSheetH] = useState(300);
   /** 10 ft fence is measured from the locked live GPS — not a far demo pin. */
   const [fenceAnchor, setFenceAnchor] = useState<{
     latitude: number;
@@ -2274,6 +2234,10 @@ export function GeoScreen({ go }: { go: Go }) {
       .filter(Boolean)
       .join(' · ') || 'Live GPS zone';
 
+  const sheetBottom = Math.max(insets.bottom, 10) + 6;
+  /** Place tag + zoom sit just above the modal (ref) */
+  const aboveModal = sheetBottom + sheetH + 12;
+
   return (
     <ScreenShell>
       <Box style={{ flex: 1, backgroundColor: '#F0F4F8' }}>
@@ -2306,189 +2270,200 @@ export function GeoScreen({ go }: { go: Go }) {
                 zoom={zoomFromLatitudeDelta(mapDelta)}
                 accuracyMeters={currentAccuracy}
                 zoneRadiusFeet={FENCE_RADIUS_FT}
-                // Keep GPS pin in the open map above the bottom sheet
-                bottomPadding={Math.round(Math.min(340, Math.max(220, mapHeight * 0.42)))}
+                // Keep GPS pin visible above compact bottom sheet
+                bottomPadding={aboveModal + 24}
                 recenterKey={mapRecenterKey}
                 interactive
                 showBrandBadge={false}
                 showInnerBadge={false}
               />
 
-              <Box
-                className="absolute left-3 right-3 flex-row items-start justify-between"
-                style={{ top: 12, zIndex: 5 }}
-                pointerEvents="box-none"
+              {/* GPS Locked — top left (ref) */}
+              <View
+                pointerEvents="none"
+                style={{
+                  position: 'absolute',
+                  top: 12,
+                  left: 12,
+                  zIndex: 25,
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 999,
+                  backgroundColor: '#FFFFFF',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  shadowColor: '#0F172A',
+                  shadowOpacity: 0.1,
+                  shadowRadius: 6,
+                  shadowOffset: { width: 0, height: 2 },
+                  elevation: 3,
+                }}
               >
-                <VStack style={{ gap: 6, maxWidth: '62%' }}>
-                  <View
-                    pointerEvents="none"
-                    style={{
-                      alignSelf: 'flex-start',
-                      paddingHorizontal: 10,
-                      paddingVertical: 6,
-                      borderRadius: 999,
-                      backgroundColor: '#FFFFFF',
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 6,
-                      shadowColor: '#0F172A',
-                      shadowOpacity: 0.1,
-                      shadowRadius: 6,
-                      shadowOffset: { width: 0, height: 2 },
-                      elevation: 3,
-                    }}
-                  >
-                    <Box
-                      className="h-2 w-2 rounded-full"
-                      style={{
-                        backgroundColor: outside
-                          ? COLORS.destructive
-                          : isBusy
-                            ? COLORS.warning
-                            : '#22C55E',
-                      }}
-                    />
-                    <Text
-                      style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#0F172A' }}
-                      numberOfLines={1}
-                    >
-                      {outside
-                        ? `Outside fence`
-                        : isBusy
-                          ? `Acquiring GPS…`
-                          : `GPS Locked ${
-                              currentAccuracy ? `±${Math.round(currentAccuracy)}m` : ''
-                            }`}
-                    </Text>
-                  </View>
+                <Box
+                  className="h-2 w-2 rounded-full"
+                  style={{
+                    backgroundColor: outside
+                      ? COLORS.destructive
+                      : isBusy
+                        ? COLORS.warning
+                        : '#22C55E',
+                  }}
+                />
+                <Text
+                  style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#0F172A' }}
+                  numberOfLines={1}
+                >
+                  {outside
+                    ? `Outside fence`
+                    : isBusy
+                      ? `Acquiring GPS…`
+                      : `GPS Locked ${
+                          currentAccuracy ? `±${Math.round(currentAccuracy)}m` : ''
+                        }`}
+                </Text>
+              </View>
 
-                  {/* Small place tag under GPS Locked */}
-                  <View
-                    pointerEvents="none"
-                    style={{
-                      alignSelf: 'flex-start',
-                      paddingHorizontal: 8,
-                      paddingVertical: 4,
-                      borderRadius: 999,
-                      backgroundColor: '#FFFFFF',
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 4,
-                      shadowColor: '#0F172A',
-                      shadowOpacity: 0.08,
-                      shadowRadius: 4,
-                      shadowOffset: { width: 0, height: 1 },
-                      elevation: 2,
-                    }}
-                  >
-                    <MapPin size={10} color="#EA4335" strokeWidth={2.6} />
-                    <Text
-                      style={{
-                        fontFamily: FONTS.semibold,
-                        fontSize: 10,
-                        color: '#334155',
-                        flexShrink: 1,
-                      }}
-                      numberOfLines={1}
-                    >
-                      {villageName}
-                    </Text>
-                  </View>
-                </VStack>
-
-                <VStack style={{ gap: 8 }}>
-                  <Pressable
-                    onPress={() => {
-                      setMapDelta(0.008);
-                      setMapRecenterKey((k) => k + 1);
-                    }}
-                    className="active:opacity-70"
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: '#FFFFFF',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      shadowColor: '#0F172A',
-                      shadowOpacity: 0.1,
-                      shadowRadius: 6,
-                      shadowOffset: { width: 0, height: 2 },
-                      elevation: 3,
-                    }}
-                    accessibilityLabel="Recenter map"
-                  >
-                    <LocateFixed size={16} color={COLORS.primary} strokeWidth={2.4} />
-                  </Pressable>
-                  <Box
-                    style={{
-                      borderRadius: 14,
-                      overflow: 'hidden',
-                      backgroundColor: '#FFFFFF',
-                      shadowColor: '#0F172A',
-                      shadowOpacity: 0.1,
-                      shadowRadius: 6,
-                      shadowOffset: { width: 0, height: 2 },
-                      elevation: 3,
-                    }}
-                  >
-                    <Pressable
-                      onPress={() =>
-                        setMapDelta((d) => Math.max(GEO_MAP_MIN_DELTA, d * 0.45))
-                      }
-                      className="h-10 w-10 items-center justify-center active:opacity-70"
-                      accessibilityLabel="Zoom in"
-                    >
-                      <Plus size={16} color="#334155" strokeWidth={2.4} />
-                    </Pressable>
-                    <Box style={{ height: 1, backgroundColor: '#E2E8F0' }} />
-                    <Pressable
-                      onPress={() =>
-                        setMapDelta((d) => Math.min(GEO_MAP_MAX_DELTA, d * 2.2))
-                      }
-                      className="h-10 w-10 items-center justify-center active:opacity-70"
-                      accessibilityLabel="Zoom out"
-                    >
-                      <Minus size={16} color="#334155" strokeWidth={2.4} />
-                    </Pressable>
-                  </Box>
-                </VStack>
-              </Box>
+              {/* Locate circle — top right (not above +/-) */}
+              <Pressable
+                onPress={() => {
+                  setMapDelta(0.008);
+                  setMapRecenterKey((k) => k + 1);
+                }}
+                className="active:opacity-70"
+                style={{
+                  position: 'absolute',
+                  top: 12,
+                  right: 12,
+                  zIndex: 25,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: '#FFFFFF',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  shadowColor: '#0F172A',
+                  shadowOpacity: 0.1,
+                  shadowRadius: 6,
+                  shadowOffset: { width: 0, height: 2 },
+                  elevation: 3,
+                }}
+                accessibilityLabel="Recenter map"
+              >
+                <LocateFixed size={16} color={COLORS.primary} strokeWidth={2.4} />
+              </Pressable>
           </Box>
 
-          {/* Natural-height sheet — no flex crush / text clip */}
+          {/* Place tag — just ABOVE modal, left (ref) */}
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: 24,
+              bottom: aboveModal,
+              zIndex: 25,
+              maxWidth: '52%',
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              borderRadius: 999,
+              backgroundColor: '#FFFFFF',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 5,
+              shadowColor: '#0F172A',
+              shadowOpacity: 0.12,
+              shadowRadius: 6,
+              shadowOffset: { width: 0, height: 2 },
+              elevation: 8,
+            }}
+          >
+            <MapPin size={12} color="#EA4335" strokeWidth={2.6} />
+            <Text
+              style={{
+                fontFamily: FONTS.semibold,
+                fontSize: 12,
+                color: '#334155',
+                flexShrink: 1,
+              }}
+              numberOfLines={1}
+            >
+              {villageName}
+            </Text>
+          </View>
+
+          {/* Zoom +/- only — just ABOVE modal, right (ref) */}
+          <Box
+            style={{
+              position: 'absolute',
+              right: 24,
+              bottom: aboveModal,
+              zIndex: 25,
+              borderRadius: 14,
+              overflow: 'hidden',
+              backgroundColor: '#FFFFFF',
+              shadowColor: '#0F172A',
+              shadowOpacity: 0.12,
+              shadowRadius: 6,
+              shadowOffset: { width: 0, height: 2 },
+              elevation: 8,
+            }}
+          >
+            <Pressable
+              onPress={() =>
+                setMapDelta((d) => Math.max(GEO_MAP_MIN_DELTA, d * 0.45))
+              }
+              className="h-10 w-10 items-center justify-center active:opacity-70"
+              accessibilityLabel="Zoom in"
+            >
+              <Plus size={16} color="#334155" strokeWidth={2.4} />
+            </Pressable>
+            <Box style={{ height: 1, backgroundColor: '#E2E8F0' }} />
+            <Pressable
+              onPress={() =>
+                setMapDelta((d) => Math.min(GEO_MAP_MAX_DELTA, d * 2.2))
+              }
+              className="h-10 w-10 items-center justify-center active:opacity-70"
+              accessibilityLabel="Zoom out"
+            >
+              <Minus size={16} color="#334155" strokeWidth={2.4} />
+            </Pressable>
+          </Box>
+
+          {/* Compact floating sheet — not full-screen (ref) */}
           <Animated.View
             entering={FadeInUp.duration(420).springify().damping(16)}
+            onLayout={(e) => {
+              const h = Math.round(e.nativeEvent.layout.height);
+              if (h > 0 && Math.abs(h - sheetH) > 2) setSheetH(h);
+            }}
             style={{
               position: 'absolute',
               left: 12,
               right: 12,
-              bottom: Math.max(insets.bottom, 12) + 8,
+              bottom: sheetBottom,
               backgroundColor: '#FFFFFF',
               borderRadius: 24,
               paddingHorizontal: 16,
-              paddingTop: 16,
-              paddingBottom: 14,
+              paddingTop: 14,
+              paddingBottom: 12,
               shadowColor: '#0F172A',
               shadowOpacity: 0.14,
               shadowRadius: 18,
               shadowOffset: { width: 0, height: 8 },
               elevation: 14,
               zIndex: 20,
-              borderWidth: 1.5,
-              borderColor: 'rgba(26,54,142,0.18)',
             }}
           >
-            <HStack style={{ alignItems: 'flex-start', marginBottom: 14 }}>
-              <Box style={{ flex: 1, paddingRight: 10, minWidth: 0 }}>
-                <HStack style={{ alignItems: 'center', gap: 5, marginBottom: 4 }}>
-                  <Navigation size={12} color="#1A368E" />
+            <HStack style={{ alignItems: 'flex-start' }}>
+              <Box style={{ flex: 1, paddingRight: 12, minWidth: 0 }}>
+                <HStack style={{ alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <Navigation size={14} color="#2563EB" strokeWidth={2.4} />
                   <Text
                     style={{
                       fontFamily: FONTS.bold,
                       fontSize: 11,
-                      letterSpacing: 0.25,
-                      color: '#1A368E',
+                      letterSpacing: 0.4,
+                      color: '#2563EB',
                       textTransform: 'uppercase',
                       flexShrink: 1,
                     }}
@@ -2498,7 +2473,7 @@ export function GeoScreen({ go }: { go: Go }) {
                   </Text>
                 </HStack>
                 <Text
-                  style={{ fontFamily: FONTS.semibold, fontSize: 12, color: '#0F172A', lineHeight: 16 }}
+                  style={{ fontFamily: FONTS.bold, fontSize: 15, color: '#0F172A', lineHeight: 20 }}
                   numberOfLines={2}
                 >
                   {villageName}
@@ -2506,10 +2481,10 @@ export function GeoScreen({ go }: { go: Go }) {
                 <Text
                   style={{
                     fontFamily: FONTS.medium,
-                    fontSize: 11,
+                    fontSize: 12,
                     color: '#64748B',
                     marginTop: 3,
-                    lineHeight: 15,
+                    lineHeight: 16,
                   }}
                   numberOfLines={2}
                 >
@@ -2517,15 +2492,24 @@ export function GeoScreen({ go }: { go: Go }) {
                 </Text>
               </Box>
 
-              <Box style={{ flex: 1, paddingLeft: 10, minWidth: 0 }}>
-                <HStack style={{ alignItems: 'center', gap: 5, marginBottom: 4 }}>
-                  <ShieldCheck size={12} color="#1A368E" />
+              <View
+                style={{
+                  width: 1,
+                  alignSelf: 'stretch',
+                  backgroundColor: '#E2E8F0',
+                  marginVertical: 2,
+                }}
+              />
+
+              <Box style={{ flex: 1, paddingLeft: 12, minWidth: 0 }}>
+                <HStack style={{ alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <ShieldCheck size={14} color="#7C3AED" strokeWidth={2.4} />
                   <Text
                     style={{
                       fontFamily: FONTS.bold,
                       fontSize: 11,
-                      letterSpacing: 0.25,
-                      color: '#1A368E',
+                      letterSpacing: 0.4,
+                      color: '#7C3AED',
                       textTransform: 'uppercase',
                       flexShrink: 1,
                     }}
@@ -2535,21 +2519,66 @@ export function GeoScreen({ go }: { go: Go }) {
                   </Text>
                 </HStack>
                 <Text
-                  style={{ fontFamily: FONTS.semibold, fontSize: 12, color: '#0F172A', lineHeight: 16 }}
+                  style={{ fontFamily: FONTS.bold, fontSize: 15, color: '#0F172A', lineHeight: 20 }}
                   numberOfLines={2}
                 >
-                  {zoneLabel}
+                  {zoneLabel.replace(' · ', ' • ')}
                 </Text>
+                <View
+                  style={{
+                    alignSelf: 'flex-start',
+                    marginTop: 6,
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 999,
+                    backgroundColor: '#F3E8FF',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 11,
+                      color: '#7C3AED',
+                    }}
+                  >
+                    Radius {FENCE_RADIUS_FT} ft
+                  </Text>
+                </View>
               </Box>
+            </HStack>
+
+            <HStack
+              style={{
+                alignItems: 'center',
+                gap: 8,
+                marginTop: 14,
+                paddingTop: 12,
+                borderTopWidth: 1,
+                borderTopColor: '#EEF2F7',
+              }}
+            >
+              <Globe2 size={15} color="#64748B" strokeWidth={2.2} />
+              <Text
+                style={{
+                  fontFamily: FONTS.medium,
+                  fontSize: 13,
+                  color: '#475569',
+                }}
+                numberOfLines={1}
+              >
+                {Math.abs(currentLat).toFixed(5)}° {currentLat >= 0 ? 'N' : 'S'} ·{' '}
+                {Math.abs(currentLng).toFixed(5)}° {currentLng >= 0 ? 'E' : 'W'}
+              </Text>
             </HStack>
 
             <Text
               style={{
                 fontFamily: FONTS.bold,
-                fontSize: 14,
-                letterSpacing: 0.3,
-                color: '#1A368E',
+                fontSize: 12,
+                letterSpacing: 0.5,
+                color: '#64748B',
                 textTransform: 'uppercase',
+                marginTop: 16,
                 marginBottom: 8,
               }}
             >
@@ -2613,63 +2642,63 @@ export function GeoScreen({ go }: { go: Go }) {
                 </Box>
               </Animated.View>
             ) : (
-              <Box
-                style={{
-                  borderRadius: 16,
-                  backgroundColor: '#EEF2FF',
-                  borderWidth: 1.5,
-                  borderColor: '#C7D2FE',
-                  padding: 14,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 12,
-                }}
-              >
-                <View
+              <HStack style={{ alignItems: 'center', gap: 8 }}>
+                {/* Status card — shield badge stays OUTSIDE (ref) */}
+                <Box
                   style={{
-                    width: 28,
-                    height: 28,
+                    flex: 1,
                     borderRadius: 14,
-                    backgroundColor: '#22C55E',
+                    backgroundColor: '#ECFDF5',
+                    borderWidth: 1,
+                    borderColor: '#BBF7D0',
+                    paddingVertical: 12,
+                    paddingHorizontal: 12,
+                    flexDirection: 'row',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
+                    gap: 10,
+                    minWidth: 0,
                   }}
                 >
-                  <Check size={16} color="#FFFFFF" strokeWidth={3} />
-                </View>
-                <VStack style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#0F172A' }}>
-                    Verified
-                  </Text>
-                  <Text
+                  {/* <View
                     style={{
-                      fontFamily: FONTS.medium,
-                      fontSize: 12,
-                      color: '#64748B',
-                      marginTop: 3,
-                      lineHeight: 17,
+                      width: 32,
+                      height: 32,
+                      borderRadius: 16,
+                      backgroundColor: '#DCFCE7',
+                      borderWidth: 1.5,
+                      borderColor: '#86EFAC',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
                     }}
                   >
-                    You are within the assigned jurisdiction.
-                  </Text>
-                </VStack>
-                <LinearGradient
-                  colors={['#4ADE80', '#16A34A']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 14,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  <ShieldCheck size={26} color="#FFFFFF" strokeWidth={2.4} />
-                </LinearGradient>
-              </Box>
+                    <ShieldCheck size={15} color="#16A34A" strokeWidth={2.4} />
+                  </View> */}
+                  <VStack style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 15, color: '#15803D' }}>
+                      Verified
+                    </Text>
+                    <Text
+                      style={{
+                        fontFamily: FONTS.medium,
+                        fontSize: 13,
+                        color: '#16A34A',
+                        marginTop: 2,
+                        lineHeight: 15,
+                      }}
+                      numberOfLines={2}
+                    >
+                      You are within the assigned jurisdiction
+                    </Text>
+                  </VStack>
+                </Box>
+                <Image
+                  source={GEO_VERIFIED_BADGE}
+                  style={{ width: 58, height: 58, marginRight: -2 }}
+                  resizeMode="contain"
+                  accessibilityLabel="Verified"
+                />
+              </HStack>
             )}
 
             {!outside ? (
@@ -2678,21 +2707,23 @@ export function GeoScreen({ go }: { go: Go }) {
                 disabled={isBusy}
                 className="active:opacity-90 overflow-hidden"
                 style={{
-                  marginTop: 14,
+                  marginTop: 12,
                   borderRadius: 999,
                   shadowColor: '#2563EB',
                   shadowOffset: { width: 0, height: 8 },
-                  shadowOpacity: 0.28,
+                  shadowOpacity: 0.32,
                   shadowRadius: 14,
-                  elevation: 5,
+                  elevation: 6,
                 }}
               >
                 <LinearGradient
-                  colors={['#1E3A8A', '#1D4ED8']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
+                  colors={['#1E3A8A', '#1D4ED8', '#3B82F6']}
+                  locations={[0, 0.5, 1]}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
                   style={{
-                    height: 52,
+                    height: 54,
+                    borderRadius: 999,
                     flexDirection: 'row',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -2703,7 +2734,7 @@ export function GeoScreen({ go }: { go: Go }) {
                     <ActivityIndicator color="#FFFFFF" size="small" />
                   ) : (
                     <>
-                      <ArrowRight size={18} color="#FFFFFF" strokeWidth={2.6} />
+                      <ArrowRight size={20} color="#FFFFFF" strokeWidth={2.6} />
                       <Text style={{ fontFamily: FONTS.bold, fontSize: 16, color: '#FFFFFF' }}>
                         Continue
                       </Text>

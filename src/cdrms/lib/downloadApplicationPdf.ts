@@ -222,8 +222,10 @@ function zcFormTable(app: MobileApplication) {
       ${formRowPair(['Application no', fmt(app.applicationNumber)])}
       ${formRowPair(['Site no', fmt(app.siteNo)], ['Site type', fmt(app.siteDimensionType)])}
       ${formRowPair(['Site dimension', fmt(app.siteDimension)], ['Zone', fmt(app.zoneCode)])}
-      ${formRowPair(['Area', fmt(app.addressArea)])}
-      ${formRowPair(['Block', fmt(app.addressBlock)], ['Pincode', fmt(app.addressPincode)])}
+      ${formRowPair(['Address line 1', fmt(app.addressLine1)])}
+      ${formRowPair(['Address line 2', fmt(app.addressLine2)])}
+      ${formRowPair(['Block', fmt(app.addressBlock)], ['City', fmt(app.addressCity)])}
+      ${formRowPair(['State', fmt(app.addressState)], ['Pincode', fmt(app.addressPincode)])}
       ${formRowPair(['Created by ZC', fmt(app.createdByZcName)], ['Assigned on', fmt(formatDateTime(app.createdAt))])}
       ${formRowPair(['Assigned engineer', fmt(app.assignedEngineerName)])}
       ${sectionSubHeader('Site Schedules')}
