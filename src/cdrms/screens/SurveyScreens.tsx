@@ -47,6 +47,7 @@ import { LiveGpsPanel } from '@/src/cdrms/components/LiveGpsPanel';
 import { SchedulesEditorCard } from '@/src/cdrms/components/SchedulesEditorCard';
 import { SiteVideoCaptureCard } from '@/src/cdrms/components/SiteVideoCaptureCard';
 import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
+import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 import { AppBtn, AppSheet, Field } from '@/src/cdrms/components/primitives';
 import {
   SectionTitle,
@@ -66,6 +67,11 @@ import {
   useDummyCapture,
 } from '@/src/cdrms/hooks/useMediaCapture';
 import { createDummyVideoAsset } from '@/src/cdrms/hooks/dummyMedia';
+import {
+  OCCUPANCY_REASON_MAX,
+  sanitizeOccupancyReason,
+  validateOccupancyReason,
+} from '@/src/cdrms/lib/occupancyValidation';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
 import {
@@ -127,17 +133,25 @@ export function BandiScreen({ go }: { go: Go }) {
     refresh: refreshLiveGps,
   } = useLiveLocation({ silent: true, timeInterval: 1500, distanceInterval: 2 });
   const [stepSaving, setStepSaving] = useState(false);
+  const [occupancyReasonTouched, setOccupancyReasonTouched] = useState(false);
   const schedulePhotosReady = (['N', 'S', 'E', 'W'] as const).every(
     (k) => Boolean(draft.surroundingPhotos[k]),
   );
-  const occupancyOk =
-    draft.occupancy === 'Empty' ||
-    (draft.occupancy === 'Occupied' && draft.occupancyReason.trim().length > 0);
+  const occupancyReasonError = validateOccupancyReason(
+    draft.occupancy,
+    draft.occupancyReason,
+  );
+  /** Show red field only after Continue (not while typing). */
+  const showOccupancyReasonError =
+    draft.occupancy === 'Occupied' &&
+    Boolean(occupancyReasonError) &&
+    occupancyReasonTouched;
   const compassOk = Boolean(draft.compassReading.trim());
   /** Simulator QA: photos optional so Continue can unlock after hardcoded compass/GPS. */
   const schedulesOk = isSimulatorOrEmulator() ? true : schedulePhotosReady;
+  /** Occupancy reason is validated on Continue — do not disable the button for it. */
   const canContinueBandi = isBackendTask
-    ? schedulesOk && Boolean(draft.gps) && compassOk && occupancyOk
+    ? schedulesOk && Boolean(draft.gps) && compassOk
     : draft.bandiVerified;
   const [editing, setEditing] = useState<Cardinal | null>(null);
   const [draftNote, setDraftNote] = useState('');
@@ -319,17 +333,30 @@ export function BandiScreen({ go }: { go: Go }) {
                 ? 'Capture GPS first'
                 : !compassOk
                   ? 'Pick facing direction'
-                  : !occupancyOk
-                    ? 'Complete occupancy'
-                    : !schedulesOk
-                      ? 'Add all 4 schedule photos'
-                      : 'Continue'
+                  : !schedulesOk
+                    ? 'Add all 4 schedule photos'
+                    : 'Continue'
               : TERMS.workflow.continueToSurroundings
           }
           onPress={() => {
             void (async () => {
               if (isBackendTask && !schedulesOk) return;
               if (isBackendTask) {
+                const reasonErr = validateOccupancyReason(
+                  draft.occupancy,
+                  draft.occupancyReason,
+                );
+                if (reasonErr) {
+                  setOccupancyReasonTouched(true);
+                  showAppDialog({
+                    variant: 'warning',
+                    title: 'Validation',
+                    message: `Occupancy reason: ${reasonErr}`,
+                    hideCancel: true,
+                    confirmLabel: 'OK',
+                  });
+                  return;
+                }
                 if (!draft.bandiVerified) setBandiVerified(true);
                 setStepSaving(true);
                 try {
@@ -560,7 +587,7 @@ export function BandiScreen({ go }: { go: Go }) {
               draft.occupancy === 'Occupied'
                 ? draft.occupancyReason.trim()
                   ? 'Occupied · reason captured'
-                  : 'Occupied · add reason below'
+                  : 'Occupied · Add reason below'
                 : draft.occupancy === 'Empty'
                   ? 'Site is currently empty'
                   : 'Required before continuing'
@@ -594,7 +621,13 @@ export function BandiScreen({ go }: { go: Go }) {
                 return (
                   <Pressable
                     key={opt}
-                    onPress={() => updateField('occupancy', opt)}
+                    onPress={() => {
+                      updateField('occupancy', opt);
+                      if (opt === 'Empty') {
+                        updateField('occupancyReason', '');
+                      }
+                      setOccupancyReasonTouched(false);
+                    }}
                     className="active:opacity-80"
                     accessibilityRole="radio"
                     accessibilityState={{ selected: on }}
@@ -659,8 +692,15 @@ export function BandiScreen({ go }: { go: Go }) {
                   compact
                   label="Occupied reason *"
                   value={draft.occupancyReason}
-                  onChangeText={(t) => updateField('occupancyReason', t)}
+                  onChangeText={(t) => {
+                    updateField('occupancyReason', sanitizeOccupancyReason(t));
+                    if (occupancyReasonTouched) setOccupancyReasonTouched(false);
+                  }}
                   placeholder="Why is the site occupied?"
+                  maxLength={OCCUPANCY_REASON_MAX}
+                  error={
+                    showOccupancyReasonError ? occupancyReasonError : undefined
+                  }
                 />
               </Box>
             ) : null}
@@ -1449,7 +1489,7 @@ export function PhotosScreen({ go }: { go: Go }) {
         <>
           <PremiumStepCard
             icon={Camera}
-            title="Selfie *"
+            title="Engineer Selfie *"
             badge={
               draft.selfie ? (
                 <Box
@@ -1517,12 +1557,12 @@ export function PhotosScreen({ go }: { go: Go }) {
                         fontSize: 13,
                         letterSpacing: 0.3,
                         color: COLORS.ink,
-                        textTransform: 'uppercase',
+                     
                       }}
                     >
-                      Selfie captured
+                      Selfie Captured Successfully
                     </Text>
-                    <Text
+                    {/* <Text
                       style={{
                         fontFamily: FONTS.semibold,
                         fontSize: 12,
@@ -1530,8 +1570,8 @@ export function PhotosScreen({ go }: { go: Go }) {
                         color: '#475569',
                       }}
                     >
-                      Engineer verification photo ready
-                    </Text>
+                     Selfie Captured Successfully
+                    </Text> */}
                     <HStack style={{ gap: 8, marginTop: 6 }}>
                       <Pressable
                         onPress={() => void takeSelfieMedia()}

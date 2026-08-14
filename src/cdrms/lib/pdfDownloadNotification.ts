@@ -148,7 +148,7 @@ export async function showPdfDownloadCompleteNotification(
 ) {
   lastOpenUriByFile.set(fileName, openUri);
   const sizeLabel = formatBytes(fileSizeBytes ?? 0);
-  const body = sizeLabel ? `Download complete • ${sizeLabel}` : 'Download complete';
+  const body = sizeLabel ? `Download completed • ${sizeLabel}` : 'Download completed';
   const Notifications = loadNotifications();
 
   await publish(fileName, {

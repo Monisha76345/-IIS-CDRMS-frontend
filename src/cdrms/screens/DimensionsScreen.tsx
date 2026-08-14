@@ -221,8 +221,8 @@ export function DimensionsScreen({ go }: { go: Go }) {
         ? `Site No ${siteNoLabel} · ${filledCount}/4 sides · plot updates as you type`
         : `${filledCount}/4 sides · plot updates as you type`;
     }
-    if (siteNoLabel) return `Live plot · Site No ${siteNoLabel} · ${liveSiteDimension}`;
-    return `Live plot · ${liveSiteDimension}`;
+    if (siteNoLabel) return `Site No ${siteNoLabel} · ${liveSiteDimension}`;
+    return `Plot dimensions: ${liveSiteDimension}`;
   })();
 
   const schedulesAround = useMemo(() => {

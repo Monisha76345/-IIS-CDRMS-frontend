@@ -5,7 +5,8 @@ export const ZC_FORM_LIMITS = {
   eOfficeNumber: 100,
   eOfficeMinLength: 3,
   siteNoMaxDigits: 10,
-  addressArea: 150,
+  addressLine1: 255,
+  addressLine2: 255,
   addressBlock: 150,
   siteDimension: 100,
   siteDimensionComment: 500,
@@ -17,15 +18,24 @@ export const E_OFFICE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9/.\-_]*[A-Za-z0-9]$|^[A-Z
 /** Positive whole number, no leading zero. */
 export const SITE_NO_PATTERN = /^[1-9]\d*$/;
 
-/** e.g. A Block, Block 1, Block1 */
-export const BLOCK_PATTERN = /^([A-Za-z]+\s+Block|Block\s*[1-9]\d*)$/i;
-
 /** Six digits — no extra format rules. */
 export const PINCODE_PATTERN = /^\d{6}$/;
 
 export const SITE_DIMENSION_PATTERN = /^\d+(\*\d+)+$/;
 
 const SIDE_LABELS = ['North', 'South', 'West', 'East'] as const;
+
+export type ZcApplicationFieldKey =
+  | 'eOfficeNumber'
+  | 'siteNo'
+  | 'siteDimensionType'
+  | 'siteDimension'
+  | 'addressLine1'
+  | 'addressLine2'
+  | 'addressBlock'
+  | 'addressPincode'
+  | 'assignedEngineerUserId'
+  | 'siteDimensionComment';
 
 export type ZcApplicationFieldErrors = Partial<
   Record<
@@ -35,6 +45,46 @@ export type ZcApplicationFieldErrors = Partial<
     string
   >
 >;
+
+/** Display names for validation dialogs + scroll targets. */
+export const ZC_FIELD_LABELS: Record<ZcApplicationFieldKey, string> = {
+  eOfficeNumber: 'E-office number',
+  siteNo: 'Site no',
+  siteDimensionType: 'Site type',
+  siteDimension: 'Site dimension',
+  addressLine1: 'Address line 1',
+  addressLine2: 'Address line 2',
+  addressBlock: 'Block',
+  addressPincode: 'Pincode',
+  assignedEngineerUserId: 'Assign engineer',
+  siteDimensionComment: 'Comments',
+};
+
+/** Top-to-bottom form order for first-error focus. */
+export const ZC_FIELD_ORDER: readonly ZcApplicationFieldKey[] = [
+  'eOfficeNumber',
+  'siteNo',
+  'siteDimensionType',
+  'siteDimension',
+  'addressLine1',
+  'addressLine2',
+  'addressBlock',
+  'addressPincode',
+  'assignedEngineerUserId',
+  'siteDimensionComment',
+] as const;
+
+export function firstZcFieldError(
+  errors: ZcApplicationFieldErrors,
+): { key: ZcApplicationFieldKey; label: string; message: string } | null {
+  for (const key of ZC_FIELD_ORDER) {
+    const message = errors[key];
+    if (message) {
+      return { key, label: ZC_FIELD_LABELS[key], message };
+    }
+  }
+  return null;
+}
 
 export function validateSiteDimensionType(
   siteType: CreateApplicationInput['siteDimensionType'],
@@ -79,25 +129,27 @@ export function validateSiteNo(raw: string): string | undefined {
   return undefined;
 }
 
-export function validateAddressArea(raw: string): string | undefined {
+export function validateAddressLine1(raw: string): string | undefined {
   const value = raw?.trim() ?? '';
-  if (!value) return 'Area is required';
-  if (value.length > ZC_FORM_LIMITS.addressArea) {
-    return `Area cannot exceed ${ZC_FORM_LIMITS.addressArea} characters`;
+  if (!value) return 'Address line 1 is required';
+  if (value.length > ZC_FORM_LIMITS.addressLine1) {
+    return `Address line 1 cannot exceed ${ZC_FORM_LIMITS.addressLine1} characters`;
+  }
+  return undefined;
+}
+
+export function validateAddressLine2(raw: string | undefined): string | undefined {
+  const value = raw?.trim() ?? '';
+  if (!value) return undefined;
+  if (value.length > ZC_FORM_LIMITS.addressLine2) {
+    return `Address line 2 cannot exceed ${ZC_FORM_LIMITS.addressLine2} characters`;
   }
   return undefined;
 }
 
 export function validateAddressBlock(raw: string): string | undefined {
-  if (!raw) return 'Block is required';
-  if (raw !== raw.trim()) {
-    return 'Leading or trailing spaces are not allowed';
-  }
-  const value = raw.trim();
+  const value = raw?.trim() ?? '';
   if (!value) return 'Block is required';
-  if (!BLOCK_PATTERN.test(value)) {
-    return 'Enter a valid block name (e.g. A Block, Block 1, Block1)';
-  }
   if (value.length > ZC_FORM_LIMITS.addressBlock) {
     return `Block cannot exceed ${ZC_FORM_LIMITS.addressBlock} characters`;
   }
@@ -168,8 +220,11 @@ export function validateZcApplicationForm(
   const dimErr = validateSiteDimension(form.siteDimension);
   if (dimErr) next.siteDimension = dimErr;
 
-  const areaErr = validateAddressArea(form.addressArea);
-  if (areaErr) next.addressArea = areaErr;
+  const line1Err = validateAddressLine1(form.addressLine1);
+  if (line1Err) next.addressLine1 = line1Err;
+
+  const line2Err = validateAddressLine2(form.addressLine2);
+  if (line2Err) next.addressLine2 = line2Err;
 
   const blockErr = validateAddressBlock(form.addressBlock);
   if (blockErr) next.addressBlock = blockErr;
@@ -201,14 +256,12 @@ export function sanitizeSiteNoInput(value: string): string {
   return withoutLeadingZeros.slice(0, ZC_FORM_LIMITS.siteNoMaxDigits);
 }
 
-export function sanitizeAreaInput(value: string): string {
-  return value.slice(0, ZC_FORM_LIMITS.addressArea);
+export function sanitizeAddressLineInput(value: string, max = ZC_FORM_LIMITS.addressLine1): string {
+  return value.slice(0, max);
 }
 
 export function sanitizeBlockInput(value: string): string {
-  return value
-    .replace(/[^A-Za-z0-9 ]/g, '')
-    .slice(0, ZC_FORM_LIMITS.addressBlock);
+  return value.slice(0, ZC_FORM_LIMITS.addressBlock);
 }
 
 export function sanitizeSiteDimensionInput(value: string): string {

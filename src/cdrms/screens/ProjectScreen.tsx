@@ -378,7 +378,7 @@ export function ProjectScreen({ go }: { go: Go }) {
               height={220}
               variant="padded"
               gps={draft.gps}
-              villageLabel={draft.village || draft.addressArea || undefined}
+              villageLabel={draft.village || draft.addressLine1 || undefined}
               syNo={draft.siteNo || draft.surveyNo || undefined}
               layoutName={draft.addressBlock || draft.zoneCode || undefined}
               refreshing={loading}

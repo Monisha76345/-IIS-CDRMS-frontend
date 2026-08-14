@@ -29,9 +29,14 @@ import {
   Platform,
   ScrollView as RNNativeScrollView,
   TextInput,
+  useWindowDimensions,
   View,
   type ScrollView as RNScrollView,
 } from 'react-native';
+import Animated, {
+  useAnimatedScrollHandler,
+  useSharedValue,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -42,27 +47,33 @@ import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/src/auth/AuthContext';
 import { ApiError } from '@/src/api/client';
 import {
-  sanitizeAreaInput,
+  firstZcFieldError,
+  sanitizeAddressLineInput,
   sanitizeBlockInput,
   sanitizeCommentInput,
   sanitizeEOfficeInput,
   sanitizeSiteDimensionInput,
   sanitizeSiteNoInput,
+  ZC_FORM_LIMITS,
   validateSiteDimension,
   validateZcApplicationForm,
+  type ZcApplicationFieldKey,
 } from '@/src/cdrms/lib/zcApplicationFormValidation';
 import {
   applicationCardDateLine,
   countZcBuckets,
   createApplication,
   createSiteDimension,
+  fetchAddressDefaults,
   fetchApplication,
   fetchMyZoneMeta,
   fetchSiteDimensions,
   fetchZcApplications,
+  applicationStatusTone,
   normalizeApplicationStatus,
   submitZcDraftApplication,
   updateZcDraftApplication,
+  type AddressDefaults,
   type CreateApplicationInput,
   type MobileApplication,
   type MyZoneMeta,
@@ -71,8 +82,11 @@ import {
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
 import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 import { SearchField } from '@/src/cdrms/components/SearchField';
-import { CreateApplicationHeader } from '@/src/cdrms/components/CreateApplicationHeader';
-import { ViewApplicationHeader } from '@/src/cdrms/components/ViewApplicationHeader';
+import {
+  CompactCreateApplicationHeader,
+  CreateApplicationHeader,
+} from '@/src/cdrms/components/CreateApplicationHeader';
+import { ViewApplicationScroll } from '@/src/cdrms/components/ViewApplicationHeader';
 import {
   BottomNav,
   ScreenShell,
@@ -89,6 +103,8 @@ import {
   BdaPageWatermark,
   WelcomeHomeHeader,
   welcomeFilterGap,
+  welcomeOverlayScrollPad,
+  welcomeSolidCollapseDistance,
 } from '@/src/cdrms/components/WelcomeHomeChrome';
 import {
   setSelectedOfficeAppId,
@@ -131,8 +147,11 @@ function applicationToZcForm(app: MobileApplication): CreateApplicationInput {
   return {
     eOfficeNumber: app.eOfficeNumber?.trim() || '',
     siteNo: app.siteNo?.trim() || '',
-    addressArea: app.addressArea?.trim() || '',
+    addressLine1: app.addressLine1?.trim() || '',
+    addressLine2: app.addressLine2?.trim() || '',
     addressBlock: app.addressBlock?.trim() || '',
+    addressCity: app.addressCity?.trim() || '',
+    addressState: app.addressState?.trim() || '',
     addressPincode: app.addressPincode?.trim() || '',
     siteDimensionType: app.siteDimensionType === 'Odd' ? 'Odd' : 'Even',
     siteDimension: app.siteDimension?.trim() || '',
@@ -149,7 +168,8 @@ function trimZcPayload(form: CreateApplicationInput): Omit<CreateApplicationInpu
   return {
     eOfficeNumber: form.eOfficeNumber.trim(),
     siteNo: form.siteNo.trim(),
-    addressArea: form.addressArea.trim(),
+    addressLine1: form.addressLine1.trim(),
+    addressLine2: form.addressLine2?.trim() || undefined,
     addressBlock: form.addressBlock.trim(),
     addressPincode: form.addressPincode.trim(),
     siteDimensionType: form.siteDimensionType,
@@ -164,20 +184,40 @@ function trimZcPayload(form: CreateApplicationInput): Omit<CreateApplicationInpu
 }
 
 function villageLine(app: MobileApplication) {
-  const village = app.addressArea || '—';
-  const taluka = app.addressBlock || '—';
-  const district = app.zoneCode || '—';
-  return `${village} (${taluka}, ${district})`;
+  return (
+    [
+      app.addressLine1,
+      app.addressLine2,
+      app.addressBlock,
+      app.addressCity,
+      app.addressState,
+      app.addressPincode,
+    ]
+      .map((p) => (p || '').trim())
+      .filter(Boolean)
+      .join(', ') || '—'
+  );
 }
 
 export function ZcHomeScreen({ go }: { go: Go }) {
   const { themeId } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { height: windowH } = useWindowDimensions();
   const { accessToken, user, logout } = useAuth();
   const [apps, setApps] = useState<MobileApplication[]>([]);
   const [zoneLabel, setZoneLabel] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<ZcTab>('all');
   const [q, setQ] = useState('');
+  const headerScrollY = useSharedValue(0);
+  const onHeaderScroll = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      headerScrollY.value = e.contentOffset.y;
+    },
+  });
+  const overlayPad = welcomeOverlayScrollPad(insets.top);
+  const collapseDist = welcomeSolidCollapseDistance(insets.top);
+  const scrollMinH = windowH + (overlayPad > 0 ? collapseDist : 0);
 
   const reload = useCallback(async () => {
     if (!accessToken) return;
@@ -206,6 +246,11 @@ export function ZcHomeScreen({ go }: { go: Go }) {
 
   const counts = useMemo(() => countZcBuckets(apps), [apps]);
 
+  const draftTone = applicationStatusTone('draft');
+  const assignedTone = applicationStatusTone('assigned');
+  const inProgressTone = applicationStatusTone('in_progress');
+  const submittedTone = applicationStatusTone('submitted');
+
   const filterCards: Array<{
     id: ZcTab;
     label: string;
@@ -218,40 +263,40 @@ export function ZcHomeScreen({ go }: { go: Go }) {
       id: 'all',
       label: 'All',
       value: counts.total,
-      bg: usesLightHeader() ? '#ECFDF5' : GLASS.tintBlue,
-      fg: usesLightHeader() ? '#059669' : COLORS.primary,
+      bg: GLASS.tintBlue,
+      fg: COLORS.primary,
       icon: Layers,
     },
     {
       id: 'draft',
       label: 'Draft',
       value: counts.draft,
-      bg: usesLightHeader() ? '#F1F5F9' : '#E2E8F0',
-      fg: usesLightHeader() ? '#475569' : '#64748B',
+      bg: draftTone.bg,
+      fg: draftTone.fg,
       icon: FilePenLine,
     },
     {
       id: 'assigned',
       label: 'Assigned',
       value: counts.assigned,
-      bg: usesLightHeader() ? '#EEF2FF' : GLASS.tintBlue,
-      fg: usesLightHeader() ? '#4F46E5' : COLORS.primary,
+      bg: assignedTone.bg,
+      fg: assignedTone.fg,
       icon: UserCheck,
     },
     {
       id: 'in_progress',
       label: 'In progress',
       value: counts.in_progress,
-      bg: usesLightHeader() ? '#FEF3C7' : '#FEE2E2',
-      fg: usesLightHeader() ? '#D97706' : '#DC2626',
+      bg: inProgressTone.bg,
+      fg: inProgressTone.fg,
       icon: Hourglass,
     },
     {
       id: 'submitted',
       label: 'Submitted',
       value: counts.submitted,
-      bg: usesLightHeader() ? '#E0F2FE' : GLASS.tintSky,
-      fg: usesLightHeader() ? '#0284C7' : COLORS.primary,
+      bg: submittedTone.bg,
+      fg: submittedTone.fg,
       icon: Send,
     },
   ];
@@ -290,27 +335,36 @@ export function ZcHomeScreen({ go }: { go: Go }) {
   return (
     <ScreenShell className="bg-background">
       <BdaPageWatermark />
-      <ScrollView
+      {/* Header outside ScrollView so profile menu stays tappable when collapsed */}
+      <WelcomeHomeHeader
+        user={user}
+        zoneLabel={zoneLabel}
+        go={go}
+        scrollY={headerScrollY}
+        tagline="Manage zone applications"
+        onLogout={() => {
+          void (async () => {
+            await logout();
+            go('login');
+          })();
+        }}
+      />
+      <Animated.ScrollView
         key={themeId}
         className="flex-1"
-        style={{ zIndex: 1 }}
-        contentContainerStyle={{ paddingBottom: 120 }}
+        style={{ flex: 1, minHeight: 0, zIndex: 1 }}
+        contentContainerStyle={{
+          paddingTop: overlayPad,
+          paddingBottom: 120,
+          minHeight: scrollMinH,
+        }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        bounces={false}
+        overScrollMode="never"
+        onScroll={onHeaderScroll}
+        scrollEventThrottle={16}
       >
-        <WelcomeHomeHeader
-          user={user}
-          zoneLabel={zoneLabel}
-          go={go}
-          tagline="Manage zone applications"
-          onLogout={() => {
-            void (async () => {
-              await logout();
-              go('login');
-            })();
-          }}
-        />
-
         <Box className="px-3" style={{ marginTop: welcomeFilterGap() }}>
           <ScrollView
             horizontal
@@ -466,6 +520,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
                   status={app.status}
                   dateLine={applicationCardDateLine(app)}
                   zoneBesideDate
+                  compactDateZone
                   onPress={() => openDetail(app.id)}
                   onEdit={
                     normalizeApplicationStatus(app.status) === 'draft'
@@ -477,7 +532,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
             </VStack>
           )}
         </Box>
-      </ScrollView>
+      </Animated.ScrollView>
 
       <BottomNav
         active="home"
@@ -496,8 +551,11 @@ export function ZcHomeScreen({ go }: { go: Go }) {
 const emptyForm: CreateApplicationInput = {
   eOfficeNumber: '',
   siteNo: '',
-  addressArea: '',
+  addressLine1: '',
+  addressLine2: '',
   addressBlock: '',
+  addressCity: '',
+  addressState: '',
   addressPincode: '',
   siteDimensionType: 'Even',
   siteDimension: '',
@@ -535,6 +593,8 @@ function Field({
   maxLength,
   leftIcon: LeftIcon,
   accent = 'blue',
+  fontSize = 15,
+  editable = true,
 }: {
   label: string;
   value: string;
@@ -553,10 +613,15 @@ function Field({
   maxLength?: number;
   leftIcon?: LucideIcon;
   accent?: keyof typeof ACCENT;
+  /** Input + placeholder text size (default 15). */
+  fontSize?: number;
+  /** When false, field is frozen (no cursor / keyboard). */
+  editable?: boolean;
 }) {
   const inputRef = useRef<TextInput>(null);
-  const inputHeight = multiline ? Math.max(104, (numberOfLines ?? 4) * 24) : 48;
+  const inputHeight = multiline ? Math.max(88, (numberOfLines ?? 3) * 26) : 48;
   const tone = ACCENT[accent];
+  const locked = editable === false;
 
   return (
     <VStack style={[{ marginBottom: 0 }, style]}>
@@ -579,8 +644,8 @@ function Field({
           minHeight: inputHeight,
           borderRadius: FIELD_RADIUS,
           borderWidth: 1.5,
-          borderColor: error ? COLORS.destructive : hexAlpha(tone.fg, 0.42),
-          backgroundColor: COLORS.white,
+          borderColor: error ? COLORS.destructive : hexAlpha(tone.fg, locked ? 0.22 : 0.42),
+          backgroundColor: locked ? '#F1F5F9' : COLORS.white,
           paddingHorizontal: 12,
           alignItems: multiline ? 'flex-start' : 'center',
           gap: 8,
@@ -598,12 +663,16 @@ function Field({
           placeholder={placeholder}
           placeholderTextColor="#64748B"
           multiline={multiline}
-          numberOfLines={multiline ? numberOfLines ?? 4 : 1}
+          numberOfLines={multiline ? numberOfLines ?? 3 : 1}
           textAlignVertical={multiline ? 'top' : 'center'}
           scrollEnabled={multiline ? true : undefined}
           keyboardType={keyboardType}
           maxLength={maxLength}
+          editable={!locked}
+          showSoftInputOnFocus={!locked}
+          caretHidden={locked}
           onFocus={() => {
+            if (locked) return;
             const report = () => {
               inputRef.current?.measureInWindow((_x, y, _w, h) => {
                 onFocus?.({ y, height: h || inputHeight });
@@ -622,8 +691,8 @@ function Field({
             maxHeight: inputHeight,
             paddingTop: multiline ? 12 : 0,
             paddingBottom: multiline ? 12 : 0,
-            fontSize: 15,
-            color: COLORS.ink,
+            fontSize,
+            color: locked ? '#475569' : COLORS.ink,
             fontFamily: FONTS.medium,
           }}
         />
@@ -739,9 +808,11 @@ export function ZcCreateScreen({ go }: { go: Go }) {
   const keyboardHeightRef = useRef(0);
   const focusedFieldRef = useRef<{ y: number; height: number } | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [headerCompact, setHeaderCompact] = useState(false);
   const [editApplicationId] = useState(() => consumeZcEditApplicationId());
   const isEditing = Boolean(editApplicationId);
   const [zone, setZone] = useState<MyZoneMeta | null>(null);
+  const [addressDefaults, setAddressDefaults] = useState<AddressDefaults | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<string, string>>>({});
   const [loading, setLoading] = useState(true);
@@ -756,6 +827,41 @@ export function ZcCreateScreen({ go }: { go: Go }) {
   const [engOpen, setEngOpen] = useState(false);
   const dimTriggerRef = useRef<View>(null);
   const engTriggerRef = useRef<View>(null);
+  const fieldAnchorRefs = useRef<Partial<Record<ZcApplicationFieldKey, View | null>>>({});
+
+  const setFieldAnchorRef = useCallback(
+    (key: ZcApplicationFieldKey) => (node: View | null) => {
+      fieldAnchorRefs.current[key] = node;
+    },
+    [],
+  );
+
+  const scrollToField = useCallback((key: ZcApplicationFieldKey) => {
+    const node = fieldAnchorRefs.current[key];
+    const scroll = scrollRef.current as unknown as {
+      measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void;
+      scrollTo: (opts: { y: number; animated?: boolean }) => void;
+    } | null;
+    if (!node || !scroll?.measureInWindow) return;
+
+    node.measureInWindow((_x, y, _w, h) => {
+      scroll.measureInWindow?.((_sx, sy, _sw, _sh) => {
+        const topPad = 88; // sticky compact header + breathing room
+        const targetY = Math.max(0, scrollYRef.current + (y - sy) - topPad);
+        scroll.scrollTo({ y: targetY, animated: true });
+        // Re-nudge once layout settles after dialog close.
+        setTimeout(() => {
+          node.measureInWindow((_x2, y2) => {
+            scroll.measureInWindow?.((_sx2, sy2) => {
+              const yAgain = Math.max(0, scrollYRef.current + (y2 - sy2) - topPad);
+              scroll.scrollTo({ y: yAgain, animated: true });
+            });
+          });
+        }, 180);
+        void h;
+      });
+    });
+  }, []);
   const [dimAnchor, setDimAnchor] = useState<{
     x: number;
     y: number;
@@ -880,9 +986,17 @@ export function ZcCreateScreen({ go }: { go: Go }) {
     const load = async () => {
       setLoading(true);
       try {
-        const [meta, dims, existing] = await Promise.all([
+        const [meta, dims, defaults, existing] = await Promise.all([
           fetchMyZoneMeta(accessToken),
           fetchSiteDimensions(accessToken).catch(() => [] as SiteDimensionOption[]),
+          fetchAddressDefaults(accessToken).catch(
+            (): AddressDefaults => ({
+              city: '',
+              state: '',
+              cityLocked: true,
+              stateLocked: true,
+            }),
+          ),
           editApplicationId
             ? fetchApplication(accessToken, editApplicationId).catch(() => null)
             : Promise.resolve(null),
@@ -891,12 +1005,23 @@ export function ZcCreateScreen({ go }: { go: Go }) {
         setZone(meta);
         setZoneError(null);
         setDimensions(dims);
+        setAddressDefaults(defaults);
         if (existing) {
           if (normalizeApplicationStatus(existing.status) !== 'draft') {
             setZoneError('Only draft applications can be edited.');
           } else {
-            setForm(applicationToZcForm(existing));
+            setForm({
+              ...applicationToZcForm(existing),
+              addressCity: existing.addressCity || defaults.city,
+              addressState: existing.addressState || defaults.state,
+            });
           }
+        } else {
+          setForm((f) => ({
+            ...f,
+            addressCity: defaults.city,
+            addressState: defaults.state,
+          }));
         }
       } catch (e) {
         if (cancelled) return;
@@ -1027,21 +1152,25 @@ export function ZcCreateScreen({ go }: { go: Go }) {
 
   const validateForm = useCallback((): boolean => {
     const next = validateZcApplicationForm(form);
-
     setFieldErrors(next);
-    const first = Object.values(next)[0];
+    const first = firstZcFieldError(next);
     if (first) {
       showAppDialog({
         variant: 'warning',
         title: 'Validation',
-        message: first,
+        message: `${first.label}: ${first.message}`,
         hideCancel: true,
         confirmLabel: 'OK',
+        onConfirm: () => {
+          requestAnimationFrame(() => {
+            setTimeout(() => scrollToField(first.key), 80);
+          });
+        },
       });
       return false;
     }
     return true;
-  }, [form]);
+  }, [form, scrollToField]);
 
   const onSaveDraft = async () => {
     if (!accessToken) return;
@@ -1118,7 +1247,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
         showAppDialog({
           variant: 'success',
           title: 'Application submitted',
-          message: 'The application was assigned to the engineer successfully.',
+          message: 'The application is assigned to the engineer successfully.',
           highlightLabel: 'Application number',
           highlight: submitted.applicationNumber,
           hideCancel: true,
@@ -1135,7 +1264,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
         showAppDialog({
           variant: 'success',
           title: 'Application submitted',
-          message: 'The application was assigned to the engineer successfully.',
+          message: 'The application is assigned to the engineer successfully.',
           highlightLabel: 'Application number',
           highlight: created.applicationNumber,
           hideCancel: true,
@@ -1162,9 +1291,30 @@ export function ZcCreateScreen({ go }: { go: Go }) {
     }
   };
 
+  const createTitle = isEditing ? 'Edit Draft' : 'Create Application';
+
   return (
     <ScreenShell className="bg-background">
       <Box style={{ flex: 1, backgroundColor: '#F0F4F8' }}>
+      {headerCompact ? (
+        <Box
+          pointerEvents="box-none"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 40,
+            elevation: 20,
+          }}
+        >
+          <CompactCreateApplicationHeader
+            onBack={() => go('zc_home')}
+            zone={zone?.zoneCode}
+            title={createTitle}
+          />
+        </Box>
+      ) : null}
       {/*
         Bottom padding grows with keyboard so Comments (last field) can scroll
         above it. ensureVisible re-runs after keyboardDidShow to fix timing.
@@ -1201,13 +1351,16 @@ export function ZcCreateScreen({ go }: { go: Go }) {
           bounces
           overScrollMode="always"
           onScroll={(e) => {
-            scrollYRef.current = e.nativeEvent.contentOffset.y;
+            const y = e.nativeEvent.contentOffset.y;
+            scrollYRef.current = y;
+            const next = y > 48;
+            setHeaderCompact((prev) => (prev === next ? prev : next));
           }}
         >
           <CreateApplicationHeader
             onBack={() => go('zc_home')}
             zone={zone?.zoneCode}
-            title={isEditing ? 'Edit Draft' : 'Create Application'}
+            title={createTitle}
           />
           <Box style={{ gap: 12, paddingTop: 4 }}>
           {loading ? (
@@ -1232,122 +1385,151 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                 icon={Link2}
                 accent="blue"
               >
-                <Field
-                  label="E-office number"
-                  required
-                  placeholder="Enter e-office number"
-                  leftIcon={Building2}
-                  accent="blue"
-                  value={form.eOfficeNumber}
-                  error={fieldErrors.eOfficeNumber}
-                  maxLength={100}
-                  onChange={(v) => {
-                    setForm((f) => ({ ...f, eOfficeNumber: sanitizeEOfficeInput(v) }));
-                    clearFieldError('eOfficeNumber');
-                  }}
-                  style={{ marginBottom: 12 }}
-                />
-                <HStack style={{ gap: 10, marginBottom: 12 }}>
+                <View ref={setFieldAnchorRef('eOfficeNumber')} collapsable={false}>
                   <Field
-                    label="Site no"
+                    label="E-office number"
                     required
-                    placeholder="Enter site no"
-                    leftIcon={Hash}
+                    placeholder="Enter e-office number"
+                    leftIcon={Building2}
                     accent="blue"
-                    value={form.siteNo}
-                    error={fieldErrors.siteNo}
-                    keyboardType="number-pad"
-                    maxLength={10}
+                    value={form.eOfficeNumber}
+                    error={fieldErrors.eOfficeNumber}
+                    maxLength={100}
                     onChange={(v) => {
-                      const siteNo = sanitizeSiteNoInput(v);
-                      setForm((f) => ({ ...f, siteNo }));
-                      clearFieldError('siteNo');
+                      setForm((f) => ({ ...f, eOfficeNumber: sanitizeEOfficeInput(v) }));
+                      clearFieldError('eOfficeNumber');
                     }}
-                    style={{ flex: 1 }}
+                    style={{ marginBottom: 12 }}
                   />
-                  <VStack style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        fontFamily: FONTS.bold,
-                        fontSize: 15,
-                        color: '#1A368E',
-                        marginBottom: 7,
+                </View>
+                <HStack style={{ gap: 10, marginBottom: 12 }}>
+                  <View
+                    ref={setFieldAnchorRef('siteNo')}
+                    collapsable={false}
+                    style={{ flex: 1 }}
+                  >
+                    <Field
+                      label="Site no"
+                      required
+                      placeholder="Enter site no"
+                      leftIcon={Hash}
+                      accent="blue"
+                      value={form.siteNo}
+                      error={fieldErrors.siteNo}
+                      keyboardType="number-pad"
+                      maxLength={10}
+                      onChange={(v) => {
+                        const siteNo = sanitizeSiteNoInput(v);
+                        setForm((f) => ({ ...f, siteNo }));
+                        clearFieldError('siteNo');
                       }}
-                    >
-                      Site type
-                      <Text style={{ color: COLORS.destructive, fontFamily: FONTS.bold }}> *</Text>
-                    </Text>
-                    <HStack style={{ gap: 10, height: 48, alignItems: 'center' }}>
-                      {(['Even', 'Odd'] as const).map((opt) => {
-                        const on = form.siteDimensionType === opt;
-                        return (
-                          <Pressable
-                            key={opt}
-                            onPress={() => {
-                              setForm((f) => ({ ...f, siteDimensionType: opt }));
-                              clearFieldError('siteDimensionType');
-                              if (opt !== 'Odd') clearFieldError('siteDimensionComment');
-                            }}
-                            style={{
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              gap: 7,
-                              paddingHorizontal: 10,
-                              paddingVertical: 8,
-                              borderRadius: 999,
-                              backgroundColor: on ? '#E8F0FE' : 'transparent',
-                            }}
-                          >
-                            <View
-                              style={{
-                                width: 18,
-                                height: 18,
-                                borderRadius: 999,
-                                borderWidth: 2,
-                                borderColor: on ? '#2563EB' : '#CBD5E1',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}
-                            >
-                              {on ? (
-                                <View
-                                  style={{
-                                    width: 8,
-                                    height: 8,
-                                    borderRadius: 4,
-                                    backgroundColor: '#2563EB',
-                                  }}
-                                />
-                              ) : null}
-                            </View>
-                            <Text
-                              style={{
-                                fontFamily: FONTS.semibold,
-                                fontSize: 14,
-                                color: on ? '#1A368E' : '#64748B',
-                              }}
-                            >
-                              {opt}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </HStack>
-                    {fieldErrors.siteDimensionType ? (
+                    />
+                  </View>
+                  <View
+                    ref={setFieldAnchorRef('siteDimensionType')}
+                    collapsable={false}
+                    style={{ flex: 1 }}
+                  >
+                    <VStack style={{ flex: 1 }}>
                       <Text
                         style={{
-                          marginTop: 4,
-                          fontSize: 11,
-                          color: COLORS.destructive,
-                          fontFamily: FONTS.medium,
+                          fontFamily: FONTS.bold,
+                          fontSize: 15,
+                          color: '#1A368E',
+                          marginBottom: 7,
                         }}
                       >
-                        {fieldErrors.siteDimensionType}
+                        Site type
+                        <Text style={{ color: COLORS.destructive, fontFamily: FONTS.bold }}> *</Text>
                       </Text>
-                    ) : null}
-                  </VStack>
+                      <HStack
+                        style={{
+                          gap: 10,
+                          minHeight: 48,
+                          alignItems: 'center',
+                          borderRadius: FIELD_RADIUS,
+                          borderWidth: 1.5,
+                          borderColor: fieldErrors.siteDimensionType
+                            ? COLORS.destructive
+                            : 'transparent',
+                          paddingHorizontal: fieldErrors.siteDimensionType ? 6 : 0,
+                          backgroundColor: fieldErrors.siteDimensionType
+                            ? `${COLORS.destructive}08`
+                            : 'transparent',
+                        }}
+                      >
+                        {(['Even', 'Odd'] as const).map((opt) => {
+                          const on = form.siteDimensionType === opt;
+                          return (
+                            <Pressable
+                              key={opt}
+                              onPress={() => {
+                                setForm((f) => ({ ...f, siteDimensionType: opt }));
+                                clearFieldError('siteDimensionType');
+                                if (opt !== 'Odd') clearFieldError('siteDimensionComment');
+                              }}
+                              style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 7,
+                                paddingHorizontal: 10,
+                                paddingVertical: 8,
+                                borderRadius: 999,
+                                backgroundColor: on ? '#E8F0FE' : 'transparent',
+                              }}
+                            >
+                              <View
+                                style={{
+                                  width: 18,
+                                  height: 18,
+                                  borderRadius: 999,
+                                  borderWidth: 2,
+                                  borderColor: on ? '#2563EB' : '#CBD5E1',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                {on ? (
+                                  <View
+                                    style={{
+                                      width: 8,
+                                      height: 8,
+                                      borderRadius: 4,
+                                      backgroundColor: '#2563EB',
+                                    }}
+                                  />
+                                ) : null}
+                              </View>
+                              <Text
+                                style={{
+                                  fontFamily: FONTS.semibold,
+                                  fontSize: 14,
+                                  color: on ? '#1A368E' : '#64748B',
+                                }}
+                              >
+                                {opt}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </HStack>
+                      {fieldErrors.siteDimensionType ? (
+                        <Text
+                          style={{
+                            marginTop: 4,
+                            fontSize: 11,
+                            color: COLORS.destructive,
+                            fontFamily: FONTS.medium,
+                          }}
+                        >
+                          {fieldErrors.siteDimensionType}
+                        </Text>
+                      ) : null}
+                    </VStack>
+                  </View>
                 </HStack>
 
+                <View ref={setFieldAnchorRef('siteDimension')} collapsable={false}>
                 <Text
                   style={{
                     fontFamily: FONTS.bold,
@@ -1490,6 +1672,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     </Pressable>
                   </HStack>
                 ) : null}
+                </View>
               </PlainSectionCard>
 
               <PlainSectionCard
@@ -1498,57 +1681,120 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                 icon={MapPin}
                 accent="green"
               >
-                <Field
-                  label="Area"
-                  required
-                  placeholder="Enter area"
-                  leftIcon={MapIcon}
-                  accent="green"
-                  value={form.addressArea}
-                  error={fieldErrors.addressArea}
-                  maxLength={150}
-                  onChange={(v) => {
-                    setForm((f) => ({ ...f, addressArea: sanitizeAreaInput(v) }));
-                    clearFieldError('addressArea');
-                  }}
-                  style={{ marginBottom: 12 }}
-                />
+                <View ref={setFieldAnchorRef('addressLine1')} collapsable={false}>
+                  <Field
+                    label="Address line 1"
+                    required
+                    placeholder="Enter address line 1"
+                    leftIcon={MapIcon}
+                    accent="green"
+                    multiline
+                    numberOfLines={3}
+                    value={form.addressLine1}
+                    error={fieldErrors.addressLine1}
+                    maxLength={ZC_FORM_LIMITS.addressLine1}
+                    onChange={(v) => {
+                      setForm((f) => ({
+                        ...f,
+                        addressLine1: sanitizeAddressLineInput(v, ZC_FORM_LIMITS.addressLine1),
+                      }));
+                      clearFieldError('addressLine1');
+                    }}
+                    onFocus={onFieldFocus}
+                    style={{ marginBottom: 12 }}
+                  />
+                </View>
+                <View ref={setFieldAnchorRef('addressLine2')} collapsable={false}>
+                  <Field
+                    label="Address line 2"
+                    placeholder="Enter address line 2 (optional)"
+                    leftIcon={MapIcon}
+                    accent="green"
+                    multiline
+                    numberOfLines={3}
+                    value={form.addressLine2 || ''}
+                    error={fieldErrors.addressLine2}
+                    maxLength={ZC_FORM_LIMITS.addressLine2}
+                    onChange={(v) => {
+                      setForm((f) => ({
+                        ...f,
+                        addressLine2: sanitizeAddressLineInput(v, ZC_FORM_LIMITS.addressLine2),
+                      }));
+                      clearFieldError('addressLine2');
+                    }}
+                    onFocus={onFieldFocus}
+                    style={{ marginBottom: 12 }}
+                  />
+                </View>
+                <HStack style={{ gap: 10, marginBottom: 12 }}>
+                  <View
+                    ref={setFieldAnchorRef('addressBlock')}
+                    collapsable={false}
+                    style={{ flex: 1 }}
+                  >
+                    <Field
+                      label="Block/Stage/Phase"
+                      required
+                      placeholder="e.g. Block 1"
+                      fontSize={12}
+                      leftIcon={Building2}
+                      accent="green"
+                      value={form.addressBlock}
+                      error={fieldErrors.addressBlock}
+                      maxLength={150}
+                      onChange={(v) => {
+                        setForm((f) => ({ ...f, addressBlock: sanitizeBlockInput(v) }));
+                        clearFieldError('addressBlock');
+                      }}
+                      onFocus={onFieldFocus}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Field
+                      label="City"
+                      leftIcon={Building2}
+                      accent="green"
+                      value={form.addressCity || addressDefaults?.city || ''}
+                      editable={!(addressDefaults?.cityLocked ?? true)}
+                      onChange={() => {}}
+                    />
+                  </View>
+                </HStack>
                 <HStack style={{ gap: 10 }}>
-                  <Field
-                    label="Block"
-                    required
-                    placeholder="Enter block"
-                    leftIcon={Building2}
-                    accent="green"
-                    value={form.addressBlock}
-                    error={fieldErrors.addressBlock}
-                    maxLength={150}
-                    onChange={(v) => {
-                      setForm((f) => ({ ...f, addressBlock: sanitizeBlockInput(v) }));
-                      clearFieldError('addressBlock');
-                    }}
-                    onFocus={onFieldFocus}
+                  <View style={{ flex: 1 }}>
+                    <Field
+                      label="State"
+                      leftIcon={MapIcon}
+                      accent="green"
+                      value={form.addressState || addressDefaults?.state || ''}
+                      editable={!(addressDefaults?.stateLocked ?? true)}
+                      onChange={() => {}}
+                    />
+                  </View>
+                  <View
+                    ref={setFieldAnchorRef('addressPincode')}
+                    collapsable={false}
                     style={{ flex: 1 }}
-                  />
-                  <Field
-                    label="Pincode"
-                    required
-                    placeholder="e.g. 560001"
-                    leftIcon={BoxIcon}
-                    accent="green"
-                    value={form.addressPincode}
-                    error={fieldErrors.addressPincode}
-                    keyboardType="number-pad"
-                    maxLength={6}
-                    onChange={(v) => {
-                      const digits = v.replace(/\D/g, '').slice(0, 6);
-                      setForm((f) => ({ ...f, addressPincode: digits }));
-                      clearFieldError('addressPincode');
-                    }}
-                    onFocus={onFieldFocus}
-                    returnKeyType="next"
-                    style={{ flex: 1 }}
-                  />
+                  >
+                    <Field
+                      label="Pincode"
+                      required
+                      placeholder="e.g. 560001"
+                      leftIcon={BoxIcon}
+                      accent="green"
+                      value={form.addressPincode}
+                      error={fieldErrors.addressPincode}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      onChange={(v) => {
+                        const digits = v.replace(/\D/g, '').slice(0, 6);
+                        setForm((f) => ({ ...f, addressPincode: digits }));
+                        clearFieldError('addressPincode');
+                      }}
+                      onFocus={onFieldFocus}
+                      returnKeyType="next"
+                    />
+                  </View>
                 </HStack>
               </PlainSectionCard>
 
@@ -1614,6 +1860,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                 accent="sky"
                 required
               >
+                <View ref={setFieldAnchorRef('assignedEngineerUserId')} collapsable={false}>
                 <Pressable
                   ref={engTriggerRef as any}
                   onPress={() => {
@@ -1669,6 +1916,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     No engineers with an active post mapping in this zone.
                   </Text>
                 ) : null}
+                </View>
               </PlainSectionCard>
 
               <PlainSectionCard
@@ -1678,6 +1926,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                 accent="blue"
                 required={form.siteDimensionType === 'Odd'}
               >
+                <View ref={setFieldAnchorRef('siteDimensionComment')} collapsable={false}>
                 <Field
                   label=""
                   required={form.siteDimensionType === 'Odd'}
@@ -1697,6 +1946,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                   }}
                   onFocus={onFieldFocus}
                 />
+                </View>
               </PlainSectionCard>
 
               <HStack style={{ gap: 10, marginHorizontal: SPACE.gutter, marginTop: 4, marginBottom: 8 }}>
@@ -1955,14 +2205,12 @@ export function ZcDetailScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-background">
-      <Box style={{ flex: 1, backgroundColor: '#F0F4F8' }}>
-        <ScrollView
-          key={themeId}
-          style={{ flex: 1, backgroundColor: '#F0F4F8' }}
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
-          showsVerticalScrollIndicator={false}
-        >
-          <ViewApplicationHeader onBack={() => go('zc_home')} zone={app?.zoneCode} />
+      <ViewApplicationScroll
+        scrollKey={themeId}
+        onBack={() => go('zc_home')}
+        zone={app?.zoneCode}
+        contentContainerStyle={{ paddingBottom: 40 }}
+      >
           <Box
             style={{
               flexGrow: 1,
@@ -2018,8 +2266,7 @@ export function ZcDetailScreen({ go }: { go: Go }) {
           </>
         )}
           </Box>
-        </ScrollView>
-      </Box>
+      </ViewApplicationScroll>
     </ScreenShell>
   );
 }

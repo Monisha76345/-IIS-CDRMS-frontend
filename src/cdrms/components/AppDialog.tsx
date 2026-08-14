@@ -7,7 +7,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Modal, View } from 'react-native';
+import { Modal } from 'react-native';
 
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -121,7 +121,11 @@ function AppDialogView({
       statusBarTranslucent
       onRequestClose={() => closeThen(config.onDismiss)}
     >
-      <View
+      {/* Tap outside the card closes without running cancel/confirm actions */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss dialog"
+        onPress={() => closeThen(config.onDismiss)}
         style={{
           flex: 1,
           backgroundColor: 'rgba(15,23,42,0.48)',
@@ -130,7 +134,8 @@ function AppDialogView({
           paddingHorizontal: 28,
         }}
       >
-        <View
+        <Pressable
+          onPress={() => {}}
           style={{
             width: '100%',
             maxWidth: 340,
@@ -279,8 +284,8 @@ function AppDialogView({
               </LinearGradient>
             </Pressable>
           </HStack>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }

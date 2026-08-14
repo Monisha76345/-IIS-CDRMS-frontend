@@ -32,6 +32,7 @@ import {
 import { draftFromBackendApplication } from '@/src/cdrms/project/backend-draft';
 import { draftFromApplicationRecord, findSampleApp } from '@/src/cdrms/data';
 import { captureCurrentLocation } from '@/src/cdrms/hooks/useDeviceLocation';
+import { validateOccupancyReason } from '@/src/cdrms/lib/occupancyValidation';
 import { siteDimensionToFormDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { validateDraft, validationSummary } from '@/src/cdrms/project/validation';
 
@@ -187,7 +188,7 @@ function toSubmitted(draft: ProjectDraft, applicationId: string): SubmittedAppli
     khatedarName: draft.khatedarName.trim() || draft.createdByZcName || '—',
     surveyNo: draft.surveyNo.trim() || draft.siteNo || '—',
     plotNo: draft.plotNo.trim() || '—',
-    village: draft.village.trim() || draft.addressArea || '—',
+    village: draft.village.trim() || draft.addressLine1 || '—',
     district: draft.district.trim() || '—',
     state: draft.state.trim() || 'Karnataka',
     dimensionArea: draft.dimensionArea.trim() || '—',
@@ -852,8 +853,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         updatedAt: Date.now(),
       }));
 
-      if (draft.occupancy === 'Occupied' && !draft.occupancyReason.trim()) {
-        throw new ApiError(400, 'Occupancy reason is required');
+      const occupancyReasonErr = validateOccupancyReason(
+        draft.occupancy,
+        draft.occupancyReason,
+      );
+      if (occupancyReasonErr) {
+        throw new ApiError(400, `Occupancy reason: ${occupancyReasonErr}`);
       }
       if (!draft.engineerComments.trim()) {
         throw new ApiError(400, 'Engineer comments are required');

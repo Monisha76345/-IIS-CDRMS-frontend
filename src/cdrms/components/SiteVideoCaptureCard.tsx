@@ -252,7 +252,7 @@ export function SiteVideoCaptureCard() {
                     color: '#475569',
                   }}
                 >
-                  {simDummy ? 'Simulator sample · stored on device' : 'Max 50 MB · stored on device'}
+                  {simDummy ? 'Simulator sample · Stored on device' : 'Max 50 MB · stored on device'}
                 </Text>
               </VStack>
               <Pressable

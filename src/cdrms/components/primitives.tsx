@@ -46,6 +46,7 @@ import type { Go, NavTab, Screen } from '@/src/cdrms/types';
 import { useTheme } from '@/src/theme/ThemeContext';
 import { NotificationBell } from '@/src/cdrms/components/NotificationBell';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
+import { applicationStatusTone } from '@/src/api/applications';
 
 /** Edge-pinned tab bar — soft U-notch cradles the center + */
 const BAR_H = 64;
@@ -166,6 +167,7 @@ export function ProfileMenu({
   photoUrl,
   zoneLabel,
   onLogout,
+  onProfile,
 }: {
   gradient: boolean;
   userName: string;
@@ -174,6 +176,8 @@ export function ProfileMenu({
   photoUrl?: string | null;
   zoneLabel?: string | null;
   onLogout: () => void;
+  /** When set, tapping the avatar in the open menu navigates to the profile page. */
+  onProfile?: () => void;
 }) {
   const { themeId } = useTheme();
   const [open, setOpen] = useState(false);
@@ -183,10 +187,16 @@ export function ProfileMenu({
   const slideAnim = useRef(new Animated.Value(-10)).current;
 
   const openMenu = () => {
-    btnRef.current?.measure((_fx, _fy, _w, h, _px, py) => {
-      setDropTop(py + h + 4);
-    });
+    // measureInWindow is reliable when the avatar sits in a collapsing sticky header
+    const place = () => {
+      btnRef.current?.measureInWindow((_x, y, _w, h) => {
+        setDropTop(Math.max(8, y + h + 4));
+      });
+    };
+    place();
     setOpen(true);
+    // Re-measure after open in case layout was mid-collapse
+    requestAnimationFrame(place);
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
       Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 300 }),
@@ -342,8 +352,16 @@ export function ProfileMenu({
               style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 15 }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                {/* Avatar */}
-                <View
+                {/* Avatar — tap to open Profile */}
+                <Pressable
+                  onPress={() => {
+                    if (!onProfile) return;
+                    closeMenu(onProfile);
+                  }}
+                  disabled={!onProfile}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open profile"
+                  className="active:opacity-80"
                   style={{
                     height: 50,
                     width: 50,
@@ -357,7 +375,7 @@ export function ProfileMenu({
                   }}
                 >
                   {dropdownAvatarContent}
-                </View>
+                </Pressable>
 
                 {/* Name + role + loginId */}
                 <View style={{ flex: 1, minWidth: 0 }}>
@@ -623,6 +641,7 @@ export function AppHeader({
       photoUrl={user?.profilePhoto || user?.officer?.profilePhoto}
       zoneLabel={resolvedZone}
       onLogout={() => void onLogout()}
+      onProfile={go ? () => go('profile') : undefined}
     />
   ) : null;
 
@@ -881,6 +900,8 @@ export const Field = forwardRef<
     endAdornment?: ReactNode;
     /** Smaller control for dense forms (e.g. Step 3 dimensions). */
     compact?: boolean;
+    /** Inline validation message — also turns the input border red. */
+    error?: string;
   } & TextInputProps
 >(function Field(
   {
@@ -889,6 +910,7 @@ export const Field = forwardRef<
     showCheck = true,
     endAdornment,
     compact = false,
+    error,
     style,
     value,
     defaultValue,
@@ -942,7 +964,7 @@ export const Field = forwardRef<
           borderRadius: compact ? 6 : 8,
           borderWidth: DESIGN.borderWidth + 0.5,
           backgroundColor: COLORS.white,
-          borderColor: COLORS.border,
+          borderColor: error ? COLORS.destructive : COLORS.border,
         }}
       >
         {Icon ? (
@@ -992,7 +1014,7 @@ export const Field = forwardRef<
         />
         {endAdornment ? (
           endAdornment
-        ) : showCheck && hasValue ? (
+        ) : showCheck && hasValue && !error ? (
           <View
             pointerEvents="none"
             style={{
@@ -1008,6 +1030,18 @@ export const Field = forwardRef<
           </View>
         ) : null}
       </View>
+      {error ? (
+        <Text
+          style={{
+            fontFamily: FONTS.medium,
+            fontSize: compact ? 11 : 12,
+            color: COLORS.destructive,
+            lineHeight: compact ? 14 : 15,
+          }}
+        >
+          {error}
+        </Text>
+      ) : null}
     </View>
   );
 });
@@ -1599,19 +1633,10 @@ export function ZoneTag({
   );
 }
 
+/** Same palette as ApplicationStatusBadge — shared across Engineer / ZC / CAO. */
 export function statusChipColors(status: string): { bg: string; fg: string } {
-  const styles: Record<string, { bg: string; fg: string }> = {
-    Submitted: { bg: '#D1FAE5', fg: '#047857' },
-    Verified: { bg: '#D1FAE5', fg: '#059669' },
-    Approved: { bg: '#D1FAE5', fg: '#047857' },
-    Returned: { bg: '#FFEDD5', fg: '#C2410C' },
-    Rejected: { bg: '#FEE2E2', fg: '#DC2626' },
-    Draft: { bg: GLASS.tintBlue, fg: COLORS.primaryDeep },
-    'In progress': { bg: '#FEE2E2', fg: '#DC2626' },
-    in_progress: { bg: '#FEE2E2', fg: '#DC2626' },
-    Assigned: { bg: GLASS.tintBlue, fg: COLORS.primary },
-  };
-  return styles[status] || { bg: '#F1F5F9', fg: '#0F172A' };
+  const tone = applicationStatusTone(status);
+  return { bg: tone.bg, fg: tone.fg };
 }
 
 export function StatusChip({

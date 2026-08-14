@@ -111,29 +111,18 @@ export function EngineerStickyHeader() {
                APPLICATION DETAILS
             </Text>
           </HStack>
-          <HStack
-            className="items-center"
-            style={{
-              gap: 4,
-              paddingHorizontal: 8,
-              paddingVertical: 3,
-              borderRadius: 999,
-              backgroundColor: BLUE_SOFT,
-              borderWidth: 1,
-              borderColor: hexAlpha(COLORS.primary, 0.28),
-            }}
-          >
-            <Eye size={11} color={COLORS.primary} strokeWidth={2.4} />
+         
+            
             <Text
               style={{
-                fontFamily: FONTS.semibold,
-                fontSize: 10,
+                fontFamily: FONTS.bold,
+                fontSize: 14,
                 color: COLORS.primary,
               }}
             >
               View only
             </Text>
-          </HStack>
+          
         </HStack>
 
         <HStack style={{ gap: 8, alignItems: 'stretch' }}>
@@ -261,22 +250,30 @@ export function EngineerStickyHeader() {
         </HStack>
       </Box>
 
-      <HStack style={{ gap: 8 }}>
-        <MetaTile
-          icon={FileText}
-          iconBg={BLUE_SOFT}
-          iconFg={COLORS.primary}
-          label="E-office"
-          value={draft.eOfficeNumber?.trim() || '—'}
-        />
-        <MetaTile
-          icon={MapPinned}
-          iconBg="#DCFCE7"
-          iconFg="#059669"
-          label="Area"
-          value={draft.addressArea?.trim() || '—'}
-        />
-      </HStack>
+      <MetaTile
+        icon={FileText}
+        iconBg={BLUE_SOFT}
+        iconFg={COLORS.primary}
+        label="E-office"
+        value={draft.eOfficeNumber?.trim() || '—'}
+        full
+      />
+      <MetaTile
+        icon={MapPinned}
+        iconBg="#DCFCE7"
+        iconFg="#059669"
+        label="Address line 1"
+        value={draft.addressLine1?.trim() || '—'}
+        full
+      />
+      <MetaTile
+        icon={MapPinned}
+        iconBg="#DCFCE7"
+        iconFg="#059669"
+        label="Address line 2"
+        value={draft.addressLine2?.trim() || '—'}
+        full
+      />
       <HStack style={{ gap: 8 }}>
         <MetaTile
           icon={Grid3X3}
@@ -284,6 +281,22 @@ export function EngineerStickyHeader() {
           iconFg="#7C3AED"
           label="Block"
           value={draft.addressBlock?.trim() || '—'}
+        />
+        <MetaTile
+          icon={Building2}
+          iconBg="#DBEAFE"
+          iconFg="#1D4ED8"
+          label="City"
+          value={draft.addressCity?.trim() || '—'}
+        />
+      </HStack>
+      <HStack style={{ gap: 8 }}>
+        <MetaTile
+          icon={Building2}
+          iconBg="#E0E7FF"
+          iconFg="#4338CA"
+          label="State"
+          value={draft.addressState?.trim() || '—'}
         />
         <MetaTile
           icon={Hash}

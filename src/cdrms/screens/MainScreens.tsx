@@ -1,4 +1,5 @@
 import {
+  Activity,
   AlertTriangle,
   ArrowLeft,
   Bell,
@@ -26,9 +27,13 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Modal, StyleSheet } from 'react-native';
+import { Image, Modal, StyleSheet, useWindowDimensions, View } from 'react-native';
+import Animated, {
+  useAnimatedScrollHandler,
+  useSharedValue,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Ellipse, Path, Rect } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
@@ -64,6 +69,8 @@ import {
   BdaPageWatermark,
   WelcomeHomeHeader,
   welcomeFilterGap,
+  welcomeOverlayScrollPad,
+  welcomeSolidCollapseDistance,
 } from '@/src/cdrms/components/WelcomeHomeChrome';
 import { useTheme } from '@/src/theme/ThemeContext';
 import { TERMS } from '@/src/cdrms/terminology';
@@ -77,13 +84,15 @@ import {
   fetchEngineerTasks,
   fetchMyZoneMeta,
   applicationCardDateLine,
+  applicationStatusTone,
   engineerResumeScreen,
   engineerTaskProgressPercent,
   engineerApplicationListStatus,
   type MobileApplication,
 } from '@/src/api/applications';
 import { ApplicationRecordDetails } from '@/src/cdrms/components/ApplicationRecordDetails';
-import { ViewApplicationHeader } from '@/src/cdrms/components/ViewApplicationHeader';
+import { StatusLeadingIcon } from '@/src/cdrms/components/StatusCountGrid';
+import { ViewApplicationScroll } from '@/src/cdrms/components/ViewApplicationHeader';
 import { useNotifications } from '@/src/cdrms/hooks/useNotifications';
 import {
   formatNotifTime,
@@ -99,6 +108,8 @@ import {
   consumeEngineerAppsReturn,
 } from '@/src/cdrms/officeSelection';
 import { ensureCameraPermission } from '@/src/cdrms/mediaPermission';
+const PROFILE_PHOTO_BANNER = require('../../../assets/illustrations/profile-photo-banner.png');
+const PROFILE_HERO_ART = require('../../../assets/illustrations/survey-step-hero.png');
 
 function mapTaskStatus(app: MobileApplication) {
   return engineerApplicationListStatus(app);
@@ -123,7 +134,18 @@ function mapTaskCard(app: MobileApplication) {
     status: mapTaskStatus(app),
     zone: app.zoneCode?.trim() || '',
     date: applicationCardDateLine(app),
-    village: [app.addressArea, app.addressBlock].filter(Boolean).join(', ') || '—',
+    village:
+      [
+        app.addressLine1,
+        app.addressLine2,
+        app.addressBlock,
+        app.addressCity,
+        app.addressState,
+        app.addressPincode,
+      ]
+        .map((p) => (p || '').trim())
+        .filter(Boolean)
+        .join(', ') || '—',
     image: taskCoverImage(app),
     progress: engineerTaskProgressPercent(app),
     live: true as const,
@@ -139,6 +161,8 @@ function siteNoMetaLine(siteNo?: string | null) {
 
 export function Dashboard({ go }: { go: Go }) {
   const { themeId } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { height: windowH } = useWindowDimensions();
   const { openBackendTask } = useProject();
   const { accessToken, user, logout } = useAuth();
   const [allApps, setAllApps] = useState<MobileApplication[]>([]);
@@ -152,6 +176,16 @@ export function Dashboard({ go }: { go: Go }) {
   const [recentFilter, setRecentFilter] = useState<
     'all' | 'assigned' | 'in_progress' | 'submitted'
   >('all');
+  const headerScrollY = useSharedValue(0);
+  const onHeaderScroll = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      headerScrollY.value = e.contentOffset.y;
+    },
+  });
+  const overlayPad = welcomeOverlayScrollPad(insets.top);
+  const collapseDist = welcomeSolidCollapseDistance(insets.top);
+  /** Short lists still need enough scroll room to fully collapse the header. */
+  const scrollMinH = windowH + (overlayPad > 0 ? collapseDist : 0);
 
   useEffect(() => {
     const roleHome = homeScreenForRole(user);
@@ -235,53 +269,62 @@ export function Dashboard({ go }: { go: Go }) {
         a.applicationNumber.toLowerCase().includes(needle) ||
         a.siteNo.toLowerCase().includes(needle) ||
         (a.zoneCode || '').toLowerCase().includes(needle) ||
-        (a.addressArea || '').toLowerCase().includes(needle) ||
+        (a.addressLine1 || '').toLowerCase().includes(needle) ||
+        (a.addressLine2 || '').toLowerCase().includes(needle) ||
+        (a.addressCity || '').toLowerCase().includes(needle) ||
+        (a.addressState || '').toLowerCase().includes(needle) ||
         (a.addressBlock || '').toLowerCase().includes(needle) ||
+        (a.addressPincode || '').toLowerCase().includes(needle) ||
         (a.eOfficeNumber || '').toLowerCase().includes(needle),
     );
   }, [filteredApps, searchQuery]);
 
-  const recentCards = searchedApps.slice(0, 12).map(mapTaskCard);
+  // Show all apps for the active filter (do not cap at 12 — count cards must match list)
+  const recentCards = searchedApps.map(mapTaskCard);
+
+  const assignedTone = applicationStatusTone('assigned');
+  const inProgressTone = applicationStatusTone('in_progress');
+  const submittedTone = applicationStatusTone('submitted');
 
   const filterCards: Array<{
     id: 'all' | 'assigned' | 'in_progress' | 'submitted';
     label: string;
     value: number;
-    bg: string;
-    fg: string;
     icon: typeof FileText;
+    iconBg: string;
+    iconFg: string;
   }> = [
     {
       id: 'all',
-      label: 'All tasks',
+      label: 'All',
       value: allApps.length,
-      bg: usesLightHeader() ? '#ECFDF5' : GLASS.tintBlue,
-      fg: usesLightHeader() ? '#059669' : COLORS.primary,
       icon: Layers,
+      iconBg: hexAlpha(COLORS.primary, 0.12),
+      iconFg: COLORS.primary,
     },
     {
       id: 'assigned',
       label: 'Assigned',
       value: assignedTasks.length,
-      bg: usesLightHeader() ? '#EEF2FF' : GLASS.tintBlue,
-      fg: usesLightHeader() ? '#4F46E5' : COLORS.primary,
       icon: FileText,
+      iconBg: assignedTone.bg,
+      iconFg: assignedTone.fg,
     },
     {
       id: 'in_progress',
-      label: 'In progress',
+      label: 'In Progress',
       value: inProgressTasks.length,
-      bg: usesLightHeader() ? '#FEF3C7' : '#FEE2E2',
-      fg: usesLightHeader() ? '#D97706' : '#DC2626',
-      icon: Edit3,
+      icon: Activity,
+      iconBg: inProgressTone.bg,
+      iconFg: inProgressTone.fg,
     },
     {
       id: 'submitted',
       label: 'Submitted',
       value: submittedTasks.length,
-      bg: usesLightHeader() ? '#E0F2FE' : GLASS.tintSky,
-      fg: usesLightHeader() ? '#0284C7' : COLORS.primary,
-      icon: ClipboardCheck,
+      icon: Send,
+      iconBg: submittedTone.bg,
+      iconFg: submittedTone.fg,
     },
   ];
 
@@ -315,27 +358,36 @@ export function Dashboard({ go }: { go: Go }) {
   return (
     <ScreenShell className="bg-background">
       <BdaPageWatermark />
-      <ScrollView
+      {/* Header outside ScrollView so profile menu stays tappable when collapsed */}
+      <WelcomeHomeHeader
+        user={user}
+        zoneLabel={zoneLabel}
+        go={go}
+        scrollY={headerScrollY}
+        onLogout={() => {
+          void (async () => {
+            await logout();
+            go('login');
+          })();
+        }}
+      />
+      <Animated.ScrollView
         key={themeId}
         className="flex-1"
-        style={{ zIndex: 1 }}
-        contentContainerStyle={{ paddingBottom: 150 }}
+        style={{ flex: 1, minHeight: 0, zIndex: 1 }}
+        contentContainerStyle={{
+          paddingTop: overlayPad,
+          paddingBottom: 150,
+          minHeight: scrollMinH,
+        }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        bounces={false}
+        overScrollMode="never"
+        onScroll={onHeaderScroll}
+        scrollEventThrottle={16}
       >
-        <WelcomeHomeHeader
-          user={user}
-          zoneLabel={zoneLabel}
-          go={go}
-          onLogout={() => {
-            void (async () => {
-              await logout();
-              go('login');
-            })();
-          }}
-        />
-
-        {/* Status filters — always one row: All · Assigned · In progress · Submitted */}
+        {/* Dashboard metric cards — earlier colors, slightly shorter height */}
         <Box className="px-4" style={{ marginTop: welcomeFilterGap() }}>
           <HStack style={{ gap: 8 }}>
             {filterCards.map((s) => {
@@ -352,11 +404,11 @@ export function Dashboard({ go }: { go: Go }) {
                     paddingVertical: 8,
                     paddingHorizontal: 2,
                     alignItems: 'center',
-                    minHeight: 78,
+                    minHeight: 80,
                     justifyContent: 'center',
                     shadowColor: selected ? COLORS.primaryDeep : '#0F172A',
                     shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: selected ? 0.1 : 0.04,
+                    shadowOpacity: selected ? 0.12 : 0.05,
                     shadowRadius: 5,
                     elevation: selected ? 2 : 1,
                     borderWidth: 1,
@@ -364,23 +416,22 @@ export function Dashboard({ go }: { go: Go }) {
                     gap: 3,
                   }}
                 >
-                  <Box
-                    className="items-center justify-center"
+                  <View
                     style={{
                       width: 26,
                       height: 26,
-                      borderRadius: 999,
-                      backgroundColor: selected
-                        ? 'rgba(255,255,255,0.22)'
-                        : hexAlpha(COLORS.primary, 0.12),
+                      borderRadius: 13,
+                      backgroundColor: selected ? '#FFFFFF' : s.iconBg,
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}
                   >
                     <Icon
                       size={13}
-                      color={selected ? COLORS.white : COLORS.primary}
+                      color={selected ? COLORS.primary : s.iconFg}
                       strokeWidth={2.3}
                     />
-                  </Box>
+                  </View>
                   <Text
                     style={{
                       fontFamily: FONTS.bold,
@@ -473,8 +524,8 @@ export function Dashboard({ go }: { go: Go }) {
                 }
                 go('history');
               };
-              const ringSize = 56;
-              const stroke = 4.5;
+              const ringSize = 40;
+              const stroke = 3.5;
               const radius = (ringSize - stroke) / 2;
               const circ = 2 * Math.PI * radius;
               const dash = (Math.max(0, Math.min(100, pct)) / 100) * circ;
@@ -505,19 +556,7 @@ export function Dashboard({ go }: { go: Go }) {
                   }}
                 >
                   <HStack style={{ alignItems: 'center', gap: 10 }}>
-                    <Box
-                      className="items-center justify-center rounded-full"
-                      style={{
-                        width: 44,
-                        height: 44,
-                        backgroundColor: chip.bg,
-                        borderWidth: 1,
-                        borderColor: hexAlpha(chip.fg, 0.22),
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Edit3 size={18} color={chip.fg} strokeWidth={2.2} />
-                    </Box>
+                    <StatusLeadingIcon status={a.status} size={38} />
 
                     <VStack style={{ flex: 1, minWidth: 0, gap: 3, justifyContent: 'center' }}>
                       <Text
@@ -531,22 +570,17 @@ export function Dashboard({ go }: { go: Go }) {
                       >
                         {a.project}
                       </Text>
-                      <HStack style={{ alignItems: 'center', gap: 6, flexWrap: 'nowrap' }}>
-                        <StatusChip status={a.status} compact />
-                        <Text
-                          style={{
-                            fontFamily: FONTS.semibold,
-                            fontSize: 13,
-                            lineHeight: 16,
-                            color: '#1A368E',
-                            flexShrink: 1,
-                            minWidth: 0,
-                          }}
-                          numberOfLines={1}
-                        >
-                          {siteNoMetaLine(a.siteNo)}
-                        </Text>
-                      </HStack>
+                      <Text
+                        style={{
+                          fontFamily: FONTS.semibold,
+                          fontSize: 13,
+                          lineHeight: 16,
+                          color: '#1A368E',
+                        }}
+                        numberOfLines={1}
+                      >
+                        {siteNoMetaLine(a.siteNo)}
+                      </Text>
                       {zoneDateLine ? (
                         <Text
                           style={{
@@ -562,47 +596,55 @@ export function Dashboard({ go }: { go: Go }) {
                       ) : null}
                     </VStack>
 
-                    <Box
+                    <VStack
                       style={{
-                        width: ringSize,
-                        height: ringSize,
                         alignItems: 'center',
-                        justifyContent: 'center',
+                        gap: 5,
                         flexShrink: 0,
                       }}
                     >
-                      <Svg width={ringSize} height={ringSize}>
-                        <Circle
-                          cx={ringSize / 2}
-                          cy={ringSize / 2}
-                          r={radius}
-                          stroke={chip.bg}
-                          strokeWidth={stroke}
-                          fill="none"
-                        />
-                        <Circle
-                          cx={ringSize / 2}
-                          cy={ringSize / 2}
-                          r={radius}
-                          stroke={chip.fg}
-                          strokeWidth={stroke}
-                          fill="none"
-                          strokeDasharray={`${dash} ${circ}`}
-                          strokeLinecap="round"
-                          transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
-                        />
-                      </Svg>
-                      <Text
+                      <StatusChip status={a.status} />
+                      <Box
                         style={{
-                          position: 'absolute',
-                          fontFamily: FONTS.bold,
-                          fontSize: 12,
-                          color: chip.fg,
+                          width: ringSize,
+                          height: ringSize,
+                          alignItems: 'center',
+                          justifyContent: 'center',
                         }}
                       >
-                        {pct}%
-                      </Text>
-                    </Box>
+                        <Svg width={ringSize} height={ringSize}>
+                          <Circle
+                            cx={ringSize / 2}
+                            cy={ringSize / 2}
+                            r={radius}
+                            stroke={chip.bg}
+                            strokeWidth={stroke}
+                            fill="none"
+                          />
+                          <Circle
+                            cx={ringSize / 2}
+                            cy={ringSize / 2}
+                            r={radius}
+                            stroke={chip.fg}
+                            strokeWidth={stroke}
+                            fill="none"
+                            strokeDasharray={`${dash} ${circ}`}
+                            strokeLinecap="round"
+                            transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
+                          />
+                        </Svg>
+                        <Text
+                          style={{
+                            position: 'absolute',
+                            fontFamily: FONTS.bold,
+                            fontSize: 10,
+                            color: chip.fg,
+                          }}
+                        >
+                          {pct}%
+                        </Text>
+                      </Box>
+                    </VStack>
                   </HStack>
                 </Pressable>
               );
@@ -610,7 +652,7 @@ export function Dashboard({ go }: { go: Go }) {
             )}
           </VStack>
         </Box>
-      </ScrollView>
+      </Animated.ScrollView>
 
       <BottomNav active="home" onNav={go} hidePlus hideAlerts />
     </ScreenShell>
@@ -963,22 +1005,17 @@ function ApplicationListCard({
           >
             {project}
           </Text>
-          <HStack style={{ alignItems: 'center', gap: 6, flexWrap: 'nowrap' }}>
-            <StatusChip status={status} compact />
-            <Text
-              style={{
-                fontFamily: FONTS.semibold,
-                fontSize: 13,
-                lineHeight: 16,
-                color: '#1A368E',
-                flexShrink: 1,
-                minWidth: 0,
-              }}
-              numberOfLines={1}
-            >
-              Site no: {site}
-            </Text>
-          </HStack>
+          <Text
+            style={{
+              fontFamily: FONTS.semibold,
+              fontSize: 13,
+              lineHeight: 16,
+              color: '#1A368E',
+            }}
+            numberOfLines={1}
+          >
+            Site no: {site}
+          </Text>
           {zoneDateLine ? (
             <Text
               style={{
@@ -994,23 +1031,26 @@ function ApplicationListCard({
           ) : null}
         </VStack>
 
-        <HStack style={{ alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <Pressable
-            onPress={onView}
-            accessibilityRole="button"
-            accessibilityLabel="View application"
-            className="active:opacity-85 items-center justify-center"
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 999,
-              backgroundColor: COLORS.primary,
-            }}
-          >
-            <Eye size={15} color={COLORS.white} strokeWidth={2.4} />
-          </Pressable>
-          {actionBtn}
-        </HStack>
+        <VStack style={{ alignItems: 'center', gap: 5, flexShrink: 0 }}>
+          <StatusChip status={status} />
+          <HStack style={{ alignItems: 'center', gap: 6 }}>
+            <Pressable
+              onPress={onView}
+              accessibilityRole="button"
+              accessibilityLabel="View application"
+              className="active:opacity-85 items-center justify-center"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 999,
+                backgroundColor: COLORS.primary,
+              }}
+            >
+              <Eye size={15} color={COLORS.white} strokeWidth={2.4} />
+            </Pressable>
+            {actionBtn}
+          </HStack>
+        </VStack>
       </HStack>
     </Pressable>
   );
@@ -1145,184 +1185,195 @@ export function HistoryScreen({ go }: { go: Go }) {
     <ScreenShell className="bg-background">
       <BdaPageWatermark />
       <Box style={{ zIndex: 1, flex: 1 }}>
-      <AppHeader
-        title="Applications"
-        subtitle={
-          loadingTasks
-            ? 'Loading…'
-            : `${filtered.length} application${filtered.length === 1 ? '' : 's'}`
-        }
-        go={go}
-        onBack={() => go(backTarget ?? 'dashboard', { replace: true })}
-      />
-
-      <Box style={{ backgroundColor: '#F7FAFF' }}>
-        <ScrollView
-          key={themeId}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="grow-0"
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingTop: 12,
-            paddingBottom: 8,
-            gap: 8,
+        {/* Sticky Applications header + filter chips (pinned while list scrolls) */}
+        <Box
+          style={{
+            zIndex: 40,
+            elevation: 12,
+            backgroundColor: '#F7FAFF',
+            shadowColor: '#0F172A',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.06,
+            shadowRadius: 6,
           }}
         >
-          {ENGINEER_APP_FILTERS.map((f) => {
-            const Icon = f.icon;
-            const on = tab === f.key;
-            const count =
+          <AppHeader
+            title="Applications"
+            subtitle={
               loadingTasks
-                ? null
-                : f.key === 'All'
-                  ? liveApps.length
-                  : liveApps.filter((a) => a.status === f.key).length;
-            return (
-              <Pressable
-                key={f.key}
-                onPress={() => setTab(f.key)}
-                className="flex-row items-center gap-1.5 active:opacity-85"
-                style={{
-                  height: 36,
-                  paddingHorizontal: 12,
-                  borderRadius: 999,
-                  backgroundColor: on ? '#EEF4FF' : COLORS.white,
-                  borderWidth: 1.5,
-                  borderColor: on ? hexAlpha(COLORS.primary, 0.45) : 'rgba(26,86,219,0.14)',
-                  shadowColor: COLORS.primaryDeep,
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: on ? 0.1 : 0.04,
-                  shadowRadius: 4,
-                  elevation: on ? 2 : 0,
-                }}
-              >
-                <Icon
-                  size={13}
-                  color={on ? COLORS.primary : COLORS.ink}
-                  strokeWidth={on ? 2.4 : 2.1}
-                />
-                <Text
+                ? 'Loading…'
+                : `${filtered.length} application${filtered.length === 1 ? '' : 's'}`
+            }
+            go={go}
+            onBack={() => go(backTarget ?? 'dashboard', { replace: true })}
+          />
+          <ScrollView
+            key={`apps-filters-${themeId}`}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="grow-0"
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingTop: 12,
+              paddingBottom: 8,
+              gap: 8,
+            }}
+          >
+            {ENGINEER_APP_FILTERS.map((f) => {
+              const Icon = f.icon;
+              const on = tab === f.key;
+              const count =
+                loadingTasks
+                  ? null
+                  : f.key === 'All'
+                    ? liveApps.length
+                    : liveApps.filter((a) => a.status === f.key).length;
+              return (
+                <Pressable
+                  key={f.key}
+                  onPress={() => setTab(f.key)}
+                  className="flex-row items-center gap-1.5 active:opacity-85"
                   style={{
-                    fontFamily: FONTS.bold,
-                    fontSize: 13,
-                    color: on ? COLORS.primaryDeep : COLORS.ink,
-                  }}
-                >
-                  {f.label}
-                </Text>
-                <Box
-                  style={{
-                    width: 22,
-                    height: 22,
-                    minWidth: 22,
+                    height: 36,
+                    paddingHorizontal: 12,
                     borderRadius: 999,
-                    backgroundColor: on ? COLORS.primary : '#EEF4FF',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    backgroundColor: on ? '#EEF4FF' : COLORS.white,
+                    borderWidth: 1.5,
+                    borderColor: on ? hexAlpha(COLORS.primary, 0.45) : 'rgba(26,86,219,0.14)',
+                    shadowColor: COLORS.primaryDeep,
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: on ? 0.1 : 0.04,
+                    shadowRadius: 4,
+                    elevation: on ? 2 : 0,
                   }}
                 >
+                  <Icon
+                    size={13}
+                    color={on ? COLORS.primary : COLORS.ink}
+                    strokeWidth={on ? 2.4 : 2.1}
+                  />
                   <Text
                     style={{
                       fontFamily: FONTS.bold,
-                      fontSize: 12,
-                      lineHeight: 14,
-                      color: on ? COLORS.white : COLORS.primaryDeep,
-                      textAlign: 'center',
-                      includeFontPadding: false,
-                      textAlignVertical: 'center',
+                      fontSize: 13,
+                      color: on ? COLORS.primaryDeep : COLORS.ink,
                     }}
                   >
-                    {count == null ? '—' : count}
+                    {f.label}
                   </Text>
-                </Box>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </Box>
+                  <Box
+                    style={{
+                      width: 22,
+                      height: 22,
+                      minWidth: 22,
+                      borderRadius: 999,
+                      backgroundColor: on ? COLORS.primary : '#EEF4FF',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: FONTS.bold,
+                        fontSize: 12,
+                        lineHeight: 14,
+                        color: on ? COLORS.white : COLORS.primaryDeep,
+                        textAlign: 'center',
+                        includeFontPadding: false,
+                        textAlignVertical: 'center',
+                      }}
+                    >
+                      {count == null ? '—' : count}
+                    </Text>
+                  </Box>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </Box>
 
-      <ScrollView
-        key={themeId}
-        className="flex-1"
-        style={{ backgroundColor: '#F7FAFF' }}
-        contentContainerStyle={{ paddingBottom: 150, paddingTop: 8 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <VStack className="px-4" style={{ gap: 10 }}>
-          {loadingTasks ? (
-            <ListLoader count={4} text="Loading engineer applications…" />
-          ) : filtered.length === 0 ? (
-            <Box
-              className="items-center py-14 px-6"
-              style={{
-                backgroundColor: COLORS.white,
-                borderRadius: 16,
-                borderWidth: 1.5,
-                borderColor: hexAlpha(COLORS.primary, 0.16),
-              }}
-            >
+        <ScrollView
+          key={themeId}
+          className="flex-1"
+          style={{ flex: 1, minHeight: 0, backgroundColor: '#F7FAFF', zIndex: 1 }}
+          contentContainerStyle={{ paddingBottom: 150, paddingTop: 8 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <VStack className="px-4" style={{ gap: 10 }}>
+            {loadingTasks ? (
+              <ListLoader count={4} text="Loading engineer applications…" />
+            ) : filtered.length === 0 ? (
               <Box
-                className="items-center justify-center"
+                className="items-center py-14 px-6"
                 style={{
-                  height: 56,
-                  width: 56,
-                  borderRadius: DESIGN.radiusLg,
                   backgroundColor: COLORS.white,
-                  shadowColor: GLASS.shadow,
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.08,
-                  shadowRadius: 6,
-                  elevation: 2,
+                  borderRadius: 16,
+                  borderWidth: 1.5,
+                  borderColor: hexAlpha(COLORS.primary, 0.16),
                 }}
               >
-                <FileText size={24} color={COLORS.ink} />
+                <Box
+                  className="items-center justify-center"
+                  style={{
+                    height: 56,
+                    width: 56,
+                    borderRadius: DESIGN.radiusLg,
+                    backgroundColor: COLORS.white,
+                    shadowColor: GLASS.shadow,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.08,
+                    shadowRadius: 6,
+                    elevation: 2,
+                  }}
+                >
+                  <FileText size={24} color={COLORS.ink} />
+                </Box>
+                <Text
+                  style={{
+                    marginTop: 16,
+                    fontFamily: FONTS.bold,
+                    fontSize: 16,
+                    color: COLORS.ink,
+                  }}
+                >
+                  No applications
+                </Text>
+                <Text
+                  style={{
+                    marginTop: 6,
+                    fontFamily: FONTS.medium,
+                    fontSize: 12,
+                    color: COLORS.ink,
+                    textAlign: 'center',
+                  }}
+                >
+                  Nothing in this category yet.
+                </Text>
               </Box>
-              <Text
-                style={{
-                  marginTop: 16,
-                  fontFamily: FONTS.bold,
-                  fontSize: 16,
-                  color: COLORS.ink,
-                }}
-              >
-                No applications
-              </Text>
-              <Text
-                style={{
-                  marginTop: 6,
-                  fontFamily: FONTS.medium,
-                  fontSize: 12,
-                  color: COLORS.ink,
-                  textAlign: 'center',
-                }}
-              >
-                Nothing in this category yet.
-              </Text>
-            </Box>
-          ) : (
-            filtered.map((a) => (
-              <ApplicationListCard
-                key={`${a.id}-${a.status}`}
-                project={a.project}
-                siteNo={'siteNo' in a ? a.siteNo : ''}
-                status={a.status}
-                village={a.village}
-                zone={'zone' in a ? a.zone : ''}
-                date={a.date}
-                image={a.image}
-                onView={() => viewApplication(a.id, a.status, a.live, a.apiTask)}
-                onOpen={
-                  a.apiTask && canOpenTask(a.status)
-                    ? () => void openTask(a.id)
-                    : undefined
-                }
-              />
-            ))
-          )}
-        </VStack>
-      </ScrollView>
-      <BottomNav active="apps" onNav={go} hidePlus hideAlerts />
+            ) : (
+              filtered.map((a) => (
+                <ApplicationListCard
+                  key={`${a.id}-${a.status}`}
+                  project={a.project}
+                  siteNo={'siteNo' in a ? a.siteNo : ''}
+                  status={a.status}
+                  village={a.village}
+                  zone={'zone' in a ? a.zone : ''}
+                  date={a.date}
+                  image={a.image}
+                  onView={() => viewApplication(a.id, a.status, a.live, a.apiTask)}
+                  onOpen={
+                    a.apiTask && canOpenTask(a.status)
+                      ? () => void openTask(a.id)
+                      : undefined
+                  }
+                />
+              ))
+            )}
+          </VStack>
+        </ScrollView>
+        <BottomNav active="apps" onNav={go} hidePlus hideAlerts />
       </Box>
     </ScreenShell>
   );
@@ -1355,14 +1406,12 @@ export function EngineerDetailScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-background">
-      <Box style={{ flex: 1, backgroundColor: '#F0F4F8' }}>
-        <ScrollView
-          key={themeId}
-          style={{ flex: 1, backgroundColor: '#F0F4F8' }}
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: 48 }}
-          showsVerticalScrollIndicator={false}
-        >
-          <ViewApplicationHeader onBack={() => go('history')} zone={app?.zoneCode} />
+      <ViewApplicationScroll
+        scrollKey={themeId}
+        onBack={() => go('history')}
+        zone={app?.zoneCode}
+        contentContainerStyle={{ paddingBottom: 48 }}
+      >
           <Box
             style={{
               flexGrow: 1,
@@ -1549,8 +1598,7 @@ export function EngineerDetailScreen({ go }: { go: Go }) {
             </>
           )}
           </Box>
-        </ScrollView>
-      </Box>
+      </ViewApplicationScroll>
     </ScreenShell>
   );
 }
@@ -1816,7 +1864,16 @@ export function ProfileScreen({ go }: { go: Go }) {
             </Text>
           </VStack>
 
-          <Box style={{ position: 'relative' }}>
+          <Pressable
+            onPress={() => {
+              if (profilePhoto) setPreviewModalOpen(true);
+              else showPhotoSourceOptions();
+            }}
+            disabled={savingPhoto}
+            accessibilityLabel="Profile photo"
+            className="active:opacity-90"
+            style={{ position: 'relative', flexShrink: 0 }}
+          >
             <Box
               style={{
                 width: 34,
@@ -1855,7 +1912,7 @@ export function ProfileScreen({ go }: { go: Go }) {
                 borderColor: COLORS.white,
               }}
             />
-          </Box>
+          </Pressable>
         </HStack>
       </Box>
 
@@ -1873,31 +1930,37 @@ export function ProfileScreen({ go }: { go: Go }) {
         }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Profile summary card */}
+        {/* Profile summary card — outer wraps shadow; inner clips banner radius */}
         <Box
           style={{
-            backgroundColor: COLORS.white,
             borderRadius: 20,
-            borderWidth: 1.75,
-            borderColor: hexAlpha('#1A368E', 0.38),
-            overflow: 'hidden',
-            shadowColor: '#1A368E',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.1,
-            shadowRadius: 12,
-            elevation: 3,
+            backgroundColor: COLORS.white,
+            shadowColor: '#0F2A6B',
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.14,
+            shadowRadius: 18,
+            elevation: 7,
           }}
         >
           <Box
             style={{
+              borderRadius: 20,
+              borderWidth: 1.75,
+              borderColor: hexAlpha('#1A368E', 0.38),
+              overflow: 'hidden',
+              backgroundColor: COLORS.white,
+            }}
+          >
+          <Box
+            style={{
               position: 'relative',
               overflow: 'hidden',
-              backgroundColor: '#EAF1FF',
+              backgroundColor: '#F4F8FF',
               borderBottomWidth: 1,
               borderBottomColor: 'rgba(26,86,219,0.12)',
               paddingHorizontal: 14,
               paddingVertical: 13,
-              minHeight: 66,
+              minHeight: 72,
               justifyContent: 'center',
             }}
           >
@@ -1911,7 +1974,11 @@ export function ProfileScreen({ go }: { go: Go }) {
                 top: 0,
               }}
             >
-              <ProfileSkylineLine width={360} height={64} />
+              <Image
+                source={PROFILE_PHOTO_BANNER}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="cover"
+              />
             </Box>
             <HStack className="items-center" style={{ gap: 10, zIndex: 1 }}>
               <Box
@@ -1919,18 +1986,18 @@ export function ProfileScreen({ go }: { go: Go }) {
                   width: 36,
                   height: 36,
                   borderRadius: 12,
-                  backgroundColor: '#E8F0FE',
+                  backgroundColor: COLORS.primary,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Camera size={16} color="#1A368E" strokeWidth={2.4} />
+                <Camera size={16} color={COLORS.white} strokeWidth={2.4} />
               </Box>
               <VStack style={{ gap: 2 }}>
                 <Text style={{ fontFamily: FONTS.bold, fontSize: 17, color: '#0F172A' }}>
                   Profile Photo
                 </Text>
-                <Text
+                {/* <Text
                   style={{
                     fontFamily: FONTS.semibold,
                     fontSize: 12,
@@ -1939,12 +2006,12 @@ export function ProfileScreen({ go }: { go: Go }) {
                   }}
                 >
                   {profilePhoto ? 'Last updated' : 'Add a photo'}
-                </Text>
+                </Text> */}
               </VStack>
             </HStack>
           </Box>
 
-          <HStack style={{ padding: 14, gap: 10, alignItems: 'flex-start' }}>
+          <HStack style={{ padding: 14, gap: 10, alignItems: 'center' }}>
             <Box style={{ position: 'relative', flexShrink: 0 }}>
               <Pressable
                 onPress={() => {
@@ -2004,78 +2071,118 @@ export function ProfileScreen({ go }: { go: Go }) {
               </Pressable>
             </Box>
 
-            <VStack style={{ flex: 1, minWidth: 0, gap: 5, paddingTop: 2 }}>
-              <Text
-                style={{
-                  fontFamily: FONTS.bold,
-                  fontSize: 16,
-                  lineHeight: 21,
-                  color: '#1A368E',
-                }}
-                numberOfLines={2}
-              >
-                {name}
-              </Text>
-              <Text
-                style={{
-                  fontFamily: FONTS.semibold,
-                  fontSize: 13,
-                  color: '#1A368E',
-                  lineHeight: 17,
-                }}
-                numberOfLines={2}
-              >
-                {roleTitle}
-              </Text>
-              <HStack className="items-start" style={{ gap: 5 }}>
-                <Shield size={12} color="#1A368E" strokeWidth={2.4} style={{ marginTop: 1 }} />
-                <VStack style={{ gap: 1, flex: 1, minWidth: 0 }}>
-                  <Text style={{ fontFamily: FONTS.semibold, fontSize: 12, color: '#475569' }}>
-                    Login ID
+            <VStack style={{ flex: 1, minWidth: 0, gap: 5 }}>
+              <HStack className="items-center" style={{ gap: 8, flexWrap: 'wrap' }}>
+                <Text
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 16,
+                    lineHeight: 21,
+                    color: '#1A368E',
+                    flexShrink: 1,
+                  }}
+                  numberOfLines={1}
+                >
+                  {name}
+                </Text>
+                <Box
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 999,
+                    backgroundColor: '#ECFDF5',
+                    borderWidth: 1,
+                    borderColor: '#A7F3D0',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Box
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: '#22C55E',
+                    }}
+                  />
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#047857' }}>
+                    Active
                   </Text>
-                  <Text
-                    style={{ fontFamily: FONTS.bold, fontSize: 14, color: '#1A368E' }}
-                    numberOfLines={1}
-                  >
-                    {loginId}
-                  </Text>
-                </VStack>
+                </Box>
+              </HStack>
+              <HStack className="items-center" style={{ gap: 4, minWidth: 0 }}>
+                <MapPin size={11} color="#1A368E" strokeWidth={2.4} />
+                <Text
+                  style={{
+                    fontFamily: FONTS.semibold,
+                    fontSize: 11,
+                    color: '#1A368E',
+                    lineHeight: 14,
+                    flex: 1,
+                    minWidth: 0,
+                  }}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.75}
+                >
+                  {roleTitle}
+                  {zone !== '—' ? ` · ${zone}` : ''}
+                </Text>
+              </HStack>
+              <HStack className="items-center" style={{ gap: 5 }}>
+                <Shield size={12} color="#1A368E" strokeWidth={2.4} />
+                <Text
+                  style={{ fontFamily: FONTS.semibold, fontSize: 12, color: '#475569' }}
+                  numberOfLines={1}
+                >
+                  Login ID
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: FONTS.bold,
+                    fontSize: 14,
+                    color: '#1A368E',
+                    flex: 1,
+                  }}
+                  numberOfLines={1}
+                >
+                  {loginId}
+                </Text>
               </HStack>
             </VStack>
 
-            {/* Active sits above the home/building art on the right */}
-            <VStack style={{ alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
-              <Box
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 4,
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  borderRadius: 999,
-                  backgroundColor: '#ECFDF5',
-                  borderWidth: 1,
-                  borderColor: '#A7F3D0',
-                }}
-              >
-                <Box
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: 3,
-                    backgroundColor: '#22C55E',
-                  }}
-                />
-                <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#047857' }}>
-                  Active
-                </Text>
-              </Box>
-              <ProfileHeroArt />
-            </VStack>
+            <Box
+              pointerEvents="none"
+              style={{
+                width: 64,
+                height: 64,
+                flexShrink: 0,
+              }}
+            >
+              <Image
+                source={PROFILE_HERO_ART}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="contain"
+              />
+            </Box>
           </HStack>
+          </Box>
         </Box>
 
         {/* Personal information */}
+        <Box
+          style={{
+            borderRadius: 20,
+            backgroundColor: COLORS.white,
+            shadowColor: '#0F2A6B',
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.14,
+            shadowRadius: 18,
+            elevation: 7,
+          }}
+        >
         <Box
           style={{
             backgroundColor: COLORS.white,
@@ -2083,11 +2190,7 @@ export function ProfileScreen({ go }: { go: Go }) {
             borderWidth: 1.75,
             borderColor: hexAlpha('#1A368E', 0.38),
             padding: 12,
-            shadowColor: '#1A368E',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.1,
-            shadowRadius: 12,
-            elevation: 3,
+            overflow: 'hidden',
           }}
         >
           <HStack className="items-center" style={{ marginBottom: 10, gap: 8 }}>
@@ -2142,6 +2245,11 @@ export function ProfileScreen({ go }: { go: Go }) {
                     backgroundColor: COLORS.white,
                     paddingHorizontal: 8,
                     paddingVertical: 7,
+                    shadowColor: '#0F2A6B',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.08,
+                    shadowRadius: 6,
+                    elevation: 2,
                   }}
                 >
                   {/* Icon + key on one line */}
@@ -2162,10 +2270,10 @@ export function ProfileScreen({ go }: { go: Go }) {
                     <Text
                       style={{
                         fontFamily: FONTS.bold,
-                        fontSize: 12,
+                        fontSize: 14,
                         color: '#1A368E',
                         letterSpacing: 0.1,
-                        lineHeight: 15,
+                        lineHeight: 17,
                         flex: 1,
                         minWidth: 0,
                       }}
@@ -2190,6 +2298,7 @@ export function ProfileScreen({ go }: { go: Go }) {
             })}
           </Box>
         </Box>
+        </Box>
 
         <Pressable
           onPress={async () => {
@@ -2201,8 +2310,8 @@ export function ProfileScreen({ go }: { go: Go }) {
             height: 48,
             borderRadius: 999,
             borderWidth: 1.5,
-            borderColor: `${COLORS.destructive}40`,
-            backgroundColor: COLORS.white,
+            borderColor: '#FECACA',
+            backgroundColor: '#FEF2F2',
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
@@ -2289,92 +2398,19 @@ export function ProfileScreen({ go }: { go: Go }) {
         onNav={go}
         homeTarget={home}
         appsTarget={appsTarget}
-        hidePlus
+        // ZC keeps the center + on every tab (including Profile); engineer/CAO hide it.
+        hidePlus={appRole !== 'zc'}
         hideAlerts
+        onPlus={
+          appRole === 'zc'
+            ? () => {
+                setZcEditApplicationId(null);
+                go('zc_create');
+              }
+            : undefined
+        }
       />
     </ScreenShell>
   );
 }
 
-/** Soft cityscape + trees + shade rays for Profile Photo header (ref mock). */
-function ProfileSkylineLine({ width = 360, height = 64 }: { width?: number; height?: number }) {
-  const shade = '#93C5FD';
-  return (
-    <Svg width={width} height={height} viewBox="0 0 360 64" preserveAspectRatio="xMaxYMax meet">
-      {/* diagonal shade rays */}
-      <Path d="M210 0 L250 64 L236 64 L196 0 Z" fill={shade} opacity={0.08} />
-      <Path d="M250 0 L295 64 L278 64 L233 0 Z" fill={shade} opacity={0.1} />
-      <Path d="M290 0 L340 64 L320 64 L270 0 Z" fill={shade} opacity={0.07} />
-      {/* far buildings */}
-      <Rect x={168} y={28} width={18} height={36} rx={1} fill="#BFDBFE" opacity={0.55} />
-      <Rect x={188} y={18} width={22} height={46} rx={1} fill="#93C5FD" opacity={0.5} />
-      <Rect x={212} y={24} width={14} height={40} rx={1} fill="#BFDBFE" opacity={0.55} />
-      <Rect x={228} y={10} width={26} height={54} rx={1} fill="#60A5FA" opacity={0.38} />
-      <Rect x={256} y={20} width={18} height={44} rx={1} fill="#93C5FD" opacity={0.48} />
-      <Rect x={276} y={14} width={30} height={50} rx={1} fill="#3B82F6" opacity={0.28} />
-      <Rect x={308} y={26} width={16} height={38} rx={1} fill="#93C5FD" opacity={0.45} />
-      <Rect x={326} y={16} width={22} height={48} rx={1} fill="#BFDBFE" opacity={0.5} />
-      {/* trees */}
-      <Ellipse cx={180} cy={52} rx={7} ry={9} fill="#86EFAC" opacity={0.45} />
-      <Rect x={178} y={54} width={4} height={10} fill="#86EFAC" opacity={0.35} />
-      <Ellipse cx={248} cy={50} rx={8} ry={11} fill="#6EE7B7" opacity={0.4} />
-      <Rect x={246} y={54} width={4} height={10} fill="#6EE7B7" opacity={0.32} />
-      <Ellipse cx={300} cy={51} rx={6} ry={8} fill="#86EFAC" opacity={0.42} />
-      <Rect x={298} y={54} width={3} height={10} fill="#86EFAC" opacity={0.32} />
-      <Ellipse cx={340} cy={50} rx={9} ry={12} fill="#6EE7B7" opacity={0.38} />
-      <Rect x={338} y={54} width={4} height={10} fill="#6EE7B7" opacity={0.3} />
-    </Svg>
-  );
-}
-
-/** Buildings + trees + map pin — matches ref profile hero art. */
-function ProfileHeroArt() {
-  return (
-    <Box
-      pointerEvents="none"
-      style={{
-        width: 72,
-        height: 78,
-        alignItems: 'center',
-        justifyContent: 'flex-end',
-        flexShrink: 0,
-      }}
-    >
-      <Svg width={72} height={78} viewBox="0 0 96 104">
-        {/* soft ground glow */}
-        <Ellipse cx={48} cy={94} rx={34} ry={8} fill={hexAlpha(COLORS.primary, 0.1)} />
-        {/* buildings */}
-        <Rect x={18} y={48} width={18} height={42} rx={3} fill="#BFDBFE" />
-        <Rect x={34} y={30} width={24} height={60} rx={3} fill="#60A5FA" />
-        <Rect x={54} y={40} width={18} height={50} rx={3} fill="#93C5FD" />
-        {/* windows */}
-        <Rect x={22} y={54} width={4} height={4} rx={0.8} fill="#EFF6FF" />
-        <Rect x={28} y={54} width={4} height={4} rx={0.8} fill="#EFF6FF" />
-        <Rect x={22} y={62} width={4} height={4} rx={0.8} fill="#EFF6FF" />
-        <Rect x={28} y={62} width={4} height={4} rx={0.8} fill="#EFF6FF" />
-        <Rect x={40} y={38} width={5} height={5} rx={1} fill="#DBEAFE" />
-        <Rect x={48} y={38} width={5} height={5} rx={1} fill="#DBEAFE" />
-        <Rect x={40} y={48} width={5} height={5} rx={1} fill="#DBEAFE" />
-        <Rect x={48} y={48} width={5} height={5} rx={1} fill="#DBEAFE" />
-        <Rect x={40} y={58} width={5} height={5} rx={1} fill="#DBEAFE" />
-        <Rect x={48} y={58} width={5} height={5} rx={1} fill="#DBEAFE" />
-        <Rect x={58} y={48} width={4} height={4} rx={0.8} fill="#EFF6FF" />
-        <Rect x={64} y={48} width={4} height={4} rx={0.8} fill="#EFF6FF" />
-        <Rect x={58} y={56} width={4} height={4} rx={0.8} fill="#EFF6FF" />
-        <Rect x={64} y={56} width={4} height={4} rx={0.8} fill="#EFF6FF" />
-        {/* green trees */}
-        <Ellipse cx={16} cy={82} rx={7} ry={9} fill="#4ADE80" />
-        <Rect x={14.5} y={86} width={3} height={8} rx={1} fill="#16A34A" />
-        <Ellipse cx={78} cy={84} rx={8} ry={10} fill="#22C55E" />
-        <Rect x={76.5} y={88} width={3} height={8} rx={1} fill="#15803D" />
-        <Ellipse cx={68} cy={88} rx={5} ry={6} fill="#86EFAC" />
-        {/* map pin above buildings */}
-        <Path
-          d="M48 8 C39 8 32 15 32 24 C32 36 48 52 48 52 C48 52 64 36 64 24 C64 15 57 8 48 8 Z"
-          fill={COLORS.primary}
-        />
-        <Circle cx={48} cy={23} r={6} fill={COLORS.white} />
-      </Svg>
-    </Box>
-  );
-}
