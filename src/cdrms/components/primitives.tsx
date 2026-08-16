@@ -22,6 +22,8 @@ import {
   TextInput,
   useWindowDimensions,
   View,
+  type StyleProp,
+  type TextStyle,
   type TextInputProps,
 } from 'react-native';
 import { useHardwareBack } from '@/src/cdrms/hooks/useHardwareBack';
@@ -902,6 +904,7 @@ export const Field = forwardRef<
     compact?: boolean;
     /** Inline validation message — also turns the input border red. */
     error?: string;
+    labelStyle?: StyleProp<TextStyle>;
   } & TextInputProps
 >(function Field(
   {
@@ -911,6 +914,7 @@ export const Field = forwardRef<
     endAdornment,
     compact = false,
     error,
+    labelStyle: customLabelStyle,
     style,
     value,
     defaultValue,
@@ -930,7 +934,8 @@ export const Field = forwardRef<
   const hasValue = Boolean(displayValue || normalize(defaultValue));
   const isEditable = props.editable ?? true;
 
-  const labelStyle = compact ? { ...TYPE.label, fontSize: 12 } : TYPE.label;
+  const baseLabel = compact ? { ...TYPE.label, fontSize: 12 } : TYPE.label;
+  const labelStyle = customLabelStyle ? [baseLabel, customLabelStyle] : baseLabel;
 
   return (
     <View style={{ gap: compact ? 4 : SPACE[2] }} collapsable={false}>
@@ -1817,5 +1822,9 @@ export {
   ButtonLoader,
   getScreenLoaderConfig,
   useMinimumLoading,
+  CardSkeleton,
+  ListSkeleton,
+  ProfileSkeleton,
+  DetailSkeleton,
 } from './loaders';
 

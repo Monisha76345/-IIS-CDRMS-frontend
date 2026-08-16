@@ -48,7 +48,7 @@ import { SchedulesEditorCard } from '@/src/cdrms/components/SchedulesEditorCard'
 import { SiteVideoCaptureCard } from '@/src/cdrms/components/SiteVideoCaptureCard';
 import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
 import { showAppDialog } from '@/src/cdrms/components/AppDialog';
-import { AppBtn, AppSheet, Field } from '@/src/cdrms/components/primitives';
+import { AppBtn, AppSheet, Field, useMinimumLoading } from '@/src/cdrms/components/primitives';
 import {
   SectionTitle,
   SurveyCard,
@@ -154,6 +154,7 @@ export function BandiScreen({ go }: { go: Go }) {
     ? schedulesOk && Boolean(draft.gps) && compassOk
     : draft.bandiVerified;
   const [editing, setEditing] = useState<Cardinal | null>(null);
+  const pageLoading = useMinimumLoading(true, 300);
   const [draftNote, setDraftNote] = useState('');
   const [approachOpen, setApproachOpen] = useState(false);
   const [schedulesEditing, setSchedulesEditing] = useState(false);
@@ -306,6 +307,7 @@ export function BandiScreen({ go }: { go: Go }) {
           : TERMS.workflow.checkBandiSubtitle
       }
       surface={isBackendTask ? 'premium' : 'default'}
+      loading={pageLoading || stepSaving}
       onBack={() => {
         go('project', { replace: true });
         if (isBackendTask) {
@@ -1382,6 +1384,7 @@ export function PhotosScreen({ go }: { go: Go }) {
     reloadBackendDraft,
   } = useProject();
   const [stepSaving, setStepSaving] = useState(false);
+  const pageLoading = useMinimumLoading(true, 300);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState('Photo preview');
   const isBackendTask = Boolean(draft.backendApplicationId);
@@ -1418,6 +1421,7 @@ export function PhotosScreen({ go }: { go: Go }) {
           : TERMS.workflow.photosSubtitle
       }
       surface={isBackendTask ? 'premium' : 'default'}
+      loading={pageLoading || stepSaving}
       onBack={() => {
         go(backScreen, { replace: true });
         if (isBackendTask) {

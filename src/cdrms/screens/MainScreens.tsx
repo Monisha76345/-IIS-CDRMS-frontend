@@ -54,6 +54,7 @@ import {
   statusChipColors,
   ListLoader,
   ScreenLoader,
+  useMinimumLoading,
 } from '@/src/cdrms/components/primitives';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import {
@@ -487,7 +488,7 @@ export function Dashboard({ go }: { go: Go }) {
 
           <VStack style={{ gap: 8 }}>
             {loadingTasks ? (
-              <ListLoader count={3} />
+              <ListLoader minHeight={200} />
             ) : recentCards.length === 0 ? (
               <Box
                 className="rounded-2xl border border-dashed px-4 py-8"
@@ -761,7 +762,7 @@ export function NotificationsScreen({ go }: { go: Go }) {
 
           <VStack className="mt-4" space="sm">
             {loading && items.length === 0 ? (
-              <ListLoader count={3} text="Loading notifications…" />
+              <ListLoader minHeight={200} />
             ) : error ? (
               <Text className="text-[13px] mt-6 text-center" style={{ color: COLORS.destructive }}>
                 {error}
@@ -1295,14 +1296,14 @@ export function HistoryScreen({ go }: { go: Go }) {
         <ScrollView
           key={themeId}
           className="flex-1"
-          style={{ flex: 1, minHeight: 0, backgroundColor: '#F7FAFF', zIndex: 1 }}
+          style={{ flex: 1, minHeight: 0, backgroundColor: 'transparent', zIndex: 1 }}
           contentContainerStyle={{ paddingBottom: 150, paddingTop: 8 }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
           <VStack className="px-4" style={{ gap: 10 }}>
             {loadingTasks ? (
-              <ListLoader count={4} text="Loading engineer applications…" />
+              <ListLoader minHeight={220} />
             ) : filtered.length === 0 ? (
               <Box
                 className="items-center py-14 px-6"
@@ -1415,15 +1416,15 @@ export function EngineerDetailScreen({ go }: { go: Go }) {
           <Box
             style={{
               flexGrow: 1,
-              backgroundColor: COLORS.white,
-              borderTopLeftRadius: 28,
-              borderTopRightRadius: 28,
+              backgroundColor: 'transparent',
               paddingTop: 16,
               gap: 12,
             }}
           >
           {loading ? (
-            <ScreenLoader text="Loading application details…" />
+            <Box style={{ flex: 1, minHeight: 380, justifyContent: 'center', alignItems: 'center' }}>
+              <ScreenLoader minHeight={340} />
+            </Box>
           ) : error || !app ? (
             <Box
               className="mx-4 rounded-2xl border px-4 py-6"
@@ -1618,6 +1619,7 @@ export function ProfileScreen({ go }: { go: Go }) {
   const profilePhoto = user?.profilePhoto || user?.officer?.profilePhoto || null;
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [savingPhoto, setSavingPhoto] = useState(false);
+  const profileLoading = useMinimumLoading(true, 300);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -1919,7 +1921,7 @@ export function ProfileScreen({ go }: { go: Go }) {
       <ScrollView
         key={themeId}
         className="flex-1"
-        style={{ zIndex: 1, backgroundColor: '#F7FAFF' }}
+        style={{ zIndex: 1, backgroundColor: 'transparent' }}
         contentContainerStyle={{
           flexGrow: 1,
           // Capsule nav (~70) + safe area + breathing room so Logout stays visible
@@ -1930,6 +1932,10 @@ export function ProfileScreen({ go }: { go: Go }) {
         }}
         showsVerticalScrollIndicator={false}
       >
+        {profileLoading ? (
+          <ScreenLoader minHeight={340} />
+        ) : (
+          <>
         {/* Profile summary card — outer wraps shadow; inner clips banner radius */}
         <Box
           style={{
@@ -2324,6 +2330,8 @@ export function ProfileScreen({ go }: { go: Go }) {
             Logout
           </Text>
         </Pressable>
+        </>
+        )}
       </ScrollView>
 
       {previewModalOpen && profilePhoto ? (

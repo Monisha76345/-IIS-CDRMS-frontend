@@ -40,6 +40,7 @@ import {
   ScreenLoader,
   ScreenShell,
   StatusChip,
+  useMinimumLoading,
 } from '@/src/cdrms/components/primitives';
 import {
   FooterContinueBtn,
@@ -174,6 +175,7 @@ export function DraftScreen({ go }: { go: Go }) {
 
 export function ValidateScreen({ go }: { go: Go }) {
   const { draft } = useProject();
+  const pageLoading = useMinimumLoading(true, 300);
   const items = useMemo(() => validateDraft(draft), [draft]);
   const summary = useMemo(() => validationSummary(items), [items]);
   const isBackendTask = Boolean(draft.backendApplicationId);
@@ -186,6 +188,7 @@ export function ValidateScreen({ go }: { go: Go }) {
       showSteps={false}
       showHeroArt={false}
       surface="default"
+      loading={pageLoading}
       badge={summary.allOk ? 'Ready' : `${summary.failed.length} to fix`}
       footer={
         isBackendTask ? (
@@ -755,6 +758,7 @@ function ReviewSectionCard({
 
 export function ReviewScreen({ go }: { go: Go }) {
   const { draft, submitApplication, reloadBackendDraft, setGps } = useProject();
+  const pageLoading = useMinimumLoading(true, 300);
   const [terms, setTerms] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -1094,10 +1098,10 @@ export function ReviewScreen({ go }: { go: Go }) {
       return;
     }
 
+    setConfirm(false);
     setSubmitting(true);
     try {
       const result = await submitApplication();
-      setConfirm(false);
       if (!result) {
         showAppDialog({
           variant: 'warning',
@@ -1156,6 +1160,7 @@ export function ReviewScreen({ go }: { go: Go }) {
       showSteps={false}
       surface={isBackendTask ? 'premium' : 'default'}
       badge={summary.allOk ? 'Ready to submit' : 'Incomplete'}
+      loading={pageLoading || submitting}
       hero={
         isBackendTask ? (
           <CreateApplicationHeader

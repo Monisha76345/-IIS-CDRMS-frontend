@@ -16,6 +16,7 @@ import { siteDimensionToFormDims, deriveSiteTypeFromDims } from '@/src/cdrms/lib
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
 import { type Cardinal } from '@/src/cdrms/project/types';
+import { useMinimumLoading } from '@/src/cdrms/components/primitives';
 import { CARDINAL_ACCENT, COLORS, FONTS, hexAlpha } from '@/src/cdrms/theme';
 import { useTheme } from '@/src/theme/ThemeContext';
 import type { Go } from '@/src/cdrms/types';
@@ -127,7 +128,7 @@ function DimSideField({
         <TextInput
           value={value}
           onChangeText={onChangeText}
-          placeholder={`Enter ${side}`}
+          placeholder={side === 'N' || side === 'S' ? 'e.g. 60' : 'e.g. 50'}
           placeholderTextColor="#94A3B8"
           keyboardType="decimal-pad"
           underlineColorAndroid="transparent"
@@ -166,6 +167,7 @@ export function DimensionsScreen({ go }: { go: Go }) {
   );
   /** Live plot: Odd (or incomplete) uses irregular sketch; Even only when opposite sides match. */
   const isOdd = measuredType !== 'Even';
+  const pageLoading = useMinimumLoading(true, 300);
   const [stepSaving, setStepSaving] = useState(false);
   const clearedZcSeed = useRef(false);
 
@@ -262,6 +264,7 @@ export function DimensionsScreen({ go }: { go: Go }) {
       title="Site Dimension Sketch"
       subtitle="N / S / E / W · live plot updates"
       surface="premium"
+      loading={pageLoading || stepSaving}
       onBack={() => {
         go('bandi', { replace: true });
         void reloadBackendDraft().catch(() => undefined);

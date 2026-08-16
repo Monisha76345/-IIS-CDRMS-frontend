@@ -744,232 +744,232 @@ export function LoginScreen({ go }: { go: Go }) {
                 Sign in with your Login ID to continue
               </Text>
 
-              <VStack style={{ gap: 10 }}>
-                <VStack style={{ gap: 5 }}>
-                  <Text
-                    style={{
-                      fontFamily: FONTS.bold,
-                      fontSize: 12,
-                      color: LOGIN_LABEL,
-                      letterSpacing: 0.8,
-                    }}
-                  >
-                    LOGIN ID / EMAIL
-                  </Text>
-                  <Pressable
-                    onPress={() => loginIdRef.current?.focus()}
-                    style={{
-                      height: 52,
-                      borderRadius: 14,
-                      borderWidth: 1.5,
-                      borderColor: focusedInput === 'loginId' ? LOGIN_BLUE : LOGIN_BORDER,
-                      backgroundColor: '#FFFFFF',
-                      paddingHorizontal: 12,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 10,
-                    }}
-                  >
-                    <Box
-                      pointerEvents="none"
-                      className="items-center justify-center"
+              {loading ? (
+                <Box style={{ minHeight: 260, justifyContent: 'center', alignItems: 'center' }}>
+                  <ScreenLoader minHeight={240} />
+                </Box>
+              ) : (
+                <VStack style={{ gap: 10 }}>
+                  <VStack style={{ gap: 5 }}>
+                    <Text
                       style={{
-                        width: 34,
-                        height: 34,
-                        borderRadius: 10,
-                        backgroundColor: '#E8F0FE',
-                      }}
-                    >
-                      <User size={18} color={LOGIN_BLUE} strokeWidth={2.2} />
-                    </Box>
-                    <TextInput
-                      ref={loginIdRef}
-                      value={loginId}
-                      onChangeText={setLoginId}
-                      onFocus={() => {
-                        setFocusedInput('loginId');
-                        scrollFormIntoView();
-                      }}
-                      onBlur={() => setFocusedInput(null)}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      autoComplete="off"
-                      placeholder="Enter login ID or email"
-                      placeholderTextColor={LOGIN_MUTED}
-                      returnKeyType="next"
-                      onSubmitEditing={() => passwordRef.current?.focus()}
-                      style={{
-                        flex: 1,
-                        height: '100%',
-                        fontFamily: FONTS.medium,
-                        fontSize: 14,
-                        color: LOGIN_NAVY,
-                        paddingRight: 4,
-                        paddingVertical: 0,
-                      }}
-                    />
-                  </Pressable>
-                </VStack>
-
-                <VStack style={{ gap: 5 }}>
-                  <Text
-                    style={{
-                      fontFamily: FONTS.bold,
-                      fontSize: 12,
-                      color: LOGIN_LABEL,
-                      letterSpacing: 0.8,
-                    }}
-                  >
-                    PASSWORD
-                  </Text>
-                  <Pressable
-                    onPress={() => passwordRef.current?.focus()}
-                    style={{
-                      height: 52,
-                      borderRadius: 14,
-                      borderWidth: 1.5,
-                      borderColor: focusedInput === 'password' ? LOGIN_BLUE : LOGIN_BORDER,
-                      backgroundColor: '#FFFFFF',
-                      paddingHorizontal: 12,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 10,
-                    }}
-                  >
-                    <Box
-                      pointerEvents="none"
-                      className="items-center justify-center"
-                      style={{
-                        width: 34,
-                        height: 34,
-                        borderRadius: 10,
-                        backgroundColor: '#E8F0FE',
-                      }}
-                    >
-                      <Lock size={18} color={LOGIN_BLUE} strokeWidth={2.2} />
-                    </Box>
-                    <TextInput
-                      ref={passwordRef}
-                      value={password}
-                      onChangeText={setPassword}
-                      onFocus={() => {
-                        setFocusedInput('password');
-                        scrollFormIntoView();
-                      }}
-                      onBlur={() => setFocusedInput(null)}
-                      secureTextEntry={!showPassword}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      autoComplete="off"
-                      placeholder="Enter password"
-                      placeholderTextColor={LOGIN_MUTED}
-                      returnKeyType="go"
-                      onSubmitEditing={() => void onSecureLogin()}
-                      style={{
-                        flex: 1,
-                        height: '100%',
-                        fontFamily: FONTS.medium,
-                        fontSize: 14,
-                        color: LOGIN_NAVY,
-                        paddingRight: 4,
-                        paddingVertical: 0,
-                      }}
-                    />
-                    <Pressable
-                      onPress={() => setShowPassword((v) => !v)}
-                      className="h-9 w-9 items-center justify-center rounded-full active:opacity-70"
-                    >
-                      {showPassword ? (
-                        <EyeOff size={18} color="#94A3B8" />
-                      ) : (
-                        <Eye size={18} color="#94A3B8" />
-                      )}
-                    </Pressable>
-                  </Pressable>
-                </VStack>
-
-                {error ? (
-                  <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: '#DC2626' }}>
-                    {error}
-                  </Text>
-                ) : null}
-
-                <HStack className="items-center justify-between" style={{ marginTop: 2 }}>
-                  <Checkbox
-                    value="remember"
-                    isChecked={remember}
-                    onChange={(v) => setRemember(!!v)}
-                  >
-                    <CheckboxIndicator
-                      style={{
-                        borderColor: remember ? LOGIN_BLUE : '#CBD5E1',
-                        backgroundColor: remember ? LOGIN_BLUE : '#FFFFFF',
-                        borderRadius: 4,
-                      }}
-                    >
-                      <CheckboxIcon as={CheckIcon} />
-                    </CheckboxIndicator>
-                    <CheckboxLabel
-                      style={{
-                        fontFamily: FONTS.medium,
+                        fontFamily: FONTS.bold,
                         fontSize: 12,
-                        color: '#0F172A',
-                        marginLeft: 4,
+                        color: LOGIN_LABEL,
+                        letterSpacing: 0.8,
                       }}
                     >
-                      Remember this device
-                    </CheckboxLabel>
-                  </Checkbox>
-
-                  <Pressable className="active:opacity-70">
-                    <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: LOGIN_BLUE }}>
-                      Forgot Password?
+                      LOGIN ID / EMAIL
                     </Text>
-                  </Pressable>
-                </HStack>
+                    <Pressable
+                      onPress={() => loginIdRef.current?.focus()}
+                      style={{
+                        height: 52,
+                        borderRadius: 14,
+                        borderWidth: 1.5,
+                        borderColor: focusedInput === 'loginId' ? LOGIN_BLUE : LOGIN_BORDER,
+                        backgroundColor: '#FFFFFF',
+                        paddingHorizontal: 12,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 10,
+                      }}
+                    >
+                      <Box
+                        pointerEvents="none"
+                        className="items-center justify-center"
+                        style={{
+                          width: 34,
+                          height: 34,
+                          borderRadius: 10,
+                          backgroundColor: '#E8F0FE',
+                        }}
+                      >
+                        <User size={18} color={LOGIN_BLUE} strokeWidth={2.2} />
+                      </Box>
+                      <TextInput
+                        ref={loginIdRef}
+                        value={loginId}
+                        onChangeText={setLoginId}
+                        onFocus={() => {
+                          setFocusedInput('loginId');
+                          scrollFormIntoView();
+                        }}
+                        onBlur={() => setFocusedInput(null)}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        autoComplete="off"
+                        placeholder="Enter login ID or email"
+                        placeholderTextColor={LOGIN_MUTED}
+                        returnKeyType="next"
+                        onSubmitEditing={() => passwordRef.current?.focus()}
+                        style={{
+                          flex: 1,
+                          height: '100%',
+                          fontFamily: FONTS.medium,
+                          fontSize: 14,
+                          color: LOGIN_NAVY,
+                          paddingRight: 4,
+                          paddingVertical: 0,
+                        }}
+                      />
+                    </Pressable>
+                  </VStack>
 
-                <Pressable
-                  onPress={() => void onSecureLogin()}
-                  disabled={loading}
-                  className="active:opacity-90 overflow-hidden"
-                  style={{
-                    borderRadius: 12,
-                    marginTop: 4,
-                    shadowColor: LOGIN_BLUE,
-                    shadowOffset: { width: 0, height: 8 },
-                    shadowOpacity: 0.32,
-                    shadowRadius: 14,
-                    elevation: 5,
-                  }}
-                >
-                  <LinearGradient
-                    colors={['#0B2F8A', '#1A56DB', '#3B82F6']}
-                    locations={[0, 0.45, 1]}
-                    start={{ x: 0, y: 0.5 }}
-                    end={{ x: 1, y: 0.5 }}
+                  <VStack style={{ gap: 5 }}>
+                    <Text
+                      style={{
+                        fontFamily: FONTS.bold,
+                        fontSize: 12,
+                        color: LOGIN_LABEL,
+                        letterSpacing: 0.8,
+                      }}
+                    >
+                      PASSWORD
+                    </Text>
+                    <Pressable
+                      onPress={() => passwordRef.current?.focus()}
+                      style={{
+                        height: 52,
+                        borderRadius: 14,
+                        borderWidth: 1.5,
+                        borderColor: focusedInput === 'password' ? LOGIN_BLUE : LOGIN_BORDER,
+                        backgroundColor: '#FFFFFF',
+                        paddingHorizontal: 12,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 10,
+                      }}
+                    >
+                      <Box
+                        pointerEvents="none"
+                        className="items-center justify-center"
+                        style={{
+                          width: 34,
+                          height: 34,
+                          borderRadius: 10,
+                          backgroundColor: '#E8F0FE',
+                        }}
+                      >
+                        <Lock size={18} color={LOGIN_BLUE} strokeWidth={2.2} />
+                      </Box>
+                      <TextInput
+                        ref={passwordRef}
+                        value={password}
+                        onChangeText={setPassword}
+                        onFocus={() => {
+                          setFocusedInput('password');
+                          scrollFormIntoView();
+                        }}
+                        onBlur={() => setFocusedInput(null)}
+                        secureTextEntry={!showPassword}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        autoComplete="off"
+                        placeholder="Enter password"
+                        placeholderTextColor={LOGIN_MUTED}
+                        returnKeyType="go"
+                        onSubmitEditing={() => void onSecureLogin()}
+                        style={{
+                          flex: 1,
+                          height: '100%',
+                          fontFamily: FONTS.medium,
+                          fontSize: 14,
+                          color: LOGIN_NAVY,
+                          paddingRight: 4,
+                          paddingVertical: 0,
+                        }}
+                      />
+                      <Pressable
+                        onPress={() => setShowPassword((v) => !v)}
+                        className="h-9 w-9 items-center justify-center rounded-full active:opacity-70"
+                      >
+                        {showPassword ? (
+                          <EyeOff size={18} color="#94A3B8" />
+                        ) : (
+                          <Eye size={18} color="#94A3B8" />
+                        )}
+                      </Pressable>
+                    </Pressable>
+                  </VStack>
+
+                  {error ? (
+                    <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: '#DC2626' }}>
+                      {error}
+                    </Text>
+                  ) : null}
+
+                  <HStack className="items-center justify-between" style={{ marginTop: 2 }}>
+                    <Checkbox
+                      value="remember"
+                      isChecked={remember}
+                      onChange={(v) => setRemember(!!v)}
+                    >
+                      <CheckboxIndicator
+                        style={{
+                          borderColor: remember ? LOGIN_BLUE : '#CBD5E1',
+                          backgroundColor: remember ? LOGIN_BLUE : '#FFFFFF',
+                          borderRadius: 4,
+                        }}
+                      >
+                        <CheckboxIcon as={CheckIcon} />
+                      </CheckboxIndicator>
+                      <CheckboxLabel
+                        style={{
+                          fontFamily: FONTS.medium,
+                          fontSize: 12,
+                          color: '#0F172A',
+                          marginLeft: 4,
+                        }}
+                      >
+                        Remember this device
+                      </CheckboxLabel>
+                    </Checkbox>
+
+                    <Pressable className="active:opacity-70">
+                      <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: LOGIN_BLUE }}>
+                        Forgot Password?
+                      </Text>
+                    </Pressable>
+                  </HStack>
+
+                  <Pressable
+                    onPress={() => void onSecureLogin()}
+                    disabled={loading}
+                    className="active:opacity-90 overflow-hidden"
                     style={{
-                      height: 52,
                       borderRadius: 12,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                      paddingHorizontal: 16,
+                      marginTop: 4,
+                      shadowColor: LOGIN_BLUE,
+                      shadowOffset: { width: 0, height: 8 },
+                      shadowOpacity: 0.32,
+                      shadowRadius: 14,
+                      elevation: 5,
                     }}
                   >
-                    {loading ? (
-                      <ActivityIndicator color="#FFFFFF" size="small" />
-                    ) : (
-                      <>
-                        <Text style={{ fontFamily: FONTS.bold, fontSize: 16, color: '#FFFFFF' }}>
-                          Secure Login
-                        </Text>
-                        <ArrowRight size={18} color="#FFFFFF" strokeWidth={2.6} />
-                      </>
-                    )}
-                  </LinearGradient>
-                </Pressable>
-              </VStack>
+                    <LinearGradient
+                      colors={['#0B2F8A', '#1A56DB', '#3B82F6']}
+                      locations={[0, 0.45, 1]}
+                      start={{ x: 0, y: 0.5 }}
+                      end={{ x: 1, y: 0.5 }}
+                      style={{
+                        height: 52,
+                        borderRadius: 12,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        paddingHorizontal: 16,
+                      }}
+                    >
+                      <Text style={{ fontFamily: FONTS.bold, fontSize: 16, color: '#FFFFFF' }}>
+                        Secure Login
+                      </Text>
+                      <ArrowRight size={18} color="#FFFFFF" strokeWidth={2.6} />
+                    </LinearGradient>
+                  </Pressable>
+                </VStack>
+              )}
             </Animated.View>
 
             {!keyboardOpen ? (
@@ -1919,7 +1919,7 @@ export function PermissionScreen({ go }: { go: Go }) {
                   textAlign: 'center',
                 }}
               >
-                Enable Location Access
+                Enable The Location Access
               </Text>
               <Text
                 style={{
