@@ -495,7 +495,7 @@ export function ZcHomeScreen({ go }: { go: Go }) {
           />
 
           {loading ? (
-            <ListLoader text="Loading ZC applications…" />
+            <ListLoader minHeight={200} />
           ) : filtered.length === 0 ? (
             <Box
               className="rounded-2xl border border-dashed px-4 py-8 mt-3"
@@ -594,6 +594,8 @@ function Field({
   leftIcon: LeftIcon,
   accent = 'blue',
   fontSize = 15,
+  labelFontSize = 14,
+  labelStyle,
   editable = true,
 }: {
   label: string;
@@ -615,6 +617,9 @@ function Field({
   accent?: keyof typeof ACCENT;
   /** Input + placeholder text size (default 15). */
   fontSize?: number;
+  /** Label font size (default 14). */
+  labelFontSize?: number;
+  labelStyle?: object;
   /** When false, field is frozen (no cursor / keyboard). */
   editable?: boolean;
 }) {
@@ -627,13 +632,17 @@ function Field({
     <VStack style={[{ marginBottom: 0 }, style]}>
       {label.trim() ? (
         <Text
-          style={{
-            fontFamily: FONTS.bold,
-            fontSize: 15,
-            color: '#1A368E',
-            marginBottom: 7,
-            letterSpacing: 0.1,
-          }}
+          numberOfLines={1}
+          style={[
+            {
+              fontFamily: FONTS.bold,
+              fontSize: labelFontSize,
+              color: '#1A368E',
+              marginBottom: 7,
+              letterSpacing: -0.2,
+            },
+            labelStyle,
+          ]}
         >
           {label}
           {required ? <Text style={{ color: COLORS.destructive, fontFamily: FONTS.bold }}> *</Text> : null}
@@ -1295,7 +1304,8 @@ export function ZcCreateScreen({ go }: { go: Go }) {
 
   return (
     <ScreenShell className="bg-background">
-      <Box style={{ flex: 1, backgroundColor: '#F0F4F8' }}>
+      <BdaPageWatermark />
+      <Box style={{ flex: 1, backgroundColor: 'transparent' }}>
       {headerCompact ? (
         <Box
           pointerEvents="box-none"
@@ -1327,7 +1337,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
         <ScrollView
           key={themeId}
           ref={scrollRef}
-          style={{ flex: 1, backgroundColor: '#F0F4F8' }}
+          style={{ flex: 1, backgroundColor: 'transparent' }}
           contentContainerStyle={{
             // Extra space so Comments can scroll above the keyboard.
             // Android uses softwareKeyboardLayoutMode "resize" — use a capped
@@ -1362,9 +1372,11 @@ export function ZcCreateScreen({ go }: { go: Go }) {
             zone={zone?.zoneCode}
             title={createTitle}
           />
-          <Box style={{ gap: 12, paddingTop: 4 }}>
-          {loading ? (
-            <ScreenLoader text="Loading zone configuration…" minHeight={180} />
+          <Box style={{ gap: 12, paddingTop: 4, flex: 1 }}>
+          {loading || saving ? (
+            <Box style={{ flex: 1, minHeight: 380, justifyContent: 'center', alignItems: 'center' }}>
+              <ScreenLoader minHeight={340} />
+            </Box>
           ) : zoneError ? (
             <Box
               className="mx-4 rounded-2xl border px-4 py-4"
@@ -1736,7 +1748,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                       label="Block/Stage/Phase"
                       required
                       placeholder="e.g. Block 1"
-                      fontSize={12}
+                      labelFontSize={14}
                       leftIcon={Building2}
                       accent="green"
                       value={form.addressBlock}
@@ -1752,6 +1764,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                   <View style={{ flex: 1 }}>
                     <Field
                       label="City"
+                      labelFontSize={14}
                       leftIcon={Building2}
                       accent="green"
                       value={form.addressCity || addressDefaults?.city || ''}
@@ -2214,15 +2227,15 @@ export function ZcDetailScreen({ go }: { go: Go }) {
           <Box
             style={{
               flexGrow: 1,
-              backgroundColor: COLORS.white,
-              borderTopLeftRadius: 28,
-              borderTopRightRadius: 28,
+              backgroundColor: 'transparent',
               paddingTop: 16,
               gap: 12,
             }}
           >
         {loading ? (
-          <ScreenLoader text="Loading application details…" />
+          <Box style={{ flex: 1, minHeight: 380, justifyContent: 'center', alignItems: 'center' }}>
+            <ScreenLoader minHeight={340} />
+          </Box>
         ) : error || !app ? (
           <Box className="mx-4 rounded-2xl border px-4 py-6" style={{ borderColor: `${COLORS.destructive}40`, backgroundColor: `${COLORS.destructive}0D` }}>
             <Text style={{ color: COLORS.destructive, fontFamily: FONTS.medium, fontSize: 13, textAlign: 'center' }}>

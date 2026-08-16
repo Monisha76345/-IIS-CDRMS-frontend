@@ -24,7 +24,7 @@ import { Pressable } from '@/components/ui/pressable';
 import { ScrollView } from '@/components/ui/scroll-view';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import { ScreenShell } from '@/src/cdrms/components/primitives';
+import { ScreenShell, ScreenLoader, useMinimumLoading } from '@/src/cdrms/components/primitives';
 import { BdaPageWatermark } from '@/src/cdrms/components/WelcomeHomeChrome';
 import { HeaderMeshBackground, MeshSheetEdge, WaveSheetEdge } from '@/src/cdrms/components/WaveDecor';
 import { useHardwareBack } from '@/src/cdrms/hooks/useHardwareBack';
@@ -1040,6 +1040,7 @@ export function SurveyScaffold({
   onStepNav,
   hero,
   showHeroArt = true,
+  loading,
 }: {
   title: string;
   subtitle: string;
@@ -1060,6 +1061,7 @@ export function SurveyScaffold({
   hero?: ReactNode;
   /** City/pin illustration on premium headers (off for Validate). */
   showHeroArt?: boolean;
+  loading?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const [compact, setCompact] = useState(false);
@@ -1067,6 +1069,7 @@ export function SurveyScaffold({
   const keyboardOpenRef = useRef(false);
   const isPremium = surface === 'premium';
   const { themeId } = useTheme();
+  const pageLoading = useMinimumLoading(loading !== undefined ? loading : true, 300);
   /** Device back button mirrors the survey header back control. */
   useHardwareBack(onBack);
 
@@ -1202,13 +1205,19 @@ export function SurveyScaffold({
                 style={{
                   gap: isPremium ? (showSteps ? 8 : 8) : DESIGN.sectionGap,
                   paddingTop: isPremium ? (showSteps ? 10 : 4) : Math.max(14, DESIGN.headerCardGap ?? 14),
-                  backgroundColor: isPremium ? '#F0F4F8' : COLORS.soft,
+                  backgroundColor: 'transparent',
                   paddingBottom: isPremium ? (showSteps ? 8 : 4) : DESIGN.sectionGap,
                 }}
               >
-                <Box style={{ gap: isPremium ? (showSteps ? 6 : 8) : DESIGN.sectionGap }}>
-                  {children}
-                </Box>
+                {pageLoading ? (
+                  <Box style={{ minHeight: 360, justifyContent: 'center', alignItems: 'center' }}>
+                    <ScreenLoader minHeight={340} />
+                  </Box>
+                ) : (
+                  <Box style={{ gap: isPremium ? (showSteps ? 6 : 8) : DESIGN.sectionGap }}>
+                    {children}
+                  </Box>
+                )}
               </Box>
             </View>
           </TouchableWithoutFeedback>

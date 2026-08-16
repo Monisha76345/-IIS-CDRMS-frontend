@@ -27,7 +27,7 @@ export type ScreenLoaderMeta = {
   color: string
 }
 
-/** Kept for callers that still look up screen meta; UI no longer shows title/text. */
+/** Kept for callers that still look up screen meta. */
 export function getScreenLoaderConfig(screen: Screen): ScreenLoaderMeta {
   switch (screen) {
     case 'zc_home':
@@ -163,6 +163,10 @@ export function getScreenLoaderConfig(screen: Screen): ScreenLoaderMeta {
   }
 }
 
+// ─────────────────────────────────────────────
+// Clean Spinners for Page & Section Content
+// ─────────────────────────────────────────────
+
 interface ScreenLoaderProps {
   text?: string
   title?: string
@@ -174,11 +178,11 @@ interface ScreenLoaderProps {
   icon?: LucideIcon
 }
 
-/** Spinner only — no card, icon, title, or loading text. */
+/** Pure spinner loader inside content area — centered, clean, fast. */
 export function ScreenLoader({
   color = COLORS.primary,
   size = 'large',
-  minHeight = 280,
+  minHeight = 340,
   fullScreen = false,
 }: ScreenLoaderProps) {
   if (fullScreen) {
@@ -193,7 +197,10 @@ export function ScreenLoader({
   }
 
   return (
-    <VStack className="items-center justify-center" style={{ minHeight }}>
+    <VStack
+      className="items-center justify-center"
+      style={{ minHeight, flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 40 }}
+    >
       <ActivityIndicator size={size} color={color} />
     </VStack>
   )
@@ -202,16 +209,30 @@ export function ScreenLoader({
 interface ListLoaderProps {
   count?: number
   text?: string
+  color?: string
+  minHeight?: number
 }
 
-/** Spinner only — no skeleton cards or loading text. */
-export function ListLoader(_props: ListLoaderProps = {}) {
+/** List content area spinner — centered. */
+export function ListLoader({
+  color = COLORS.primary,
+  minHeight = 280,
+}: ListLoaderProps = {}) {
   return (
-    <VStack className="items-center justify-center" style={{ minHeight: 160, paddingVertical: 24 }}>
-      <ActivityIndicator size="large" color={COLORS.primary} />
+    <VStack
+      className="items-center justify-center"
+      style={{ minHeight, flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 40 }}
+    >
+      <ActivityIndicator size="large" color={color} />
     </VStack>
   )
 }
+
+/** Aliases for compatibility */
+export const CardSkeleton = ListLoader
+export const ListSkeleton = ListLoader
+export const ProfileSkeleton = ScreenLoader
+export const DetailSkeleton = ScreenLoader
 
 interface ButtonLoaderProps {
   color?: string
@@ -223,10 +244,10 @@ export function ButtonLoader({ color = '#FFFFFF', size = 'small' }: ButtonLoader
 }
 
 /**
- * Hook to enforce a minimum 500ms (0.5s) loading state duration
- * so loading indicators display smoothly before revealing screen data.
+ * Hook to enforce a minimum loading state duration (default 350ms)
+ * so the page spinner displays smoothly upon page navigation.
  */
-export function useMinimumLoading(initialLoading = true, minTimeMs = 500) {
+export function useMinimumLoading(initialLoading = true, minTimeMs = 350) {
   const [loading, setLoading] = useState(initialLoading)
 
   useEffect(() => {

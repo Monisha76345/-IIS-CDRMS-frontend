@@ -25,7 +25,7 @@ import { VStack } from '@/components/ui/vstack';
 import { GpsSiteCard } from '@/src/cdrms/components/GpsSiteCard';
 import { BoundariesDiagram } from '@/src/cdrms/components/BoundariesDiagram';
 import { EngineerStickyHeader } from '@/src/cdrms/components/EngineerStickyHeader';
-import { Field, ButtonLoader } from '@/src/cdrms/components/primitives';
+import { Field, ButtonLoader, useMinimumLoading } from '@/src/cdrms/components/primitives';
 import {
   SectionTitle,
   SurveyCard,
@@ -234,6 +234,7 @@ export function ProjectScreen({ go }: { go: Go }) {
   const autoStarted = useRef(false);
   const isResubmit = Boolean(draft.resubmitOfId);
   const isBackendTask = Boolean(draft.backendApplicationId);
+  const pageLoading = useMinimumLoading(true, 300);
   const [stepSaving, setStepSaving] = useState(false);
   // Keep loader up until GPS + auto-filled fields are written — not just while GPS fetches.
   const willAutoFill = !isResubmit && !isBackendTask && !draft.surveyNo.trim();
@@ -290,14 +291,8 @@ export function ProjectScreen({ go }: { go: Go }) {
             ? TERMS.workflow.fixResubmit
             : TERMS.workflow.newApplication
       }
-      // subtitle={
-      //   isBackendTask
-      //     ? 'View only · assigned by Zone Commissioner'
-      //     : isResubmit
-      //       ? TERMS.workflow.fixResubmitSubtitle
-      //       : TERMS.workflow.newApplicationSubtitle
-      // }
       surface={isBackendTask ? 'premium' : 'default'}
+      loading={pageLoading || stepSaving}
       onBack={() => {
         go(isResubmit || isBackendTask ? 'history' : 'dashboard', { replace: true });
         if (isBackendTask) {

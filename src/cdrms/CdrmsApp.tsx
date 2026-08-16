@@ -50,7 +50,6 @@ import {
 } from '@/src/cdrms/screens/ZcScreens';
 import type { ErrorNavState, Go, Screen } from '@/src/cdrms/types';
 import { AppDialogHost } from '@/src/cdrms/components/AppDialog';
-import { ScreenLoader } from '@/src/cdrms/components/primitives';
 import { useHardwareBackFallback } from '@/src/cdrms/hooks/useHardwareBack';
 
 /** Role homes / auth entry — don't keep prior screens behind these. */
@@ -71,58 +70,6 @@ const AUTH_SCREENS: ReadonlySet<Screen> = new Set([
   'permission',
   'geo',
 ]);
-
-/** In-flow survey steps — no full-screen transition spinner (feels like a reload). */
-const SURVEY_FLOW_SCREENS: ReadonlySet<Screen> = new Set([
-  'project',
-  'bandi',
-  'dimensions',
-  'directions',
-  'surroundings',
-  'photos',
-  'video',
-  'validate',
-  'review',
-]);
-
-function ScreenTransitionWrapper({
-  screen,
-  children,
-}: {
-  screen: Screen;
-  children: React.ReactNode;
-}) {
-  const [transitioning, setTransitioning] = useState(false);
-  const isAuthScreen = AUTH_SCREENS.has(screen);
-  const isSurveyFlowScreen = SURVEY_FLOW_SCREENS.has(screen);
-
-  useEffect(() => {
-    if (isAuthScreen || isSurveyFlowScreen) {
-      setTransitioning(false);
-      return;
-    }
-    setTransitioning(true);
-    const timer = setTimeout(() => {
-      setTransitioning(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [screen, isAuthScreen, isSurveyFlowScreen]);
-
-  return (
-    <Box className="flex-1">
-      {children}
-      {transitioning && !isAuthScreen ? (
-        <Box
-          className="absolute inset-0 items-center justify-center"
-          style={{ backgroundColor: '#FFFFFF', zIndex: 50 }}
-          pointerEvents="auto"
-        >
-          <ScreenLoader fullScreen />
-        </Box>
-      ) : null}
-    </Box>
-  );
-}
 
 export function CdrmsApp() {
   const { isAuthenticated, touchSession, user } = useAuth();
@@ -313,11 +260,9 @@ export function CdrmsApp() {
     <ProjectProvider>
       <Box className="flex-1 bg-background">
         <ErrorBoundary go={go}>
-          <ScreenTransitionWrapper screen={screen}>
-            <Box key={screen} className="flex-1">
-              {rendered}
-            </Box>
-          </ScreenTransitionWrapper>
+          <Box key={screen} className="flex-1">
+            {rendered}
+          </Box>
         </ErrorBoundary>
         <AppDialogHost />
       </Box>

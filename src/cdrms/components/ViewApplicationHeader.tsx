@@ -16,6 +16,7 @@ import { ScrollView } from '@/components/ui/scroll-view';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { FONTS, SPACE } from '@/src/cdrms/theme';
+import { BdaPageWatermark } from '@/src/cdrms/components/WelcomeHomeChrome';
 
 const VIEW_APP_HERO = require('../../../assets/illustrations/view-application-hero-v4.png');
 const COMPACT_SCROLL_THRESHOLD = 48;
@@ -221,7 +222,8 @@ export function ViewApplicationScroll({
   };
 
   return (
-    <Box style={{ flex: 1, backgroundColor: '#F0F4F8' }}>
+    <Box style={{ flex: 1, backgroundColor: 'transparent' }}>
+      <BdaPageWatermark />
       {compact ? (
         <Box
           pointerEvents="box-none"
@@ -240,7 +242,7 @@ export function ViewApplicationScroll({
 
       <ScrollView
         key={scrollKey}
-        style={{ flex: 1, backgroundColor: '#F0F4F8' }}
+        style={{ flex: 1, backgroundColor: 'transparent' }}
         contentContainerStyle={[{ flexGrow: 1 }, contentContainerStyle]}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}

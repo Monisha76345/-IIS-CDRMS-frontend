@@ -36,14 +36,11 @@ import type { Go } from '@/src/cdrms/types';
 
 const BDA_BUILDING = require('../../../assets/bda-building.png');
 
-/** Soft transparent BDA seal behind Welcome / list pages (all themes). */
+/** Soft transparent BDA seal behind Welcome / list / survey / profile pages. */
 export function BdaPageWatermark() {
-  const { width, height } = useWindowDimensions();
-  const size = Math.min(width * 0.88, 360);
-  const opacity = usesLightHeader() ? 0.16 : 0.14;
-  // Keep well below the welcome header and above the solid footer bar.
-  const topPad = Math.max(220, height * 0.28);
-  const bottomPad = 110;
+  const { width } = useWindowDimensions();
+  const size = Math.min(width * 0.82, 330);
+  const opacity = 0.22;
   return (
     <Box
       pointerEvents="none"
@@ -51,12 +48,11 @@ export function BdaPageWatermark() {
         position: 'absolute',
         left: 0,
         right: 0,
-        top: topPad,
-        bottom: bottomPad,
+        top: 0,
+        bottom: 0,
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: -1,
-        elevation: -1,
+        zIndex: 0,
       }}
     >
       <Image

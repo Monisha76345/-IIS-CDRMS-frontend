@@ -268,16 +268,20 @@ export function ApplicationDetailsScreen({ go }: { go: Go }) {
 
   if (isLoading) {
     return (
-      <ScreenShell className="bg-[#F3F4F6]">
+      <ScreenShell className="bg-background">
+        <BdaPageWatermark />
         <AppHeader title="Application" subtitle="Loading details…" onBack={back} go={go} showLogout={false} showNotifications={false} />
-        <ScreenLoader text="Fetching application record particulars…" minHeight={320} />
+        <Box style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ScreenLoader minHeight={340} />
+        </Box>
       </ScreenShell>
     );
   }
 
   if (!detail) {
     return (
-      <ScreenShell className="bg-[#F3F4F6]">
+      <ScreenShell className="bg-background">
+        <BdaPageWatermark />
         <AppHeader title="Application" subtitle="Not found" onBack={back} go={go} showLogout={false} showNotifications={false} />
         <VStack className="flex-1 items-center justify-center px-8">
           <Text className="font-bold text-foreground">Application not found</Text>
@@ -304,7 +308,7 @@ export function ApplicationDetailsScreen({ go }: { go: Go }) {
 
       <ScrollView
         className="flex-1"
-        style={{ zIndex: 1, backgroundColor: '#F7FAFF' }}
+        style={{ zIndex: 1, backgroundColor: 'transparent' }}
         contentContainerStyle={{ paddingBottom: 48 }}
         showsVerticalScrollIndicator={false}
       >

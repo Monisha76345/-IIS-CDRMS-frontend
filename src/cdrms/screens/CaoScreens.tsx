@@ -329,7 +329,7 @@ export function CaoHomeScreen({ go }: { go: Go }) {
           />
 
           {loading ? (
-            <ListLoader text="Loading CAO applications…" />
+            <ListLoader minHeight={200} />
           ) : filtered.length === 0 ? (
             <Box
               className="rounded-2xl border border-dashed px-4 py-8 mt-3"
@@ -446,7 +446,8 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
   }, [apps, tab, q]);
 
   return (
-    <ScreenShell key={themeId} className="bg-[#F8FAFC]">
+    <ScreenShell key={themeId} className="bg-background">
+      <BdaPageWatermark />
       <Box style={{ flex: 1 }}>
         {/* Sticky Applications header + search */}
         <Box
@@ -496,7 +497,7 @@ export function CaoApplicationsScreen({ go }: { go: Go }) {
         keyboardShouldPersistTaps="handled"
       >
         {loading ? (
-          <ListLoader text="Loading all CAO applications…" />
+          <ListLoader minHeight={220} />
         ) : filtered.length === 0 ? (
           <Box
             style={{
@@ -614,15 +615,15 @@ export function CaoDetailScreen({ go }: { go: Go }) {
           <Box
             style={{
               flexGrow: 1,
-              backgroundColor: COLORS.white,
-              borderTopLeftRadius: 28,
-              borderTopRightRadius: 28,
+              backgroundColor: 'transparent',
               paddingTop: 12,
               gap: 8,
             }}
           >
           {loading ? (
-            <ScreenLoader text="Loading application details…" />
+            <Box style={{ flex: 1, minHeight: 380, justifyContent: 'center', alignItems: 'center' }}>
+              <ScreenLoader minHeight={340} />
+            </Box>
           ) : error || !app ? (
             <Box
               className="mx-4 rounded-2xl border px-4 py-6"
