@@ -15,6 +15,7 @@ import { showAppDialog } from '@/src/cdrms/components/AppDialog';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
 import { DIRECTION_META, type Cardinal } from '@/src/cdrms/project/types';
 import { PremiumStepCard } from '@/src/cdrms/components/SurveyLayout';
+import { ButtonLoader } from '@/src/cdrms/components/loaders';
 import { CARDINAL_ACCENT, COLORS, FONTS, DESIGN, hexAlpha } from '@/src/cdrms/theme';
 
 const BLUE_SOFT = '#EEF4FF';
@@ -29,11 +30,14 @@ export function SchedulesEditorCard() {
   const { draft, setDirection, setRoadFlag, setSurroundingPhoto, clearSurroundingPhoto } =
     useProject();
   const [clearing, setClearing] = useState<Cardinal | null>(null);
+  const [uploadingSide, setUploadingSide] = useState<Cardinal | null>(null);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState('Photo preview');
 
   const pickForSide = (k: Cardinal) => {
     void (async () => {
+      if (uploadingSide) return;
+      setUploadingSide(k);
       try {
         const asset = await captureSitePhoto({
           title: `Take ${DIRECTION_META[k].label} photo`,
@@ -41,6 +45,8 @@ export function SchedulesEditorCard() {
         if (asset) await setSurroundingPhoto(k, asset);
       } catch (err) {
         alertDraftError(err);
+      } finally {
+        setUploadingSide(null);
       }
     })();
   };
@@ -212,7 +218,7 @@ export function SchedulesEditorCard() {
                     onLongPress={() => {
                       if (photo) pickForSide(k);
                     }}
-                    disabled={isClearing}
+                    disabled={isClearing || uploadingSide === k}
                     className="active:opacity-85 overflow-hidden"
                     style={{
                       width: 48,
@@ -230,7 +236,9 @@ export function SchedulesEditorCard() {
                         : `Upload ${DIRECTION_META[k].label} photo`
                     }
                   >
-                    {photo ? (
+                    {uploadingSide === k || clearing === k ? (
+                      <ButtonLoader size="small" color={accent} />
+                    ) : photo ? (
                       <Box className="w-full h-full relative">
                         <ApiMediaImage
                           uri={photo.uri}
@@ -257,7 +265,7 @@ export function SchedulesEditorCard() {
                       <Camera size={18} color={accent} />
                     )}
                   </Pressable>
-                  {photo ? (
+                  {photo && clearing !== k ? (
                     <Pressable
                       onPress={() => removePhoto(k)}
                       disabled={isClearing}

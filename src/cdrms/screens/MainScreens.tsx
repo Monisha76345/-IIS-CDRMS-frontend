@@ -54,6 +54,7 @@ import {
   statusChipColors,
   ListLoader,
   ScreenLoader,
+  ButtonLoader,
   useMinimumLoading,
 } from '@/src/cdrms/components/primitives';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
@@ -1733,13 +1734,24 @@ export function ProfileScreen({ go }: { go: Go }) {
       cancelLabel: 'Cancel',
       confirmLabel: 'Delete',
       onConfirm: () => {
+        setPreviewModalOpen(false);
+        setSavingPhoto(true);
         void (async () => {
           try {
-            setSavingPhoto(true);
-            await updateProfilePhoto(null);
-            setSavingPhoto(false);
-            setPreviewModalOpen(false);
-          } catch {
+            await Promise.all([
+              updateProfilePhoto(null),
+              new Promise((r) => setTimeout(r, 400)),
+            ]);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Unable to remove profile photo';
+            showAppDialog({
+              variant: 'error',
+              title: 'Failed',
+              message: msg,
+              hideCancel: true,
+              confirmLabel: 'OK',
+            });
+          } finally {
             setSavingPhoto(false);
           }
         })();
@@ -1889,7 +1901,9 @@ export function ProfileScreen({ go }: { go: Go }) {
                 justifyContent: 'center',
               }}
             >
-              {profilePhoto ? (
+              {savingPhoto ? (
+                <ButtonLoader size="small" color={COLORS.white} />
+              ) : profilePhoto ? (
                 <Image
                   source={{ uri: profilePhoto }}
                   style={{ width: '100%', height: '100%' }}
@@ -1986,34 +2000,52 @@ export function ProfileScreen({ go }: { go: Go }) {
                 resizeMode="cover"
               />
             </Box>
-            <HStack className="items-center" style={{ gap: 10, zIndex: 1 }}>
-              <Box
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 12,
-                  backgroundColor: COLORS.primary,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Camera size={16} color={COLORS.white} strokeWidth={2.4} />
-              </Box>
-              <VStack style={{ gap: 2 }}>
-                <Text style={{ fontFamily: FONTS.bold, fontSize: 17, color: '#0F172A' }}>
-                  Profile Photo
-                </Text>
-                {/* <Text
+            <HStack className="items-center justify-between" style={{ zIndex: 1, width: '100%' }}>
+              <HStack className="items-center" style={{ gap: 10 }}>
+                <Box
                   style={{
-                    fontFamily: FONTS.semibold,
-                    fontSize: 12,
-                    color: '#475569',
-                    lineHeight: 16,
+                    width: 36,
+                    height: 36,
+                    borderRadius: 12,
+                    backgroundColor: COLORS.primary,
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                 >
-                  {profilePhoto ? 'Last updated' : 'Add a photo'}
-                </Text> */}
-              </VStack>
+                  <Camera size={16} color={COLORS.white} strokeWidth={2.4} />
+                </Box>
+                <VStack style={{ gap: 2 }}>
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 17, color: '#0F172A' }}>
+                    Profile Photo
+                  </Text>
+                </VStack>
+              </HStack>
+
+              {zone && zone !== '—' ? (
+                <HStack
+                  className="items-center"
+                  style={{
+                    gap: 4,
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    borderRadius: 999,
+                    backgroundColor: hexAlpha('#1A368E', 0.08),
+                    borderWidth: 1,
+                    borderColor: hexAlpha('#1A368E', 0.2),
+                  }}
+                >
+                  <MapPin size={12} color="#1A368E" strokeWidth={2.4} />
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: 12,
+                      color: '#1A368E',
+                    }}
+                  >
+                    {zone}
+                  </Text>
+                </HStack>
+              ) : null}
             </HStack>
           </Box>
 
@@ -2040,7 +2072,9 @@ export function ProfileScreen({ go }: { go: Go }) {
                     borderColor: COLORS.primary,
                   }}
                 >
-                  {profilePhoto ? (
+                  {savingPhoto ? (
+                    <ButtonLoader size="small" color={COLORS.white} />
+                  ) : profilePhoto ? (
                     <Image
                       source={{ uri: profilePhoto }}
                       style={{ width: '100%', height: '100%' }}
@@ -2078,14 +2112,15 @@ export function ProfileScreen({ go }: { go: Go }) {
             </Box>
 
             <VStack style={{ flex: 1, minWidth: 0, gap: 5 }}>
-              <HStack className="items-center" style={{ gap: 8, flexWrap: 'wrap' }}>
+              <HStack className="items-center justify-between" style={{ gap: 6, minWidth: 0, width: '100%' }}>
                 <Text
                   style={{
                     fontFamily: FONTS.bold,
                     fontSize: 16,
                     lineHeight: 21,
                     color: '#1A368E',
-                    flexShrink: 1,
+                    flex: 1,
+                    minWidth: 0,
                   }}
                   numberOfLines={1}
                 >
@@ -2095,9 +2130,9 @@ export function ProfileScreen({ go }: { go: Go }) {
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
-                    gap: 4,
-                    paddingHorizontal: 8,
-                    paddingVertical: 3,
+                    gap: 3,
+                    paddingHorizontal: 5,
+                    paddingVertical: 1.5,
                     borderRadius: 999,
                     backgroundColor: '#ECFDF5',
                     borderWidth: 1,
@@ -2107,63 +2142,61 @@ export function ProfileScreen({ go }: { go: Go }) {
                 >
                   <Box
                     style={{
-                      width: 6,
-                      height: 6,
+                      width: 4.5,
+                      height: 4.5,
                       borderRadius: 3,
                       backgroundColor: '#22C55E',
                     }}
                   />
-                  <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#047857' }}>
+                  <Text style={{ fontFamily: FONTS.bold, fontSize: 9.5, color: '#047857' }}>
                     Active
                   </Text>
                 </Box>
               </HStack>
               <HStack className="items-center" style={{ gap: 4, minWidth: 0 }}>
-                <MapPin size={11} color="#1A368E" strokeWidth={2.4} />
                 <Text
                   style={{
                     fontFamily: FONTS.semibold,
-                    fontSize: 11,
-                    color: '#1A368E',
-                    lineHeight: 14,
+                    fontSize: 13,
+                    color: '#475569',
+                    lineHeight: 17,
                     flex: 1,
                     minWidth: 0,
                   }}
                   numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.75}
                 >
                   {roleTitle}
-                  {zone !== '—' ? ` · ${zone}` : ''}
                 </Text>
               </HStack>
-              <HStack className="items-center" style={{ gap: 5 }}>
-                <Shield size={12} color="#1A368E" strokeWidth={2.4} />
-                <Text
-                  style={{ fontFamily: FONTS.semibold, fontSize: 12, color: '#475569' }}
-                  numberOfLines={1}
-                >
-                  Login ID
-                </Text>
+              <VStack style={{ gap: 2, minWidth: 0 }}>
+                <HStack className="items-center" style={{ gap: 4 }}>
+                  <Shield size={12} color="#1A368E" strokeWidth={2.4} />
+                  <Text
+                    style={{ fontFamily: FONTS.semibold, fontSize: 12, color: '#475569' }}
+                    numberOfLines={1}
+                  >
+                    Login ID:
+                  </Text>
+                </HStack>
                 <Text
                   style={{
                     fontFamily: FONTS.bold,
                     fontSize: 14,
                     color: '#1A368E',
-                    flex: 1,
+                    paddingLeft: 16,
                   }}
                   numberOfLines={1}
                 >
                   {loginId}
                 </Text>
-              </HStack>
+              </VStack>
             </VStack>
 
             <Box
               pointerEvents="none"
               style={{
-                width: 64,
-                height: 64,
+                width: 52,
+                height: 52,
                 flexShrink: 0,
               }}
             >

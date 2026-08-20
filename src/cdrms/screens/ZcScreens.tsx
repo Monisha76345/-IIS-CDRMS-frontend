@@ -2269,7 +2269,7 @@ export function ZcDetailScreen({ go }: { go: Go }) {
                   >
                     <FilePenLine size={16} color={COLORS.white} strokeWidth={2.4} />
                     <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: COLORS.white }}>
-                      Edit draft
+                      Edit Application
                     </Text>
                   </LinearGradient>
                 </Pressable>
