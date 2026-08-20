@@ -256,7 +256,7 @@ export function DimensionsScreen({ go }: { go: Go }) {
   const typeTone =
     measuredType === 'Even' ? 'green' : measuredType === 'Odd' ? 'orange' : 'blue';
   const typeLabel =
-    !measuredType || measuredType === '—' ? 'Enter dims' : measuredType === 'Odd' ? 'Odd' : 'Even';
+    !measuredType ? 'Enter dims' : measuredType === 'Odd' ? 'Odd' : 'Even';
 
   return (
     <SurveyScaffold
@@ -264,7 +264,7 @@ export function DimensionsScreen({ go }: { go: Go }) {
       title="Site Dimension Sketch"
       subtitle="N / S / E / W · live plot updates"
       surface="premium"
-      loading={pageLoading || stepSaving}
+      loading={pageLoading}
       onBack={() => {
         go('bandi', { replace: true });
         void reloadBackendDraft().catch(() => undefined);

@@ -9,6 +9,7 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
 import { PremiumStepCard } from '@/src/cdrms/components/SurveyLayout';
+import { ButtonLoader } from '@/src/cdrms/components/loaders';
 import { createDummyVideoAsset } from '@/src/cdrms/hooks/dummyMedia';
 import { captureVideo, useDummyCapture } from '@/src/cdrms/hooks/useMediaCapture';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
@@ -39,6 +40,7 @@ function formatDuration(ms?: number | null) {
 export function SiteVideoCaptureCard() {
   const { draft, setVideo } = useProject();
   const [busy, setBusy] = useState(false);
+  const [deletingVideo, setDeletingVideo] = useState(false);
   const simDummy = useDummyCapture();
 
   const recordedLabel = draft.video
@@ -50,6 +52,18 @@ export function SiteVideoCaptureCard() {
         minute: '2-digit',
       })
     : '';
+
+  const removeVideo = async () => {
+    if (deletingVideo) return;
+    setDeletingVideo(true);
+    try {
+      await setVideo(null);
+    } catch (err) {
+      alertDraftError(err);
+    } finally {
+      setDeletingVideo(false);
+    }
+  };
 
   const record = async () => {
     if (busy) return;
@@ -155,10 +169,14 @@ export function SiteVideoCaptureCard() {
                     borderColor: 'rgba(255,255,255,0.35)',
                   }}
                 >
-                  <Video size={24} color="#fff" strokeWidth={2.2} />
+                  {busy ? (
+                    <ButtonLoader size="small" color="#FFFFFF" />
+                  ) : (
+                    <Video size={24} color="#fff" strokeWidth={2.2} />
+                  )}
                 </Box>
                 <Text style={{ fontFamily: FONTS.bold, fontSize: 16, color: '#FFFFFF' }}>
-                  {busy ? 'Loading…' : 'No video yet'}
+                  {busy ? 'Processing video…' : 'No video yet'}
                 </Text>
                 <Text
                   style={{
@@ -167,7 +185,11 @@ export function SiteVideoCaptureCard() {
                     color: 'rgba(255,255,255,0.85)',
                   }}
                 >
-                  {simDummy ? 'Tap to use dummy sample video' : 'Tap to record'}
+                  {busy
+                    ? 'Please wait…'
+                    : simDummy
+                      ? 'Tap to use dummy sample video'
+                      : 'Tap to record'}
                 </Text>
               </LinearGradient>
             </Pressable>
@@ -256,7 +278,8 @@ export function SiteVideoCaptureCard() {
                 </Text>
               </VStack>
               <Pressable
-                onPress={() => void setVideo(null)}
+                onPress={() => void removeVideo()}
+                disabled={deletingVideo || busy}
                 className="active:opacity-80"
                 style={{
                   width: 32,
@@ -267,10 +290,15 @@ export function SiteVideoCaptureCard() {
                   borderColor: hexAlpha('#DC2626', 0.25),
                   alignItems: 'center',
                   justifyContent: 'center',
+                  opacity: deletingVideo ? 0.7 : 1,
                 }}
                 accessibilityLabel="Remove site video"
               >
-                <Trash2 size={15} color={COLORS.destructive} strokeWidth={2.2} />
+                {deletingVideo ? (
+                  <ButtonLoader size="small" color={COLORS.destructive} />
+                ) : (
+                  <Trash2 size={15} color={COLORS.destructive} strokeWidth={2.2} />
+                )}
               </Pressable>
             </HStack>
           </Box>

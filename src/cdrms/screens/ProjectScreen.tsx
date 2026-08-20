@@ -291,8 +291,15 @@ export function ProjectScreen({ go }: { go: Go }) {
             ? TERMS.workflow.fixResubmit
             : TERMS.workflow.newApplication
       }
+      subtitle={
+        isBackendTask
+          ? 'Review assigned site details'
+          : isResubmit
+            ? TERMS.workflow.fixResubmitSubtitle
+            : TERMS.workflow.newApplicationSubtitle
+      }
       surface={isBackendTask ? 'premium' : 'default'}
-      loading={pageLoading || stepSaving}
+      loading={pageLoading}
       onBack={() => {
         go(isResubmit || isBackendTask ? 'history' : 'dashboard', { replace: true });
         if (isBackendTask) {

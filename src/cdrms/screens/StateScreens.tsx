@@ -1098,11 +1098,12 @@ export function ReviewScreen({ go }: { go: Go }) {
       return;
     }
 
-    setConfirm(false);
     setSubmitting(true);
     try {
       const result = await submitApplication();
       if (!result) {
+        setSubmitting(false);
+        setConfirm(false);
         showAppDialog({
           variant: 'warning',
           title: 'Submit blocked',
@@ -1113,8 +1114,10 @@ export function ReviewScreen({ go }: { go: Go }) {
         go('validate');
         return;
       }
+      setConfirm(false);
       go('success');
     } catch (e) {
+      setSubmitting(false);
       const msg =
         e instanceof Error ? e.message : 'Submit failed. Check network and try again.';
       showAppDialog({
@@ -1124,8 +1127,6 @@ export function ReviewScreen({ go }: { go: Go }) {
         hideCancel: true,
         confirmLabel: 'OK',
       });
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -1160,7 +1161,7 @@ export function ReviewScreen({ go }: { go: Go }) {
       showSteps={false}
       surface={isBackendTask ? 'premium' : 'default'}
       badge={summary.allOk ? 'Ready to submit' : 'Incomplete'}
-      loading={pageLoading || submitting}
+      loading={pageLoading}
       hero={
         isBackendTask ? (
           <CreateApplicationHeader

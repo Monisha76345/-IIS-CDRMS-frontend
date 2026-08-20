@@ -29,7 +29,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, TextInput } from 'react-native';
+import { TextInput } from 'react-native';
 
 import { Box } from '@/components/ui/box';
 import { Checkbox, CheckboxIcon, CheckboxIndicator, CheckboxLabel } from '@/components/ui/checkbox';
@@ -48,7 +48,7 @@ import { SchedulesEditorCard } from '@/src/cdrms/components/SchedulesEditorCard'
 import { SiteVideoCaptureCard } from '@/src/cdrms/components/SiteVideoCaptureCard';
 import { SiteVideoPlayer } from '@/src/cdrms/components/SiteVideoPlayer';
 import { showAppDialog } from '@/src/cdrms/components/AppDialog';
-import { AppBtn, AppSheet, Field, useMinimumLoading } from '@/src/cdrms/components/primitives';
+import { AppBtn, AppSheet, ButtonLoader, Field, useMinimumLoading } from '@/src/cdrms/components/primitives';
 import {
   SectionTitle,
   SurveyCard,
@@ -307,7 +307,7 @@ export function BandiScreen({ go }: { go: Go }) {
           : TERMS.workflow.checkBandiSubtitle
       }
       surface={isBackendTask ? 'premium' : 'default'}
-      loading={pageLoading || stepSaving}
+      loading={pageLoading}
       onBack={() => {
         go('project', { replace: true });
         if (isBackendTask) {
@@ -473,7 +473,7 @@ export function BandiScreen({ go }: { go: Go }) {
                   </Text>
                 </Box>
               ) : geoBusy ? (
-                <ActivityIndicator size={12} color={COLORS.primary} />
+                <ButtonLoader size="small" color={COLORS.primary} />
               ) : undefined
             }
           >
@@ -572,7 +572,7 @@ export function BandiScreen({ go }: { go: Go }) {
                     }}
                   >
                     {geoBusy ? (
-                      <ActivityIndicator size="small" color={COLORS.primary} />
+                      <ButtonLoader size="small" color={COLORS.primary} />
                     ) : (
                       <RefreshCw size={14} color={COLORS.primary} strokeWidth={2.4} />
                     )}
@@ -1214,12 +1214,30 @@ export function SurroundingsScreen({ go }: { go: Go }) {
   const { draft, setSurroundingPhoto, updateField } = useProject();
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState('Photo preview');
+  const [uploadingSide, setUploadingSide] = useState<Cardinal | null>(null);
+  const [clearingSide, setClearingSide] = useState<Cardinal | null>(null);
 
   const doneCount = CARDINALS.filter((k) => draft.surroundingPhotos[k]).length;
 
   const takeFor = async (k: Cardinal) => {
-    const asset = await captureSitePhoto({ title: `Take ${DIRECTION_META[k].label} photo` });
-    if (asset) void setSurroundingPhoto(k, asset);
+    if (uploadingSide) return;
+    setUploadingSide(k);
+    try {
+      const asset = await captureSitePhoto({ title: `Take ${DIRECTION_META[k].label} photo` });
+      if (asset) void setSurroundingPhoto(k, asset);
+    } finally {
+      setUploadingSide(null);
+    }
+  };
+
+  const handleClearPhoto = async (k: Cardinal) => {
+    if (clearingSide) return;
+    setClearingSide(k);
+    try {
+      await setSurroundingPhoto(k, null);
+    } finally {
+      setClearingSide(null);
+    }
   };
 
   return (
@@ -1274,11 +1292,16 @@ export function SurroundingsScreen({ go }: { go: Go }) {
                       <Text className="text-[10px] font-bold text-white">{label}</Text>
                     </Box>
                     <Pressable
-                      onPress={() => void setSurroundingPhoto(k, null)}
+                      onPress={() => void handleClearPhoto(k)}
+                      disabled={clearingSide === k}
                       className="absolute top-2 right-2 h-7 w-7 rounded-full items-center justify-center"
                       style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
                     >
-                      <X size={12} color="#fff" />
+                      {clearingSide === k ? (
+                        <ButtonLoader size="small" color="#fff" />
+                      ) : (
+                        <X size={12} color="#fff" />
+                      )}
                     </Pressable>
                     <Box
                       className="absolute bottom-2 right-2 h-7 w-7 rounded-full items-center justify-center"
@@ -1290,6 +1313,7 @@ export function SurroundingsScreen({ go }: { go: Go }) {
                 ) : (
                   <Pressable
                     onPress={() => void takeFor(k)}
+                    disabled={uploadingSide === k}
                     className="flex-1 items-center justify-center"
                     style={{
                       backgroundColor: GLASS.tintBlue,
@@ -1302,10 +1326,14 @@ export function SurroundingsScreen({ go }: { go: Go }) {
                       className="h-12 w-12 rounded-full items-center justify-center mb-2"
                       style={{ backgroundColor: COLORS.primary }}
                     >
-                      <Camera size={22} color="#fff" />
+                      {uploadingSide === k ? (
+                        <ButtonLoader size="small" color="#fff" />
+                      ) : (
+                        <Camera size={22} color="#fff" />
+                      )}
                     </Box>
                     <Text className="text-[12px] font-extrabold" style={{ color: COLORS.primary }}>
-                      Capture {label}
+                      {uploadingSide === k ? 'Capturing…' : `Capture ${label}`}
                     </Text>
                   </Pressable>
                 )}
@@ -1384,6 +1412,10 @@ export function PhotosScreen({ go }: { go: Go }) {
     reloadBackendDraft,
   } = useProject();
   const [stepSaving, setStepSaving] = useState(false);
+  const [selfieLoading, setSelfieLoading] = useState(false);
+  const [deletingSelfie, setDeletingSelfie] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const pageLoading = useMinimumLoading(true, 300);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState('Photo preview');
@@ -1392,20 +1424,52 @@ export function PhotosScreen({ go }: { go: Go }) {
   const backScreen = isBackendTask ? 'dimensions' : 'surroundings';
 
   const takeSelfieMedia = async () => {
+    if (selfieLoading) return;
+    setSelfieLoading(true);
     try {
       const asset = await captureSelfie();
       if (asset) await setSelfie(asset);
     } catch (err) {
       alertDraftError(err);
+    } finally {
+      setSelfieLoading(false);
+    }
+  };
+
+  const handleRemoveSelfie = async () => {
+    if (deletingSelfie) return;
+    setDeletingSelfie(true);
+    try {
+      await removeSelfie();
+    } catch (err) {
+      alertDraftError(err);
+    } finally {
+      setDeletingSelfie(false);
     }
   };
 
   const takeSitePhoto = async () => {
+    if (photoUploading) return;
+    setPhotoUploading(true);
     try {
       const asset = await captureSitePhoto({ title: 'Take site photo' });
       if (asset) await addPhoto(asset);
     } catch (err) {
       alertDraftError(err);
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
+  const handleRemovePhoto = async (id: string) => {
+    if (deletingPhotoId) return;
+    setDeletingPhotoId(id);
+    try {
+      await removePhoto(id);
+    } catch (err) {
+      alertDraftError(err);
+    } finally {
+      setDeletingPhotoId(null);
     }
   };
 
@@ -1421,7 +1485,7 @@ export function PhotosScreen({ go }: { go: Go }) {
           : TERMS.workflow.photosSubtitle
       }
       surface={isBackendTask ? 'premium' : 'default'}
-      loading={pageLoading || stepSaving}
+      loading={pageLoading}
       onBack={() => {
         go(backScreen, { replace: true });
         if (isBackendTask) {
@@ -1579,20 +1643,27 @@ export function PhotosScreen({ go }: { go: Go }) {
                     <HStack style={{ gap: 8, marginTop: 6 }}>
                       <Pressable
                         onPress={() => void takeSelfieMedia()}
-                        className="active:opacity-80"
+                        disabled={selfieLoading}
+                        className="active:opacity-80 flex-row items-center"
                         style={{
+                          gap: 5,
                           paddingHorizontal: 12,
                           paddingVertical: 6,
                           borderRadius: 999,
                           backgroundColor: COLORS.primary,
+                          opacity: selfieLoading ? 0.7 : 1,
                         }}
                       >
+                        {selfieLoading ? (
+                          <ButtonLoader size="small" color="#FFFFFF" />
+                        ) : null}
                         <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#FFFFFF' }}>
-                          Retake
+                          {selfieLoading ? 'Loading…' : 'Retake'}
                         </Text>
                       </Pressable>
                       <Pressable
-                        onPress={() => void removeSelfie()}
+                        onPress={() => void handleRemoveSelfie()}
+                        disabled={selfieLoading || deletingSelfie}
                         className="active:opacity-80"
                         style={{
                           width: 32,
@@ -1603,10 +1674,15 @@ export function PhotosScreen({ go }: { go: Go }) {
                           borderColor: BLUE_BORDER,
                           alignItems: 'center',
                           justifyContent: 'center',
+                          opacity: deletingSelfie ? 0.7 : 1,
                         }}
                         accessibilityLabel="Remove selfie"
                       >
-                        <Trash2 size={15} color={COLORS.destructive} strokeWidth={2.2} />
+                        {deletingSelfie ? (
+                          <ButtonLoader size="small" color={COLORS.destructive} />
+                        ) : (
+                          <Trash2 size={15} color={COLORS.destructive} strokeWidth={2.2} />
+                        )}
                       </Pressable>
                     </HStack>
                   </VStack>
@@ -1626,6 +1702,7 @@ export function PhotosScreen({ go }: { go: Go }) {
               >
                 <Pressable
                   onPress={() => void takeSelfieMedia()}
+                  disabled={selfieLoading}
                   className="active:opacity-80 items-center justify-center"
                   style={{
                     width: 64,
@@ -1639,7 +1716,11 @@ export function PhotosScreen({ go }: { go: Go }) {
                     elevation: 3,
                   }}
                 >
-                  <Camera size={26} color="#FFFFFF" strokeWidth={2.2} />
+                  {selfieLoading ? (
+                    <ButtonLoader size="small" color="#FFFFFF" />
+                  ) : (
+                    <Camera size={26} color="#FFFFFF" strokeWidth={2.2} />
+                  )}
                 </Pressable>
               </Box>
             )}
@@ -1674,6 +1755,7 @@ export function PhotosScreen({ go }: { go: Go }) {
               {draft.photos.length < maxPhotos ? (
                 <Pressable
                   onPress={() => void takeSitePhoto()}
+                  disabled={photoUploading}
                   className="active:opacity-80 flex-row items-center self-start"
                   style={{
                     gap: 6,
@@ -1683,11 +1765,16 @@ export function PhotosScreen({ go }: { go: Go }) {
                     backgroundColor: BLUE_SOFT,
                     borderWidth: 1,
                     borderColor: BLUE_BORDER,
+                    opacity: photoUploading ? 0.7 : 1,
                   }}
                 >
-                  <Plus size={14} color={COLORS.primary} strokeWidth={2.8} />
+                  {photoUploading ? (
+                    <ButtonLoader size="small" color={COLORS.primary} />
+                  ) : (
+                    <Plus size={14} color={COLORS.primary} strokeWidth={2.8} />
+                  )}
                   <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: COLORS.primary }}>
-                    Add Photo
+                    {photoUploading ? 'Uploading…' : 'Add Photo'}
                   </Text>
                 </Pressable>
               ) : null}
@@ -1724,11 +1811,16 @@ export function PhotosScreen({ go }: { go: Go }) {
                       />
                     </Pressable>
                     <Pressable
-                      onPress={() => void removePhoto(p.id)}
+                      onPress={() => void handleRemovePhoto(p.id)}
+                      disabled={deletingPhotoId === p.id}
                       className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full items-center justify-center"
                       style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
                     >
-                      <X size={12} color="#fff" />
+                      {deletingPhotoId === p.id ? (
+                        <ButtonLoader size="small" color="#fff" />
+                      ) : (
+                        <X size={12} color="#fff" />
+                      )}
                     </Pressable>
                   </Box>
                 ))}
@@ -1872,19 +1964,27 @@ export function PhotosScreen({ go }: { go: Go }) {
                   <HStack style={{ gap: SPACE[2], marginTop: 2 }}>
                     <Pressable
                       onPress={() => void takeSelfieMedia()}
+                      disabled={selfieLoading}
+                      className="flex-row items-center"
                       style={{
+                        gap: 5,
                         paddingHorizontal: 12,
                         paddingVertical: 6,
                         borderRadius: DESIGN.stepRadius,
                         backgroundColor: COLORS.primary,
+                        opacity: selfieLoading ? 0.7 : 1,
                       }}
                     >
+                      {selfieLoading ? (
+                        <ButtonLoader size="small" color="#FFFFFF" />
+                      ) : null}
                       <Text style={{ fontFamily: FONTS.bold, fontSize: 11, color: '#FFFFFF' }}>
-                        Retake Selfie
+                        {selfieLoading ? 'Loading…' : 'Retake Selfie'}
                       </Text>
                     </Pressable>
                     <Pressable
-                      onPress={() => void removeSelfie()}
+                      onPress={() => void handleRemoveSelfie()}
+                      disabled={selfieLoading || deletingSelfie}
                       className="h-10 w-10 rounded-full items-center justify-center active:opacity-80"
                       style={{
                         backgroundColor: COLORS.white,
@@ -1893,10 +1993,15 @@ export function PhotosScreen({ go }: { go: Go }) {
                         shadowOpacity: 0.08,
                         shadowRadius: 6,
                         elevation: 2,
+                        opacity: deletingSelfie ? 0.7 : 1,
                       }}
                       accessibilityLabel="Remove selfie"
                     >
-                      <Trash2 size={16} color={COLORS.destructive} strokeWidth={2.2} />
+                      {deletingSelfie ? (
+                        <ButtonLoader size="small" color={COLORS.destructive} />
+                      ) : (
+                        <Trash2 size={16} color={COLORS.destructive} strokeWidth={2.2} />
+                      )}
                     </Pressable>
                   </HStack>
                 </VStack>
@@ -1916,6 +2021,7 @@ export function PhotosScreen({ go }: { go: Go }) {
             >
               <Pressable
                 onPress={() => void takeSelfieMedia()}
+                disabled={selfieLoading}
                 className="active:opacity-80 items-center justify-center"
                 style={{
                   width: 64,
@@ -1924,7 +2030,11 @@ export function PhotosScreen({ go }: { go: Go }) {
                   backgroundColor: COLORS.primary,
                 }}
               >
-                <Camera size={26} color="#FFFFFF" strokeWidth={2.2} />
+                {selfieLoading ? (
+                  <ButtonLoader size="small" color="#FFFFFF" />
+                ) : (
+                  <Camera size={26} color="#FFFFFF" strokeWidth={2.2} />
+                )}
               </Pressable>
             </Box>
           )}
@@ -1956,6 +2066,7 @@ export function PhotosScreen({ go }: { go: Go }) {
             {draft.photos.length < maxPhotos ? (
               <Pressable
                 onPress={() => void takeSitePhoto()}
+                disabled={photoUploading}
                 className="active:opacity-80 flex-row items-center"
                 style={{
                   flexShrink: 0,
@@ -1964,11 +2075,16 @@ export function PhotosScreen({ go }: { go: Go }) {
                   paddingVertical: 8,
                   borderRadius: DESIGN.stepRadius,
                   backgroundColor: COLORS.primary,
+                  opacity: photoUploading ? 0.7 : 1,
                 }}
               >
-                <Plus size={14} color="#FFFFFF" strokeWidth={2.8} />
+                {photoUploading ? (
+                  <ButtonLoader size="small" color="#FFFFFF" />
+                ) : (
+                  <Plus size={14} color="#FFFFFF" strokeWidth={2.8} />
+                )}
                 <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: '#FFFFFF' }}>
-                  Add Photo
+                  {photoUploading ? 'Uploading…' : 'Add Photo'}
                 </Text>
               </Pressable>
             ) : null}
@@ -2004,12 +2120,17 @@ export function PhotosScreen({ go }: { go: Go }) {
                   />
                 </Pressable>
                 <Pressable
-                  onPress={() => void removePhoto(p.id)}
+                  onPress={() => void handleRemovePhoto(p.id)}
+                  disabled={deletingPhotoId === p.id}
                   className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full items-center justify-center"
                   style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
                   accessibilityLabel={`Remove photo ${i + 1}`}
                 >
-                  <X size={12} color="#fff" />
+                  {deletingPhotoId === p.id ? (
+                    <ButtonLoader size="small" color="#fff" />
+                  ) : (
+                    <X size={12} color="#fff" />
+                  )}
                 </Pressable>
                 <Box
                   className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded"
@@ -2110,6 +2231,7 @@ export function VideoScreen({ go }: { go: Go }) {
   const { themeId } = useTheme();
   const { draft, setVideo } = useProject();
   const [busy, setBusy] = useState(false);
+  const [deletingVideo, setDeletingVideo] = useState(false);
   const isBackendTask = Boolean(draft.backendApplicationId);
   const simDummy = useDummyCapture();
 
@@ -2127,6 +2249,18 @@ export function VideoScreen({ go }: { go: Go }) {
       alertDraftError(err);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleRemoveVideo = async () => {
+    if (deletingVideo) return;
+    setDeletingVideo(true);
+    try {
+      await setVideo(null);
+    } catch (err) {
+      alertDraftError(err);
+    } finally {
+      setDeletingVideo(false);
     }
   };
 
@@ -2226,11 +2360,17 @@ export function VideoScreen({ go }: { go: Go }) {
                     borderColor: 'rgba(255,255,255,0.4)',
                   }}
                 >
-                  <Video size={26} color="#fff" strokeWidth={2.2} />
+                  {busy ? (
+                    <ButtonLoader size="small" color="#fff" />
+                  ) : (
+                    <Video size={26} color="#fff" strokeWidth={2.2} />
+                  )}
                 </Box>
-                <Text className="text-white font-extrabold text-sm">No video yet</Text>
+                <Text className="text-white font-extrabold text-sm">
+                  {busy ? 'Processing video…' : 'No video yet'}
+                </Text>
                 <Text className="text-white/70 text-xs font-medium">
-                  Record video below
+                  {busy ? 'Please wait while processing…' : 'Record video below'}
                 </Text>
               </LinearGradient>
             )}
@@ -2269,7 +2409,8 @@ export function VideoScreen({ go }: { go: Go }) {
                 </Text>
               </VStack>
               <Pressable
-                onPress={() => void setVideo(null)}
+                onPress={() => void handleRemoveVideo()}
+                disabled={busy || deletingVideo}
                 className="h-10 w-10 rounded-full items-center justify-center active:opacity-80"
                 style={{
                   backgroundColor: COLORS.white,
@@ -2278,9 +2419,14 @@ export function VideoScreen({ go }: { go: Go }) {
                   shadowOpacity: 0.08,
                   shadowRadius: 6,
                   elevation: 2,
+                  opacity: deletingVideo ? 0.7 : 1,
                 }}
               >
-                <Trash2 size={16} color={COLORS.destructive} strokeWidth={2.2} />
+                {deletingVideo ? (
+                  <ButtonLoader size="small" color={COLORS.destructive} />
+                ) : (
+                  <Trash2 size={16} color={COLORS.destructive} strokeWidth={2.2} />
+                )}
               </Pressable>
             </HStack>
           ) : null}
@@ -2297,7 +2443,7 @@ export function VideoScreen({ go }: { go: Go }) {
           shadowOpacity: 0.28,
           shadowRadius: 14,
           elevation: 5,
-          opacity: busy ? 0.55 : 1,
+          opacity: busy ? 0.65 : 1,
         }}
       >
         <LinearGradient
@@ -2322,19 +2468,27 @@ export function VideoScreen({ go }: { go: Go }) {
               backgroundColor: 'rgba(255,255,255,0.22)',
             }}
           >
-            <Camera size={18} color="#fff" strokeWidth={2.3} />
+            {busy ? (
+              <ButtonLoader size="small" color="#fff" />
+            ) : (
+              <Camera size={18} color="#fff" strokeWidth={2.3} />
+            )}
           </Box>
           <Text
             className="flex-1 font-extrabold text-white text-[12px] shrink"
             style={{ lineHeight: 16, flexShrink: 1 }}
           >
             {busy
-              ? 'Loading…'
+              ? 'Processing video…'
               : simDummy
                 ? 'Use dummy sample video'
                 : 'Record Video'}
           </Text>
-          <ChevronRight size={18} color="rgba(255,255,255,0.9)" strokeWidth={2.4} />
+          {busy ? (
+            <ButtonLoader size="small" color="#fff" />
+          ) : (
+            <ChevronRight size={18} color="rgba(255,255,255,0.9)" strokeWidth={2.4} />
+          )}
         </LinearGradient>
       </Pressable>
 

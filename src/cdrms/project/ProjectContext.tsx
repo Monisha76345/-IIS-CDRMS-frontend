@@ -577,6 +577,25 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const setSurroundingPhoto = useCallback(
     async (cardinal: Cardinal, asset: MediaAsset | null) => {
       if (!asset) {
+        if (accessToken && draft.backendApplicationId) {
+          const appId = draft.backendApplicationId;
+          const prevUri = draft.surroundingPhotos[cardinal]?.uri;
+          const refId = `${appId}:schedule-${cardinal}`;
+          try {
+            await deleteMobileMedia({
+              token: accessToken,
+              url: prevUri && isRemoteUri(prevUri) ? prevUri : undefined,
+              refId,
+            });
+          } catch {
+            /* ignore storage delete errors — still clear draft URL */
+          }
+          await saveEngineerDraft(accessToken, appId, {
+            schedulePhotoUrls: { [cardinal]: '' },
+          });
+        } else {
+          await new Promise((r) => setTimeout(r, 350));
+        }
         touch((prev) => {
           const next = { ...prev.surroundingPhotos };
           delete next[cardinal];
@@ -617,35 +636,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         },
       }));
     },
-    [accessToken, draft.backendApplicationId, touch],
+    [accessToken, draft.backendApplicationId, draft.surroundingPhotos, touch],
   );
 
   const clearSurroundingPhoto = useCallback(
     async (cardinal: Cardinal) => {
-      const prevUri = draft.surroundingPhotos[cardinal]?.uri;
       await setSurroundingPhoto(cardinal, null);
-      if (!accessToken || !draft.backendApplicationId) return;
-      const appId = draft.backendApplicationId;
-      const refId = `${appId}:schedule-${cardinal}`;
-      try {
-        await deleteMobileMedia({
-          token: accessToken,
-          url: prevUri && isRemoteUri(prevUri) ? prevUri : undefined,
-          refId,
-        });
-      } catch {
-        /* ignore storage delete errors — still clear draft URL */
-      }
-      await saveEngineerDraft(accessToken, appId, {
-        schedulePhotoUrls: { [cardinal]: '' },
-      });
     },
-    [
-      accessToken,
-      draft.backendApplicationId,
-      draft.surroundingPhotos,
-      setSurroundingPhoto,
-    ],
+    [setSurroundingPhoto],
   );
 
   const setSelfie = useCallback(
@@ -671,21 +669,22 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const removeSelfie = useCallback(
     async () => {
       const removed = draft.selfie;
-      touch((prev) => ({ ...prev, selfie: null }));
-      if (!accessToken || !draft.backendApplicationId || !removed) return;
-      const appId = draft.backendApplicationId;
-
-      try {
-        await deleteMobileMedia({
-          token: accessToken,
-          url: isRemoteUri(removed.uri) ? removed.uri : undefined,
-          refId: `${appId}:selfie`,
-        });
-      } catch {
-        /* ignore */
+      if (accessToken && draft.backendApplicationId && removed) {
+        const appId = draft.backendApplicationId;
+        try {
+          await deleteMobileMedia({
+            token: accessToken,
+            url: isRemoteUri(removed.uri) ? removed.uri : undefined,
+            refId: `${appId}:selfie`,
+          });
+        } catch {
+          /* ignore */
+        }
+        await saveEngineerDraft(accessToken, appId, { selfieUrl: '' });
+      } else {
+        await new Promise((r) => setTimeout(r, 350));
       }
-
-      await saveEngineerDraft(accessToken, appId, { selfieUrl: '' });
+      touch((prev) => ({ ...prev, selfie: null }));
     },
     [accessToken, draft.backendApplicationId, draft.selfie, touch],
   );
@@ -730,57 +729,65 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       const removed = idx >= 0 ? draft.photos[idx] : null;
       const nextPhotos = draft.photos.filter((p) => p.id !== id);
 
+      if (accessToken && draft.backendApplicationId && removed) {
+        const appId = draft.backendApplicationId;
+        try {
+          const refKey = `photo-${idx}`;
+          await deleteMobileMedia({
+            token: accessToken,
+            url: isRemoteUri(removed.uri) ? removed.uri : undefined,
+            refId: `${appId}:${refKey}`,
+          });
+        } catch {
+          /* ignore */
+        }
+
+        const photoUrls = nextPhotos
+          .map((p) => p.uri)
+          .filter((u) => isRemoteUri(u))
+          .slice(0, 4);
+
+        await saveEngineerDraft(accessToken, appId, {
+          photoUrls,
+        });
+      } else {
+        await new Promise((r) => setTimeout(r, 350));
+      }
+
       touch((prev) => ({
         ...prev,
         photos: prev.photos.filter((p) => p.id !== id),
       }));
-
-      if (!accessToken || !draft.backendApplicationId || !removed) return;
-      const appId = draft.backendApplicationId;
-
-      try {
-        const refKey = `photo-${idx}`;
-        await deleteMobileMedia({
-          token: accessToken,
-          url: isRemoteUri(removed.uri) ? removed.uri : undefined,
-          refId: `${appId}:${refKey}`,
-        });
-      } catch {
-        /* ignore */
-      }
-
-      const photoUrls = nextPhotos
-        .map((p) => p.uri)
-        .filter((u) => isRemoteUri(u))
-        .slice(0, 4);
-
-      await saveEngineerDraft(accessToken, appId, {
-        photoUrls,
-      });
     },
     [accessToken, draft.backendApplicationId, draft.photos, touch],
   );
 
   const setVideo = useCallback(
     async (asset: MediaAsset | null) => {
+      if (!asset) {
+        if (accessToken && draft.backendApplicationId) {
+          const appId = draft.backendApplicationId;
+          const prevUri = draft.video?.uri;
+          try {
+            await deleteMobileMedia({
+              token: accessToken,
+              url: prevUri && isRemoteUri(prevUri) ? prevUri : undefined,
+              refId: `${appId}:video`,
+            });
+          } catch {
+            /* ignore */
+          }
+          await saveEngineerDraft(accessToken, appId, { videoUrl: '' });
+        } else {
+          await new Promise((r) => setTimeout(r, 350));
+        }
+        touch((prev) => ({ ...prev, video: null }));
+        return;
+      }
+
       touch((prev) => ({ ...prev, video: asset }));
       if (!accessToken || !draft.backendApplicationId) return;
       const appId = draft.backendApplicationId;
-
-      if (!asset) {
-        const prevUri = draft.video?.uri;
-        try {
-          await deleteMobileMedia({
-            token: accessToken,
-            url: prevUri && isRemoteUri(prevUri) ? prevUri : undefined,
-            refId: `${appId}:video`,
-          });
-        } catch {
-          /* ignore */
-        }
-        await saveEngineerDraft(accessToken, appId, { videoUrl: '' });
-        return;
-      }
 
       const url = await resolveMediaUrl({
         token: accessToken,
@@ -794,7 +801,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       await saveEngineerDraft(accessToken, appId, { videoUrl: url });
       // Keep local file for playback; remote MinIO host is not reachable from phone.
     },
-    [accessToken, draft.backendApplicationId, draft.video?.uri, touch],
+    [accessToken, draft.backendApplicationId, draft.video, touch],
   );
 
   const saveDraft = useCallback(async () => {
