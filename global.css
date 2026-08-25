@@ -61,3 +61,22 @@
     }
   }
 }
+
+/* Phone viewport: fill Safari/Chrome (and Railway) like the native app. */
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+#root {
+  flex: 1;
+  min-height: 0;
+}

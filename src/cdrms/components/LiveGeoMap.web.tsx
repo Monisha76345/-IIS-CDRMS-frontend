@@ -31,11 +31,29 @@ export function LiveGeoMap({
 }: LiveGeoMapProps) {
   const src = embedUrl(latitude, longitude, zoom);
   return (
-    <View style={{ width: '100%', height, borderRadius: rounded, overflow: 'hidden' }}>
+    <View
+      style={{
+        width: '100%',
+        height: height ?? '100%',
+        flex: 1,
+        minHeight: 0,
+        borderRadius: rounded,
+        overflow: 'hidden',
+        position: 'relative',
+      }}
+    >
       {createElement('iframe', {
         title: 'Google Maps',
         src,
-        style: { width: '100%', height: '100%', border: 0 },
+        style: {
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          border: 0,
+          display: 'block',
+        },
         allowFullScreen: true,
         loading: 'eager',
         referrerPolicy: 'no-referrer-when-downgrade',
