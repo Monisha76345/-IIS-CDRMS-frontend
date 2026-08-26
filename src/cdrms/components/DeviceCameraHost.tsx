@@ -35,6 +35,8 @@ import {
   type CameraFacing,
 } from '@/src/cdrms/camera/cameraCaptureGate';
 import { showAppDialog } from '@/src/cdrms/components/AppDialog';
+import { WebLiveVideoPreview } from '@/src/cdrms/components/WebLiveVideoPreview';
+import type { WebLiveVideoHandle } from '@/src/cdrms/components/WebLiveVideoPreview.types';
 import {
   ensureCameraPermission,
   ensureMicrophonePermission,
@@ -95,6 +97,8 @@ export function DeviceCameraHost() {
 function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
+  const webVideoRef = useRef<WebLiveVideoHandle>(null);
+  const isWebVideo = Platform.OS === 'web' && request.mode === 'video';
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [micPermission, requestMicPermission] = useMicrophonePermissions();
   const [facing, setFacing] = useState<CameraFacing>(
@@ -107,8 +111,10 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
   const [elapsed, setElapsed] = useState(0);
   const [mountKey, setMountKey] = useState(0);
   const [showCamera, setShowCamera] = useState(false);
+  const [webPreviewReady, setWebPreviewReady] = useState(false);
   const [canLiveRecord, setCanLiveRecord] = useState(liveRecordAllowed);
   const startedAt = useRef<number | null>(null);
+  const autoStopLock = useRef(false);
 
   const videoNeedsPickerOnly = request.mode === 'video' && !canLiveRecord;
 
@@ -118,6 +124,7 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
   }, [videoNeedsPickerOnly]);
 
   useEffect(() => {
+    if (isWebVideo) return;
     void (async () => {
       if (!cameraPermission?.granted) {
         await ensureCameraPermission(true);
@@ -129,6 +136,7 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
       }
     })();
   }, [
+    isWebVideo,
     cameraPermission,
     micPermission,
     request.mode,
@@ -151,8 +159,50 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
     return () => clearInterval(id);
   }, [recording]);
 
+  useEffect(() => {
+    if (!recording || autoStopLock.current) return;
+    const max = request.maxDurationSec ?? 120;
+    if (elapsed < max) return;
+    autoStopLock.current = true;
+    if (isWebVideo) {
+      void (async () => {
+        setBusy(true);
+        try {
+          const video = await webVideoRef.current?.stopRecording();
+          setRecording(false);
+          if (!video?.uri) return;
+          const durationMs = startedAt.current
+            ? Date.now() - startedAt.current
+            : elapsed * 1000;
+          closeDeviceCamera(
+            toAsset(video.uri, 'video', {
+              durationMs: durationMs > 0 ? durationMs : null,
+            })
+          );
+        } catch {
+          setRecording(false);
+        } finally {
+          setBusy(false);
+          autoStopLock.current = false;
+        }
+      })();
+      return;
+    }
+    try {
+      cameraRef.current?.stopRecording();
+    } catch {
+      autoStopLock.current = false;
+    }
+  }, [elapsed, recording, request.maxDurationSec, isWebVideo]);
+
   const cancel = () => {
-    if (recording) {
+    if (isWebVideo) {
+      try {
+        webVideoRef.current?.abort();
+      } catch {
+        // ignore
+      }
+    } else if (recording) {
       try {
         cameraRef.current?.stopRecording();
       } catch {
@@ -314,6 +364,47 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
     }
   };
 
+  const finishWebRecording = async () => {
+    setBusy(true);
+    try {
+      const video = await webVideoRef.current?.stopRecording();
+      setRecording(false);
+      if (!video?.uri) {
+        showAppDialog({
+          variant: 'error',
+          title: 'Video',
+          message: 'Recording did not produce a file. Tap Record and try again.',
+          hideCancel: true,
+          confirmLabel: 'OK',
+        });
+        return;
+      }
+      const durationMs = startedAt.current
+        ? Date.now() - startedAt.current
+        : elapsed * 1000;
+      closeDeviceCamera(
+        toAsset(video.uri, 'video', {
+          durationMs: durationMs > 0 ? durationMs : null,
+        })
+      );
+    } catch (e) {
+      setRecording(false);
+      showAppDialog({
+        variant: 'error',
+        title: 'Video',
+        message:
+          e instanceof Error
+            ? e.message
+            : 'Recording did not produce a file. Tap Record and try again.',
+        hideCancel: true,
+        confirmLabel: 'OK',
+      });
+    } finally {
+      setBusy(false);
+      autoStopLock.current = false;
+    }
+  };
+
   const toggleRecord = async () => {
     if (!canLiveRecord) {
       showAppDialog({
@@ -327,6 +418,44 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
       return;
     }
     if (busy && !recording) return;
+
+    if (isWebVideo) {
+      if (recording) {
+        await finishWebRecording();
+        return;
+      }
+      if (!webPreviewReady || !webVideoRef.current) {
+        showAppDialog({
+          variant: 'error',
+          title: 'Video',
+          message: 'Camera is not ready. Wait a moment and tap Record again.',
+          hideCancel: true,
+          confirmLabel: 'OK',
+        });
+        return;
+      }
+      setBusy(true);
+      setRecording(true);
+      try {
+        webVideoRef.current.startRecording();
+      } catch (e) {
+        setRecording(false);
+        showAppDialog({
+          variant: 'error',
+          title: 'Video',
+          message:
+            e instanceof Error
+              ? e.message
+              : 'Could not start recording. Allow Camera + Microphone and try again.',
+          hideCancel: true,
+          confirmLabel: 'OK',
+        });
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
     if (!cameraRef.current) {
       showAppDialog({
         variant: 'error',
@@ -508,7 +637,25 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
   return (
     <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={cancel}>
       <View style={styles.root}>
-        {cameraPermission?.granted && showCamera ? (
+        {(isWebVideo || cameraPermission?.granted) && showCamera ? (
+          isWebVideo ? (
+            <WebLiveVideoPreview
+              key={`web-cam-${mountKey}-${activeFacing}`}
+              ref={webVideoRef}
+              facing={activeFacing}
+              onReady={() => setWebPreviewReady(true)}
+              onError={(message) => {
+                setWebPreviewReady(false);
+                showAppDialog({
+                  variant: 'error',
+                  title: 'Camera unavailable',
+                  message,
+                  hideCancel: true,
+                  confirmLabel: 'OK',
+                });
+              }}
+            />
+          ) : (
           <CameraView
             key={`cam-${mountKey}-${activeFacing}-${request.mode}`}
             ref={cameraRef}
@@ -547,6 +694,7 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
               }
             }}
           />
+          )
         ) : (
           <Box
             className="flex-1 items-center justify-center px-8"
@@ -554,14 +702,16 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
           >
             <Camera size={40} color="#94A3B8" />
             <Text className="text-white font-extrabold text-base mt-4 text-center">
-              {!cameraPermission?.granted
+              {!isWebVideo && !cameraPermission?.granted
                 ? 'Camera permission required'
                 : 'Starting camera…'}
             </Text>
             <Text className="text-white/65 text-xs mt-2 text-center px-4">
-              Grant permission when asked. On Simulator also set I/O → Camera → MacBook camera.
+              {isWebVideo
+                ? 'Allow Camera and Microphone when the browser asks, then tap Record.'
+                : 'Grant permission when asked. On Simulator also set I/O → Camera → MacBook camera.'}
             </Text>
-            {!cameraPermission?.granted ? (
+            {!isWebVideo && !cameraPermission?.granted ? (
               <Pressable
                 onPress={() =>
                   void (async () => {

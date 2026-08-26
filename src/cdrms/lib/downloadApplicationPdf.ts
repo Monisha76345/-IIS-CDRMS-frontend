@@ -11,6 +11,7 @@ import { API_BASE_URL } from '@/src/api/config';
 import { buildSiteDimensionPlotSvg } from '@/src/cdrms/lib/buildSiteDimensionPlotSvg';
 import { deriveSiteTypeFromDims, resolveBoundaryDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import type { PdfDownloadProgressHandler } from '@/src/cdrms/lib/pdfDownloadProgress';
+import { fetchAuthenticatedMediaBlob } from '@/src/cdrms/media/displayUri';
 import { BDA_LOGO_BASE64 } from './bdaLogoBase64';
 
 export type PdfDownloadResult = {
@@ -99,6 +100,22 @@ function resolveFullMediaDownloadUrl(uri: string): string {
   return `${API_BASE_URL}/object-store/view-by-url?url=${encodeURIComponent(trimmed)}`;
 }
 
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result;
+      if (typeof result === 'string' && result.startsWith('data:')) {
+        resolve(result);
+        return;
+      }
+      reject(new Error('Could not read image'));
+    };
+    reader.onerror = () => reject(reader.error ?? new Error('Could not read image'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 async function fetchImageAsBase64(url: string, token: string): Promise<string | null> {
   if (!url || typeof url !== 'string' || !url.trim()) return null;
   const trimmed = url.trim();
@@ -114,14 +131,20 @@ async function fetchImageAsBase64(url: string, token: string): Promise<string | 
     }
   }
 
-  const downloadUrl = resolveFullMediaDownloadUrl(trimmed);
   try {
+    if (Platform.OS === 'web') {
+      const blob = await fetchAuthenticatedMediaBlob(trimmed, token);
+      if (blob.size < 100) return null;
+      return await blobToDataUrl(blob);
+    }
+
+    const downloadUrl = resolveFullMediaDownloadUrl(trimmed);
     const tempFile = `${FileSystem.cacheDirectory}pdf_img_${Date.now()}_${Math.random().toString(36).substring(7)}.tmp`;
     const downloadRes = await FileSystem.downloadAsync(downloadUrl, tempFile, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
 
-    if (downloadRes.status >= 200 && downloadRes.status < 300 && downloadRes.uri) {
+    if (downloadRes?.status >= 200 && downloadRes.status < 300 && downloadRes.uri) {
       const info = await FileSystem.getInfoAsync(downloadRes.uri);
       if (info.exists && 'size' in info && (info.size ?? 0) > 100) {
         const b64 = await FileSystem.readAsStringAsync(downloadRes.uri, { encoding: 'base64' });
@@ -131,9 +154,42 @@ async function fetchImageAsBase64(url: string, token: string): Promise<string | 
       }
     }
   } catch (e) {
-    console.log('PDF photo download error for:', downloadUrl, e);
+    console.log('PDF photo download error for:', trimmed, e);
   }
   return null;
+}
+
+/** expo-print's printToFileAsync is a no-op on web and returns undefined. */
+async function printHtmlInBrowser(html: string): Promise<void> {
+  if (typeof document === 'undefined') {
+    throw new Error('PDF download is not available in this browser.');
+  }
+  const frame = document.createElement('iframe');
+  frame.setAttribute('aria-hidden', 'true');
+  frame.style.cssText =
+    'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;';
+  document.body.appendChild(frame);
+  const win = frame.contentWindow;
+  const doc = frame.contentDocument;
+  if (!win || !doc) {
+    frame.remove();
+    throw new Error('Could not open print preview');
+  }
+  doc.open();
+  doc.write(html);
+  doc.close();
+  await new Promise<void>((resolve) => {
+    const finish = () => setTimeout(resolve, 500);
+    if (doc.readyState === 'complete') {
+      finish();
+      return;
+    }
+    frame.onload = () => finish();
+    setTimeout(resolve, 1200);
+  });
+  win.focus();
+  win.print();
+  setTimeout(() => frame.remove(), 60_000);
 }
 
 function statusBadgeHtml(status: string | null | undefined) {
@@ -677,6 +733,25 @@ export async function downloadApplicationPdf(
 
   report(5, 'Starting…');
 
+  report(15, 'Loading application…');
+  const full = await resolvePdfApplication(app, token);
+  const fileName = pdfFileName(full);
+
+  report(40, 'Building PDF…');
+  const html = await buildHtml(full, token);
+
+  if (Platform.OS === 'web') {
+    report(80, 'Opening print dialog…');
+    await printHtmlInBrowser(html);
+    report(100, 'Complete');
+    return {
+      fileName,
+      savedPath: fileName,
+      openUri: undefined,
+      message: 'Use the print dialog and choose Save as PDF.',
+    };
+  }
+
   let Print: typeof import('expo-print');
   try {
     Print = require('expo-print');
@@ -686,15 +761,9 @@ export async function downloadApplicationPdf(
     );
   }
 
-  report(15, 'Loading application…');
-  const full = await resolvePdfApplication(app, token);
-  const fileName = pdfFileName(full);
-
-  report(40, 'Building PDF…');
-  const html = await buildHtml(full, token);
-
   report(55, 'Generating PDF…');
-  const { uri } = await Print.printToFileAsync({ html });
+  const printed = await Print.printToFileAsync({ html });
+  const uri = printed?.uri;
 
   if (!uri) throw new Error('PDF engine returned no file');
 

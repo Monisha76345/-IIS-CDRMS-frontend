@@ -803,6 +803,7 @@ export function LoginScreen({ go }: { go: Go }) {
                         placeholderTextColor={LOGIN_MUTED}
                         returnKeyType="next"
                         onSubmitEditing={() => passwordRef.current?.focus()}
+                        underlineColorAndroid="transparent"
                         style={{
                           flex: 1,
                           height: '100%',
@@ -811,6 +812,9 @@ export function LoginScreen({ go }: { go: Go }) {
                           color: LOGIN_NAVY,
                           paddingRight: 4,
                           paddingVertical: 0,
+                          ...(Platform.OS === 'web'
+                            ? ({ outlineStyle: 'none', outlineWidth: 0 } as object)
+                            : null),
                         }}
                       />
                     </Pressable>
@@ -870,6 +874,7 @@ export function LoginScreen({ go }: { go: Go }) {
                         placeholderTextColor={LOGIN_MUTED}
                         returnKeyType="go"
                         onSubmitEditing={() => void onSecureLogin()}
+                        underlineColorAndroid="transparent"
                         style={{
                           flex: 1,
                           height: '100%',
@@ -878,6 +883,9 @@ export function LoginScreen({ go }: { go: Go }) {
                           color: LOGIN_NAVY,
                           paddingRight: 4,
                           paddingVertical: 0,
+                          ...(Platform.OS === 'web'
+                            ? ({ outlineStyle: 'none', outlineWidth: 0 } as object)
+                            : null),
                         }}
                       />
                       <Pressable
@@ -1166,6 +1174,9 @@ function OtpDigitBox({
             fontWeight: '800',
             color: '#0F172A',
             padding: 0,
+            ...(Platform.OS === 'web'
+              ? ({ outlineStyle: 'none', outlineWidth: 0 } as object)
+              : null),
           }}
         />
       </Animated.View>

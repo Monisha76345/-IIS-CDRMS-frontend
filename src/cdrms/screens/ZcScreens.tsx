@@ -703,6 +703,9 @@ function Field({
             fontSize,
             color: locked ? '#475569' : COLORS.ink,
             fontFamily: FONTS.medium,
+            ...(Platform.OS === 'web'
+              ? ({ outlineStyle: 'none', outlineWidth: 0 } as object)
+              : null),
           }}
         />
       </HStack>
@@ -1639,6 +1642,9 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                         fontSize: 13,
                         color: COLORS.ink,
                         fontFamily: FONTS.medium,
+                        ...(Platform.OS === 'web'
+                          ? ({ outlineStyle: 'none', outlineWidth: 0 } as object)
+                          : null),
                       }}
                     />
                     <Pressable

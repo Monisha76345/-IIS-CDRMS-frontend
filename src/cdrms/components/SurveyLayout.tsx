@@ -11,7 +11,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
-  TouchableWithoutFeedback,
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -1134,8 +1133,13 @@ export function SurveyScaffold({
       */}
       <KeyboardAvoidingView
         style={{ flex: 1, zIndex: 1 }}
+        enabled={Platform.OS !== 'web'}
         behavior={
-          Platform.OS === 'ios' ? 'padding' : keyboardOpen ? 'height' : undefined
+          Platform.OS === 'ios'
+            ? 'padding'
+            : Platform.OS === 'android' && keyboardOpen
+              ? 'height'
+              : undefined
         }
         keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 24}
       >
@@ -1175,62 +1179,56 @@ export function SurveyScaffold({
             ...(!footer ? { flexGrow: 1 } : {}),
           }}
           showsVerticalScrollIndicator={false}
-          // "handled" = taps on TextInput keep keyboard; taps on empty space dismiss.
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
+          // "always" on web: parent dismiss handlers steal TextInput focus in Chrome.
+          keyboardShouldPersistTaps={Platform.OS === 'web' ? 'always' : 'handled'}
+          keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'on-drag'}
           nestedScrollEnabled
           scrollEventThrottle={16}
           onScroll={onScroll}
         >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-            <View>
-              {hero ?? (
-                <SurveyHero
-                  title={title}
-                  subtitle={subtitle}
-                  onBack={onBack}
-                  step={step}
-                  total={total}
-                  badge={badge}
-                  showSteps={showSteps}
-                  watermark={watermark}
-                  go={go}
-                  variant={isPremium ? 'premium' : 'default'}
-                  onStepPress={handleStepPress}
-                  showHeroArt={showHeroArt}
-                />
-              )}
+          <View>
+            {hero ?? (
+              <SurveyHero
+                title={title}
+                subtitle={subtitle}
+                onBack={onBack}
+                step={step}
+                total={total}
+                badge={badge}
+                showSteps={showSteps}
+                watermark={watermark}
+                go={go}
+                variant={isPremium ? 'premium' : 'default'}
+                onStepPress={handleStepPress}
+                showHeroArt={showHeroArt}
+              />
+            )}
 
-              <Box
-                style={{
-                  gap: isPremium ? (showSteps ? 8 : 8) : DESIGN.sectionGap,
-                  paddingTop: isPremium ? (showSteps ? 10 : 4) : Math.max(14, DESIGN.headerCardGap ?? 14),
-                  backgroundColor: 'transparent',
-                  paddingBottom: isPremium ? (showSteps ? 8 : 4) : DESIGN.sectionGap,
-                }}
-              >
-                {pageLoading ? (
-                  <Box style={{ minHeight: 360, justifyContent: 'center', alignItems: 'center' }}>
-                    <ScreenLoader minHeight={340} />
-                  </Box>
-                ) : (
-                  <Box style={{ gap: isPremium ? (showSteps ? 6 : 8) : DESIGN.sectionGap }}>
-                    {children}
-                  </Box>
-                )}
-              </Box>
-            </View>
-          </TouchableWithoutFeedback>
+            <Box
+              style={{
+                gap: isPremium ? (showSteps ? 8 : 8) : DESIGN.sectionGap,
+                paddingTop: isPremium ? (showSteps ? 10 : 4) : Math.max(14, DESIGN.headerCardGap ?? 14),
+                backgroundColor: 'transparent',
+                paddingBottom: isPremium ? (showSteps ? 8 : 4) : DESIGN.sectionGap,
+              }}
+            >
+              {pageLoading ? (
+                <Box style={{ minHeight: 360, justifyContent: 'center', alignItems: 'center' }}>
+                  <ScreenLoader minHeight={340} />
+                </Box>
+              ) : (
+                <Box style={{ gap: isPremium ? (showSteps ? 6 : 8) : DESIGN.sectionGap }}>
+                  {children}
+                </Box>
+              )}
+            </Box>
+          </View>
         </ScrollView>
 
         {footer ? (
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-            <View>
-              <StickyBar compactBottom={keyboardOpen} variant={isPremium ? 'premium' : 'default'}>
-                {footer}
-              </StickyBar>
-            </View>
-          </TouchableWithoutFeedback>
+          <StickyBar compactBottom={keyboardOpen} variant={isPremium ? 'premium' : 'default'}>
+            {footer}
+          </StickyBar>
         ) : null}
       </KeyboardAvoidingView>
     </ScreenShell>

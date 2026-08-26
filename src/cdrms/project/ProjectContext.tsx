@@ -312,7 +312,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   const reloadBackendDraft = useCallback(async () => {
     if (!accessToken || !draft.backendApplicationId) return;
-    const app = await fetchApplication(accessToken, draft.backendApplicationId);
+    const app = await fetchApplication(accessToken, draft.backendApplicationId, {
+      skipErrorPage: true,
+    });
     setDraft(draftFromBackendApplication(app));
   }, [accessToken, draft.backendApplicationId]);
 

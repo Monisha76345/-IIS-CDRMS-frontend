@@ -147,6 +147,9 @@ function DimSideField({
             ...(Platform.OS === 'android'
               ? { textAlignVertical: 'center', includeFontPadding: false }
               : null),
+            ...(Platform.OS === 'web'
+              ? ({ outlineStyle: 'none', outlineWidth: 0 } as object)
+              : null),
           }}
         />
       </Box>

@@ -29,7 +29,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { TextInput } from 'react-native';
+import { Platform, TextInput } from 'react-native';
 
 import { Box } from '@/components/ui/box';
 import { Checkbox, CheckboxIcon, CheckboxIndicator, CheckboxLabel } from '@/components/ui/checkbox';
@@ -838,6 +838,9 @@ export function BandiScreen({ go }: { go: Go }) {
                         fontSize: 13,
                         fontWeight: '700',
                         color: '#0F172A',
+                        ...(Platform.OS === 'web'
+                          ? ({ outlineStyle: 'none', outlineWidth: 0 } as object)
+                          : null),
                       }}
                     />
                   ) : (

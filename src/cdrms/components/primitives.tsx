@@ -1011,7 +1011,7 @@ export const Field = forwardRef<
               fontFamily: FONTS.semibold,
               color: COLORS.ink,
               ...(Platform.OS === 'web'
-                ? ({ outlineStyle: 'none', cursor: 'text' } as object)
+                ? ({ outlineStyle: 'none', outlineWidth: 0, cursor: 'text' } as object)
                 : null),
             },
             style,
