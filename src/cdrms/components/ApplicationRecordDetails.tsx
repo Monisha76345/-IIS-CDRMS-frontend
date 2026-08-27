@@ -198,21 +198,38 @@ function ReadValue({
   accent?: keyof typeof ACCENT;
 }) {
   const tone = ACCENT[accent];
+  const text = typeof value === 'string' || typeof value === 'number' ? String(value || '—') : null;
+  const long = Boolean(text && text.length > 42);
   return (
     <Box
       style={{
-        height: 46,
+        minHeight: 46,
         borderRadius: FIELD_RADIUS,
         borderWidth: 1.5,
         borderColor: hexAlpha(tone.fg, 0.42),
         backgroundColor: COLORS.white,
         paddingHorizontal: 12,
+        paddingVertical: long ? 10 : 0,
         justifyContent: 'center',
+        alignSelf: 'stretch',
+        overflow: 'hidden',
       }}
     >
-      {typeof value === 'string' || typeof value === 'number' ? (
-        <Text style={{ fontFamily: FONTS.medium, fontSize: 14, color: COLORS.ink, lineHeight: 19 }}>
-          {value || '—'}
+      {text != null ? (
+        <Text
+          style={{
+            fontFamily: FONTS.medium,
+            fontSize: 14,
+            color: COLORS.ink,
+            lineHeight: 19,
+            flexShrink: 1,
+            width: '100%',
+            ...(Platform.OS === 'web'
+              ? ({ wordBreak: 'break-word' as const } as object)
+              : null),
+          }}
+        >
+          {text}
         </Text>
       ) : (
         value ?? (

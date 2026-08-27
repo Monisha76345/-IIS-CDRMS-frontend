@@ -67,10 +67,10 @@ export async function downloadApplicationPdfWithFeedback(
 
     showAppDialog({
       variant: 'success',
-      title: Platform.OS === 'web' ? 'PDF ready' : 'Download completed',
+      title: 'Download completed',
       message:
         Platform.OS === 'web'
-          ? 'Use the print dialog and choose Save as PDF.'
+          ? 'The survey report PDF was saved to your downloads.'
           : 'Your PDF has been saved on this device.',
       highlightLabel: 'File',
       highlight: result.fileName,
