@@ -331,10 +331,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
       if (step === 'schedules' || step === 'compass') {
         body.engineerScheduleNotes = {
-          N: draft.directions.N.trim(),
-          S: draft.directions.S.trim(),
-          E: draft.directions.E.trim(),
-          W: draft.directions.W.trim(),
+          N: String(draft.directions?.N ?? '').trim(),
+          S: String(draft.directions?.S ?? '').trim(),
+          E: String(draft.directions?.E ?? '').trim(),
+          W: String(draft.directions?.W ?? '').trim(),
         };
         body.scheduleRoadFlags = {
           N: Boolean(draft.roadFlags?.N),
@@ -345,7 +345,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       }
 
       if (step === 'compass') {
-        body.compass = draft.compassReading.trim();
+        body.compass = String(draft.compassReading ?? '').trim();
         if (draft.gps) {
           body.latitude = String(draft.gps.latitude);
           body.longitude = String(draft.gps.longitude);
@@ -358,7 +358,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         }
         body.occupancy = draft.occupancy;
         body.occupancyReason =
-          draft.occupancy === 'Occupied' ? draft.occupancyReason.trim() : '';
+          draft.occupancy === 'Occupied' ? String(draft.occupancyReason ?? '').trim() : '';
         const schedulePhotoUrls: NonNullable<EngineerDraftInput['schedulePhotoUrls']> = {};
         const nextSurrounding = { ...draft.surroundingPhotos };
         for (const key of ['N', 'S', 'E', 'W'] as const) {

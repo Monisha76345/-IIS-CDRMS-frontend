@@ -682,6 +682,8 @@ function Field({
           caretHidden={locked}
           onFocus={() => {
             if (locked) return;
+            // Web: delayed measure + scrollTo unfocuses the field (keyboard flicker).
+            if (Platform.OS === 'web') return;
             const report = () => {
               inputRef.current?.measureInWindow((_x, y, _w, h) => {
                 onFocus?.({ y, height: h || inputHeight });
@@ -926,6 +928,8 @@ export function ZcCreateScreen({ go }: { go: Go }) {
    * (bottom of form) still scrolls up before keyboardDidShow fires.
    */
   const ensureVisible = useCallback((anchorYInWindow?: number, fieldHeight = 44) => {
+    // Scrolling on web blurs the focused input (keyboard open/close loop).
+    if (Platform.OS === 'web') return;
     if (anchorYInWindow == null) return;
     const scroll = scrollRef.current as unknown as {
       measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void;
@@ -952,6 +956,7 @@ export function ZcCreateScreen({ go }: { go: Go }) {
   }, []);
 
   useEffect(() => {
+    if (Platform.OS === 'web') return;
     const show = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
       (e) => {
@@ -1309,31 +1314,33 @@ export function ZcCreateScreen({ go }: { go: Go }) {
     <ScreenShell className="bg-background">
       <BdaPageWatermark />
       <Box style={{ flex: 1, backgroundColor: 'transparent' }}>
-      {headerCompact ? (
-        <Box
-          pointerEvents="box-none"
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 40,
-            elevation: 20,
-          }}
-        >
+      {/* Always mounted so toggling compact does not remount the form (focus loss). */}
+      <Box
+        pointerEvents="box-none"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 40,
+          elevation: 20,
+        }}
+      >
+        {headerCompact ? (
           <CompactCreateApplicationHeader
             onBack={() => go('zc_home')}
             zone={zone?.zoneCode}
             title={createTitle}
           />
-        </Box>
-      ) : null}
+        ) : null}
+      </Box>
       {/*
         Bottom padding grows with keyboard so Comments (last field) can scroll
         above it. ensureVisible re-runs after keyboardDidShow to fix timing.
       */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
+        enabled={Platform.OS !== 'web'}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
       >
@@ -1348,15 +1355,19 @@ export function ZcCreateScreen({ go }: { go: Go }) {
             paddingBottom:
               32 +
               insets.bottom +
-              (keyboardHeight > 0
-                ? Platform.OS === 'android'
-                  ? Math.min(Math.max(keyboardHeight * 0.55, 160), 240)
-                  : keyboardHeight
-                : 0),
+              (Platform.OS === 'web'
+                ? 220
+                : keyboardHeight > 0
+                  ? Platform.OS === 'android'
+                    ? Math.min(Math.max(keyboardHeight * 0.55, 160), 240)
+                    : keyboardHeight
+                  : 0),
             flexGrow: 1,
           }}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          keyboardShouldPersistTaps={Platform.OS === 'web' ? 'always' : 'handled'}
+          keyboardDismissMode={
+            Platform.OS === 'web' ? 'none' : Platform.OS === 'ios' ? 'interactive' : 'on-drag'
+          }
           nestedScrollEnabled
           scrollEnabled={!dimOpen && !engOpen}
           showsVerticalScrollIndicator
@@ -1366,6 +1377,10 @@ export function ZcCreateScreen({ go }: { go: Go }) {
           onScroll={(e) => {
             const y = e.nativeEvent.contentOffset.y;
             scrollYRef.current = y;
+            if (Platform.OS === 'web' && typeof document !== 'undefined') {
+              const tag = (document.activeElement as HTMLElement | null)?.tagName;
+              if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+            }
             const next = y > 48;
             setHeaderCompact((prev) => (prev === next ? prev : next));
           }}

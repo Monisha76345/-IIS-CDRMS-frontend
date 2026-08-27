@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet } from 'react-native';
+import { Animated, Easing, Platform, StyleSheet, View } from 'react-native';
 import Svg, { Line, Polygon, Text as SvgText } from 'react-native-svg';
 
 import { Box } from '@/components/ui/box';
@@ -116,7 +116,7 @@ export function LiveCompassDial({ compact = false }: { compact?: boolean }) {
   );
   const accent = cardinalAccentColor(face);
   const roseRotation = -heading;
-  const hasReading = Boolean(draft.compassReading.trim());
+  const hasReading = Boolean(String(draft.compassReading || '').trim());
   const directionName = hasReading ? cardinalNameFromHeading(heading) : '—';
   const needsManualPick =
     !compass.available ||
@@ -142,12 +142,22 @@ export function LiveCompassDial({ compact = false }: { compact?: boolean }) {
       : '—';
 
   useEffect(() => {
-    Animated.timing(rotateAnim, {
+    if (Platform.OS === 'web') return;
+    const anim = Animated.timing(rotateAnim, {
       toValue: roseRotation,
       duration: 180,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
-    }).start();
+    });
+    anim.start();
+    return () => {
+      try {
+        anim.stop();
+        rotateAnim.stopAnimation();
+      } catch {
+        /* ignore */
+      }
+    };
   }, [roseRotation, rotateAnim]);
 
   // Live sensors → save continuously
@@ -167,7 +177,7 @@ export function LiveCompassDial({ compact = false }: { compact?: boolean }) {
       compass.status === 'unavailable' ||
       compass.status === 'permission'
     ) {
-      if (seededFallback.current && draft.compassReading.trim()) return;
+      if (seededFallback.current && String(draft.compassReading || '').trim()) return;
       seededFallback.current = true;
       const reading = formatLiveReading(SIMULATOR_COMPASS_HEADING);
       lastSaved.current = reading;
@@ -269,25 +279,8 @@ export function LiveCompassDial({ compact = false }: { compact?: boolean }) {
           })()}
         </Svg>
 
-        <Animated.View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            width: size,
-            height: size,
-            alignItems: 'center',
-            justifyContent: 'center',
-            transform: [
-              {
-                rotate: rotateAnim.interpolate({
-                  inputRange: [-720, 720],
-                  outputRange: ['-720deg', '720deg'],
-                }),
-              },
-            ],
-          }}
-        >
-          {dialLabels.map((d) => {
+        {(() => {
+          const labels = dialLabels.map((d) => {
             const { x, y } = dialPoint(d.deg, m.labelR);
             const box = d.size * 1.25;
             return (
@@ -310,8 +303,44 @@ export function LiveCompassDial({ compact = false }: { compact?: boolean }) {
                 {d.label}
               </Text>
             );
-          })}
-        </Animated.View>
+          });
+          const roseLayout = {
+            position: 'absolute' as const,
+            width: size,
+            height: size,
+            alignItems: 'center' as const,
+            justifyContent: 'center' as const,
+          };
+          // Web has no native Animated driver — interpolating rotate here blanks Step 3 on unmount.
+          if (Platform.OS === 'web') {
+            return (
+              <View
+                pointerEvents="none"
+                style={{ ...roseLayout, transform: [{ rotate: `${roseRotation}deg` }] }}
+              >
+                {labels}
+              </View>
+            );
+          }
+          return (
+            <Animated.View
+              pointerEvents="none"
+              style={{
+                ...roseLayout,
+                transform: [
+                  {
+                    rotate: rotateAnim.interpolate({
+                      inputRange: [-720, 720],
+                      outputRange: ['-720deg', '720deg'],
+                    }),
+                  },
+                ],
+              }}
+            >
+              {labels}
+            </Animated.View>
+          );
+        })()}
 
         <Box pointerEvents="none" className="absolute inset-0 items-center justify-center">
           <Text

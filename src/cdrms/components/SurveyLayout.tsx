@@ -961,6 +961,14 @@ export function StickyBar({
   );
 }
 
+function blurSurveyFocus() {
+  Keyboard.dismiss();
+  if (Platform.OS === 'web' && typeof document !== 'undefined') {
+    const el = document.activeElement as { blur?: () => void } | null;
+    el?.blur?.();
+  }
+}
+
 /** Compact full-width Continue — same size across all survey steppers. */
 export function FooterContinueBtn({
   label,
@@ -979,7 +987,10 @@ export function FooterContinueBtn({
     <Pressable
       key={themeId}
       disabled={blocked}
-      onPress={onPress}
+      onPress={() => {
+        blurSurveyFocus();
+        onPress?.();
+      }}
       className={blocked ? '' : 'active:opacity-92'}
       style={{
         height: DESIGN.ctaHeight,
@@ -1147,18 +1158,18 @@ export function SurveyScaffold({
           Sticky compact header for all survey themes (default + engineer premium),
           including Review — pins back + title while the large hero scrolls away.
         */}
-        {compact ? (
-          <Box
-            pointerEvents="box-none"
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              zIndex: 40,
-              elevation: 20,
-            }}
-          >
+        <Box
+          pointerEvents="box-none"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 40,
+            elevation: 20,
+          }}
+        >
+          {compact ? (
             <CompactSurveyHeader
               title={title}
               onBack={onBack}
@@ -1166,17 +1177,18 @@ export function SurveyScaffold({
               total={total}
               premium={isPremium}
             />
-          </Box>
-        ) : null}
+          ) : null}
+        </Box>
 
         <ScrollView
           key={`survey-scroll-${step ?? 0}-${isPremium ? 'p' : 'd'}`}
           className="flex-1"
+          style={{ flex: 1, minHeight: 0 }}
           contentContainerStyle={{
+            flexGrow: 1,
             paddingBottom: footer
               ? STICKY_FOOTER_HEIGHT + Math.max(insets.bottom, SPACE[2]) + FOOTER_SCROLL_BUFFER
               : 24 + insets.bottom,
-            ...(!footer ? { flexGrow: 1 } : {}),
           }}
           showsVerticalScrollIndicator={false}
           // "always" on web: parent dismiss handlers steal TextInput focus in Chrome.

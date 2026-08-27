@@ -72,9 +72,9 @@ export function ScreenShell({
     <Box
       key={themeId}
       className={`flex-1 bg-background ${className}`}
-      style={[{ backgroundColor: COLORS.soft, overflow: 'hidden' }, style]}
+      style={[{ backgroundColor: COLORS.soft, overflow: 'hidden', minHeight: 0 }, style]}
     >
-      <Box style={{ flex: 1, zIndex: 1 }}>{children}</Box>
+      <Box style={{ flex: 1, zIndex: 1, minHeight: 0 }}>{children}</Box>
     </Box>
   );
 }

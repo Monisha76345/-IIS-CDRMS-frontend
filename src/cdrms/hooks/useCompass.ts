@@ -73,9 +73,9 @@ export function formatLiveReading(heading: number): string {
 
 /** Parse saved values like `312° NW`, `90 E`, or `NE`. */
 export function parseCompassReading(
-  raw: string,
+  raw: string | null | undefined,
 ): { heading: number; face: CompassCardinal } | null {
-  const t = raw.trim().toUpperCase();
+  const t = String(raw ?? '').trim().toUpperCase();
   if (!t) return null;
 
   if ((COMPASS_CARDINALS as readonly string[]).includes(t)) {
@@ -129,7 +129,7 @@ export function isSimulatorOrEmulator(): boolean {
  * Simulator/emulator: fixed North so Continue works in QA — never used on hardware.
  */
 export function useCompass(enabled = true): CompassReading {
-  const sim = isSimulatorOrEmulator();
+  const sim = Platform.OS === 'web' || isSimulatorOrEmulator();
   const [reading, setReading] = useState<CompassReading>(() =>
     sim
       ? {
@@ -155,8 +155,9 @@ export function useCompass(enabled = true): CompassReading {
   useEffect(() => {
     if (!enabled) return;
 
-    // Simulators have no magnetometer / heading — seed one fixed facing for QA only.
-    if (isSimulatorOrEmulator()) {
+    // Simulators / browsers have no native heading driver — seed North.
+    // Watchers here used to throw on unmount and blank the Step 2 → 3 screen.
+    if (Platform.OS === 'web' || isSimulatorOrEmulator()) {
       setReading({
         heading: SIMULATOR_COMPASS_HEADING,
         accuracy: -1,
@@ -275,8 +276,16 @@ export function useCompass(enabled = true): CompassReading {
 
     return () => {
       cancelled = true;
-      headingSub?.remove();
-      magSub?.remove();
+      try {
+        headingSub?.remove();
+      } catch {
+        /* ignore */
+      }
+      try {
+        magSub?.remove();
+      } catch {
+        /* ignore */
+      }
       if (magTimer) clearTimeout(magTimer);
     };
   }, [enabled]);

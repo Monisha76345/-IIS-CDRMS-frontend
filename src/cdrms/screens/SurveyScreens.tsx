@@ -146,7 +146,7 @@ export function BandiScreen({ go }: { go: Go }) {
     draft.occupancy === 'Occupied' &&
     Boolean(occupancyReasonError) &&
     occupancyReasonTouched;
-  const compassOk = Boolean(draft.compassReading.trim());
+  const compassOk = Boolean(String(draft.compassReading || '').trim());
   /** Simulator QA: photos optional so Continue can unlock after hardcoded compass/GPS. */
   const schedulesOk = isSimulatorOrEmulator() ? true : schedulePhotosReady;
   /** Occupancy reason is validated on Continue — do not disable the button for it. */
@@ -166,7 +166,7 @@ export function BandiScreen({ go }: { go: Go }) {
   // Real devices: LiveCompassDial overwrites this with live sensor heading.
   // Simulator / no-sensor: keeps 0° N so Continue can unlock.
   useEffect(() => {
-    if (draft.compassReading.trim()) return;
+    if (String(draft.compassReading || '').trim()) return;
     setCompassReading(formatLiveReading(SIMULATOR_COMPASS_HEADING));
   }, [draft.compassReading, setCompassReading]);
 
@@ -359,16 +359,16 @@ export function BandiScreen({ go }: { go: Go }) {
                   });
                   return;
                 }
-                if (!draft.bandiVerified) setBandiVerified(true);
                 setStepSaving(true);
                 try {
+                  if (!draft.bandiVerified) setBandiVerified(true);
                   await persistBackendStep('compass');
+                  go('dimensions');
                 } catch (err) {
                   alertDraftError(err);
                   setStepSaving(false);
-                  return;
                 }
-                setStepSaving(false);
+                return;
               }
               go(nextAfterBandi);
             })();
@@ -587,7 +587,7 @@ export function BandiScreen({ go }: { go: Go }) {
             title="Occupancy *"
             subtitle={
               draft.occupancy === 'Occupied'
-                ? draft.occupancyReason.trim()
+                ? String(draft.occupancyReason || '').trim()
                   ? 'Occupied · reason captured'
                   : 'Occupied · Add reason below'
                 : draft.occupancy === 'Empty'
