@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, Platform, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Platform, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Line, Polygon, Text as SvgText } from 'react-native-svg';
 
 import { Box } from '@/components/ui/box';
@@ -118,11 +118,19 @@ export function LiveCompassDial({ compact = false }: { compact?: boolean }) {
   const roseRotation = -heading;
   const hasReading = Boolean(String(draft.compassReading || '').trim());
   const directionName = hasReading ? cardinalNameFromHeading(heading) : '—';
+  const needsEnableTap =
+    Platform.OS === 'web' &&
+    typeof compass.enableLive === 'function' &&
+    (compass.status === 'permission' ||
+      (compass.status === 'unavailable' && !compass.available));
   const needsManualPick =
-    !compass.available ||
-    compass.source === 'simulator' ||
-    compass.status === 'unavailable' ||
-    compass.status === 'permission';
+    !needsEnableTap &&
+    (!compass.available ||
+      compass.source === 'simulator' ||
+      compass.status === 'unavailable' ||
+      compass.status === 'permission');
+  const waitingForWeb =
+    Platform.OS === 'web' && compass.status === 'calibrating' && !compass.available;
 
   const tickMajor = hexAlpha(COLORS.primary, 0.42);
   const tickMinor = hexAlpha(COLORS.primary, 0.18);
@@ -169,13 +177,15 @@ export function LiveCompassDial({ compact = false }: { compact?: boolean }) {
     setCompassReading(reading);
   }, [compass.available, compass.heading, compass.source, setCompassReading]);
 
-  // Simulator / sensors missing → seed fixed North so Continue unlocks
+  // Simulator / desktop with no sensors → seed North so Continue unlocks.
+  // Do not seed while web is waiting for permission or the first orientation event.
   useEffect(() => {
     if (compass.available && compass.source !== 'simulator') return;
+    if (Platform.OS === 'web' && compass.status === 'calibrating') return;
+    if (Platform.OS === 'web' && compass.status === 'permission') return;
     if (
       compass.source === 'simulator' ||
-      compass.status === 'unavailable' ||
-      compass.status === 'permission'
+      compass.status === 'unavailable'
     ) {
       if (seededFallback.current && String(draft.compassReading || '').trim()) return;
       seededFallback.current = true;
@@ -196,7 +206,38 @@ export function LiveCompassDial({ compact = false }: { compact?: boolean }) {
       className="items-center"
       style={{ gap: compact ? 8 : SPACE[3], width: '100%' }}
     >
-      {needsManualPick ? (
+      {needsEnableTap ? (
+        <Pressable onPress={() => compass.enableLive?.()} hitSlop={8}>
+          <Text
+            style={{
+              fontFamily: FONTS.medium,
+              fontSize: 12,
+              lineHeight: 15,
+              color: COLORS.primary,
+              textAlign: 'center',
+              paddingHorizontal: 4,
+              textDecorationLine: 'underline',
+            }}
+          >
+            {compass.status === 'permission'
+              ? 'Tap to enable live compass'
+              : 'No compass in this browser — open this page on your phone, then tap here'}
+          </Text>
+        </Pressable>
+      ) : waitingForWeb ? (
+        <Text
+          style={{
+            fontFamily: FONTS.medium,
+            fontSize: 12,
+            lineHeight: 15,
+            color: COLORS.ink,
+            textAlign: 'center',
+            paddingHorizontal: 4,
+          }}
+        >
+          Hold phone flat — waiting for compass…
+        </Text>
+      ) : needsManualPick ? (
         <Text
           style={{
             fontFamily: FONTS.medium,

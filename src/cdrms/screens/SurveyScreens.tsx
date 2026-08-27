@@ -162,10 +162,11 @@ export function BandiScreen({ go }: { go: Go }) {
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState('Photo preview');
 
-  // Seed a default facing as soon as Step 2 opens if none is saved yet.
-  // Real devices: LiveCompassDial overwrites this with live sensor heading.
-  // Simulator / no-sensor: keeps 0° N so Continue can unlock.
+  // Native simulator only: seed 0° N so Continue can unlock without sensors.
+  // Web phones use DeviceOrientation — do not lock facing to North.
   useEffect(() => {
+    if (Platform.OS === 'web') return;
+    if (!isSimulatorOrEmulator()) return;
     if (String(draft.compassReading || '').trim()) return;
     setCompassReading(formatLiveReading(SIMULATOR_COMPASS_HEADING));
   }, [draft.compassReading, setCompassReading]);
