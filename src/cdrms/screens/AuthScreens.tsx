@@ -400,6 +400,8 @@ export function LoginScreen({ go }: { go: Go }) {
   const passwordRef = useRef<TextInput>(null);
   const scrollRef = useRef<RNScrollView>(null);
   const formYRef = useRef(0);
+  /** Web: fields stay empty until tap so Chrome does not fill on logout. */
+  const [allowAutofill, setAllowAutofill] = useState(Platform.OS !== 'web');
 
   // Fit Oppo A78 / other mid-range widths — keep footer text on-screen
   const isNarrow = winW < 390;
@@ -792,13 +794,15 @@ export function LoginScreen({ go }: { go: Go }) {
                         value={loginId}
                         onChangeText={setLoginId}
                         onFocus={() => {
+                          if (Platform.OS === 'web') setAllowAutofill(true);
                           setFocusedInput('loginId');
                           scrollFormIntoView();
                         }}
                         onBlur={() => setFocusedInput(null)}
                         autoCapitalize="none"
                         autoCorrect={false}
-                        autoComplete="off"
+                        autoComplete="username"
+                        readOnly={!allowAutofill}
                         placeholder="Enter login ID or email"
                         placeholderTextColor={LOGIN_MUTED}
                         returnKeyType="next"
@@ -862,6 +866,7 @@ export function LoginScreen({ go }: { go: Go }) {
                         value={password}
                         onChangeText={setPassword}
                         onFocus={() => {
+                          if (Platform.OS === 'web') setAllowAutofill(true);
                           setFocusedInput('password');
                           scrollFormIntoView();
                         }}
@@ -869,7 +874,8 @@ export function LoginScreen({ go }: { go: Go }) {
                         secureTextEntry={!showPassword}
                         autoCapitalize="none"
                         autoCorrect={false}
-                        autoComplete="off"
+                        autoComplete="current-password"
+                        readOnly={!allowAutofill}
                         placeholder="Enter password"
                         placeholderTextColor={LOGIN_MUTED}
                         returnKeyType="go"
