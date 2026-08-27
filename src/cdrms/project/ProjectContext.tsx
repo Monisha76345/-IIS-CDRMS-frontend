@@ -33,7 +33,6 @@ import { draftFromBackendApplication } from '@/src/cdrms/project/backend-draft';
 import { draftFromApplicationRecord, findSampleApp } from '@/src/cdrms/data';
 import { captureCurrentLocation } from '@/src/cdrms/hooks/useDeviceLocation';
 import { validateOccupancyReason } from '@/src/cdrms/lib/occupancyValidation';
-import { siteDimensionToFormDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { validateDraft, validationSummary } from '@/src/cdrms/project/validation';
 
 function toEngineerGeoAddress(
@@ -814,18 +813,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     if (draft.compassReading.trim() || draft.gps) {
       await persistBackendStep('compass');
     }
-    // Only persist dimensions the engineer typed — never ZC siteDimension copies.
-    const zc = siteDimensionToFormDims(draft.siteDimensionMaster);
-    const dimsAreZcCopy =
-      Boolean(zc) &&
-      draft.dimNorth.trim() === zc!.north &&
-      draft.dimSouth.trim() === zc!.south &&
-      draft.dimEast.trim() === zc!.east &&
-      draft.dimWest.trim() === zc!.west;
-    if (
-      !dimsAreZcCopy &&
-      [draft.dimNorth, draft.dimSouth, draft.dimEast, draft.dimWest].some((v) => Number(v) > 0)
-    ) {
+    if ([draft.dimNorth, draft.dimSouth, draft.dimEast, draft.dimWest].some((v) => Number(v) > 0)) {
       await persistBackendStep('dimensions');
     }
     if (draft.photos.length > 0 || draft.video || draft.engineerComments.trim()) {

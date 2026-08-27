@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Platform, TextInput } from 'react-native';
 import { Ruler } from 'lucide-react-native';
 
@@ -12,7 +12,7 @@ import {
   FooterContinueBtn,
   PremiumStepCard,
 } from '@/src/cdrms/components/SurveyLayout';
-import { siteDimensionToFormDims, deriveSiteTypeFromDims } from '@/src/cdrms/lib/resolveBoundaryDims';
+import { deriveSiteTypeFromDims } from '@/src/cdrms/lib/resolveBoundaryDims';
 import { useProject } from '@/src/cdrms/project/ProjectContext';
 import { alertDraftError } from '@/src/cdrms/project/draft-api';
 import { type Cardinal } from '@/src/cdrms/project/types';
@@ -170,32 +170,6 @@ export function DimensionsScreen({ go }: { go: Go }) {
   /** Live plot: Odd (or incomplete) uses irregular sketch; Even only when opposite sides match. */
   const isOdd = measuredType !== 'Even';
   const [stepSaving, setStepSaving] = useState(false);
-  const clearedZcSeed = useRef(false);
-
-  useEffect(() => {
-    if (!isBackendTask || clearedZcSeed.current) return;
-    const zc = siteDimensionToFormDims(draft.siteDimensionMaster);
-    if (!zc) return;
-    const matchesZc =
-      String(draft.dimNorth ?? '').trim() === zc.north &&
-      String(draft.dimSouth ?? '').trim() === zc.south &&
-      String(draft.dimEast ?? '').trim() === zc.east &&
-      String(draft.dimWest ?? '').trim() === zc.west;
-    if (!matchesZc) return;
-    clearedZcSeed.current = true;
-    setDimSide('N', '');
-    setDimSide('S', '');
-    setDimSide('E', '');
-    setDimSide('W', '');
-  }, [
-    isBackendTask,
-    draft.siteDimensionMaster,
-    draft.dimNorth,
-    draft.dimSouth,
-    draft.dimEast,
-    draft.dimWest,
-    setDimSide,
-  ]);
 
   const liveSiteDimension = (() => {
     const n = String(draft.dimNorth ?? '').trim();
