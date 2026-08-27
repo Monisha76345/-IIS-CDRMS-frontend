@@ -98,7 +98,8 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
   const webVideoRef = useRef<WebLiveVideoHandle>(null);
-  const isWebVideo = Platform.OS === 'web' && request.mode === 'video';
+  const isWebCamera = Platform.OS === 'web';
+  const isWebVideo = isWebCamera && request.mode === 'video';
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [micPermission, requestMicPermission] = useMicrophonePermissions();
   const [facing, setFacing] = useState<CameraFacing>(
@@ -124,7 +125,11 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
   }, [videoNeedsPickerOnly]);
 
   useEffect(() => {
-    if (isWebVideo) return;
+    setWebPreviewReady(false);
+  }, [mountKey, activeFacing]);
+
+  useEffect(() => {
+    if (isWebCamera) return;
     void (async () => {
       if (!cameraPermission?.granted) {
         await ensureCameraPermission(true);
@@ -136,7 +141,7 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
       }
     })();
   }, [
-    isWebVideo,
+    isWebCamera,
     cameraPermission,
     micPermission,
     request.mode,
@@ -196,7 +201,7 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
   }, [elapsed, recording, request.maxDurationSec, isWebVideo]);
 
   const cancel = () => {
-    if (isWebVideo) {
+    if (isWebCamera) {
       try {
         webVideoRef.current?.abort();
       } catch {
@@ -290,6 +295,38 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
   const takePhoto = async () => {
     if (busy) return;
     const cameraFacing = activeFacing;
+
+    if (isWebCamera) {
+      setBusy(true);
+      try {
+        const still = webVideoRef.current?.captureStill();
+        if (!still?.uri) {
+          showAppDialog({
+            variant: 'error',
+            title: 'Camera',
+            message: 'Camera is not ready. Wait a moment and try again.',
+            hideCancel: true,
+            confirmLabel: 'OK',
+          });
+          return;
+        }
+        closeDeviceCamera(
+          toAsset(still.uri, 'image', { width: still.width, height: still.height }),
+        );
+      } catch (e) {
+        showAppDialog({
+          variant: 'error',
+          title: 'Camera',
+          message: e instanceof Error ? e.message : 'Could not take photo',
+          hideCancel: true,
+          confirmLabel: 'OK',
+        });
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
     if (isAndroidEmulator()) {
       setBusy(true);
       try {
@@ -637,12 +674,13 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
   return (
     <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={cancel}>
       <View style={styles.root}>
-        {(isWebVideo || cameraPermission?.granted) && showCamera ? (
-          isWebVideo ? (
+        {(isWebCamera || cameraPermission?.granted) && showCamera ? (
+          isWebCamera ? (
             <WebLiveVideoPreview
               key={`web-cam-${mountKey}-${activeFacing}`}
               ref={webVideoRef}
               facing={activeFacing}
+              audio={request.mode === 'video'}
               onReady={() => setWebPreviewReady(true)}
               onError={(message) => {
                 setWebPreviewReady(false);
@@ -702,16 +740,16 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
           >
             <Camera size={40} color="#94A3B8" />
             <Text className="text-white font-extrabold text-base mt-4 text-center">
-              {!isWebVideo && !cameraPermission?.granted
+              {!isWebCamera && !cameraPermission?.granted
                 ? 'Camera permission required'
                 : 'Starting camera…'}
             </Text>
             <Text className="text-white/65 text-xs mt-2 text-center px-4">
-              {isWebVideo
-                ? 'Allow Camera and Microphone when the browser asks, then tap Record.'
+              {isWebCamera
+                ? 'Allow Camera when the browser asks, then wait for the preview.'
                 : 'Grant permission when asked. On Simulator also set I/O → Camera → MacBook camera.'}
             </Text>
-            {!isWebVideo && !cameraPermission?.granted ? (
+            {!isWebCamera && !cameraPermission?.granted ? (
               <Pressable
                 onPress={() =>
                   void (async () => {
@@ -826,7 +864,7 @@ function DeviceCameraModal({ request }: { request: CameraCaptureRequest }) {
             {request.mode === 'photo' ? (
               <Pressable
                 onPress={() => void takePhoto()}
-                disabled={busy}
+                disabled={busy || (isWebCamera && !webPreviewReady)}
                 className="items-center justify-center"
                 style={{
                   width: 78,

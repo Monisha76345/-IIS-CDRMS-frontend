@@ -15,6 +15,7 @@ export const WebLiveVideoPreview = forwardRef<
   useImperativeHandle(ref, () => ({
     startRecording: () => undefined,
     stopRecording: async () => ({ uri: '', mimeType: '' }),
+    captureStill: () => ({ uri: '', width: 0, height: 0 }),
     abort: () => undefined,
   }));
   return null;

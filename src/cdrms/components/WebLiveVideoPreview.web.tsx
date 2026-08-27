@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import {
+  captureWebStill,
   startWebCameraStream,
   startWebMediaRecorder,
   stopMediaStream,
@@ -30,7 +31,7 @@ function resolveHost(node: unknown): HTMLElement | null {
 export const WebLiveVideoPreview = forwardRef<
   WebLiveVideoHandle,
   WebLiveVideoPreviewProps
->(function WebLiveVideoPreview({ facing, onReady, onError }, ref) {
+>(function WebLiveVideoPreview({ facing, audio = true, onReady, onError }, ref) {
   const hostNodeRef = useRef<unknown>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -73,7 +74,7 @@ export const WebLiveVideoPreview = forwardRef<
       videoRef.current = video;
 
       try {
-        const stream = await startWebCameraStream(video, facing);
+        const stream = await startWebCameraStream(video, facing, audio);
         if (cancelled) {
           stopMediaStream(stream);
           return;
@@ -115,7 +116,7 @@ export const WebLiveVideoPreview = forwardRef<
       }
       videoRef.current = null;
     };
-  }, [facing]);
+  }, [facing, audio]);
 
   useImperativeHandle(ref, () => ({
     startRecording: () => {
@@ -145,6 +146,13 @@ export const WebLiveVideoPreview = forwardRef<
       recorderRef.current = null;
       chunksRef.current = [];
       return result;
+    },
+    captureStill: () => {
+      const el = videoRef.current;
+      if (!el) {
+        throw new Error('Camera is not ready. Wait a moment and try again.');
+      }
+      return captureWebStill(el);
     },
     abort: () => {
       const recorder = recorderRef.current;
