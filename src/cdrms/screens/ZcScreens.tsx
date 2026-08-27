@@ -2063,9 +2063,12 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                 <Pressable
                   onPress={() => void onSubmitApplication()}
                   disabled={saving}
-                  className="flex-1 overflow-hidden active:opacity-90"
+                  className="flex-1 active:opacity-90"
                   style={{
+                    height: 50,
                     borderRadius: 999,
+                    backgroundColor: '#1E3A8A',
+                    overflow: 'hidden',
                     opacity: saving ? 0.7 : 1,
                     shadowColor: '#2563EB',
                     shadowOffset: { width: 0, height: 6 },
@@ -2079,7 +2082,8 @@ export function ZcCreateScreen({ go }: { go: Go }) {
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={{
-                      height: 48,
+                      height: 50,
+                      borderRadius: 999,
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}

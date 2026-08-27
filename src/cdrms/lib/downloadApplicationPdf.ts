@@ -213,7 +213,7 @@ function formRowPair(a: [string, string], b?: [string, string]) {
 function sectionSubHeader(title: string) {
   return `
     <tr>
-      <td colspan="4" style="${paint('#dbeafe')}color:#1e3a8a;font-size:9.5px;font-weight:bold;padding:6px 8px;border-top:1px solid #93c5fd;border-bottom:1px solid #bfdbfe;text-transform:uppercase;letter-spacing:0.4px;">
+      <td colspan="4" style="${paint('#dbeafe')}color:#1e3a8a;font-size:9.5px;font-weight:bold;padding:6px 8px;border-top:1px solid #93c5fd;border-bottom:1px solid #bfdbfe;text-transform:uppercase;letter-spacing:0.4px;page-break-after:avoid;break-after:avoid;">
         ${escapeHtml(title)}
       </td>
     </tr>
@@ -221,8 +221,8 @@ function sectionSubHeader(title: string) {
 }
 
 function compactPlotSvgForPdf(svg: string) {
-  // Match in-app BoundariesDiagram minimum height (~220px) for readable labels.
-  return svg.replace(/height="340"/, 'height="220"');
+  // Tall enough to fill page 1 under Dimensions; Comments still start on page 2.
+  return svg.replace(/height="(?:340|220|128)"/g, 'height="176"');
 }
 
 function zcFormTable(app: MobileApplication) {
@@ -345,22 +345,24 @@ function engineerBlock(app: MobileApplication) {
     .join(' · ');
   const commentsBlock = app.engineerComments?.trim()
     ? `
+      <tbody class="pdf-comments-block">
       ${sectionSubHeader('Comments')}
       <tr><td colspan="4" style="padding:8px 10px;color:#0f172a;font-size:9.5px;font-weight:600;line-height:1.4;border-top:1px solid #e2e8f0;">${fmt(app.engineerComments)}</td></tr>
+      </tbody>
     `
     : '';
 
   const dimSideBySideHtml = `
     <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#ffffff;">
       <tr>
-        <td style="width:46%;vertical-align:middle;text-align:center;padding:8px 10px;border-right:1px solid #e2e8f0;background:#ffffff;">
+        <td style="width:42%;vertical-align:top;text-align:center;padding:4px 6px;border-right:1px solid #e2e8f0;background:#ffffff;">
           ${
             cleanSvg
-              ? `<div style="width:100%;max-width:250px;height:220px;margin:0 auto;">${cleanSvg}</div>`
-              : '<div style="font-size:8.5px;color:#94a3b8;font-style:italic;padding:12px 0;">No plot diagram</div>'
+              ? `<div style="width:100%;max-width:220px;height:176px;margin:0 auto;overflow:hidden;">${cleanSvg}</div>`
+              : '<div style="font-size:8.5px;color:#94a3b8;font-style:italic;padding:8px 0;">No plot diagram</div>'
           }
         </td>
-        <td style="width:54%;vertical-align:top;padding:0;background:#ffffff;">
+        <td style="width:58%;vertical-align:top;padding:0;background:#ffffff;">
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
             ${
               engineerDims
@@ -377,7 +379,7 @@ function engineerBlock(app: MobileApplication) {
           ${
             areaSqFt
               ? `
-            <div style="margin:5px 6px;padding:5px 7px;${paint('#fefce8')}border:1px solid #fef08a;border-radius:4px;color:#854d0e;font-size:8.5px;font-weight:bold;text-align:center;">
+            <div style="margin:4px 6px 6px;padding:4px 7px;${paint('#fefce8')}border:1px solid #fef08a;border-radius:4px;color:#854d0e;font-size:8.5px;font-weight:bold;text-align:center;">
               TOTAL AREA: ${areaSqFt.toFixed(2)} Sq.Ft ${areaSqM ? `(${areaSqM} Sq.M)` : ''}
             </div>
           `
@@ -390,23 +392,19 @@ function engineerBlock(app: MobileApplication) {
 
   const dimensionsBlock = hasEngineerDims
     ? `
+      <tbody class="pdf-dim-block">
       ${sectionSubHeader('Dimensions')}
+      ${formRowPair(
+        ['Measured site type', siteTypeBadgeHtml(measuredType)],
+        ['Total area', fmt(totalAreaLabel)],
+      )}
+      ${formRowPair(['Measured site dimension', fmt(measuredDimensionLabel)])}
       <tr>
-        <td colspan="4" style="padding:0;border-top:1px solid #e2e8f0;page-break-inside:avoid;break-inside:avoid;">
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;page-break-inside:avoid;break-inside:avoid;">
-            ${formRowPair(
-              ['Measured site type', siteTypeBadgeHtml(measuredType)],
-              ['Total area', fmt(totalAreaLabel)],
-            )}
-            ${formRowPair(['Measured site dimension', fmt(measuredDimensionLabel)])}
-            <tr>
-              <td colspan="4" style="padding:0;background:#ffffff;border-top:1px solid #e2e8f0;">
-                ${dimSideBySideHtml}
-              </td>
-            </tr>
-          </table>
+        <td colspan="4" style="padding:0;background:#ffffff;border-top:1px solid #e2e8f0;page-break-before:avoid;break-before:avoid;">
+          ${dimSideBySideHtml}
         </td>
       </tr>
+      </tbody>
   `
     : '';
 
@@ -570,10 +568,16 @@ async function buildHtml(app: MobileApplication, token: string): Promise<string>
     .pdf-dim-block {
       page-break-inside: avoid !important;
       break-inside: avoid !important;
+      page-break-before: avoid !important;
+      break-before: avoid !important;
+    }
+    .pdf-comments-block {
+      page-break-before: always !important;
+      break-before: page !important;
     }
     svg {
-      max-height: 220px !important;
-      height: 220px !important;
+      max-height: 176px !important;
+      height: 176px !important;
       width: 100% !important;
     }
   </style>
