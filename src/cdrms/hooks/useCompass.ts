@@ -130,6 +130,13 @@ function webNeedsOrientationPermission(): boolean {
   return typeof DOE?.requestPermission === 'function';
 }
 
+/** Laptop/desktop browsers — no magnetometer; use manual facing pick on web QA. */
+export function isDesktopWeb(): boolean {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return !/Android|iPhone|iPad|iPod|Mobile|IEMobile|Opera Mini/i.test(ua);
+}
+
 /** iOS Simulator + Android Emulator — no usable compass hardware. */
 export function isSimulatorOrEmulator(): boolean {
   if (Constants.isDevice === false) return true;
@@ -198,6 +205,19 @@ export function useCompass(enabled = true): CompassReading {
 
     if (Platform.OS === 'web') {
       if (typeof window === 'undefined') return;
+
+      // Windows/macOS desktop Chrome/Edge — no DeviceOrientation hardware.
+      if (isDesktopWeb()) {
+        setReading({
+          heading: 0,
+          accuracy: -1,
+          available: false,
+          status: 'unavailable',
+          source: 'none',
+        });
+        return;
+      }
+
       let cancelled = false;
       let attached = false;
       let gotAbsolute = false;
@@ -305,14 +325,13 @@ export function useCompass(enabled = true): CompassReading {
       magTimer = setTimeout(() => {
         if (cancelled) return;
         if (sourceRef.current === 'web') return;
-        if (webNeedsOrientationPermission() && !attached) return;
         setReading((prev) => ({
           heading: 0,
           accuracy: -1,
           available: false,
           status: prev.status === 'permission' ? 'permission' : 'unavailable',
           source: 'none',
-          enableLive,
+          enableLive: prev.status === 'permission' ? enableLive : undefined,
         }));
       }, 2800);
 

@@ -7,8 +7,11 @@ import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import {
+  CARDINAL_DEGREES,
+  COMPASS_CARDINALS,
   cardinalNameFromHeading,
   formatLiveReading,
+  isDesktopWeb,
   parseCompassReading,
   SIMULATOR_COMPASS_FACE,
   SIMULATOR_COMPASS_HEADING,
@@ -118,19 +121,34 @@ export function LiveCompassDial({ compact = false }: { compact?: boolean }) {
   const roseRotation = -heading;
   const hasReading = Boolean(String(draft.compassReading || '').trim());
   const directionName = hasReading ? cardinalNameFromHeading(heading) : '—';
+  const desktopWeb = Platform.OS === 'web' && isDesktopWeb();
+  const showManualPick =
+    Platform.OS === 'web' &&
+    (desktopWeb || !compass.available || compass.status === 'unavailable');
   const needsEnableTap =
     Platform.OS === 'web' &&
+    !desktopWeb &&
     typeof compass.enableLive === 'function' &&
     (compass.status === 'permission' ||
       (compass.status === 'unavailable' && !compass.available));
   const needsManualPick =
     !needsEnableTap &&
+    !showManualPick &&
     (!compass.available ||
       compass.source === 'simulator' ||
       compass.status === 'unavailable' ||
       compass.status === 'permission');
   const waitingForWeb =
-    Platform.OS === 'web' && compass.status === 'calibrating' && !compass.available;
+    Platform.OS === 'web' &&
+    !desktopWeb &&
+    compass.status === 'calibrating' &&
+    !compass.available;
+
+  const pickFacing = (cardinal: CompassCardinal) => {
+    const reading = formatLiveReading(CARDINAL_DEGREES[cardinal]);
+    lastSaved.current = reading;
+    setCompassReading(reading);
+  };
 
   const tickMajor = hexAlpha(COLORS.primary, 0.42);
   const tickMinor = hexAlpha(COLORS.primary, 0.18);
@@ -178,9 +196,10 @@ export function LiveCompassDial({ compact = false }: { compact?: boolean }) {
   }, [compass.available, compass.heading, compass.source, setCompassReading]);
 
   // Simulator / desktop with no sensors → seed North so Continue unlocks.
-  // Do not seed while web is waiting for permission or the first orientation event.
+  // Desktop web: user picks direction manually — do not auto-seed.
   useEffect(() => {
     if (compass.available && compass.source !== 'simulator') return;
+    if (Platform.OS === 'web' && isDesktopWeb()) return;
     if (Platform.OS === 'web' && compass.status === 'calibrating') return;
     if (Platform.OS === 'web' && compass.status === 'permission') return;
     if (
@@ -236,6 +255,19 @@ export function LiveCompassDial({ compact = false }: { compact?: boolean }) {
           }}
         >
           Hold phone flat — waiting for compass…
+        </Text>
+      ) : showManualPick && !hasReading ? (
+        <Text
+          style={{
+            fontFamily: FONTS.medium,
+            fontSize: 12,
+            lineHeight: 15,
+            color: COLORS.ink,
+            textAlign: 'center',
+            paddingHorizontal: 4,
+          }}
+        >
+          No compass on this device — pick facing direction below
         </Text>
       ) : needsManualPick ? (
         <Text
@@ -409,6 +441,43 @@ export function LiveCompassDial({ compact = false }: { compact?: boolean }) {
       >
         {directionName}
       </Text>
+
+      {showManualPick ? (
+        <Box style={{ width: '100%', paddingHorizontal: compact ? 0 : 4 }}>
+          <HStack style={{ flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
+            {COMPASS_CARDINALS.map((cardinal) => {
+              const selected = face === cardinal;
+              const accentColor = cardinalAccentColor(cardinal);
+              return (
+                <Pressable
+                  key={cardinal}
+                  onPress={() => pickFacing(cardinal)}
+                  style={{
+                    minWidth: compact ? 52 : 58,
+                    paddingHorizontal: 10,
+                    paddingVertical: 8,
+                    borderRadius: 999,
+                    borderWidth: 1.5,
+                    borderColor: selected ? accentColor : hexAlpha(COLORS.primary, 0.22),
+                    backgroundColor: selected ? hexAlpha(accentColor, 0.14) : COLORS.white,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: FONTS.bold,
+                      fontSize: compact ? 12 : 13,
+                      color: selected ? accentColor : COLORS.ink,
+                      textAlign: 'center',
+                    }}
+                  >
+                    {cardinal}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </HStack>
+        </Box>
+      ) : null}
 
       <Box
         style={{
